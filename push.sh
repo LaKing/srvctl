@@ -20,6 +20,20 @@ if [ "$USER" != codepad ]
 then
     su codepad -s /bin/bash -c "$0"
     sc
+    
+    
+    ## push to local
+    if [ -d "$wd/.git" ] && [ "$1" == '!' ]
+    then
+        echo "## git push"
+        ## add files to repo
+        git add -A .
+        ## commit them
+        git commit -m "codepad-auto $cv"
+        ## push them
+        git push  >> $log
+    fi
+    
     exit
 fi
 
@@ -61,17 +75,6 @@ do
 done < /tmp/srvctl-bash-beautify
 
 
-## push to local
-if [ -d "$wd/.git" ]
-then
-    echo "## git push"
-    ## add files to repo
-    git add -A .
-    ## commit them
-    git commit -m "codepad-auto $cv"
-    ## push them
-    git push  >> $log
-fi
 
 if [ ! -z "$(find . -name '*.ts')" ]
 then
