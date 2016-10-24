@@ -41,7 +41,7 @@ then
         ## add files to repo
         git add -A .
         ## commit them
-        git commit -m "codepad-auto $cv"
+        git commit -m "$(cat $wd/version)"
         ## push them
         git push  >> $log
     fi
