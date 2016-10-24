@@ -1,4 +1,15 @@
-# srvctl v3
+## Srvctl v3 (3.0.2.4)
+remake for 2016 mostly using systemd tools
+```
 
-Systemd based server and containerfarm manager - under reconstruction 
+srvctl COMMAND [arguments]              
 
+
+COMMAND                                 
+
+  SERVICE OP | OP SERVICE               start|stop|restart|status (enable|remove) a service via systemctl. Shortcuts for OP: +|-|!|?
+  update-install                        Run the installation/update script.             
+
+CMS                                     
+
+```

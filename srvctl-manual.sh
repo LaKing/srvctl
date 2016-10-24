@@ -1,4 +1,5 @@
 #!/bin/bash
+readonly helparg="$1"
 
 readonly SC_INSTALL_BIN=$(realpath "$BASH_SOURCE")
 readonly SC_INSTALL_DIR=${SC_INSTALL_BIN:0:-16}
@@ -49,9 +50,12 @@ function hint {
 }
 
 function manual {
-    printf "${YELLOW}"%-40s"${CLEAR}" "  $1"
-    echo ''
-    echo ''
+    if [ ! -z "$helparg" ] && [ "$helparg" != "list" ]
+    then
+        printf "${YELLOW}"%-40s"${CLEAR}" "  $1"
+        echo ''
+        echo ''
+    fi
 }
 
 function msg {
@@ -67,13 +71,9 @@ function complicate {
     echo '' > /dev/null
 }
 
-title "Fedora-srvctl v3 by Istvan Kiraly - LaKing@D250.hu - D250 Laboratories - 2016"
-
 source "$SC_INSTALL_DIR/libs/commonlib.sh"
 
-
-
-if [ -z "$1" ]
+if [ -z "$helparg" ] || [ "$helparg" == list ]
 then
     title "srvctl COMMAND [arguments]"
     title "COMMAND"
@@ -85,13 +85,13 @@ else
     if [ -f "$SC_INSTALL_DIR/commands/$1.sh" ]
     then
         title "srvctl COMMAND [arguments]"
-        title "COMMAND $1"
-        source "$SC_INSTALL_DIR/commands/$1.sh"
+        title "COMMAND $helparg"
+        source "$SC_INSTALL_DIR/commands/$helparg.sh"
         exit
     fi
 fi
 
-helperr "No help for $1"
+helperr "No help for $helparg"
 
 exit
 

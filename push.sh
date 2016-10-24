@@ -9,6 +9,7 @@ wd=/srv/codepad-project
 
 log=/var/codepad/project.log
 pid=/var/codepad/project.pid
+rmd=/srv/codepad-project/README.md
 
 chown -R codepad:codepad $wd
 chmod -R +X $wd
@@ -21,6 +22,17 @@ then
     su codepad -s /bin/bash -c "$0"
     sc
     
+    echo "## Srvctl v3 ($(cat $wd/version))" > $rmd
+    echo "remake for 2016 mostly using systemd tools" >> $rmd
+    
+    
+    # shellcheck disable=SC2016
+    echo '```' >> $rmd
+    
+    bash "$wd/srvctl-manual.sh" list | sed -r "s/\x1B\[([0-9]{1,2}(;[0-9]{1,2})?)?[m|K]//g" >> $rmd
+    # shellcheck disable=SC2016
+    
+    echo '```' >> $rmd
     
     ## push to local
     if [ -d "$wd/.git" ] && [ "$1" == '!' ]
