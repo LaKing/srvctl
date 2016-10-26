@@ -49,7 +49,7 @@ function hint {
     fi
 }
 
-function manual {
+function man_en {
     if [ ! -z "$helparg" ] && [ "$helparg" != "list" ]
     then
         printf "${YELLOW}"%-40s"${CLEAR}" "  $1"
@@ -71,7 +71,7 @@ function complicate {
     echo '' > /dev/null
 }
 
-source "$SC_INSTALL_DIR/libs/commonlib.sh"
+source "$SC_INSTALL_DIR/commonlib.sh"
 
 if [ -z "$helparg" ] || [ "$helparg" == list ]
 then

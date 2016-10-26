@@ -38,14 +38,18 @@ function logs {
 }
 
 function dbg {
-    ## debug message
+    ## short debug message if debugging is on
     if $DEBUG
     then
-        echo -e "${YELLOW}#$BASH_LINENO ${FUNCNAME[1]}: $*${CLEAR}"
+        echo -e "${YELLOW}DEBUG ${BASH_SOURCE[1]}#${BASH_LINENO[1]} ${FUNCNAME[1]} :: $*${CLEAR}"
     fi
-    echo "$NOW ${FUNCNAME[1]} $*" >> "$SC_LOG"
 }
-
+function debug {
+    ## tracing debug message
+    echo -e "${YELLOW}DEBUG ${BASH_SOURCE[1]}#${BASH_LINENO[1]} ${FUNCNAME[1]} :: $*${CLEAR}"
+    set
+    echo -e "${YELLOW}DEBUG ${BASH_SOURCE[1]}#${BASH_LINENO[1]} ${FUNCNAME[1]} :: $*${CLEAR}"
+}
 function err {
     ## error message
     echo -e "$NOW ERROR ${RED}$*${CLEAR}" >> "$SC_LOG"
@@ -54,14 +58,17 @@ function err {
 
 function run {
     echo -e "${BLUE}$*${CLEAR}"
-    "$*"
+    # shellcheck disable=SC2048
+    $*
 }
 
 ## exit if failed
 function exif {
     if [ "$?" != "0" ]
     then
-        err "Error. #$BASH_LINENO ${FUNCNAME[1]} returned with a failure"
+        local exif_code="$?"
+        ## the first in stack is what we are looking for. (0th is this function itself)
+        err "EXIF ERROR $exif_code @ ${BASH_SOURCE[1]}#${BASH_LINENO[1]} ${FUNCNAME[1]} :: $*"
         exit 1;
     fi
 }
@@ -70,6 +77,6 @@ function exif {
 function eyif {
     if [ "$?" != "0" ]
     then
-        err "Error. #$BASH_LINENO ${FUNCNAME[1]} returned with a failure"
+        err "EYIF ERROR $? @ ${BASH_SOURCE[1]}#${BASH_LINENO[1]} ${FUNCNAME[1]} :: $*"
     fi
 }

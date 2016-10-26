@@ -15,6 +15,8 @@
 ###  But please, then, do, etc on seperate lines. Better readble.
 ###
 
+DEBUG=false
+
 readonly SC_INSTALL_BIN=$(realpath "$BASH_SOURCE")
 readonly SC_INSTALL_DIR=${SC_INSTALL_BIN:0:-9}
 
@@ -49,6 +51,8 @@ then
     exit
 fi
 
+source /etc/os-release
+
 ## TODO authorize here
 
 readonly SC_ROOT=true
@@ -66,7 +70,7 @@ function complicate {
     SC_COMMAND_LIST="$SC_COMMAND_LIST $*"
 }
 
-function manual {
+function man_en {
     echo 0 >> /dev/null
 }
 
@@ -75,13 +79,6 @@ function ok {
     SC_CMD_OK=true
 }
 
-## init libs
-source "$SC_INSTALL_DIR/libs/commonlib.sh"
-load_libs
-
-
-#load the commands - and execute them
-load_commands
 
 readonly SC_LOG_DIR="/var/log/srvctl"
 readonly SC_LOG="$SC_LOG_DIR/srvctl.log"
@@ -91,8 +88,7 @@ SC_COMPANY_DOMAIN=$HOSTNAME
 SC_HOSTNET=0
 
 ## source the default values
-source "$SC_INSTALL_DIR/config"
-exif
+source "$SC_INSTALL_DIR/config" || err "Default configs could not be loaded!"
 
 ## source custom configurations
 if [ -f /etc/srvctl/config ]
@@ -107,18 +103,32 @@ readonly SC_HOSTNET
 readonly SC_COMPANY
 readonly SC_COMPANY_DOMAIN
 
-## check if command completion works
-if [ ! -f "$SC_COMMAND_COMPLETION_DEFINITIONS" ]
-then
-    update_command_completion
-fi
+readonly DEBUG
+
+## platform dependent commands
+
+
 
 if  [[ "$SC_HOSTNET" -gt 10 ]] && [[ "$SC_HOSTNET" -lt 250 ]]
 then
+    
     export SC_ON_HS=true
 fi
 
+## FINALIZE
 
+## init libs
+source "$SC_INSTALL_DIR/commonlib.sh"
+load_libs
+
+#load the commands - and execute them
+load_commands
+
+## check if command completion works and save loaded command completion words
+if [ ! -f "$SC_COMMAND_COMPLETION_DEFINITIONS" ] || $DEBUG
+then
+    update_command_completion
+fi
 
 function hint {
     if [ ! -z "$1" ]

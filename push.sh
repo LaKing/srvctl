@@ -80,7 +80,7 @@ do
         echo "@ $file" >> $log
         shellcheck "$file" >> $log
         shellcheck "$file"
-        echo /bin/python /srv/beautify_bash.py "$file"
+        #echo /bin/python /srv/beautify_bash.py "$file"
         /bin/python /srv/beautify_bash.py "$file"
         rm -fr "$file~"
     fi

@@ -3,8 +3,8 @@
 ## start or restart service
 hint "SERVICE OP | OP SERVICE" "start|stop|restart|status (enable|remove) a service via systemctl. Shortcuts for OP: +|-|!|?"
 
-OP=''
-SERVICE=''
+local OP=''
+local SERVICE=''
 
 if [ "$ARG" == "enable" ] || [ "$ARG" == "start" ] || [ "$ARG" == "+" ] || [ "$ARG" == "restart" ] || [ "$ARG" == "!" ] || [ "$ARG" == "stop" ]  || [ "$ARG" == "-" ] || [ "$ARG" == "status" ]  || [ "$ARG" == "?" ] || [ "$ARG" == "remove" ]
 then
@@ -102,7 +102,7 @@ then
     ok
 fi
 
-manual '
+man_en '
     This is a shorthand syntax for frequent operations on services.
     the following are equivalent:
 
