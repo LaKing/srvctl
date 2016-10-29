@@ -1,4 +1,4 @@
-## Srvctl v3 (3.0.65.8)
+## Srvctl v3 (3.0.66.0)
 A remake for 2016 mostly using systemd tools
 ```
 
@@ -9,9 +9,7 @@ COMMAND
 
    adjust-service                        status / start|stop|kill|restart(enable|remove) or ? / +|-|!
     
-     Update/Install all components
-     On host systems install the containerfarm
-     This is a shorthand syntax for frequent operations on services.
+     This is a shorthand syntax for frequent operations on systemd.
      the following are equivalent:
              systemctl status example.service
              sc example ?

@@ -2,10 +2,8 @@
 
 ## @@@ SERVICE OP | OP SERVICE
 ## @en status / start|stop|kill|restart(enable|remove) or ? / +|-|!
-## &en Update/Install all components
-## &en On host systems install the containerfarm
 
-## &en This is a shorthand syntax for frequent operations on services.
+## &en This is a shorthand syntax for frequent operations on systemd.
 ## &en the following are equivalent:
 ## &en         systemctl status example.service
 ## &en         sc example ?
