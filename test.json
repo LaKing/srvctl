@@ -1,0 +1,25 @@
+{
+    "users": {
+        "user1": {
+            "contact": {
+                "name": "user one",
+                "email": "user.one@mail.me",
+                "mobile": "123456789"
+            },
+            "keys": ["key1", "key2"],
+            "projects": {
+                "my-first-website": ["myweb.com", "mydev.myweb.com"],
+                "my-company-sites": ["i-am-good.com", "i-am-god.com", "o-my-god.com"]
+
+            },
+            "shells": ["example.com", "dev.example.com"]
+        }
+    },
+    "containers": {
+        "myweb.com": {
+            "ip": "10.12.0.2",
+            "host": "r2",
+            "aliases": ["myweb.de", "myweb.hu"]
+        }
+    }
+}

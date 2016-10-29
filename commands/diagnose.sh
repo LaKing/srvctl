@@ -1,92 +1,86 @@
 #!/bin/bash
 
-hint diagnose "Run a set of diagnostic commands."
+## @en First-aid diagnoistic command.
 
-complicate diagnose
+msg "srvctl version $(cat "$SC_INSTALL_DIR/version")"
 
-if [ "$CMD" == diagnose ]
+( set -o posix ; set ) | egrep "DEBUG=|ARG=|CMD=|OPA=|SC_"
+
+# printenv
+
+echo " -- Uptime: $(uptime)"
+run uname -a
+run sestatus
+
+if [ -f /usr/bin/grub2-editenv ] && [ -f /boot/grub2/grub.cfg ]
 then
-    msg "srvctl version $(cat "$SC_INSTALL_DIR/version")"
-    
-    ( set -o posix ; set ) | egrep "DEBUG=|ARG=|CMD=|OPA=|SC_"
-    
-    # printenv
-    
-    echo "Uptime: $(uptime)"
-    uname -a
-    
-    if [ -f /usr/bin/grub2-editenv ] && [ -f /boot/grub2/grub.cfg ]
-    then
-        msg "Kernel"
-        uname -r
-        msg "Booting"
-        grub2-editenv list
-        msg "Available for boot"
-        grep ^menuentry /boot/grub2/grub.cfg | cut -d "'" -f2
-    fi
-    
-    for service in /etc/srvctl/system/*
-    do
-        [[ -e $service ]] || break
-        
-        if ! systemctl is-active "$service"
-        then
-            systemctl status "$service" --no-pager
-        fi
-    done
-    
-    msg "mail que"
-    journalctl -u postfix --since yesterday | grep fatal
-    postqueue -p
-    
-    if [ -f /usr/sbin/firewalld ]
-    then
-        local zone
-        local services
-        
-        zone=$(firewall-cmd --get-default-zone)
-        services=" $(firewall-cmd --zone="$zone" --list-services) "
-        
-        msg "Firewall $(firewall-cmd --state) - default zone: $zone"
-        echo "$services"
-        echo ''
-        
-        msg "Interfaces:"
-        interfaces="$(firewall-cmd --list-interfaces)"
-        for i in $interfaces
-        do
-            echo "$i - $(firewall-cmd --get-zone-of-interface="$i")"
-            echo ''
-        done
-    fi
-    
-    msg "table of processes"
-    top -n 1
-    msg "shell users"
-    w
-    
-    ok
+    msg "-- Kernel --"
+    run uname -r
+    msg "Booting"
+    run grub2-editenv list
+    msg "Available for boot"
+    run grep ^menuentry /boot/grub2/grub.cfg | cut -d "'" -f2
 fi
-man_en '
-    Set of troubleshooting commands, that include information about:
 
-        srvctl version and variables
-        uptime
-        system/kernel version
-        boot configs
-        inactive services listed in srvctl
-        postfix fatal errors since yesterday
-        the mail que
-        firewall settings
-        table of processes
-        connected shell users
 
-    Notes
-        To flush the mail que, use: postqueue -f
-        To remove all mail from the mail que use: postsuper -d ALL
-'
+msg "-- systemd - services --"
+for service in /etc/systemd/system/multi-user.target.wants/*
+do
+    [[ -f $service ]] || continue
+    service="$(basename "$service")"
+    
+    if ! systemctl is-active "$service" > /dev/null
+    then
+        run systemctl status "$service" --no-pager
+    else
+        msg "$service $(systemctl is-active "$service")"
+    fi
+done
 
-#fi ## isROOT
+msg "-- mail que --"
+run journalctl -u postfix --since yesterday | grep fatal
+run postqueue -p
+
+if [ -f /usr/sbin/firewalld ]
+then
+    local zone
+    zone=$(firewall-cmd --get-default-zone)
+    msg "-- Firewall $(firewall-cmd --state) - default zone: $zone"
+    run firewall-cmd --zone="$zone" --list-services
+    echo ''
+    
+    msg "Interfaces:"
+    run firewall-cmd --list-interfaces
+    echo ''
+fi
+
+msg "-- table of processes --"
+run top -n 1
+msg "-- shell users --"
+run w
+msg "-- process tree --"
+run systemctl status --no-pager
+
+
+## &en Set of troubleshooting commands, that include information about:
+## &en
+## &en     srvctl version and variables
+## &en     uptime
+## &en     system/kernel version
+## &en     boot configs
+## &en     inactive services listed in srvctl
+## &en     postfix fatal errors since yesterday
+## &en     the mail que
+## &en     firewall settings
+## &en     table of processes
+## &en     connected shell users
+## &en
+## &en Notes
+## &en     To flush the mail que, use: postqueue -f
+## &en     To remove all mail from the mail que use: postsuper -d ALL
+
+
+
 
 
 

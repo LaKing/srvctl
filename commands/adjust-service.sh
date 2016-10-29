@@ -1,119 +1,130 @@
 #!/bin/bash
 
-## start or restart service
-hint "SERVICE OP | OP SERVICE" "start|stop|restart|status (enable|remove) a service via systemctl. Shortcuts for OP: +|-|!|?"
+## @@@ SERVICE OP | OP SERVICE
+## @en status / start|stop|kill|restart(enable|remove) a service via systemctl. Shortcuts for OP: ? / +|-|!
+## &en Update/Install all components
+## &en On host systems install the containerfarm
 
-local OP=''
-local SERVICE=''
+## &en This is a shorthand syntax for frequent operations on services.
+## &en the following are equivalent:
+## &en         systemctl status example.service
+## &en         sc example ?
+## &en to query a service with the supershort operator "?" or with "status"
+## &en to restart and enable a service the operator is "!" or "restart"
+## &en to start and enable a service the operator is "+" or "start"
+## &en to stop and disable a service the operator is "-" or "stop"
 
-if [ "$ARG" == "enable" ] || [ "$ARG" == "start" ] || [ "$ARG" == "+" ] || [ "$ARG" == "restart" ] || [ "$ARG" == "!" ] || [ "$ARG" == "stop" ]  || [ "$ARG" == "-" ] || [ "$ARG" == "status" ]  || [ "$ARG" == "?" ] || [ "$ARG" == "remove" ]
-then
-    OP=$ARG
-    SERVICE=$CMD
-fi
+local op=''
+local service=''
 
-if [ "$CMD" == "enable" ] || [ "$CMD" == "start" ] || [ "$CMD" == "+" ] || [ "$CMD" == "restart" ] || [ "$CMD" == "!" ] || [ "$CMD" == "stop" ]  || [ "$CMD" == "-" ] || [ "$CMD" == "status" ]  || [ "$CMD" == "?" ] || [ "$CMD" == "remove" ]
-then
-    OP=$CMD
-    SERVICE=$ARG
-fi
-
-if [ "$OP" == "?" ]
-then
-    OP=status
-fi
-if [ "$OP" == "!" ]
-then
-    OP=restart
-fi
-if [ "$OP" == "+" ]
-then
-    OP=enable
-fi
-if [ "$OP" == "-" ]
-then
-    OP=remove
-fi
-
-if [ ! -z "$SERVICE" ] && [ ! -z "$OP" ] && [ -f "/usr/lib/systemd/system/$SERVICE.service" ]
-then
-    
-    
-    if [ "$OP" == "status" ]
+function service_action {
+    local service="$1"
+    local op="$2"
+    if [ "$op" == "status" ]
     then
-        systemctl status "$SERVICE.service"  --no-pager
+        run systemctl status "$service"  --no-pager
+        return 0
     else
         
-        if $IS_ROOT
+        if $SC_ROOT
         then
             
-            if [ "$OP" == "enable" ]
+            ## yea, in sc we use simplified operations, use systemd for speceific ops
+            if [ "$op" == "start" ] || [ "$op" == "restart" ] || [ "$op" == "enable" ]
             then
-                add_service "$SERVICE"
+                run systemctl enable  "$service"
+                run systemctl restart "$service"
+                run systemctl status "$service"  --no-pager
             fi
             
             
-            if [ "$OP" == "start" ] || [ "$OP" == "restart" ]
+            if [ "$op" == "stop" ] || [ "$op" == "disable" ] || [ "$op" == "kill" ]
             then
-                systemctl enable  "$SERVICE.service"
-                systemctl restart "$SERVICE.service"
-                systemctl status "$SERVICE.service"  --no-pager
+                run systemctl disable "$service"
+                run systemctl stop "$service"
+                [ "$op" == "kill" ] && run systemctl kill "$service"  --no-pager
+                run systemctl status "$service"  --no-pager
+                return 0
             fi
             
-            
-            if [ "$OP" == "stop" ]
-            then
-                systemctl disable "$SERVICE.service"
-                systemctl stop "$SERVICE.service"
-                systemctl status "$SERVICE.service"  --no-pager
-            fi
-            
-            
-            if [ "$OP" == "remove" ]
-            then
-                rm_service "$SERVICE"
-            fi
+            ## there was no op??
+            return 223
             
         else
-            err "These service operations need root privileges."
+            err "AUTH start|stop|kill|restart(enable|remove) service operations need root privileges."
+            return 66
         fi
         
     fi
-    
-    ok
+}
+
+
+## fix op/service ordering
+if [ "$ARG" == "enable" ] || [ "$ARG" == "start" ] || [ "$ARG" == "restart" ] || [ "$ARG" == "stop" ] || [ "$ARG" == "status" ] || [ "$ARG" == "disable" ] || [ "$ARG" == "kill" ]
+then
+    op=$ARG
+    service=$CMD
 fi
 
-if [ "$SERVICE" == openvpn ] && [ ! -z "$OP" ] && [ -f "/usr/lib/systemd/system/openvpn@.service" ] && $IS_ROOT
+## its th eother way around
+if [ "$CMD" == "enable" ] || [ "$CMD" == "start" ] || [ "$CMD" == "restart" ] || [ "$CMD" == "stop" ] || [ "$CMD" == "status" ] || [ "$CMD" == "disable" ] || [ "$ARG" == "kill" ]
+then
+    op=$CMD
+    service=$ARG
+fi
+
+## special services
+if [ "$service" == openvpn ] && [ ! -z "$op" ] && [ -f "/usr/lib/systemd/system/openvpn@.service" ] && $IS_ROOT
 then
     
+    ## must have conf
     for c in /etc/openvpn/*.conf
     do
         local s="${c:13: -5}"
         msg "$s"
-        echo "systemctl $OP openvpn@$s --no-pager"
-        systemctl $OP "openvpn@$s" --no-pager
-        
-        if [ "$OP" == "restart" ]
-        then
-            systemctl status "openvpn@$s" --no-pager
-        fi
-        
+        service_action "openvpn@$s" "$op"
     done
-    ok
+    return 0
 fi
 
-man_en '
-    This is a shorthand syntax for frequent operations on services.
-    the following are equivalent:
+if [ ! -z "$service" ] && [ ! -z "$op" ]
+then
+    
+    if [ "$(systemctl is-active "$service")" != unknown ]
+    then
+        local ok=true
+    else
+        local ok=false
+        local ck=''
+        for i in /usr/lib/systemd/system/* /etc/systemd/system/* /run/systemd/system/* ~/.config/systemd/user/* /etc/systemd/user/* $XDG_RUNTIME_DIR/systemd/user/* /run/systemd/user/* ~/.local/share/systemd/user/* /usr/lib/systemd/user/*
+        do
+            [ -f "$i" ] || continue
+            ck="$(basename "$i")"
+            ## service.service, socket.socket, device.device, mount.mount, automount.automount, swap.swap, target.target, path.path, timer.timer, slice.slice, scope.scope
+            if [ "ck" == "$i" ] || [ "$ck" == "$service.service" ] || [ "$ck" == "$service.socket" ] || [ "$ck" == "$service.device" ] || [ "$ck" == "$service.mount" ] || [ "$ck" == "$service.automount" ] \
+            || [ "$ck" == "$service.swap" ] || [ "$ck" == "$service.target" ] || [ "$ck" == "$service.path" ] || [ "$ck" == "$service.timer" ] || [ "$ck" == "$service.slice" ] || [ "$ck" == "$service.scope" ]
+            then
+                
+                service="$ck"
+                ok=true
+                ntc "ASSUME: $service"
+                break
+            fi
+        done
+        
+    fi
+    
+    if ! $ok
+    then
+        err "could not locate '$service' in systemd"
+        return 78
+    fi
+    
+    service_action "$service" "$op"
+    
+fi
 
-        systemctl status example.service
-        sc example ?
 
-    to query a service with the supershort operator "?" or with "status"
-    to restart and enable a service the operator is "!" or "restart"
-    to start and enable a service the operator is "+" or "start"
-    to stop and disable a service the operator is "-" or "stop"
 
-'
 
 
