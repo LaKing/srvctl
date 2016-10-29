@@ -1,7 +1,7 @@
 #!/bin/bash
 
 ## @@@ SERVICE OP | OP SERVICE
-## @en status / start|stop|kill|restart(enable|remove) a service via systemctl. Shortcuts for OP: ? / +|-|!
+## @en status / start|stop|kill|restart(enable|remove) or ? / +|-|!
 ## &en Update/Install all components
 ## &en On host systems install the containerfarm
 

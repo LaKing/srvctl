@@ -1,4 +1,4 @@
-## Srvctl v3 (3.0.65.6)
+## Srvctl v3 (3.0.65.8)
 A remake for 2016 mostly using systemd tools
 ```
 
@@ -7,7 +7,7 @@ srvctl COMMAND [arguments]
 
 COMMAND                                 
 
-   adjust-service                        status / start|stop|kill|restart(enable|remove) a service via systemctl. Shortcuts for OP: ? / +|-|!
+   adjust-service                        status / start|stop|kill|restart(enable|remove) or ? / +|-|!
     
      Update/Install all components
      On host systems install the containerfarm
