@@ -33,12 +33,30 @@ function title {
 
 function load_libs {
     
-    for sourcefile in $SC_INSTALL_DIR/libs/*
+    for sourcefile in $SC_INSTALL_DIR/modules/*/libs/*
     do
         [[ -f $sourcefile ]] && source "$sourcefile"
     done
 }
 
+function run_hooks {
+    
+    local hook
+    hook="$1"
+    
+    for dir in $SC_INSTALL_DIR/modules/*
+    do
+        ## find and call hooks
+        if [[ -f $dir/hooks/$hook.sh ]]
+        then
+            
+            source "$dir/hooks/$hook.sh"
+            exif "$dir hook '$hook' failed"
+            return
+        fi
+    done
+    
+}
 
 function run_command {
     
@@ -51,13 +69,18 @@ function run_command {
         exif "'$CMD' failed"
         return
     fi
-    ## the default srvctl commands
-    if [[ -f $SC_INSTALL_DIR/commands/$CMD.sh ]]
-    then
-        source "$SC_INSTALL_DIR/commands/$CMD.sh"
-        exif "'$CMD' failed"
-        return
-    fi
+    
+    for dir in $SC_INSTALL_DIR/modules/*
+    do
+        ## find and run commands
+        if [[ -f $dir/commands/$CMD.sh ]]
+        then
+            
+            source "$dir/commands/$CMD.sh"
+            exif "'$CMD' failed"
+            return
+        fi
+    done
     
     ## custom by user
     if [[ -f $SC_HOME/srvctl-includes/$CMD.sh ]] && [[ $SC_HOME != /root ]]
@@ -67,13 +90,17 @@ function run_command {
         return
     fi
     
-    ## adjust-service
-    if [[ $ARG == enable ]] || [[ $ARG == start ]] || [[ $ARG == restart ]] || [[ $ARG == stop ]] || [[ $ARG == status ]]  || [[ $ARG == disable ]] || [[ $ARG == kill ]] \
-    || [[ $CMD == enable ]] || [[ $CMD == start ]] || [[ $CMD == restart ]] || [[ $CMD == stop ]] || [[ $CMD == status ]]  || [[ $CMD == disable ]] || [[ $CMD == kill ]]
+    ## this is a special command, as it has several ways to be invoked
+    if [[ -f "$SC_INSTALL_DIR/modules/srvctl/commands/adjust-service.sh" ]]
     then
-        source "$SC_INSTALL_DIR/commands/adjust-service.sh"
-        exif "srvctl $ARGS failed"
-        return
+        ## adjust-service
+        if [[ $ARG == enable ]] || [[ $ARG == start ]] || [[ $ARG == restart ]] || [[ $ARG == stop ]] || [[ $ARG == status ]]  || [[ $ARG == disable ]] || [[ $ARG == kill ]] \
+        || [[ $CMD == enable ]] || [[ $CMD == start ]] || [[ $CMD == restart ]] || [[ $CMD == stop ]] || [[ $CMD == status ]]  || [[ $CMD == disable ]] || [[ $CMD == kill ]]
+        then
+            source "$SC_INSTALL_DIR/modules/srvctl/commands/adjust-service.sh"
+            exif "srvctl $ARGS failed"
+            return
+        fi
     fi
     
     ## call a srvctl function
@@ -130,7 +157,7 @@ function hint_commands {
         title "COMMAND - from srvctl"
     fi
     
-    for sourcefile in $SC_INSTALL_DIR/commands/*.sh
+    for sourcefile in $SC_INSTALL_DIR/modules/*/commands/*.sh
     do
         hint_on_file "$sourcefile"
     done
@@ -184,7 +211,7 @@ function help_commands {
             title "COMMAND - from srvctl"
         fi
         
-        for sourcefile in $SC_INSTALL_DIR/commands/*.sh
+        for sourcefile in $SC_INSTALL_DIR/modules/*/commands/*.sh
         do
             help_on_file "$sourcefile"
         done
@@ -210,12 +237,15 @@ function help_commands {
             return
         fi
         
-        if [[ -f $SC_INSTALL_DIR/commands/$arg ]]
-        then
-            help_on_file "$SC_INSTALL_DIR/commands/$arg.sh"
-            msg "srvctl v3 command"
-            return
-        fi
+        for dir in $SC_INSTALL_DIR/modules/*
+        do
+            if [[ -f $dir/commands/$arg ]]
+            then
+                help_on_file "$dir/commands/$arg.sh"
+                msg "srvctl v3 command"
+                return
+            fi
+        done
         
         if [[ -f $SC_HOME/srvctl-includes/$arg.sh ]] && [[ $SC_HOME != /root ]]
         then

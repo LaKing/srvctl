@@ -1,4 +1,4 @@
-## Srvctl v3 (3.0.77.6)
+## Srvctl v3 (3.0.80.6)
 A remake for 2016 mostly using systemd tools
 ```
 
@@ -8,7 +8,7 @@ srvctl COMMAND [arguments]
 COMMAND                                 
 
 
-COMMAND - from root                     
+COMMAND - from                          
 
    convert                               A Custom command from root 2016.11.01-02:05:30 
     
@@ -18,6 +18,11 @@ COMMAND - from root
 
 COMMAND - from srvctl                   
 
+   add-ve                                Add a fedora container.                        
+    
+     Generic container for customization.
+     Contains basic packages.
+    
    adjust-service                        status / start|stop|kill|restart(enable|remove) or ? / +|-|!
     
      This is a shorthand syntax for frequent operations on systemd.
@@ -28,11 +33,6 @@ COMMAND - from srvctl
      to restart and enable a service the operator is "!" or "restart"
      to start and enable a service the operator is "+" or "start"
      to stop and disable a service the operator is "-" or "stop"
-    
-   containers-add                        Add a fedora container.                        
-    
-     Generic container for customization.
-     Contains basic packages.
     
    customize                             Create/edit a custom command.                  
     
