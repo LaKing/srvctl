@@ -9,3 +9,26 @@ function root_only {
         exit 44
     fi
 }
+
+function sudomize {
+    if ! $SC_ROOT
+    then
+        if ! sudo "$*"
+        then
+            err "Could not use sudo."
+        fi
+        exit
+    fi
+}
+
+function authorize {
+    
+    if ! $SC_ROOT
+    then
+        ## authorize SC_USER
+        
+        ## ...
+        dbg auth
+    fi
+}
+

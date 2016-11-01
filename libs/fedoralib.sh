@@ -15,4 +15,17 @@ then
         run dnf -y update $*
     }
     
+    function msg_version_installed {
+        ## by package manager
+        local i v info
+        if info="$(dnf info installed "$1" 2> /dev/null)"
+        then
+            v=$(echo "$info" | grep -m1 Version)
+            i=$(echo "$info" | grep -m1 installed)
+            msg "$1 ${v:13:8} ${i:13}"
+        else
+            ntc "$1 not installed"
+        fi
+    }
+    
 fi

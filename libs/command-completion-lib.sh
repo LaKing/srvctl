@@ -22,7 +22,7 @@ then
         do
             local file
             file="$(basename "$sourcefile")"
-            [[ -f "$sourcefile" ]] && complicate "${file:0: -3}"
+            [[ -f $sourcefile ]] && complicate "${file:0: -3}"
         done
         
         if [ -d /root/srvctl-includes ] && [ ! -z "$(ls /root/srvctl-includes)" ]
@@ -31,7 +31,7 @@ then
             do
                 local file
                 file="$(basename "$sourcefile")"
-                [[ -f "$sourcefile" ]] && complicate "${file:0: -3}"
+                [[ -f $sourcefile ]] && complicate "${file:0: -3}"
             done
         fi
         
@@ -62,7 +62,7 @@ EOF
     }
     
     ## check if command completion works and save loaded command completion words
-    if [ ! -f "$SC_COMMAND_COMPLETION_DEFINITIONS" ] || $DEBUG
+    if [[ ! -f $SC_COMMAND_COMPLETION_DEFINITIONS ]] || $DEBUG
     then
         update_command_completion
     fi
