@@ -37,6 +37,11 @@ OPA="$3"
 # shellcheck disable=SC2124
 OPAS="${@:2}"
 
+## Check against the existance of the variable only
+SRVCTL=true
+readonly SRVCTL
+
+
 source "$SC_INSTALL_DIR/init.sh" || echo "Init could not be loaded!" 1>&2
 
 ## load libs for running commands
@@ -44,19 +49,18 @@ load_libs
 
 run_command
 
-if [ "$?" == 0 ]
+if [[ $? == 0 ]]
 then
     msg "srvctl v3 ready"
 else
     ## something gone wrong, or user did something bad
     
     ## check for arguments
-    if [ -z "$CMD" ]
+    if [[ $CMD ]]
     then
-        err "No command."
+        err "Invalid command."
     else
-        err "Invalid Command."
-        echo ''
+        err "No-command."
     fi
     
     hint_commands

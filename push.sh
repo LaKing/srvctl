@@ -39,10 +39,13 @@ then
     then
         echo "## git push"
         ## add files to repo
+        echo "git add -A ."
         git add -A .
         ## commit them
+        echo "git commit -m $(cat $wd/version)"
         git commit -m "$(cat $wd/version)"
         ## push them
+        echo git push
         git push  >> $log
     fi
     

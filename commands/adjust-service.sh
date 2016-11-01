@@ -12,13 +12,16 @@
 ## &en to start and enable a service the operator is "+" or "start"
 ## &en to stop and disable a service the operator is "-" or "stop"
 
+## run only with srvctl
+[[ $SRVCTL ]] || exit 4
+
 local op=''
 local service=''
 
 function service_action {
     local service="$1"
     local op="$2"
-    if [ "$op" == "status" ]
+    if [[ $op == "status" ]]
     then
         run systemctl status "$service"  --no-pager
         return 0
@@ -28,7 +31,7 @@ function service_action {
         then
             
             ## yea, in sc we use simplified operations, use systemd for speceific ops
-            if [ "$op" == "start" ] || [ "$op" == "restart" ] || [ "$op" == "enable" ]
+            if [[ $op == "start" ]] || [[ $op == "restart" ]] || [[ $op == "enable" ]]
             then
                 run systemctl enable  "$service"
                 run systemctl restart "$service"
@@ -36,11 +39,11 @@ function service_action {
             fi
             
             
-            if [ "$op" == "stop" ] || [ "$op" == "disable" ] || [ "$op" == "kill" ]
+            if [[ $op == "stop" ]] || [[ $op == "disable" ]] || [[ $op == "kill" ]]
             then
                 run systemctl disable "$service"
                 run systemctl stop "$service"
-                [ "$op" == "kill" ] && run systemctl kill "$service"  --no-pager
+                [[ $op == "kill" ]] && run systemctl kill "$service"  --no-pager
                 run systemctl status "$service"  --no-pager
                 return 0
             fi
@@ -58,21 +61,21 @@ function service_action {
 
 
 ## fix op/service ordering
-if [ "$ARG" == "enable" ] || [ "$ARG" == "start" ] || [ "$ARG" == "restart" ] || [ "$ARG" == "stop" ] || [ "$ARG" == "status" ] || [ "$ARG" == "disable" ] || [ "$ARG" == "kill" ]
+if [[ $ARG == "enable" ]] || [[ $ARG == "start" ]] || [[ $ARG == "restart" ]] || [[ $ARG == "stop" ]] || [[ $ARG == "status" ]] || [[ $ARG == "disable" ]] || [[ $ARG == "kill" ]]
 then
     op=$ARG
     service=$CMD
 fi
 
 ## its th eother way around
-if [ "$CMD" == "enable" ] || [ "$CMD" == "start" ] || [ "$CMD" == "restart" ] || [ "$CMD" == "stop" ] || [ "$CMD" == "status" ] || [ "$CMD" == "disable" ] || [ "$ARG" == "kill" ]
+if [[ $CMD == "enable" ]] || [[ $CMD == "start" ]] || [[ $CMD == "restart" ]] || [[ $CMD == "stop" ]] || [[ $CMD == "status" ]] || [[ $CMD == "disable" ]] || [[ $ARG == "kill" ]]
 then
     op=$CMD
     service=$ARG
 fi
 
 ## special services
-if [ "$service" == openvpn ] && [ ! -z "$op" ] && [ -f "/usr/lib/systemd/system/openvpn@.service" ] && $IS_ROOT
+if [[ $service == openvpn ]] && [[ ! -z "$op" ]] && [[ -f "/usr/lib/systemd/system/openvpn@.service" ]] && $IS_ROOT
 then
     
     ## must have conf
@@ -85,10 +88,10 @@ then
     return 0
 fi
 
-if [ ! -z "$service" ] && [ ! -z "$op" ]
+if [[ ! -z "$service" ]] && [[ ! -z "$op" ]]
 then
     
-    if [ "$(systemctl is-active "$service")" != unknown ]
+    if [[ "$(systemctl is-active "$service")" != unknown ]]
     then
         local ok=true
     else
@@ -96,11 +99,11 @@ then
         local ck=''
         for i in /usr/lib/systemd/system/* /etc/systemd/system/* /run/systemd/system/* ~/.config/systemd/user/* /etc/systemd/user/* $XDG_RUNTIME_DIR/systemd/user/* /run/systemd/user/* ~/.local/share/systemd/user/* /usr/lib/systemd/user/*
         do
-            [ -f "$i" ] || continue
+            [[ -f "$i" ]] || continue
             ck="$(basename "$i")"
             ## service.service, socket.socket, device.device, mount.mount, automount.automount, swap.swap, target.target, path.path, timer.timer, slice.slice, scope.scope
-            if [ "ck" == "$i" ] || [ "$ck" == "$service.service" ] || [ "$ck" == "$service.socket" ] || [ "$ck" == "$service.device" ] || [ "$ck" == "$service.mount" ] || [ "$ck" == "$service.automount" ] \
-            || [ "$ck" == "$service.swap" ] || [ "$ck" == "$service.target" ] || [ "$ck" == "$service.path" ] || [ "$ck" == "$service.timer" ] || [ "$ck" == "$service.slice" ] || [ "$ck" == "$service.scope" ]
+            if [[ "$ck" == "$i" ]] || [[ "$ck" == "$service.service" ]] || [[ "$ck" == "$service.socket" ]] || [[ "$ck" == "$service.device" ]] || [[ "$ck" == "$service.mount" ]] || [[ "$ck" == "$service.automount" ]] \
+            || [[ "$ck" == "$service.swap" ]] || [[ "$ck" == "$service.target" ]] || [[ "$ck" == "$service.path" ]] || [[ "$ck" == "$service.timer" ]] || [[ "$ck" == "$service.slice" ]] || [[ "$ck" == "$service.scope" ]]
             then
                 
                 service="$ck"

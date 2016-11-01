@@ -68,7 +68,7 @@ function run {
     
     # shellcheck disable=SC2048
     $*
-    eyif "run function failed to execute '$*'"
+    eyif "command '$*' returned with an error"
 }
 
 ## exit if failed

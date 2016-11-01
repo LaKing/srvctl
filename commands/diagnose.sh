@@ -2,6 +2,26 @@
 
 ## @en First-aid diagnoistic command.
 
+## &en Set of troubleshooting commands, that include information about:
+## &en
+## &en     srvctl version and variables
+## &en     uptime
+## &en     system/kernel version
+## &en     boot configs
+## &en     inactive services listed in srvctl
+## &en     postfix fatal errors since yesterday
+## &en     the mail que
+## &en     firewall settings
+## &en     table of processes
+## &en     connected shell users
+## &en
+## &en Notes
+## &en     To flush the mail que, use: postqueue -f
+## &en     To remove all mail from the mail que use: postsuper -d ALL
+
+## run only with srvctl
+[[ $SRVCTL ]] || exit 4
+
 msg "srvctl version $(cat "$SC_INSTALL_DIR/version")"
 
 ( set -o posix ; set ) | egrep "DEBUG=|ARG=|CMD=|OPA=|SC_"
@@ -12,7 +32,7 @@ echo " -- Uptime: $(uptime)"
 run uname -a
 run sestatus
 
-if [ -f /usr/bin/grub2-editenv ] && [ -f /boot/grub2/grub.cfg ]
+if [[ -f /usr/bin/grub2-editenv ]] && [[ -f /boot/grub2/grub.cfg ]]
 then
     msg "-- Kernel --"
     run uname -r
@@ -21,7 +41,6 @@ then
     msg "Available for boot"
     run grep ^menuentry /boot/grub2/grub.cfg | cut -d "'" -f2
 fi
-
 
 msg "-- systemd - services --"
 for service in /etc/systemd/system/multi-user.target.wants/*
@@ -41,7 +60,7 @@ msg "-- mail que --"
 run journalctl -u postfix --since yesterday | grep fatal
 run postqueue -p
 
-if [ -f /usr/sbin/firewalld ]
+if [[ -f /usr/sbin/firewalld ]]
 then
     local zone
     zone=$(firewall-cmd --get-default-zone)
@@ -60,27 +79,6 @@ msg "-- shell users --"
 run w
 msg "-- process tree --"
 run systemctl status --no-pager
-
-
-## &en Set of troubleshooting commands, that include information about:
-## &en
-## &en     srvctl version and variables
-## &en     uptime
-## &en     system/kernel version
-## &en     boot configs
-## &en     inactive services listed in srvctl
-## &en     postfix fatal errors since yesterday
-## &en     the mail que
-## &en     firewall settings
-## &en     table of processes
-## &en     connected shell users
-## &en
-## &en Notes
-## &en     To flush the mail que, use: postqueue -f
-## &en     To remove all mail from the mail que use: postsuper -d ALL
-
-
-
 
 
 
