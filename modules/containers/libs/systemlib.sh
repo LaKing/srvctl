@@ -3,9 +3,8 @@
 function create_container_service {
     
     local name bridge
-    
-    name="$2"
-    bridge="$1"
+    name="$1"
+    bridge="$2"
     
 cat > "/etc/systemd/system/machines.target.wants/$name.service" << EOF
 
@@ -49,8 +48,9 @@ EOF
 }
 
 function create_container_bridge {
-    local bridge
-    bridge="$1"
+    local name bridge
+    name="$1"
+    bridge="$2"
     
 cat "/etc/systemd/network/br-$bridge.netdev" << EOF
 [NetDev]
@@ -66,6 +66,26 @@ Name=$bridge
 [Network]
 IPMasquerade=yes
 Address=$bridge/28
+
+EOF
+    
+    systemctl restart networkctl --no-pager
+}
+
+function create_container_host0 {
+    local name bridge ip
+    name="$1"
+    bridge="$2"
+    ip="$3"
+    
+cat "/etc/systemd/network/br-$bridge.netdev" << EOF
+[Match]
+Virtualization=container
+Name=host0
+
+[Network]
+Address=$ip/28
+Gateway=$bridge
 
 EOF
     

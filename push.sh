@@ -37,6 +37,7 @@ then
     ## push to local
     if [ -d "$wd/.git" ] && [ "$1" == '!' ]
     then
+        cd "$wd"
         echo "## git push"
         ## add files to repo
         echo "git add -A ."

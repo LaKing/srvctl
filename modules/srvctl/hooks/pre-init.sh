@@ -1,5 +1,5 @@
 #!/bin/bash
-
+# shellcheck disable=SC2034
 [[ ! $SC_ROOT == true ]] && SC_LOG_DIR=$SC_HOME/.srvct/log
 
 # shellcheck disable=SC2034

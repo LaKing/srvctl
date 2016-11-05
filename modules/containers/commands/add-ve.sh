@@ -41,8 +41,9 @@ run cp -R -p "$ROOTFS_DIR/fedora" "$SRV/$C"
 
 mkdir -p "$MOUNTS_DIR/$C/etc/network"
 
-create_container_bridge "$br" "$C"
-create_container_service "$br" "$C"
+create_container_bridge "$C" "$br"
+create_container_service "$C" "$br"
+create_container_host0 "$C" "$br" "$ip"
 
 run systemctl start "$C" --no-pager
 run systemctl status "$C" --no-pager
