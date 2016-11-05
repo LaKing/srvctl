@@ -27,6 +27,8 @@ then
     exit 11
 fi
 
+őut container "$C"
+
 local ip br
 ip="$(get container "$C" ip)"
 br="$(get container "$C" br)"
