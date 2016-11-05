@@ -58,7 +58,7 @@ run mcedit "$file"
 
 [[ -f "$file" ]] || return
 
-[[ -f /bin/python ]] && /bin/python "$SC_INSTALL_DIR/apps/beautify_bash.py" "$file"
+[[ -f /bin/python ]] && /bin/python "$SC_INSTALL_DIR/modules/srvctl/apps/beautify_bash.py" "$file"
 [[ -f /usr/bin/shellcheck ]] && shellcheck "$file"
 
 msg "$CMD done .."

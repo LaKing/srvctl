@@ -5,7 +5,7 @@ function root_only {
     then
         return 0
     else
-        err "Authorization failure"
+        err "Authorization failure - this is root-only"
         exit 44
     fi
 }
@@ -21,14 +21,5 @@ function sudomize {
     fi
 }
 
-function authorize {
-    
-    if ! $SC_ROOT
-    then
-        ## authorize SC_USER
-        
-        ## ...
-        dbg auth
-    fi
-}
+
 

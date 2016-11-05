@@ -49,10 +49,9 @@ function run_hooks {
         ## find and call hooks
         if [[ -f $dir/hooks/$hook.sh ]]
         then
-            
             source "$dir/hooks/$hook.sh"
             exif "$dir hook '$hook' failed"
-            return
+            #return
         fi
     done
     

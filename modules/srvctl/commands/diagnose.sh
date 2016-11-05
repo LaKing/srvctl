@@ -80,7 +80,7 @@ run w
 msg "-- process tree --"
 run systemctl status --no-pager
 
-
+run_hooks diagnose
 
 
 

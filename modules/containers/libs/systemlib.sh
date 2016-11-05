@@ -4,7 +4,8 @@ function create_container_service {
     
     local name bridge
     
-    name="$1"
+    name="$2"
+    bridge="$1"
     
 cat > "/etc/systemd/system/machines.target.wants/$name.service" << EOF
 
@@ -16,7 +17,7 @@ Before=machines.target
 After=network.target
 
 [Service]
-ExecStart=/usr/bin/systemd-nspawn --quiet --keep-unit --boot --link-journal=try-guest --network-veth -U --settings=override --machine=$name
+ExecStart=/usr/bin/systemd-nspawn --quiet --keep-unit --boot --link-journal=try-guest --network-bridge=$bridge -U --settings=override --machine=$name
 KillMode=mixed
 Type=notify
 RestartForceExitStatus=133
@@ -44,4 +45,29 @@ WantedBy=machines.target
 
 EOF
     
+    systemctl daemon-reload
+}
+
+function create_container_bridge {
+    local bridge
+    bridge="$1"
+    
+cat "/etc/systemd/network/br-$bridge.netdev" << EOF
+[NetDev]
+Name=$bridge
+Kind=bridge
+
+EOF
+    
+cat "/etc/systemd/network/br-$bridge.network" << EOF
+[Match]
+Name=$bridge
+
+[Network]
+IPMasquerade=yes
+Address=$bridge/28
+
+EOF
+    
+    systemctl restart networkctl --no-pager
 }

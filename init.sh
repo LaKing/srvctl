@@ -8,6 +8,7 @@ source "$SC_INSTALL_DIR/commonlib.sh" || echo "commonlib could not be loaded!" 1
 
 ## logging related
 readonly NOW=$(date +%Y.%m.%d-%H:%M:%S)
+export NOW
 
 run_hooks pre-init
 
@@ -44,6 +45,8 @@ else
     readonly SC_ROOT=false
 fi
 
+run_hooks post-init
+
 readonly CMD="${CMD,,}"
 readonly ARG
 readonly ARGS
@@ -51,7 +54,9 @@ readonly OPA
 readonly OPAS
 readonly DEBUG
 
-run_hooks post-init
+export SC_USER
+export SC_ROOT
+export SRVCTL
 
 ## breakout to help-only
 if [[ $CMD == "man" ]] || [[ $CMD == "help" ]] || [[ $CMD == "-help" ]] || [[ $CMD == "--help" ]]
