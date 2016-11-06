@@ -9,12 +9,12 @@ argument container
 local C
 C="$ARG"
 
-run systemctl stop "$C"
-run systemctl disable "$C"
+systemctl stop "$C"
+systemctl disable "$C"
 
 if [[ -d $SRV/$C ]]
 then
-    run rm -fr "$SRV/$C"
+    rm -fr "$SRV/$C"
 fi
 
 del container "$C"
