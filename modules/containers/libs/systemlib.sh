@@ -6,7 +6,7 @@ function create_container_service {
     C="$1"
     bridge="$2"
     
-    mkdir -p /etc/srvctl/system
+    mkdir -p /etc/srvctl/containers
 cat > "/etc/srvctl/containers/$C.service" << EOF
 
 [Unit]
