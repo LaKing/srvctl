@@ -12,12 +12,15 @@ const ARG = process.argv[4];
 const OPA = process.argv[5];
 
 // constatnts
-const SC_USERS_DATA_FILE = '/etc/srvctl/users.json';
-const SC_CONTAINERS_DATA_FILE = '/etc/srvctl/containers.json';
+
+const SC_HOSTS_DATA_FILE = '/etc/srvctl/data/hosts.json';
+const SC_USERS_DATA_FILE = '/etc/srvctl/data/users.json';
+const SC_CONTAINERS_DATA_FILE = '/etc/srvctl/data/containers.json';
 
 const PUT = 'put';
 const GET = 'get';
 const OUT = 'out';
+const CFG = 'cfg';
 const dot = '.';
 // netblock size
 const NBC = 16;
@@ -61,14 +64,15 @@ if (DAT === undefined) return_error("MISSING DAT ARGUMENT");
 if (ARG === undefined) return_error("MISSING ARG ARGUMENT");
 // OPA is optional
 
-if (CMD !== GET && CMD !== PUT && CMD !== OUT) return_error("INVALID CMD ARGUMENT");
-if (DAT !== 'user' && DAT != 'container') return_error("INVALID DAT ARGUMENT");
+if (CMD !== GET && CMD !== PUT && CMD !== OUT && CMD !== CFG) return_error("INVALID CMD ARGUMENT");
+if (DAT !== 'system' && DAT !== 'user' && DAT != 'container') return_error("INVALID DAT ARGUMENT");
 
 // includes
 var fs = require('fs');
 
 // variables
-var users = [];
+var hosts = {};
+var users = {};
 var containers = {};
 var user = '';
 var container = '';
@@ -78,7 +82,14 @@ var save_containers = false;
 //if (DAT === 'container') container = ARG;
 //if (DAT === 'user') user = ARG;
 
-
+// data functions
+function load_hosts() {
+    try {
+        hosts = JSON.parse(fs.readFileSync(SC_HOSTS_DATA_FILE));
+    } catch (err) {
+        return_error('READFILE ' + SC_HOSTS_DATA_FILE);
+    }
+}
 // data functions
 function load_users() {
     try {
@@ -322,6 +333,25 @@ function new_container(C, U) {
 
 }
 
+function print_etc_hosts() {
+    log("## srvctl generated");
+    log("127.0.0.1    localhost.localdomain localhost");
+    log("::1    localhost6.localdomain6 localhost6");
+    log("## hosts");
+    Object.keys(hosts).forEach(function(i) {
+        if (hosts[i].ip) log(i + '    ' + hosts[i].ip);
+    });
+    log("## containers");
+    Object.keys(containers).forEach(function(i) {
+        if (containers[i].ip) {
+            log(i + '    ' + containers[i].ip);
+            if (containers["mail." + i] === undefined) log('mail.' + i + '    ' + containers[i].ip);
+        }
+    });
+
+}
+
+load_hosts();
 load_containers();
 load_users();
 
@@ -333,7 +363,7 @@ if (DAT === 'container') {
         exit();
     }
 
-    if (CMD == GET) {
+    if (CMD === GET) {
         if (OPA === 'exist') return_value(containers[ARG] !== undefined);
         if (containers[ARG] === undefined) return_error('CONTAINER DONT EXISTS');
         var container = containers[ARG];
@@ -361,14 +391,14 @@ if (DAT === 'user') {
         exit();
     }
 
-    if (CMD == GET) {
+    if (CMD === GET) {
         if (users[ARG] === undefined) return_error('USER DONT EXISTS');
         var user = users[ARG];
         if (OPA === 'name') return_value(user.name);
 
     }
 
-    if (CMD == OUT) {
+    if (CMD === OUT) {
         if (users[ARG] === undefined) return_error('USER DONT EXISTS');
         var user = users[ARG];
         output('name', ARG);
@@ -379,7 +409,13 @@ if (DAT === 'user') {
         exit();
     }
 }
+if (DAT === 'system') {
+    if (CMD === CFG) {
+        if (ARG === '/etc/hosts') print_etc_hosts();
+        exit();
+    }
 
+}
 
 
 return_error("EXIT on data.js EOF :: CMD:" + CMD + " ARG:" + ARG + " OPA:" + OPA);

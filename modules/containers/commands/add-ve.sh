@@ -27,11 +27,11 @@ then
     exit 11
 fi
 
-put container "$C"
+put container "$C" || exit
 
 local ip br
-ip="$(get container "$C" ip)"
-br="$(get container "$C" br)"
+ip="$(get container "$C" ip)" || exit
+br="$(get container "$C" br)" || exit
 
 msg "Container $C
 ip: $ip
@@ -55,3 +55,6 @@ create_container_host0 "$C" "$br" "$ip"
 
 run systemctl start "$C" --no-pager
 run systemctl status "$C" --no-pager
+
+# shellcheck disable=SC2094
+cfg system /etc/hosts > /etc/hosts

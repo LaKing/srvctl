@@ -51,7 +51,10 @@ run_command
 
 if [[ $? == 0 ]]
 then
-    msg "srvctl v3 ready"
+    if $DEBUG
+    then
+        msg "srvctl v3 ready"
+    fi
 else
     ## something gone wrong, or user did something bad
     

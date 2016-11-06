@@ -57,7 +57,7 @@ EOF
         
         source $SC_COMMAND_COMPLETION_DEFINITIONS
         
-        dbg "Updated command completion"
+        #dbg "Updated command completion"
         
     }
     
