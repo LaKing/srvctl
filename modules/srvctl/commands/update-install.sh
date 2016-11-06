@@ -13,6 +13,7 @@ sc_update
 
 ## install mc if we dont have it
 [[ -f /bin/mc ]] || sc_install mc
+[[ -f /bin/node ]] || sc_install nodejs
 
 ## source custom configurations
 if [[ ! -f /etc/srvctl/config ]]
@@ -32,12 +33,12 @@ then
     ## srvctl3 database
     if ! [[ -f /etc/srvctl/containers.json ]]
     then
-        echo '[]' > /etc/srvctl/containers.json
+        echo '{}' > /etc/srvctl/containers.json
     fi
     
     if ! [[ -f /etc/srvctl/users.json ]]
     then
-        echo '[]' > /etc/srvctl/users.json
+        echo '{}' > /etc/srvctl/users.json
     fi
     
     ## network configuration

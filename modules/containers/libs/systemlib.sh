@@ -52,14 +52,14 @@ function create_container_bridge {
     name="$1"
     bridge="$2"
     
-cat "/etc/systemd/network/br-$bridge.netdev" << EOF
+cat > "/etc/systemd/network/br-$bridge.netdev" << EOF
 [NetDev]
 Name=$bridge
 Kind=bridge
 
 EOF
     
-cat "/etc/systemd/network/br-$bridge.network" << EOF
+cat > "/etc/systemd/network/br-$bridge.network" << EOF
 [Match]
 Name=$bridge
 
@@ -78,7 +78,7 @@ function create_container_host0 {
     bridge="$2"
     ip="$3"
     
-cat "/etc/systemd/network/br-$bridge.netdev" << EOF
+cat > "/etc/systemd/network/br-$bridge.netdev" << EOF
 [Match]
 Virtualization=container
 Name=host0
