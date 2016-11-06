@@ -14,8 +14,8 @@ function scan_host_keys() {
         echo "## srvctl scanned host-key $NOW IP $ip VE $C" > "$SRV/$_C/host-key"
         echo "$res_ip" >> "$SRV/$C/host-key"
         echo "$res_ve" >> "$SRV/$C/host-key"
-        put container "$C" host-key-ip "$res_ip"
-        put container "$C" host-key-ve "$res_ve"
+        put container "$C" host-key-ip "'$res_ip'"
+        put container "$C" host-key-ve "'$res_ve'"
         
     else
         err "ssh-keyscan returned with no result."
