@@ -7,7 +7,7 @@ function create_container_service {
     bridge="$2"
     
     mkdir -p /etc/srvctl/system
-cat > "/etc/srvctl/system/$C.service" << EOF
+cat > "/etc/srvctl/containers/$C.service" << EOF
 
 [Unit]
 Description=Container $C
@@ -45,8 +45,8 @@ WantedBy=machines.target
 
 EOF
     
-    ln -s "/etc/srvctl/system/$C.service" "/etc/systemd/system/$C.service"
-    systemctl daemon-reload
+    systemctl enable "/etc/srvctl/containers/$C.service"
+    #systemctl daemon-reload
 }
 
 function create_container_bridge {
