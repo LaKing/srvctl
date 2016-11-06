@@ -1,6 +1,6 @@
 #!/bin/bash
 
-## @en List container's statuses
+## @en List container statuses
 
 local list
 list="$(cfg system container_list)" || exit
@@ -28,7 +28,7 @@ do
     then
         if ping_ms=$(ping -r -W 1 -c 1 "$ip" | grep rtt)
         then
-            printf "${GREEN}%-10s${CLEAR}" "$ping_ms"
+            printf "${GREEN}%-10s${CLEAR}" "${ping_ms:23:5}ms"
         else
             printf "${RED}%-10s${CLEAR}" "ERROR"
         fi
