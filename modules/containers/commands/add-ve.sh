@@ -53,6 +53,8 @@ create_container_bridge "$C" "$br"
 create_container_service "$C" "$br"
 create_container_host0 "$C" "$br" "$ip"
 
+ln -s /usr/lib/systemd/system/systemd-networkd.service "$SRV/$C"/etc/systemd/system/systemd-networkd.service
+
 run systemctl start "$C" --no-pager
 run systemctl status "$C" --no-pager
 
