@@ -1,13 +1,21 @@
 #!/bin/bash
 
+function regenerate() {
+    regenerate_etc_hosts
+    regenerate_etc_postfix_relaydomains
+    regenerate_ssh_config
+}
+
 function regenerate_etc_hosts() {
-    # shellcheck disable=SC2094
-    cfg system /etc/hosts > /etc/hosts
+    cfg system etc_hosts > /etc/hosts
 }
 
 function regenerate_etc_postfix_relaydomains() {
-    # shellcheck disable=SC2094
-    cfg system /etc/postfix/relaydomains > /etc/postfix/relaydomains
+    cfg system postfix_relaydomains > /etc/postfix/relaydomains
+}
+
+function regenerate_ssh_config() {
+    cfg system ssh_config > /etc/ssh/ssh_config.d/srvctl-containers.conf
 }
 
 

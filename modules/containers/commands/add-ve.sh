@@ -56,6 +56,6 @@ create_container_host0 "$C" "$br" "$ip"
 run systemctl start "$C" --no-pager
 run systemctl status "$C" --no-pager
 
-ssh-keyscan -t rsa -H "$C"
+ssh-keyscan -t rsa -H "$ip"
 
 regenerate
