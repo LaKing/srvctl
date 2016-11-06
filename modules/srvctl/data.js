@@ -380,6 +380,14 @@ function system_host_keys() {
     });
 }
 
+function system_container_list() {
+    var str = '';
+    Object.keys(containers).forEach(function(i) {
+        str += i + ' ';
+    });
+    return_value(str);
+}
+
 function add_host_key(C, key, value) {
     if (containers[C] === undefined) return_error('CONTAINER DONT EXISTS');
     containers[C][key] = value;
@@ -450,6 +458,7 @@ if (DAT === 'system') {
         if (ARG === 'postfix_relaydomains') system_postfix_relaydomains();
         if (ARG === 'ssh_config') system_ssh_config();
         if (ARG === 'host_keys') system_host_keys();
+        if (ARG === 'container_list') system_container_list();
         exit();
     }
 

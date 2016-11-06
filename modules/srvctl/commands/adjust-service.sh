@@ -41,7 +41,7 @@ function service_action {
             
             if [[ $op == "stop" ]] || [[ $op == "disable" ]] || [[ $op == "kill" ]]
             then
-                run systemctl disable "$service"
+                [[ $op == "disable" ]] && run systemctl disable "$service"
                 run systemctl stop "$service"
                 [[ $op == "kill" ]] && run systemctl kill "$service"  --no-pager
                 run systemctl status "$service"  --no-pager
@@ -73,6 +73,8 @@ then
     op=$CMD
     service=$ARG
 fi
+
+run_hooks adjust-service
 
 ## special services
 if [[ $service == openvpn ]] && [[ ! -z "$op" ]] && [[ -f "/usr/lib/systemd/system/openvpn@.service" ]] && $IS_ROOT

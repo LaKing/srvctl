@@ -1,4 +1,4 @@
-## Srvctl v3 (3.0.101.0)
+## Srvctl v3 (3.0.102.4)
 A remake for 2016 mostly using systemd tools
 ```
 
@@ -27,6 +27,9 @@ COMMAND - from srvctl
     
      Generic container for customization.
      Contains basic packages.
+    
+   status                                                                               
+    
     
    adjust-service                        status / start|stop|kill|restart(enable|remove) or ? / +|-|!
     
