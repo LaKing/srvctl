@@ -2,21 +2,22 @@
 
 function create_container_service {
     
-    local name bridge
-    name="$1"
+    local C bridge
+    C="$1"
     bridge="$2"
     
-cat > "/etc/systemd/system/machines.target.wants/$name.service" << EOF
+    mkdir -p /etc/srvctl/system
+cat > "/etc/srvctl/system/$C.service" << EOF
 
 [Unit]
-Description=Container $name
+Description=Container $C
 Documentation=man:systemd-nspawn(1)
 PartOf=machines.target
 Before=machines.target
 After=network.target
 
 [Service]
-ExecStart=/usr/bin/systemd-nspawn --quiet --keep-unit --boot --link-journal=try-guest --network-bridge=$bridge -U --settings=override --machine=$name
+ExecStart=/usr/bin/systemd-nspawn --quiet --keep-unit --boot --link-journal=try-guest --network-bridge=$bridge -U --settings=override --machine=$C
 KillMode=mixed
 Type=notify
 RestartForceExitStatus=133
@@ -44,15 +45,17 @@ WantedBy=machines.target
 
 EOF
     
+    ln -s "/etc/srvctl/system/$C.service" "/etc/systemd/system/$C.service"
     systemctl daemon-reload
 }
 
 function create_container_bridge {
-    local name bridge
-    name="$1"
+    local C bridge
+    C="$1"
     bridge="$2"
     
 cat > "/etc/systemd/network/br-$bridge.netdev" << EOF
+## srvctl $C
 [NetDev]
 Name=$bridge
 Kind=bridge
@@ -60,6 +63,7 @@ Kind=bridge
 EOF
     
 cat > "/etc/systemd/network/br-$bridge.network" << EOF
+## srvctl $C
 [Match]
 Name=$bridge
 
@@ -69,16 +73,16 @@ Address=$bridge/28
 
 EOF
     
-    systemctl restart networkctl --no-pager
+    systemctl restart systemd-networkd --no-pager
 }
 
 function create_container_host0 {
-    local name bridge ip
-    name="$1"
+    local C bridge ip
+    C="$1"
     bridge="$2"
     ip="$3"
     
-cat > "/etc/systemd/network/br-$bridge.netdev" << EOF
+cat > "$SRV/$C/etc/systemd/network/80-container-host0.network" << EOF
 [Match]
 Virtualization=container
 Name=host0
@@ -89,5 +93,4 @@ Gateway=$bridge
 
 EOF
     
-    systemctl restart networkctl --no-pager
 }
