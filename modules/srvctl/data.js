@@ -348,7 +348,20 @@ function print_etc_hosts() {
             if (containers["mail." + i] === undefined) log('mail.' + i + '    ' + containers[i].ip);
         }
     });
+}
 
+function print_postfix_relaydomains() {
+    Object.keys(hosts).forEach(function(i) {
+        log(i + ' #');
+    });
+}
+
+function print_ssh_config() {
+    Object.keys(hosts).forEach(function(i) {
+        log("Host " + i);
+        log("User root");
+        log("");
+    });
 }
 
 load_hosts();
@@ -411,7 +424,9 @@ if (DAT === 'user') {
 }
 if (DAT === 'system') {
     if (CMD === CFG) {
-        if (ARG === '/etc/hosts') print_etc_hosts();
+        if (ARG === 'etc_hosts') print_etc_hosts();
+        if (ARG === 'postfix_relaydomains') print_postfix_relaydomains();
+        if (ARG === 'ssh_config') print_ssh_config();
         exit();
     }
 

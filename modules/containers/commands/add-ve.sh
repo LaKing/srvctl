@@ -56,5 +56,6 @@ create_container_host0 "$C" "$br" "$ip"
 run systemctl start "$C" --no-pager
 run systemctl status "$C" --no-pager
 
-# shellcheck disable=SC2094
-cfg system /etc/hosts > /etc/hosts
+ssh-keyscan -t rsa -H "$C"
+
+regenerate
