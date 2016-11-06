@@ -1,4 +1,4 @@
-## Srvctl v3 (3.0.102.7)
+## Srvctl v3 (3.0.102.8)
 A remake for 2016 mostly using systemd tools
 ```
 
@@ -27,6 +27,10 @@ COMMAND - from srvctl
     
      Generic container for customization.
      Contains basic packages.
+    
+   remove                                Delete container with all its files            
+    
+     Delete all files and all records regarding the VE.
     
    status                                List container statuses                        
     

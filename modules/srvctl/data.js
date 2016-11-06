@@ -22,6 +22,7 @@ const PUT = 'put';
 const GET = 'get';
 const OUT = 'out';
 const CFG = 'cfg';
+const DEL = 'del';
 const dot = '.';
 // netblock size
 const NBC = 16;
@@ -65,7 +66,7 @@ if (DAT === undefined) return_error("MISSING DAT ARGUMENT");
 if (ARG === undefined) return_error("MISSING ARG ARGUMENT");
 // OPA is optional
 
-if (CMD !== GET && CMD !== PUT && CMD !== OUT && CMD !== CFG) return_error("INVALID CMD ARGUMENT");
+if (CMD !== GET && CMD !== PUT && CMD !== OUT && CMD !== CFG && CMD !== DEL) return_error("INVALID CMD ARGUMENT");
 if (DAT !== 'system' && DAT !== 'user' && DAT != 'container') return_error("INVALID DAT ARGUMENT");
 
 // includes
@@ -422,6 +423,12 @@ if (DAT === 'container') {
         // .. all possible fields
         output('ip', container.ip);
         // ...
+        exit();
+    }
+    
+    if (CMD === DEL) {
+        delete containers[ARG];
+        save_containers = true;
         exit();
     }
 }

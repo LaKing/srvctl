@@ -29,7 +29,7 @@ function out {
     # shellcheck disable=SC2048
     # shellcheck disable=SC2086
     /bin/node "$SC_INSTALL_DIR/modules/srvctl/data.js" out $* 2>&1
-    exif 'Error in data processing, the node-data exited with a failure.'
+    exif 'Error in data processing, the node-data exited with a failure. (out)'
 }
 
 function cfg {
@@ -37,5 +37,13 @@ function cfg {
     # shellcheck disable=SC2048
     # shellcheck disable=SC2086
     /bin/node "$SC_INSTALL_DIR/modules/srvctl/data.js" cfg $* 2>&1
-    exif 'Error in data processing, the node-data exited with a failure.'
+    exif 'Error in data processing, the node-data exited with a failure. (cfg)'
+}
+
+function del {
+    local __result
+    # shellcheck disable=SC2048
+    # shellcheck disable=SC2086
+    /bin/node "$SC_INSTALL_DIR/modules/srvctl/data.js" del $* 2>&1
+    exif 'Error in data processing, the node-data exited with a failure. (del)'
 }

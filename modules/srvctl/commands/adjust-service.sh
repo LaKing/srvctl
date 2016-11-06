@@ -36,6 +36,7 @@ function service_action {
                 run systemctl enable  "$service"
                 run systemctl restart "$service"
                 run systemctl status "$service"  --no-pager
+                return 0
             fi
             
             
