@@ -53,7 +53,9 @@ create_container_bridge "$C" "$br"
 create_container_service "$C" "$br"
 create_container_host0 "$C" "$br" "$ip"
 
-ln -s /usr/lib/systemd/system/systemd-networkd.service "$SRV/$C"/etc/systemd/system/systemd-networkd.service
+ln -s /usr/lib/systemd/system/systemd-networkd.service "$SRV/$C"/etc/systemd/system/multi-user.target.wants/systemd-networkd.service
+ln -s /usr/lib/systemd/system/systemd-networkd.service "$SRV/$C"/etc/systemd/system/sockets.target.wants/systemd-networkd.socket
+
 
 run systemctl start "$C" --no-pager
 run systemctl status "$C" --no-pager
@@ -61,3 +63,6 @@ run systemctl status "$C" --no-pager
 ssh-keyscan -t rsa -H "$ip"
 
 regenerate
+
+
+ssh-keyscan -t rsa -H "$C"
