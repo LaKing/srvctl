@@ -27,7 +27,7 @@ then
     exit 11
 fi
 
-őut container "$C"
+put container "$C"
 
 local ip br
 ip="$(get container "$C" ip)"
@@ -37,6 +37,12 @@ msg "Container $C
 ip: $ip
 br: $br
 "
+
+if [[ -z $ip ]] || [[ -z $br ]]
+then
+    err "Zero-ip/br"
+    exit 35
+fi
 
 ## -a ?
 run cp -R -p "$ROOTFS_DIR/fedora" "$SRV/$C"
