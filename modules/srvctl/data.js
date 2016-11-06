@@ -10,6 +10,7 @@ const CMD = process.argv[2];
 const DAT = process.argv[3];
 const ARG = process.argv[4];
 const OPA = process.argv[5];
+const VAL = process.argv[6];
 
 // constatnts
 
@@ -320,6 +321,8 @@ function add_container_to_user(C, U) {
 
 function new_container(C, U) {
 
+    if (containers[C] !== undefined) return_error('CONTAINER EXISTS');
+
     add_container_to_user(C, U);
 
     var container = {};
@@ -333,7 +336,7 @@ function new_container(C, U) {
 
 }
 
-function print_etc_hosts() {
+function system_etc_hosts() {
     log("## srvctl generated");
     log("127.0.0.1    localhost.localdomain localhost");
     log("::1    localhost6.localdomain6 localhost6");
@@ -350,18 +353,37 @@ function print_etc_hosts() {
     });
 }
 
-function print_postfix_relaydomains() {
+function system_postfix_relaydomains() {
     Object.keys(hosts).forEach(function(i) {
         log(i + ' #');
     });
 }
 
-function print_ssh_config() {
+function system_ssh_config() {
     Object.keys(hosts).forEach(function(i) {
         log("Host " + i);
         log("User root");
         log("");
     });
+}
+
+function system_host_keys() {
+    Object.keys(hosts).forEach(function(i) {
+        Object.keys(hosts[i]).forEach(function(j) {
+            if (j.substring(0, 8) === 'host-key') log(hosts[i][j]);
+        });
+    });
+    Object.keys(containers).forEach(function(i) {
+        Object.keys(containers[i]).forEach(function(j) {
+            if (j.substring(0, 8) === 'host-key') log(containers[i][j]);
+        });
+    });
+}
+
+function add_host_key(C, key, value) {
+    if (containers[C] === undefined) return_error('CONTAINER DONT EXISTS');
+    containers[C][key] = value;
+    save_containers = true;
 }
 
 load_hosts();
@@ -371,8 +393,8 @@ load_users();
 if (DAT === 'container') {
 
     if (CMD === PUT) {
-        if (containers[ARG] !== undefined) return_error('CONTAINER EXISTS');
-        new_container(ARG, SC_USER);
+        if (OPA === 'new') new_container(ARG, SC_USER);
+        if (OPA.substring(0, 8) === 'host-key' && VAL !== undefined) add_host_key(ARG, OPA, VAL);
         exit();
     }
 
@@ -424,9 +446,10 @@ if (DAT === 'user') {
 }
 if (DAT === 'system') {
     if (CMD === CFG) {
-        if (ARG === 'etc_hosts') print_etc_hosts();
-        if (ARG === 'postfix_relaydomains') print_postfix_relaydomains();
-        if (ARG === 'ssh_config') print_ssh_config();
+        if (ARG === 'etc_hosts') system_etc_hosts();
+        if (ARG === 'postfix_relaydomains') system_postfix_relaydomains();
+        if (ARG === 'ssh_config') system_ssh_config();
+        if (ARG === 'host_keys') system_host_keys();
         exit();
     }
 

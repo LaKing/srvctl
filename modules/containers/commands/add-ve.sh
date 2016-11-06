@@ -27,7 +27,7 @@ then
     exit 11
 fi
 
-put container "$C" || exit
+put container "$C" new || exit
 
 local ip br
 ip="$(get container "$C" ip)" || exit
@@ -60,9 +60,8 @@ ln -s /usr/lib/systemd/system/systemd-networkd.service "$SRV/$C"/etc/systemd/sys
 run systemctl start "$C" --no-pager
 run systemctl status "$C" --no-pager
 
-ssh-keyscan -t rsa -H "$ip"
 
 regenerate
 
+scan_host_keys "$C" "$ip"
 
-ssh-keyscan -t rsa -H "$C"

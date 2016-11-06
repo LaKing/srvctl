@@ -19,6 +19,5 @@ function regenerate_etc_postfix_relaydomains() {
 
 function regenerate_ssh_config() {
     cfg system ssh_config > /etc/ssh/ssh_config.d/srvctl-containers.conf
+    cfg system host_keys  > /etc/ssh/ssh_known_hosts
 }
-
-
