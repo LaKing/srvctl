@@ -1,5 +1,7 @@
 #!/bin/bash
 
+## @en List container's statuses
+
 local list
 list="$(cfg system container_list)" || exit
 
