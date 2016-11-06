@@ -339,13 +339,13 @@ function print_etc_hosts() {
     log("::1    localhost6.localdomain6 localhost6");
     log("## hosts");
     Object.keys(hosts).forEach(function(i) {
-        if (hosts[i].ip) log(i + '    ' + hosts[i].ip);
+        if (hosts[i].ip) log(hosts[i].ip + '    ' + i);
     });
     log("## containers");
     Object.keys(containers).forEach(function(i) {
         if (containers[i].ip) {
-            log(i + '    ' + containers[i].ip);
-            if (containers["mail." + i] === undefined) log('mail.' + i + '    ' + containers[i].ip);
+            log(containers[i].ip + '    ' + i);
+            if (containers["mail." + i] === undefined) log(containers[i].ip + '    mail.' + i);
         }
     });
 }

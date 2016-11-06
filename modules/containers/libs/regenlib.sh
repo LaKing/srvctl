@@ -11,7 +11,10 @@ function regenerate_etc_hosts() {
 }
 
 function regenerate_etc_postfix_relaydomains() {
-    cfg system postfix_relaydomains > /etc/postfix/relaydomains
+    if [[ -d /etc/postfix/ ]]
+    then
+        cfg system postfix_relaydomains > /etc/postfix/relaydomains
+    fi
 }
 
 function regenerate_ssh_config() {
