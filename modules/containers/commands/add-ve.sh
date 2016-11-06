@@ -60,8 +60,11 @@ ln -s /usr/lib/systemd/system/systemd-networkd.service "$SRV/$C"/etc/systemd/sys
 run systemctl start "$C" --no-pager
 run systemctl status "$C" --no-pager
 
+## scan host keys needs etc_hosts
+regenerate_etc_hosts
+scan_host_keys "$C" "$ip"
+
 
 regenerate
 
-scan_host_keys "$C" "$ip"
 
