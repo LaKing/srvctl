@@ -42,13 +42,13 @@ function dbg {
 }
 function debug {
     ## tracing debug message
-    echo -e "${YELLOW}DEBUG ${BASH_SOURCE[1]}#$BASH_LINENO ${FUNCNAME[1]} ${RED} $*${CLEAR}"
+    echo -e "${YELLOW} DEBUG ${BASH_SOURCE[1]}#$BASH_LINENO ${FUNCNAME[1]} ${RED} $*${CLEAR}"
     set -o posix;
     set | grep BASH_LINENO=
     set | grep BASH_SOURCE=
     set | grep FUNCNAME=
     set | grep SC_
-    echo -e "${YELLOW}DEBUG ${BASH_SOURCE[1]}#$BASH_LINENO ${FUNCNAME[1]} ${RED} $*${CLEAR}"
+    echo -e "${YELLOW} DEBUG ${BASH_SOURCE[1]}#$BASH_LINENO ${FUNCNAME[1]} ${RED} $*${CLEAR}"
 }
 function err {
     ## error message
@@ -100,3 +100,26 @@ function eyif {
         fi
     fi
 }
+
+function sed_file {
+    ## used to replace a line in a file
+    ## filename=$1 oldline=$2 newline=$3
+    cat "$1" > "$1.tmp"
+    sed "s|$2|$3|" "$1.tmp" > "$1"
+    rm "$1.tmp"
+}
+
+function add_conf {
+    ## check if the content string is present, and add if necessery. Single-line content only.
+    ## filename=$1 content=$2
+    if [ -f "$1" ]
+    then
+        if ! grep -q "$2" "$1"
+        then
+            echo "$2" >> "$1"
+        fi
+    else
+        err "File not found! $1 (add_conf)"
+    fi
+}
+

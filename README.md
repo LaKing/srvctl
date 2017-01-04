@@ -1,4 +1,4 @@
-## Srvctl v3 (3.0.103.1)
+## Srvctl v3 (3.0.118.0)
 A remake for 2016 mostly using systemd tools
 ```
 
@@ -20,6 +20,11 @@ COMMAND - from root
      This command does something custom, like running a bash script.
      It might be customized further, depending on the author.
     
+   status                                A Custom command from root 2016.12.28-11:20:47 
+    
+     This command does something custom, like running a bash script.
+     It might be customized further, depending on the author.
+    
 
 COMMAND - from srvctl                   
 
@@ -28,9 +33,19 @@ COMMAND - from srvctl
      Generic container for customization.
      Contains basic packages.
     
-   destroy                               Delete container with all its files            
+   destroy-ve                            Delete container with all its files            
     
      Delete all files and all records regarding the VE.
+    
+   regenerate-rootfs                     Create the container base.                     
+    
+     Download container filesystems that will be used as base when creating containers.
+    
+    
+   regenerate                            Write all config files with the current settings.
+    
+     Get all modules to write and overwrite config files with the actual configurations.
+    
     
    status                                List container statuses                        
     
@@ -81,5 +96,10 @@ COMMAND - from srvctl
     
      Contact the package manager, and query important packages
     
+    
+   add-user                              Add user to the systems                        
+    
+     Add user to database and create it on the system.
+     users will have default passwords, certificates, etc, ..
     
 ```

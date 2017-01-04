@@ -37,23 +37,31 @@ OPA="$3"
 # shellcheck disable=SC2124
 OPAS="${@:2}"
 
-## Check against the existance of the variable only
-SRVCTL=true
+[ "$CMD" == "?" ] && CMD=status
+[ "$CMD" == "+" ] && CMD=start
+[ "$CMD" == "-" ] && CMD=stop
+[ "$CMD" == "!" ] && CMD=restart
+
+[ "$ARG" == "?" ] && ARG=status
+[ "$ARG" == "+" ] && ARG=start
+[ "$ARG" == "-" ] && ARG=stop
+[ "$ARG" == "!" ] && ARG=restart
+
+## Check against the existance of the variable, and use it as base dir in var, eg /var/$SRVCTL/something
+SRVCTL='srvctl3x'
 readonly SRVCTL
 
 
 source "$SC_INSTALL_DIR/init.sh" || echo "Init could not be loaded!" 1>&2
 
-## load libs for running commands
-load_libs
-
+[[ $DEBUG == true ]] && ntc "@Run command"
 run_command
 
 if [[ $? == 0 ]]
 then
     if $DEBUG
     then
-        msg "srvctl v3 ready"
+        msg "#$SRVCTL"
     fi
 else
     ## something gone wrong, or user did something bad

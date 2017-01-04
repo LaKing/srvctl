@@ -1,0 +1,69 @@
+#!/bin/bash
+
+function create_nspawn_container_filesystem() { ## C T
+    
+    local C T
+    C="$1"
+    T="$2"
+    
+    local rootfs
+    rootfs="/srv/$C/rootfs"
+    mkdir -p "$rootfs"
+    
+    echo "$T" > "/srv/$C/ctype"
+    echo "$NOW" > "/srv/$C/creation-date"
+    echo "$SC_USER" > "/srv/$C/creation-user"
+    
+    msg "Create $T nspawn container filesystem $C"
+    
+    ## copy the filesystem root
+    run cp -R -p "$SC_ROOTFS_DIR/$T/*" "$rootfs"
+    
+    ## end of function
+}
+
+function create_nspawn_container_network() { ## C T
+    
+    local C T
+    C="$1"
+    T="$2"
+    
+    local ip br
+    ip="$(get container "$C" ip)" || exit
+    br="$(get container "$C" br)" || exit
+    
+    msg "Create $T nspawn container network $C"
+    msg "ip: $ip / br: $br"
+    
+    
+    if [[ -z $ip ]] || [[ -z $br ]]
+    then
+        err "Zero-ip/br"
+        exit 35
+    fi
+    
+    ## -a ?
+    
+    local rootfs
+    rootfs="/srv/$C/rootfs"
+    mkdir -p "$rootfs"
+    
+    echo "$ip" > "/srv/$C/ipv4-address"
+    echo "$br" > "/srv/$C/bridge"
+    
+    mkdir -p "$SC_MOUNTS_DIR/$C/etc/network"
+    
+    create_networkd_bridge "$br"
+    create_nspawn_container_service "$C" "$br"
+    create_nspawn_container_host0 "$C" "$br" "$ip"
+    
+    ## create container networking in the container
+    if [[ ! -e "$rootfs"/etc/systemd/system/multi-user.target.wants/systemd-networkd.service ]]
+    then
+        ln -s /usr/lib/systemd/system/systemd-networkd.service "$rootfs"/etc/systemd/system/multi-user.target.wants/systemd-networkd.service
+    fi
+    #ln -s /usr/lib/systemd/system/systemd-networkd.service "$rootfs"/etc/systemd/system/sockets.target.wants/systemd-networkd.socket
+    
+    
+    ## end of function
+}

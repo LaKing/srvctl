@@ -33,25 +33,47 @@ function title {
 
 function load_libs {
     
-    for sourcefile in $SC_INSTALL_DIR/modules/*/libs/*
+    for dir in $SC_INSTALL_DIR/modules/*
     do
-        [[ -f $sourcefile ]] && source "$sourcefile"
+        local tv
+        tv="SC_USE_${dir##*/}"
+        
+        if [[ ${!tv} == true ]]
+        then
+            for sourcefile in $dir/libs/*
+            do
+                [[ $DEBUG == true ]] && ntc "@lib ${dir##*/} ${sourcefile##*/}"
+                
+                [[ -f $sourcefile ]] && source "$sourcefile"
+            done
+        fi
+        
     done
+    
 }
 
 function run_hooks {
-    
     local hook
     hook="$1"
     
     for dir in $SC_INSTALL_DIR/modules/*
     do
-        ## find and call hooks
-        if [[ -f $dir/hooks/$hook.sh ]]
+        
+        local tv
+        tv="SC_USE_${dir##*/}"
+        
+        if [[ ${!tv} == true ]]
         then
-            source "$dir/hooks/$hook.sh"
-            exif "$dir hook '$hook' failed"
-            #return
+            
+            ## find and call hooks
+            if [[ -f $dir/hooks/$hook.sh ]]
+            then
+                
+                [[ $DEBUG == true ]] && ntc "@hook ${dir##*/} $hook"
+                
+                source "$dir/hooks/$hook.sh"
+                exif "$dir hook '$hook' failed"
+            fi
         fi
     done
     
@@ -71,13 +93,19 @@ function run_command {
     
     for dir in $SC_INSTALL_DIR/modules/*
     do
-        ## find and run commands
-        if [[ -f $dir/commands/$CMD.sh ]]
+        local tv
+        tv="SC_USE_${dir##*/}"
+        
+        if [[ ${!tv} == true ]]
         then
             
-            source "$dir/commands/$CMD.sh"
-            exif "'$CMD' failed"
-            return
+            ## find and run commands
+            if [[ -f $dir/commands/$CMD.sh ]]
+            then
+                source "$dir/commands/$CMD.sh"
+                exif "'$CMD' failed"
+                return
+            fi
         fi
     done
     
@@ -117,8 +145,10 @@ function hint_on_file {
     
     [[ -f $1 ]] || return 132
     
-    ## if not root, and file marked as root_only skip this item
-    ! $SC_ROOT && head "$1" | grep -q 'root_only || return' && return 133
+    ## root_only: if not root, and file marked as root_only skip this item
+    ! $SC_ROOT && head "$1" | grep -q 'root_only' && return 133
+    #! [[ $SC_HOSTNET ]] && head "$1" | grep -q 'hs_only' && return 134
+    #! $SC_ON_VE && head "$1" | grep -q 've_only' && return 135
     
     local hintstr command hintcmd
     
@@ -156,9 +186,19 @@ function hint_commands {
         title "COMMAND - from srvctl"
     fi
     
-    for sourcefile in $SC_INSTALL_DIR/modules/*/commands/*.sh
+    
+    for dir in $SC_INSTALL_DIR/modules/*
     do
-        hint_on_file "$sourcefile"
+        local tv
+        tv="SC_USE_${dir##*/}"
+        
+        if [[ ${!tv} == true ]]
+        then
+            for sourcefile in $dir/commands/*.sh
+            do
+                hint_on_file "$sourcefile"
+            done
+        fi
     done
     
     if [ -d "$SC_HOME/srvctl-includes" ] && [ "$SC_HOME" != "/root" ]

@@ -12,9 +12,6 @@
 ## &en to start and enable a service the operator is "+" or "start"
 ## &en to stop and disable a service the operator is "-" or "stop"
 
-## run only with srvctl
-[[ $SRVCTL ]] || exit 4
-
 local op=''
 local service=''
 

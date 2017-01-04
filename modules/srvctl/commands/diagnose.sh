@@ -19,8 +19,6 @@
 ## &en     To flush the mail que, use: postqueue -f
 ## &en     To remove all mail from the mail que use: postsuper -d ALL
 
-## run only with srvctl
-[[ $SRVCTL ]] || exit 4
 
 msg "srvctl version $(cat "$SC_INSTALL_DIR/version")"
 

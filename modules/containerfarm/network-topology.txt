@@ -1,0 +1,16 @@
+exit
+
+In srvctl3 we use a single class A network 10.x.x.x for communication of containers and hosts.
+This network is devided to 16 subnets. netmask: 255.240.0.0 or /12
+
+10.0.0.0 - 10.15.255.255 - reserved for external networks and openvpn connections outside of srvctl
+10.16.0.0 - 10.31.255.255 - HOSTNET 1
+10.32.0.0 - 10.47.255.255 - HOSTNET 2
+...
+10.240.0.0 - 10.255.255.255 - HOSTNET 15
+
+Bridges use a 10.b.b.x/24 (255.255.255.0) address space. That means 4080 bridges per hostnet. 
+
+We divide users and assign them to 16 resellers.
+That means we can have up to 16 servers, each hosting for 16 resellers.
+Resellers have ~250 users on each server. Each user can have ~200 containers on each server.
