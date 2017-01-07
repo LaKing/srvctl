@@ -22,7 +22,7 @@
 
 msg "srvctl version $(cat "$SC_INSTALL_DIR/version")"
 
-( set -o posix ; set ) | egrep "DEBUG=|ARG=|CMD=|OPA=|SC_"
+diagnose_variables
 
 # printenv
 

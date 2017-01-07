@@ -32,13 +32,12 @@ function title {
 }
 
 function load_libs {
+    local tvll
     
     for dir in $SC_INSTALL_DIR/modules/*
     do
-        local tv
-        tv="SC_USE_${dir##*/}"
-        
-        if [[ ${!tv} == true ]]
+        tvll="SC_USE_${dir##*/}"
+        if [[ ${!tvll} == true ]]
         then
             for sourcefile in $dir/libs/*
             do
@@ -47,22 +46,17 @@ function load_libs {
                 [[ -f $sourcefile ]] && source "$sourcefile"
             done
         fi
-        
     done
-    
 }
 
 function run_hooks {
-    local hook
+    local hook tvrh
     hook="$1"
-    
     for dir in $SC_INSTALL_DIR/modules/*
     do
+        tvrh="SC_USE_${dir##*/}"
         
-        local tv
-        tv="SC_USE_${dir##*/}"
-        
-        if [[ ${!tv} == true ]]
+        if [[ ${!tvrh} == true ]]
         then
             
             ## find and call hooks
@@ -83,6 +77,8 @@ function run_command {
     
     [[ $CMD ]] || return 54
     
+    local tvrc
+    
     ## permissions will determine the visibility of these commands
     if [[ -f /root/srvctl-includes/$CMD.sh ]]
     then
@@ -93,10 +89,9 @@ function run_command {
     
     for dir in $SC_INSTALL_DIR/modules/*
     do
-        local tv
-        tv="SC_USE_${dir##*/}"
         
-        if [[ ${!tv} == true ]]
+        tvrc="SC_USE_${dir##*/}"
+        if [[ ${!tvrc} == true ]]
         then
             
             ## find and run commands
@@ -186,13 +181,13 @@ function hint_commands {
         title "COMMAND - from srvctl"
     fi
     
-    
+    local tvhc
     for dir in $SC_INSTALL_DIR/modules/*
     do
-        local tv
-        tv="SC_USE_${dir##*/}"
         
-        if [[ ${!tv} == true ]]
+        tvhc="SC_USE_${dir##*/}"
+        
+        if [[ ${!tvhc} == true ]]
         then
             for sourcefile in $dir/commands/*.sh
             do
@@ -299,6 +294,31 @@ function help_commands {
     
 }
 
+function test_srvctl_modules() {
+    if [[ ! -f /etc/srvctl/modules.conf ]]
+    then
+        msg "Srvctl modules configuration"
+        local tvtm trtm
+        for dir in $SC_INSTALL_DIR/modules/*
+        do
+            tvtm="SC_USE_${dir##*/}"
+            trtm=false
+            if [[ -f $dir/module-condition.sh ]]
+            then
+                trtm="$(source "$dir/module-condition.sh")"
+                if [[ $trtm == true ]]
+                then
+                    trtm=true
+                else
+                    trtm=false
+                fi
+                ntc "tested module: $tvtm=$trtm"
+            fi
+            #declare $tv=$tr
+            echo "$tvtm=$trtm" >> /etc/srvctl/modules.conf
+        done
+    fi
+}
 
 #function hint_cms {
 #    for sourcefile in $SC_INSTALL_DIR/ve-cms/*

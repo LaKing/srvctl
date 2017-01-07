@@ -17,7 +17,6 @@ const VAL = process.argv[6];
 const SC_HOSTS_DATA_FILE = '/etc/srvctl/data/hosts.json';
 const SC_USERS_DATA_FILE = '/etc/srvctl/data/users.json';
 const SC_CONTAINERS_DATA_FILE = '/etc/srvctl/data/containers.json';
-const SC_RESELLERS_DATA_FILE = '/etc/srvctl/data/resellers.json';
 
 const PUT = 'put';
 const GET = 'get';
@@ -88,6 +87,7 @@ var fs = require('fs');
 // variables
 var hosts = {};
 var users = {};
+var resellers = {};
 var containers = {};
 var user = '';
 var container = '';
@@ -106,19 +106,30 @@ function load_hosts() {
     }
 }
 // data functions
+function load_resellers() {
+    resellers = {};
+    resellers.root = users.root;
+    resellers.root.is_reseller_id = 0;
+    Object.keys(users).forEach(function(i) {
+        if (users[i].is_reseller_id !== undefined)
+            resellers[i]=users[i];
+    });
+}
+
 function load_users() {
     try {
         users = JSON.parse(fs.readFileSync(SC_USERS_DATA_FILE));
+        if (users.root === undefined) {
+             users.root = {};
+             users.root.id = 0;
+             users.root.uid = 0;
+             users.root.is_reseller_id = 0;
+        }
+        // resellers are also users
+        load_resellers();
+        
     } catch (err) {
         return_error('READFILE ' + SC_USERS_DATA_FILE + ' ' + err);
-    }
-}
-
-function load_resellers() {
-    try {
-        resellers = JSON.parse(fs.readFileSync(SC_RESELLERS_DATA_FILE));
-    } catch (err) {
-        return_error('READFILE ' + SC_RESELLERS_DATA_FILE + ' ' + err);
     }
 }
 
@@ -203,9 +214,9 @@ function container_host_ip(container) {
 
 function container_reseller_user(container) {
     var resellerid = container_reseller_id(container);
-    var ret;
+    var ret = 'root';
     Object.keys(resellers).forEach(function(i) {
-        if (resellers[i].id == resellerid)
+        if (resellers[i].is_reseller_id == resellerid)
             ret = i;
     });
     return ret;
@@ -214,7 +225,7 @@ function container_reseller_user(container) {
 function container_user(container) {
     var cipa = container.ip.split(dot);
     var reseller = container_reseller_user(container);
-    var ret;
+    var ret = 'root';
     Object.keys(users).forEach(function(i) {
         if (users[i].reseller == reseller)
             if (users[i].id === cipa[2]) ret = i;
@@ -224,7 +235,7 @@ function container_user(container) {
 
 function find_next_cip_for_container_on_network(network) {
     var nipa = network.split(dot);
-    var c = 10;
+    var c = 1;
     Object.keys(containers).forEach(function(i) {
         var cipa = containers[i].ip.split(dot);
         if (cipa[1] === nipa[1] && cipa[2] === nipa[2]) {
@@ -236,10 +247,10 @@ function find_next_cip_for_container_on_network(network) {
     return c;
 }
 
-function get_reseller_id() {
-    var ret = Number(resellers[SC_RESELLER_USER].id);
-    if (ret === undefined) return_error("failed to find reseller id");
-    return ret;
+function get_reseller_id(user) {
+    var n = Number(resellers[users[user].reseller].is_reseller_id);
+    if (n >= 0) return ret;
+    else return_error("failed to find reseller id");
 }
 
 function get_user_id() {
@@ -252,10 +263,9 @@ function get_user_uid(user) {
     if (user.uid !== undefined) return user.uid;
     
     var userid = Number(user.id);
-    var resellerid = Number(resellers[user.reseller].id);
-    if (userid === undefined || resellerid === undefined) return_error("failed to find user id/uid");
-
-    return 10000 + resellerid * 1000 + userid;
+    var resellerid = Number(resellers[user.reseller].is_reseller_id);
+    if (userid >= 0 && resellerid >=0) return 10000 + resellerid * 1000 + userid;
+    else return_error("failed to find user id/uid");    
 }
 
 function get_next_user_id(reseller) {
@@ -270,7 +280,7 @@ function get_next_user_id(reseller) {
 
 function find_ip_for_container() {
 
-    var a = (16 * SC_HOSTNET) + get_reseller_id();
+    var a = (16 * SC_HOSTNET) + get_reseller_id(SC_USER);
     var b = get_user_id();
     var c = find_next_cip_for_container_on_network('10.' + a + dot + b + dot + 'x');
 
@@ -298,11 +308,11 @@ function new_user(username) {
     user.added_by_username = SC_USER;
     user.added_on_datestamp = NOW;
     user.password = get_password();
-    user.reseller = SC_RESELLER_USER;
-    if (user.reseller === "") user.reseller = 'root';
-
-    if (username === SC_RESELLER_USER) user.id = 0;
-    else user.id = get_next_user_id(SC_RESELLER_USER);
+    
+    if (resellers[SC_USER] !== undefined) user.reseller = SC_USER;
+    else user.reseller = 'root';
+    
+    user.id = get_next_user_id(user.reseller);
 
     users[username] = user;
     save_users = true;
@@ -395,6 +405,12 @@ function system_ssh_config() {
         log("StrictHostKeyChecking no");
         log("");
     });
+    Object.keys(containers).forEach(function(i) {
+        log("Host " + i);
+        log("User root");
+        log("StrictHostKeyChecking no");
+        log("");
+    });
 }
 
 function system_host_keys() {
@@ -426,25 +442,24 @@ function system_container_list() {
     return_value(str);
 }
 
-function system_ve_host_list() {
+function system_host_list() {
     var str = '';
     Object.keys(hosts).forEach(function(i) {
-        if (hosts[i].ve_host === true) str += i + ' ';
+        str += i + ' ';
     });
     return_value(str);
 }
 
-function system_ve_host_ip_list() {
+function system_host_ip_list() {
     var str = '';
     Object.keys(hosts).forEach(function(i) {
-        if (hosts[i].ve_host === true && hosts[i].ip !== undefined) str += hosts[i].ip + ' ';
+        if (hosts[i].ip !== undefined) str += hosts[i].ip + ' ';
     });
     return_value(str);
 }
 
 load_hosts();
 load_containers();
-load_resellers();
 load_users();
 
 if (DAT === 'container') {
@@ -512,10 +527,7 @@ if (DAT === 'user') {
     }
 
     if (CMD === GET) {
-        if (OPA === 'reseller' && resellers[ARG] !== undefined) return_value(ARG);
-
-        // the default reseller is root
-        if (OPA === 'reseller' && resellers[user.reseller] === undefined) return_value('root');
+        
         if (OPA === 'password' && user.password === undefined) return_value('');
         if (OPA === 'uid') return_value(get_user_uid(user));
 
@@ -545,6 +557,11 @@ if (DAT === 'host') {
     var host = hosts[ARG];
 
     if (CMD === GET) {
+        
+        //allow undefined values
+        if (OPA === 'host_ip' && host.host_ip === undefined) exit();
+        if (OPA === 'hostnet' && host.hostnet === undefined) exit();
+        
         return_value(host[OPA]);
         exit();
     }
@@ -585,8 +602,8 @@ if (DAT === 'system') {
         if (ARG === 'ssh_config') system_ssh_config();
         if (ARG === 'host_keys') system_host_keys();
         if (ARG === 'container_list') system_container_list();
-        if (ARG === 've_host_list') system_ve_host_list();
-        if (ARG === 've_host_ip_list') system_ve_host_ip_list();
+        if (ARG === 'host_list') system_host_list();
+        if (ARG === 'host_ip_list') system_host_ip_list();
         if (ARG === 'user_list') system_user_list();
         exit();
     }

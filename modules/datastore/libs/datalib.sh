@@ -1,57 +1,44 @@
 #!/bin/bash
-##
-## Usage:
-## myvar="$(get container mydomain.ve ip)" || exit
-## echo "Returned: $myvar"
-##
-##
 
-function new {
-    local __result
-    # shellcheck disable=SC2048
-    # shellcheck disable=SC2086
-    /bin/node "$SC_INSTALL_DIR/modules/datastore/data.js" new $* 2>&1
-    exif 'Error in data processing, the node-datastore module exited with a failure. (new)'
+function publish_data() {
+    ## simple rsync based data syncronization
+    
+    local hostlist
+    hostlist="$(cfg system host_list)"
+    
+    for host in $hostlist
+    do
+        if [[ "$(ssh -n -o ConnectTimeout=1 "$host" hostname 2> /dev/null)" == "$host" ]]
+        then
+            msg "publishing srvctl data to $host"
+            ssh -n -o ConnectTimeout=1 "$host" 'mkdir -p /etc/srvctl' 2> /dev/null
+            if ! rsync -avze ssh /etc/srvctl/data "$host:/etc/srvctl"
+            then
+                err "rsync failed for $host"
+            fi
+        else
+            err "Connection failed for $host"
+        fi
+    done
 }
 
-function get {
-    local __result
-    # shellcheck disable=SC2048
-    # shellcheck disable=SC2086
-    __result="$(/bin/node "$SC_INSTALL_DIR/modules/datastore/data.js" get $* 2>&1 )"
-    exif "$__result"
-    echo "$__result"
-}
-
-function put {
-    local __result
-    # shellcheck disable=SC2048
-    # shellcheck disable=SC2086
-    __result="$(/bin/node "$SC_INSTALL_DIR/modules/datastore/data.js" put $* 2>&1 )"
-    exif "$__result"
-    echo "$__result"
-}
-
-function out {
-    local __result
-    # shellcheck disable=SC2048
-    # shellcheck disable=SC2086
-    /bin/node "$SC_INSTALL_DIR/modules/datastore/data.js" out $* 2>&1
-    exif 'Error in data processing, the node-datastore exited with a failure. (out)'
-}
-
-function cfg {
-    local __result
-    # shellcheck disable=SC2048
-    # shellcheck disable=SC2086
-    /bin/node "$SC_INSTALL_DIR/modules/datastore/data.js" cfg $* 2>&1
-    exif 'Error in data processing, the node-datastore module exited with a failure. (cfg)'
-}
-
-function del {
-    local __result
-    # shellcheck disable=SC2048
-    # shellcheck disable=SC2086
-    /bin/node "$SC_INSTALL_DIR/modules/datastore/data.js" del $* 2>&1
-    exif 'Error in data processing, the node-datastore module exited with a failure. (del)'
+function grab_data() { ## from-host
+    ## simple rsync based data syncronization
+    
+    local host
+    host="$1"
+    
+    
+    if [[ ! -z "$host" ]] && [[ "$(ssh -n -o ConnectTimeout=1 "$host" hostname 2> /dev/null)" == "$host" ]]
+    then
+        msg "syncing srvctl data from $host"
+        mkdir -p /etc/srvctl
+        if ! rsync -avze ssh "$host:/etc/srvctl/data" /etc/srvctl
+        then
+            err "rsync failed for $host"
+        fi
+    else
+        err "Connection failed! $host"
+    fi
+    
 }

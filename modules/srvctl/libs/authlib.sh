@@ -10,10 +10,28 @@ function root_only {
     fi
 }
 
-function sudomize {
-    if ! $SC_ROOT
+function argument {
+    if [[ -z $ARG ]]
     then
-        if ! sudo "$*"
+        err "Argument $1 missing."
+        exit 32
+    fi
+}
+
+function authorize {
+    if $SC_ROOT
+    then
+        return
+    else
+        err "Authorization implementation not complete"
+    fi
+}
+
+function sudomize {
+    if [[ $USER != root ]]
+    then
+        msg "$USER sudo $SC_INSTALL_DIR/srvctl.sh $SC_COMMAND_ARGUMENTS "
+        if ! sudo "$SC_INSTALL_DIR/srvctl.sh" "$SC_COMMAND_ARGUMENTS"
         then
             err "Could not use sudo."
         fi
@@ -77,20 +95,4 @@ function get_password {
     echo "$p"
 }
 
-function argument {
-    if [[ -z $ARG ]]
-    then
-        err "Argument $1 missing."
-        exit 32
-    fi
-}
 
-function authorize {
-    if $SC_ROOT
-    then
-        return
-    else
-        err "Authorization implementation not complete"
-        exit 33
-    fi
-}

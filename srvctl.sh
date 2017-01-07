@@ -21,6 +21,7 @@ DEBUG=false
 
 readonly SC_INSTALL_BIN=$(realpath "$BASH_SOURCE")
 readonly SC_INSTALL_DIR=${SC_INSTALL_BIN:0:-10}
+readonly SC_COMMAND_ARGUMENTS="$*"
 
 ## command arguments saved into variables
 # shellcheck disable=SC2034

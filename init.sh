@@ -24,31 +24,7 @@ then
     rm -fr /etc/srvctl/modules.conf
 fi
 
-if [[ ! -f /etc/srvctl/modules.conf ]]
-then
-    
-    msg "Srvctl modules configuration"
-    
-    for dir in $SC_INSTALL_DIR/modules/*
-    do
-        tv="SC_USE_${dir##*/}"
-        tr=false
-        
-        if [[ -f $dir/module-condition.sh ]]
-        then
-            tr="$(source "$dir/module-condition.sh")"
-            if [[ $tr == true ]]
-            then
-                tr=true
-            else
-                tr=false
-            fi
-            ntc "tested module: $tv=$tr"
-        fi
-        #declare $tv=$tr
-        echo "$tv=$tr" >> /etc/srvctl/modules.conf
-    done
-fi
+test_srvctl_modules
 source /etc/srvctl/modules.conf
 
 run_hooks "pre-init-$CMD"

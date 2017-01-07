@@ -1,7 +1,9 @@
 #!/bin/bash
 
+## first install what's necessery
 sc_install openvpn
 
+## then get the certificates
 if [[ "$SC_ROOTCA_HOST" == "$HOSTNAME" ]]
 then
     
@@ -92,10 +94,103 @@ fi
 
 chmod 600 /etc/openvpn/*.key.pem
 
+## generate this for the certificates
 if [ ! -f /etc/openvpn/dh2048.pem ]
 then
     run openssl dhparam -out /etc/openvpn/dh2048.pem 2048
 fi
+
+## make the virtual hostnet
+
+if [[ $SC_HOSTNET ]]
+then
+    
+    msg "Writing openvpn hostnet-server config"
+    
+cat > "/etc/openvpn/hostnet-server.conf" << EOF
+## srvctl-created openvpn-server conf
+
+mode server
+port 1101
+dev tap-hostnet
+proto udp
+status hostnet.log 60
+status-version 2
+user openvpn
+group openvpn
+persist-tun
+persist-key
+keepalive 10 60
+inactive 600
+verb 4
+comp-lzo
+script-security 2
+cipher AES-256-CBC
+tls-server
+ca /etc/openvpn/hostnet-ca.crt.pem
+cert /etc/openvpn/hostnet-server.crt.pem
+key /etc/openvpn/hostnet-server.key.pem
+dh /etc/openvpn/dh2048.pem
+
+EOF
+    
+    echo "ifconfig 10.15.$SC_HOSTNET.$SC_HOSTNET 255.255.255.0" >> /etc/openvpn/hostnet-server.conf
+    
+    run systemctl enable openvpn@hostnet-server.service
+    run systemctl restart openvpn@hostnet-server.service
+    run systemctl status openvpn@hostnet-server.service --no-pager
+    
+    
+fi
+
+local hostlist ip hs b
+hostlist="$(cfg system host_list)"
+
+for host in $hostlist
+do
+    
+    ip="$(get host "$host" host_ip)"
+    hs="$(get host "$host" hostnet)"
+    
+    if [[ ! -z $ip ]] && [[ ! -z $hs ]] && [[ $host != "$HOSTNAME" ]]
+    then
+        
+        msg "Writing openvpn hostnet-client config for $host"
+        
+        cat > "/etc/openvpn/hostnet-client-$hs.conf" << EOF
+## srvctl hostnet openvpn client file for $host
+client
+dev tap-host$hs
+proto udp
+remote $ip 1101
+nobind
+persist-key
+persist-tun
+remote-cert-tls server
+ca /etc/openvpn/hostnet-ca.crt.pem
+cert /etc/openvpn/hostnet-client.crt.pem
+key /etc/openvpn/hostnet-client.key.pem
+comp-lzo
+verb 3
+cipher AES-256-CBC
+
+EOF
+        
+        echo "ifconfig 10.15.$hs.$SC_HOSTNET 255.255.255.0" >> "/etc/openvpn/hostnet-client-$hs.conf"
+        
+        b=$(( hs * 16 ))
+        echo "route 10.$b.0.0 255.240.0.0 10.15.$hs.$hs" >> "/etc/openvpn/hostnet-client-$hs.conf"
+        
+        run systemctl enable "openvpn@hostnet-client-$hs.service"
+        run systemctl restart "openvpn@hostnet-client-$hs.service"
+        run systemctl status "openvpn@hostnet-client-$hs.service" --no-pager
+        
+    fi
+    
+    
+done
+
+return
 
 ## will contain user files
 mkdir -p /var/openvpn
@@ -159,6 +254,11 @@ ccd-exclusive
 
 server-bridge 10.0.0.1 255.0.0.0 10.0.250.1 10.0.253.250
 EOF
+
+
+return
+
+## single host openvpn network would be ....
 
 
 if [[ $HOSTNAME == "$SC_OPENVPN_HOSTNET_SERVER" ]]
@@ -228,26 +328,4 @@ do
     b=$(( i * 16 ))
     echo "route 10.$b.0.0 255.240.0.0 10.15.0.$i" >> /etc/openvpn/hostnet.conf
 done
-
-
-msg "start openvpn servers"
-run systemctl enable openvpn@hostnet.service
-run systemctl restart openvpn@hostnet.service
-run systemctl status openvpn@hostnet.service --no-pager
-
-
-
-
-## these are the server services
-
-
-
-systemctl enable openvpn@usernet-server.service
-systemctl restart openvpn@usernet-server.service
-#sleep 2
-systemctl status openvpn@usernet-server.service --no-pager
-
-
-
-
 
