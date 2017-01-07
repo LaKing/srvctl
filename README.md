@@ -1,4 +1,4 @@
-## Srvctl v3 (3.0.118.4)
+## Srvctl v3 (3.0.118.5)
 A remake for 2016 mostly using systemd tools
 ```
 
@@ -10,17 +10,7 @@ COMMAND
 
 COMMAND - from root                     
 
-   convert                               A Custom command from root 2016.11.01-02:05:30 
-    
-     This command does something custom, like running a bash script.
-     It might be customized further, depending on the author.
-    
-   sandbox                               A Custom command from  2016.11.01-23:49:16     
-    
-     This command does something custom, like running a bash script.
-     It might be customized further, depending on the author.
-    
-   status                                A Custom command from root 2016.12.28-11:20:47 
+   custom-command                        A Custom command from root 2017.01.07-12:23:11 
     
      This command does something custom, like running a bash script.
      It might be customized further, depending on the author.
