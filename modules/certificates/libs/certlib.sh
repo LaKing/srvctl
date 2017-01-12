@@ -9,7 +9,7 @@ function check_pem { ## file
     then
         if openssl x509 -checkend 604800 -noout -in "$pem"
         then
-            #dbg "$pound_pem OK"
+            #dbg "$cert_pem OK"
             echo 0 > /dev/null
         else
             msg "Certificate has expired or will do so within a week! $pem"
@@ -87,7 +87,7 @@ function create_selfsigned_domain_certificate { ## for domain
                         err "Domain $domain has certificate, but no key-file! $ssl_key ?"
                         exit
                     fi
-                    cat "$ssl_pem" > "$cert_path/pound.pem"
+                    cat "$ssl_pem" > "$cert_path/cert.pem"
                     msg "$domain has a valid certificate."
                     return
                 fi
@@ -172,11 +172,11 @@ EOF
     cat "$ssl_key" >  "$ssl_pem"
     cat "$ssl_crt" >> "$ssl_pem"
     
-    ## pound.pem - ready to use certificate chain for pound
+    ## cert.pem - ready to use certificate chain for cert
     ## key
     ## CA signed crt
     ## ca-bundle
-    cat "$ssl_pem" > "$cert_path/pound.pem"
+    cat "$ssl_pem" > "$cert_path/cert.pem"
 }
 
 

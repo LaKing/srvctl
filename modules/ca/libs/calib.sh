@@ -48,19 +48,17 @@ function root_CA_init {
     if [[ "$SC_ROOTCA_HOST" == "$HOSTNAME" ]]
     then
         
-        msg "root CA init"
+        msg "root CA init $1"
         
         # make directories to work from
-        mkdir -p "$SC_ROOTCA_DIR/usernet"
-        mkdir -p "$SC_ROOTCA_DIR/hostnet"
+        mkdir -p "$SC_ROOTCA_DIR/$1"
         
         mkdir -p "$SC_ROOTCA_DIR/ca"
         mkdir -p "$SC_ROOTCA_DIR/tmp"
         
         chmod -R 600 "$SC_ROOTCA_DIR"
         
-        root_CA_create usernet
-        root_CA_create hostnet
+        root_CA_create "$1"
         
         rm -fr /etc/srvctl/CA/tmp/*
     fi

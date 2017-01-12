@@ -6,13 +6,19 @@ function create_nspawn_container_filesystem() { ## C T
     C="$1"
     T="$2"
     
+    if [[ ! -d $SC_ROOTFS_DIR/$T ]]
+    then
+        err "No base for rootfs $T. Please run regenerate-rootfs."
+        exit
+    fi
+    
     local rootfs
     rootfs="/srv/$C/rootfs"
     mkdir -p "$rootfs"
     
-    echo "$T" > "/srv/$C/ctype"
-    echo "$NOW" > "/srv/$C/creation-date"
-    echo "$SC_USER" > "/srv/$C/creation-user"
+    printf "%s" "$T" > "/srv/$C/ctype"
+    printf "%s" "$NOW" > "/srv/$C/creation-date"
+    printf "%s" "$SC_USER" > "/srv/$C/creation-user"
     
     msg "Create $T nspawn container filesystem $C"
     
@@ -51,8 +57,8 @@ function create_nspawn_container_network() { ## C T
     rootfs="/srv/$C/rootfs"
     mkdir -p "$rootfs"
     
-    echo "$ip" > "/srv/$C/ipv4-address"
-    echo "$br" > "/srv/$C/bridge"
+    printf "%s" "$ip" > "/srv/$C/ipv4-address"
+    printf "%s" "$br" > "/srv/$C/bridge"
     
     mkdir -p "$SC_MOUNTS_DIR/$C/etc/network"
     

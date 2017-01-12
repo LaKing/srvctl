@@ -105,7 +105,7 @@ function pound_init {
     echo 'Include "/var/pound/server-certificates.cfg"' >> "/var/pound/https-certificates.cfg"
     
     local hosts
-    hosts="$(cfg system ve_host_list)"
+    hosts="$(cfg system host_list)"
     for H in $hosts
     do
         echo "Include \"/var/pound/$HOSTNAME/http-includes.cfg\"" >> "/var/pound/$HOSTNAME/http-includes.cfg"

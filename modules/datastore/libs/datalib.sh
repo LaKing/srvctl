@@ -1,5 +1,7 @@
 #!/bin/bash
 
+## sc exec-function publish_data
+
 function publish_data() {
     ## simple rsync based data syncronization
     
@@ -41,4 +43,32 @@ function grab_data() { ## from-host
         err "Connection failed! $host"
     fi
     
+}
+
+function init_datastore() {
+    
+    msg "init datastore"
+    
+    ## srvctl3 database is static in /etc/srvctl, shared in /srvctl
+    mkdir -p /etc/srvctl/data
+    mkdir -p /srvctl/data
+    
+    if ! [[ -f /etc/srvctl/data/hosts.json ]]
+    then
+        ntc "INITIALIZE srvctl data hosts"
+        echo '{}' > /etc/srvctl/data/hosts.json
+    fi
+    
+    
+    if ! [[ -f /srvctl/data/containers.json ]]
+    then
+        ntc "INITIALIZE srvctl data containers"
+        echo '{}' > /srvctl/data/containers.json
+    fi
+    
+    if ! [[ -f /srvctl/data/users.json ]]
+    then
+        ntc "INITIALIZE srvctl data users"
+        echo '{}' > /srvctl/data/users.json
+    fi
 }

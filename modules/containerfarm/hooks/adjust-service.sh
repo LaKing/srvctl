@@ -12,5 +12,5 @@ fi
 if [[ -z $service ]] && [[ $op == 'restart' ]]
 then
     msg "Regenerate configs"
-    run_hooks regenerate
+    run_hook regenerate
 fi

@@ -3,9 +3,19 @@
 ## first install what's necessery
 sc_install openvpn
 
+if [[ -z $SC_ROOTCA_HOST ]]
+then
+    err "SC_ROOTCA_HOST not defined. The openvpn installation can not continue."
+    return
+fi
+
+
 ## then get the certificates
 if [[ "$SC_ROOTCA_HOST" == "$HOSTNAME" ]]
 then
+    
+    root_CA_init hostnet
+    root_CA_init usernet
     
     create_ca_certificate client usernet root
     create_ca_certificate client hostnet root
@@ -31,7 +41,7 @@ then
     cat /etc/srvctl/CA/hostnet/client-"$HOSTNAME".key.pem > /etc/openvpn/hostnet-client.key.pem
     cat /etc/srvctl/CA/hostnet/client-"$HOSTNAME".crt.pem > /etc/openvpn/hostnet-client.crt.pem
     
-    for S in $(cfg system ve_host_list)
+    for S in $(cfg system host_list)
     do
         ## openvpn client certificate
         create_ca_certificate server usernet "$S"
@@ -46,7 +56,7 @@ else
     if [ "$(ssh -n -o ConnectTimeout=1 "$SC_ROOTCA_HOST" hostname 2> /dev/null)" == "$SC_ROOTCA_HOST" ]
     then
         
-        msg "regenerate openvpn hosts config - CA is $SC_ROOTCA_HOST"
+        msg "regenerate openvpn certificate config - CA is $SC_ROOTCA_HOST"
         local H options
         H="$HOSTNAME"
         
@@ -136,11 +146,21 @@ EOF
     
     echo "ifconfig 10.15.$SC_HOSTNET.$SC_HOSTNET 255.255.255.0" >> /etc/openvpn/hostnet-server.conf
     
+    chown -R openvpn:openvpn /etc/openvpn
     run systemctl enable openvpn@hostnet-server.service
     run systemctl restart openvpn@hostnet-server.service
     run systemctl status openvpn@hostnet-server.service --no-pager
     
+    firewalld_add_service openvpn-hostnet udp 1101
     
+cat > "/etc/openvpn/hostnet-server.sh" << EOF
+echo "start hostnet-server"
+/usr/sbin/openvpn --cd /etc/openvpn/ --config hostnet-server.conf
+EOF
+    chmod +x /etc/openvpn/hostnet-server.sh
+else
+    
+    err "SC_HOSTNET undefined"
 fi
 
 local hostlist ip hs b
@@ -181,6 +201,7 @@ EOF
         b=$(( hs * 16 ))
         echo "route 10.$b.0.0 255.240.0.0 10.15.$hs.$hs" >> "/etc/openvpn/hostnet-client-$hs.conf"
         
+        chown -R openvpn:openvpn /etc/openvpn
         run systemctl enable "openvpn@hostnet-client-$hs.service"
         run systemctl restart "openvpn@hostnet-client-$hs.service"
         run systemctl status "openvpn@hostnet-client-$hs.service" --no-pager
@@ -189,6 +210,8 @@ EOF
     
     
 done
+
+chown -R openvpn:openvpn /etc/openvpn
 
 return
 

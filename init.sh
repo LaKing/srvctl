@@ -27,8 +27,8 @@ fi
 test_srvctl_modules
 source /etc/srvctl/modules.conf
 
-run_hooks "pre-init-$CMD"
-run_hooks pre-init
+run_hook "pre-init-$CMD"
+run_hook pre-init
 
 source /etc/os-release
 
@@ -92,6 +92,6 @@ fi
 [[ $DEBUG == true ]] && ntc "@Load libs"
 load_libs
 
-run_hooks post-init
-run_hooks "post-init-$CMD"
+run_hook post-init
+run_hook "post-init-$CMD"
 

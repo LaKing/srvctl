@@ -11,7 +11,7 @@ function new {
     # shellcheck disable=SC2048
     # shellcheck disable=SC2086
     /bin/node "$SC_INSTALL_DIR/modules/datastore/data.js" new $* 2>&1
-    exif 'Error in data processing, the node-datastore module exited with a failure. (new)'
+    exif "Error in data processing, the node-datastore module exited with a failure. (new $*)"
 }
 
 function get {
@@ -37,7 +37,7 @@ function out {
     # shellcheck disable=SC2048
     # shellcheck disable=SC2086
     /bin/node "$SC_INSTALL_DIR/modules/datastore/data.js" out $* 2>&1
-    exif 'Error in data processing, the node-datastore exited with a failure. (out)'
+    exif "Error in data processing, the node-datastore exited with a failure. (out $*)"
 }
 
 function cfg {
@@ -45,7 +45,7 @@ function cfg {
     # shellcheck disable=SC2048
     # shellcheck disable=SC2086
     /bin/node "$SC_INSTALL_DIR/modules/datastore/data.js" cfg $* 2>&1
-    exif 'Error in data processing, the node-datastore module exited with a failure. (cfg)'
+    exif "Error in data processing, the node-datastore module exited with a failure. (cfg $*)"
 }
 
 function del {
@@ -53,5 +53,5 @@ function del {
     # shellcheck disable=SC2048
     # shellcheck disable=SC2086
     /bin/node "$SC_INSTALL_DIR/modules/datastore/data.js" del $* 2>&1
-    exif 'Error in data processing, the node-datastore module exited with a failure. (del)'
+    exif "Error in data processing, the node-datastore module exited with a failure. (del $*)"
 }

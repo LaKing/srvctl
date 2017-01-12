@@ -69,6 +69,7 @@ function run {
     # shellcheck disable=SC2048
     $*
     eyif "command '$*' returned with an error"
+    return "$?"
 }
 
 ## exit if failed
@@ -96,9 +97,10 @@ function eyif {
         then
             err "ERROR $eyif_code @ ${BASH_SOURCE[1]}#$BASH_LINENO ${FUNCNAME[1]} :: $*"
         else
-            err "$*"
+            err "$*" "$eyif_code"
         fi
     fi
+    return "$eyif_code"
 }
 
 function sed_file {

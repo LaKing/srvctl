@@ -8,7 +8,7 @@ function create_nspawn_container_service {
     
     mkdir -p /etc/srvctl/containers
 cat > "/etc/srvctl/containers/$C.service" << EOF
-
+# container: $C bridge: $bridge host: $HOSTNAME date: $NOW user: $SC_USER
 [Unit]
 Description=Container $C
 Documentation=man:systemd-nspawn(1)
@@ -17,7 +17,8 @@ Before=machines.target
 After=network.target
 
 [Service]
-ExecStart=/usr/bin/systemd-nspawn --quiet --keep-unit --boot --link-journal=try-guest --network-bridge=$bridge -U --settings=override --machine=$C -D /srv/$C/rootfs
+# ExecStart=/usr/bin/systemd-nspawn --quiet --keep-unit --boot --link-journal=try-guest --network-bridge=$bridge -U --settings=override --machine=$C -D /srv/$C/rootfs
+ExecStart=$SC_INSTALL_DIR/modules/containerfarm/execstart.sh $C
 KillMode=mixed
 Type=notify
 RestartForceExitStatus=133
@@ -78,7 +79,7 @@ Address=$gw/24
 
 EOF
     
-    systemctl restart systemd-networkd --no-pager
+    run systemctl restart systemd-networkd --no-pager
 }
 
 #function create_networkd_bridges { ## net

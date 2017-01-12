@@ -15,8 +15,9 @@ const VAL = process.argv[6];
 // constatnts
 
 const SC_HOSTS_DATA_FILE = '/etc/srvctl/data/hosts.json';
-const SC_USERS_DATA_FILE = '/etc/srvctl/data/users.json';
-const SC_CONTAINERS_DATA_FILE = '/etc/srvctl/data/containers.json';
+
+const SC_USERS_DATA_FILE = '/srvctl/data/users.json';
+const SC_CONTAINERS_DATA_FILE = '/srvctl/data/containers.json';
 
 const PUT = 'put';
 const GET = 'get';
@@ -123,6 +124,7 @@ function load_users() {
              users.root = {};
              users.root.id = 0;
              users.root.uid = 0;
+             users.root.reseller = 'root';
              users.root.is_reseller_id = 0;
         }
         // resellers are also users
@@ -249,7 +251,7 @@ function find_next_cip_for_container_on_network(network) {
 
 function get_reseller_id(user) {
     var n = Number(resellers[users[user].reseller].is_reseller_id);
-    if (n >= 0) return ret;
+    if (n >= 0) return n;
     else return_error("failed to find reseller id");
 }
 
@@ -453,7 +455,7 @@ function system_host_list() {
 function system_host_ip_list() {
     var str = '';
     Object.keys(hosts).forEach(function(i) {
-        if (hosts[i].ip !== undefined) str += hosts[i].ip + ' ';
+        if (hosts[i].host_ip !== undefined) str += hosts[i].host_ip + ' ';
     });
     return_value(str);
 }
@@ -466,7 +468,6 @@ if (DAT === 'container') {
 
     if (CMD === NEW) {
         new_container(ARG, OPA);
-        add_container_to_user(ARG, SC_USER);
         exit();
     }
 
@@ -567,32 +568,12 @@ if (DAT === 'host') {
     }
 
     if (CMD == OUT) {
-        output('readonly SC_HOSTNAME', ARG);
+        output('SC_HOSTNAME', ARG);
         Object.keys(host).forEach(function(j) {
-            output('readonly SC_' + j.toUpperCase(), host[j]);
+            output('SC_' + j.toUpperCase(), host[j]);
         });
         exit();
     }
-}
-
-if (DAT === 'reseller') {
-
-    if (resellers[ARG] === undefined) return_error('RESELLER DONT EXISTS');
-    var reseller = resellers[ARG];
-
-    if (CMD === GET) {
-        return_value(reseller[OPA]);
-        exit();
-    }
-
-    if (CMD == OUT) {
-        output('readonly SC_RESELLER_USER', ARG);
-        Object.keys(reseller).forEach(function(j) {
-            output('readonly SC_RESELLER_' + j.toUpperCase(), reseller[j]);
-        });
-        exit();
-    }
-
 }
 
 if (DAT === 'system') {

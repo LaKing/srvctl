@@ -37,6 +37,6 @@ create_nspawn_container_network "$C" "$T"
 run systemctl start "$C" --no-pager
 run systemctl status "$C" --no-pager
 
-run_hooks regenerate
+run_hook regenerate
 
 

@@ -72,7 +72,7 @@ then
     service=$ARG
 fi
 
-run_hooks adjust-service
+run_hook adjust-service
 
 ## special services
 if [[ $service == openvpn ]] && [[ ! -z "$op" ]] && [[ -f "/usr/lib/systemd/system/openvpn@.service" ]] && $IS_ROOT

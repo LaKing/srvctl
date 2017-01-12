@@ -1,5 +1,11 @@
 #! /bin/bash
 
+if [[ $HOSTNAME == localhost.localdomain ]]
+then
+    echo false
+    return
+fi
+
 if [[ $SC_HOSTNET ]] || [[ -d /etc/srvctl/data ]]
 then
     
@@ -12,8 +18,11 @@ then
         return
     fi
     
-    echo true
-    return
+    if [[ -f /etc/srvctl/data/hosts.json ]] && grep --quiet "\"$HOSTNAME\"" /etc/srvctl/data/hosts.json
+    then
+        echo true
+        return
+    fi
 fi
 
 

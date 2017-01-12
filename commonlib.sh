@@ -49,7 +49,22 @@ function load_libs {
     done
 }
 
-function run_hooks {
+function run_module_hook { ## module hook
+    local dir hook
+    dir="$SC_INSTALL_DIR/modules/$1"
+    hook="$2"
+    
+    if [[ -f $dir/hooks/$hook.sh ]]
+    then
+        
+        [[ $DEBUG == true ]] && ntc "@hook ${dir##*/} $hook"
+        
+        source "$dir/hooks/$hook.sh"
+        exif "$dir hook '$hook' failed"
+    fi
+}
+
+function run_hook {
     local hook tvrh
     hook="$1"
     for dir in $SC_INSTALL_DIR/modules/*
@@ -70,7 +85,12 @@ function run_hooks {
             fi
         fi
     done
-    
+}
+
+function run_hooks {
+    run_hook "pre-$1"
+    run_hook "$1"
+    run_hook "post-$1"
 }
 
 function run_command {

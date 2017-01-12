@@ -7,4 +7,4 @@
 
 msg "-- Calling all hooks --"
 
-run_hooks regenerate
+run_hook regenerate

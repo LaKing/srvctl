@@ -18,6 +18,9 @@ setup_varwwwhtml_error 503 "The service is not available. Please try again later
 
 sc_install Pound
 
+firewalld_add_service http
+firewalld_add_service https
+
 mkdir -p /var/pound
 
 cat > /etc/pound.cfg << EOF
@@ -74,8 +77,8 @@ add_conf /etc/rsyslog.conf 'local0.*                         -/var/log/pound'
 
 systemctl restart rsyslog.service
 
-
+create_selfsigned_domain_certificate "$HOSTNAME"
+regenerate_pound_conf
 add_service pound
-
 
 ## install pound
