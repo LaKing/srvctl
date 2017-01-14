@@ -68,7 +68,10 @@ function run {
     
     # shellcheck disable=SC2048
     $*
-    eyif "command '$*' returned with an error"
+    if [[ $1 != systemctl ]] && [[ $2 != status ]] && [[ $? != 3 ]]
+    then
+        eyif "command '$*' returned with an error"
+    fi
     return "$?"
 }
 

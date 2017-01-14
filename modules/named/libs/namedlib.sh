@@ -1,8 +1,8 @@
 #!/bin/bash
 
 ## constants
-readonly SC_NAMED_INCLUDES="/var/named/$SRVCTL-includes.conf"
-readonly SC_NAMED_VAR_PATH="/var/named/$SRVCTL"
+readonly SC_NAMED_INCLUDES="/var/named/srvctl-includes.conf"
+readonly SC_NAMED_VAR_PATH="/var/named/srvctl"
 
 readonly SC_TODAY="$(date +%y%m%d)"
 

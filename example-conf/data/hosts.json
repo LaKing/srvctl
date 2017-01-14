@@ -1,0 +1,27 @@
+{
+    "f1.test.vm" : {
+	"mac_address": "080027CA7D75",
+        "host_ip": "192.168.88.27",
+        "gateway": "192.168.88.1",
+        "prefix": "24",
+        "dns1": "192.168.88.1",
+        "dns2": "8.8.8.8",
+        "hostnet": 1,
+        "dns_server": "named",
+        "reverse_proxy": "pound"
+    },
+    "f2.test.vm" : {
+	"mac_address": "080027A79328",
+        "host_ip": "192.168.88.30",
+        "gateway": "192.168.88.1",
+        "prefix": "24",
+        "dns1": "192.168.88.1",
+        "dns2": "8.8.8.8",
+        "hostnet": 2,
+        "dns_server": "named",
+        "reverse_proxy": "pound"
+    },
+    "srvctl-devel" : {
+        "dev_server": true 
+    }
+}

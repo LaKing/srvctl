@@ -49,7 +49,7 @@ OPAS="${@:2}"
 [ "$ARG" == "!" ] && ARG=restart
 
 ## Check against the existance of the variable, and use it as base dir in var, eg /var/$SRVCTL/something
-SRVCTL='srvctl3x'
+SRVCTL="srvctl-$(cat "$SC_INSTALL_DIR/version")"
 readonly SRVCTL
 
 

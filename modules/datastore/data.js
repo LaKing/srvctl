@@ -55,6 +55,11 @@ function exit() {
     process.exit(0);
 }
 
+function return_optional_value(msg) {
+    if (msg !== undefined) console.log(msg);
+    process.exit(0);
+}
+
 function return_value(msg) {
     if (msg !== undefined)
         console.log(msg);
@@ -490,7 +495,7 @@ if (DAT === 'container') {
         if (OPA === 'host') return_value(container_host(container));
 
         // ip use_gsuite  
-        return_value(container[OPA]);
+        return_optional_value(container[OPA]);
     }
 
     if (CMD == OUT) {
@@ -532,7 +537,7 @@ if (DAT === 'user') {
         if (OPA === 'password' && user.password === undefined) return_value('');
         if (OPA === 'uid') return_value(get_user_uid(user));
 
-        return_value(user[OPA]);
+        return_optional_value(user[OPA]);
         exit();
     }
 
@@ -563,7 +568,7 @@ if (DAT === 'host') {
         if (OPA === 'host_ip' && host.host_ip === undefined) exit();
         if (OPA === 'hostnet' && host.hostnet === undefined) exit();
         
-        return_value(host[OPA]);
+        return_optional_value(host[OPA]);
         exit();
     }
 

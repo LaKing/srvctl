@@ -34,8 +34,8 @@ new container "$C" "$T" || exit
 create_nspawn_container_filesystem "$C" "$T"
 create_nspawn_container_network "$C" "$T"
 
-run systemctl start "$C" --no-pager
-run systemctl status "$C" --no-pager
+run systemctl start "srvctl-nspawn@$C" --no-pager
+run systemctl status "srvctl-nspawn@$C" --no-pager
 
 run_hook regenerate
 

@@ -33,6 +33,11 @@ then
     exit
 fi
 
+## just some default
+git config --global user.name "srvctl"
+git config --global user.email "srvctl@$HOSTNAME"
+
+
 if [[ -d /etc/srvctl/data ]]
 then
     msg "Found /etc/srvctl/data dir."
@@ -48,12 +53,14 @@ out host "$HOSTNAME" > /etc/srvctl/host.conf
 source /etc/srvctl/host.conf
 
 regenerate_etc_hosts
-
-
 networkd_configuration
 
 msg "Calling update-install hooks."
 run_hooks update-install
+
+
+
+datastore_push
 
 msg "update-install complete"
 echo ""

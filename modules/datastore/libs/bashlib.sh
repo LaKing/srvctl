@@ -12,6 +12,8 @@ function new {
     # shellcheck disable=SC2086
     /bin/node "$SC_INSTALL_DIR/modules/datastore/data.js" new $* 2>&1
     exif "Error in data processing, the node-datastore module exited with a failure. (new $*)"
+    
+    datastore_push new $*
 }
 
 function get {
@@ -29,7 +31,8 @@ function put {
     # shellcheck disable=SC2086
     __result="$(/bin/node "$SC_INSTALL_DIR/modules/datastore/data.js" put $* 2>&1 )"
     exif "$__result"
-    echo "$__result"
+    
+    datastore_push put $*
 }
 
 function out {
@@ -54,4 +57,6 @@ function del {
     # shellcheck disable=SC2086
     /bin/node "$SC_INSTALL_DIR/modules/datastore/data.js" del $* 2>&1
     exif "Error in data processing, the node-datastore module exited with a failure. (del $*)"
+    
+    datastore_push del $*
 }

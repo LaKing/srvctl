@@ -82,14 +82,7 @@ function gluster_configure {
             run gluster volume start srvctl-data force
             run gluster volume status srvctl-data
             
-            run mkdir -p /srvctl/data
-            if ! run mount -t glusterfs  -o log-file="/var/log/gluster-mount-$NOW.log" "$HOSTNAME:/srvctl-data" "/srvctl/data"
-            then
-                if [[ -f "/var/log/gluster-mount-$NOW.log" ]]
-                then
-                    cat "/var/log/gluster-mount-$NOW.log"
-                fi
-            fi
+            gluster_mount_data
         fi
         ## todo, moumt it permanently
         
@@ -97,5 +90,18 @@ function gluster_configure {
     else
         ntc "A proper srvctl containerfarm host-installation needs a seperate partition mounted at /glu/srvctl-data for a gluster brick"
     fi
-    
 }
+
+function gluster_mount_data() {
+    
+    run mkdir -p /srvctl/data
+    if ! run mount -t glusterfs  -o log-file="/var/log/gluster-mount-$NOW.log" "$HOSTNAME:/srvctl-data" "/srvctl/data"
+    then
+        if [[ -f "/var/log/gluster-mount-$NOW.log" ]]
+        then
+            cat "/var/log/gluster-mount-$NOW.log"
+        fi
+    fi
+}
+
+

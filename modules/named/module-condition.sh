@@ -6,4 +6,4 @@ then
     return
 fi
 
-echo false
+source "$SC_INSTALL_DIR/modules/containerfarm/module-condition.sh"

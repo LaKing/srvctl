@@ -1,5 +1,50 @@
 #!/bin/bash
 
+
+function create_srvctl_nspawn_service {
+cat > "/usr/lib/systemd/system/srvctl-nspawn@.service" << EOF
+# container: $C bridge: $bridge host: $HOSTNAME date: $NOW user: $SC_USER
+[Unit]
+Description=srvctl - container %i
+Documentation=man:systemd-nspawn(1)
+PartOf=machines.target
+Before=machines.target
+After=network.target
+
+[Service]
+ExecStartPre=/bin/bash $SC_INSTALL_DIR/modules/containerfarm/execstartpre.sh %i
+ExecStart=/usr/bin/systemd-nspawn --quiet --keep-unit --boot --link-journal=try-guest -U --settings=trusted --machine=%i -D /srv/%i/rootfs
+ExecStartPost=/bin/bash $SC_INSTALL_DIR/modules/containerfarm/execstartpost.sh %i
+KillMode=mixed
+Type=notify
+RestartForceExitStatus=133
+SuccessExitStatus=133
+Slice=machine.slice
+Delegate=yes
+TasksMax=16384
+
+# Enforce a strict device policy, similar to the one nspawn configures
+# when it allocates its own scope unit. Make sure to keep these
+# policies in sync if you change them!
+DevicePolicy=closed
+DeviceAllow=/dev/net/tun rwm
+DeviceAllow=char-pts rw
+
+# nspawn itself needs access to /dev/loop-control and /dev/loop, to
+# implement the --image= option. Add these here, too.
+DeviceAllow=/dev/loop-control rw
+DeviceAllow=block-loop rw
+DeviceAllow=block-blkext rw
+
+[Install]
+WantedBy=machines.target
+
+EOF
+    
+    systemctl daemon-reload
+}
+
+## Ez már elvileg nem kell
 function create_nspawn_container_service {
     
     local C bridge

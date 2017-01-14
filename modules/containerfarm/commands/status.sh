@@ -24,7 +24,7 @@ do
     ip="$(get container "$C" ip)"
     exif "Could not get IP for $C"
     
-    if systemctl is-active "$C" > /dev/null
+    if systemctl is-active "srvctl-nspawn@$C" > /dev/null
     then
         if ping_ms=$(ping -r -W 1 -c 1 "$ip" | grep rtt)
         then
@@ -36,11 +36,11 @@ do
         printf "${RED}%-10s${CLEAR}" "INACTIVE"
     fi
     
-    if [[ -d /srv/$C ]] && [[ -f /etc/srvctl/containers/$C.service ]]
+    if [[ -d /srv/$C ]]
     then
         printf "${GREEN}%-48s${CLEAR}" "$C"
     else
-        printf "${YELLOW}%-48s${CLEAR}" "$C"
+        printf "${RED}%-48s${CLEAR}" "$C"
     fi
     
     printf "${GREEN}%-14s${CLEAR}" "$ip"

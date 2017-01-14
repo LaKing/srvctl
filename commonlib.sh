@@ -132,19 +132,6 @@ function run_command {
         return
     fi
     
-    ## this is a special command, as it has several ways to be invoked
-    if [[ -f "$SC_INSTALL_DIR/modules/srvctl/commands/adjust-service.sh" ]]
-    then
-        ## adjust-service
-        if [[ $ARG == enable ]] || [[ $ARG == start ]] || [[ $ARG == restart ]] || [[ $ARG == stop ]] || [[ $ARG == status ]]  || [[ $ARG == disable ]] || [[ $ARG == kill ]] \
-        || [[ $CMD == enable ]] || [[ $CMD == start ]] || [[ $CMD == restart ]] || [[ $CMD == stop ]] || [[ $CMD == status ]]  || [[ $CMD == disable ]] || [[ $CMD == kill ]]
-        then
-            source "$SC_INSTALL_DIR/modules/srvctl/commands/adjust-service.sh"
-            exif "srvctl $ARGS failed"
-            return
-        fi
-    fi
-    
     ## call a srvctl function
     if [[ $CMD == 'exec-function' ]] && [[ $OPAS ]]
     then
@@ -153,7 +140,29 @@ function run_command {
         return
     fi
     
-    return 4
+    [[ $DEBUG == true ]] && ntc "@default-command"
+    
+    for dir in $SC_INSTALL_DIR/modules/*
+    do
+        
+        tvrc="SC_USE_${dir##*/}"
+        if [[ ${!tvrc} == true ]]
+        then
+            
+            ## find and run default command
+            if [[ -f $dir/command.sh ]]
+            then
+                [[ $DEBUG == true ]] && ntc "@command.sh ${dir##*/}"
+                source "$dir/command.sh"
+                exif "'$CMD' failed"
+                return
+            fi
+        fi
+    done
+    
+    [[ $DEBUG == true ]] && ntc "@run_command end"
+    
+    return 250
 }
 
 function hint_on_file {
@@ -224,6 +233,21 @@ function hint_commands {
             hint_on_file "$sourcefile"
         done
     fi
+    
+    echo ''
+    
+    for dir in $SC_INSTALL_DIR/modules/*
+    do
+        tvhc="SC_USE_${dir##*/}"
+        
+        if [[ ${!tvhc} == true ]]
+        then
+            if [[ "$dir/command.sh" ]]
+            then
+                hint_on_file "$dir/command.sh"
+            fi
+        fi
+    done
     
     ## print formatted hint about man
     hint "help [COMMAND]" "See more detailed descriptions about COMMAND or about all commands."

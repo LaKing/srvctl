@@ -12,3 +12,5 @@ msg "Containerfarm host installation"
 
 sc_install systemd-container
 
+create_srvctl_nspawn_service
+

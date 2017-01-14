@@ -1,4 +1,4 @@
-## Srvctl v3 (3.0.119.6)
+## Srvctl v3 (3.0.120.3)
 A remake for 2016 mostly using systemd tools
 ```
 
@@ -39,17 +39,6 @@ COMMAND - from srvctl
     
    status                                List container statuses                        
     
-    
-   adjust-service                        status / start|stop|kill|restart(enable|remove) or ? / +|-|!
-    
-     This is a shorthand syntax for frequent operations on systemd.
-     the following are equivalent:
-             systemctl status example.service
-             sc example ?
-     to query a service with the supershort operator "?" or with "status"
-     to restart and enable a service the operator is "!" or "restart"
-     to start and enable a service the operator is "+" or "start"
-     to stop and disable a service the operator is "-" or "stop"
     
    customize                             Create/edit a custom command.                  
     
