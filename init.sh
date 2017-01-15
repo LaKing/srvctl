@@ -4,7 +4,10 @@
 DEBUG=false
 [[ -f /etc/srvctl/debug.conf ]] && source /etc/srvctl/debug.conf
 
-[[ -d /etc/srvctl ]] || mkdir -p /etc/srvctl
+if [[ ! -d /etc/srvctl ]]
+then
+    mkdir -p /etc/srvctl
+fi
 
 ## lablib is mainly for colorization
 source "$SC_INSTALL_DIR/lablib.sh" || echo "lablib could not be loaded!" 1>&2
