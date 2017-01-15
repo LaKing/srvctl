@@ -13,7 +13,7 @@ function new {
     /bin/node "$SC_INSTALL_DIR/modules/datastore/data.js" new $* 2>&1
     exif "Error in data processing, the node-datastore module exited with a failure. (new $*)"
     
-    datastore_push new $*
+    datastore_push "new $*"
 }
 
 function get {
@@ -32,7 +32,7 @@ function put {
     __result="$(/bin/node "$SC_INSTALL_DIR/modules/datastore/data.js" put $* 2>&1 )"
     exif "$__result"
     
-    datastore_push put $*
+    datastore_push "put $*"
 }
 
 function out {
@@ -58,5 +58,5 @@ function del {
     /bin/node "$SC_INSTALL_DIR/modules/datastore/data.js" del $* 2>&1
     exif "Error in data processing, the node-datastore module exited with a failure. (del $*)"
     
-    datastore_push del $*
+    datastore_push "del $*"
 }

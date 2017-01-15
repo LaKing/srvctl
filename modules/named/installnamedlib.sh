@@ -1,3 +1,5 @@
+#!/bin/bash
+
 function procedure_write_dyndns_server_service {
     local crt
     crt="/etc/srvctl/cert/$CDN/$CDN"
@@ -66,11 +68,13 @@ EOF
 }
 
 function procedure_write_named_srvctl_include_key_conf {
+    local key
+    key="$1"
 cat > /var/named/srvctl-include-key.conf << EOF
 ## srvctl dyndns key
 key "srvctl." {
   algorithm hmac-md5;
-  secret "${_key:5}";
+  secret "${key:5}";
 };
 EOF
 }

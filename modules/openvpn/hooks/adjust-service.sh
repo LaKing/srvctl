@@ -1,7 +1,10 @@
 #!/bin/bash
 
+# shellcheck disable=SC2154
+## service and op are defined.
+
 ## special services
-if [[ $service == openvpn ]] && [[ ! -z "$op" ]] && [[ -f "/usr/lib/systemd/system/openvpn@.service" ]] && $IS_ROOT
+if [[ $service == openvpn ]] && [[ ! -z "$op" ]] && [[ -f "/usr/lib/systemd/system/openvpn@.service" ]] && $SC_ROOT
 then
     msg "openvpn $op"
     ## must have conf

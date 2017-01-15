@@ -85,13 +85,13 @@ function create_nspawn_container_network() { ## C T
     ## add other nameservers?
     
     local dns
-    dns="$(get host $HOSTNAME dns1)"
+    dns="$(get host "$HOSTNAME" dns1)"
     if [[ ! -z $dns ]]
     then
         echo "nameserver $dns" >> "$rootfs"/etc/resolv.conf
     fi
     
-    dns="$(get host $HOSTNAME dns2)"
+    dns="$(get host "$HOSTNAME" dns2)"
     if [[ ! -z $dns ]]
     then
         echo "nameserver $dns" >> "$rootfs"/etc/resolv.conf

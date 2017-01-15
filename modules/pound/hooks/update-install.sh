@@ -53,6 +53,8 @@ ListenHTTPS
     Address 0.0.0.0
     Port    443
 
+    xHTTP 1
+
     Err414 "/var/www/html/414.html"
     Err500 "/var/www/html/500.html"
     Err501 "/var/www/html/501.html"

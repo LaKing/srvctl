@@ -65,7 +65,7 @@ then
     
     if [ ! -d /var/named/keys ]
     then
-        local _this _key
+        local _this key
         
         mkdir -p /var/named/keys
         _this="$(dnssec-keygen -K /var/named/keys -r /dev/urandom -a HMAC-MD5 -b 512 -n USER srvctl)"
@@ -75,9 +75,9 @@ then
         chown node /var/dyndns/srvctl.private
         chmod 400 /var/dyndns/srvctl.private
         
-        _key="$(grep 'Key: ' "/var/named/keys/$_this.private")"
+        key="$(grep 'Key: ' "/var/named/keys/$_this.private")"
         
-        procedure_write_named_srvctl_include_key_conf
+        procedure_write_named_srvctl_include_key_conf "$key"
         
         
         ## use it in dyndns-server

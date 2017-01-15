@@ -31,7 +31,7 @@ then
     if [[ -d /srv/$C ]]
     then
         
-        if [[ "$(machinectl show $C | grep State)" != "State=running" ]]
+        if [[ "$(machinectl show "$C" | grep State)" != "State=running" ]]
         then
             err "$C not running"
             exit
@@ -56,7 +56,7 @@ then
     fi
     
     
-    if [[ "$(machinectl show $C | grep State)" != "State=running" ]]
+    if [[ "$(machinectl show "$C" | grep State)" != "State=running" ]]
     then
         err "$C not running"
         exit

@@ -118,9 +118,9 @@ function networkd_configuration {
     run networkctl list --no-pager
     run networkctl status --no-pager
     
-    if [[ "$(systemctl is-active NetworkManager)" == active ]] && [[ -z "$(networkctl | grep 'en' | grep ether | grep routable | grep unmanaged)" ]]
+    if [[ "$(systemctl is-active NetworkManager)" == active ]] #&& [[ -z "$(networkctl | grep 'en' | grep ether | grep routable | grep unmanaged)" ]]
     then
-        ntc "networkManager is active, stoping / disabling it"
+        ntc "NetworkManager is active, stoping / disabling it"
         run systemctl disable NetworkManager
         run systemctl stop NetworkManager
     fi
