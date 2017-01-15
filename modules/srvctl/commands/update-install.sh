@@ -48,10 +48,14 @@ fi
 
 init_datastore
 
-msg "Writing host.conf"
-out host "$HOSTNAME" > /etc/srvctl/host.conf
-source /etc/srvctl/host.conf
-
+if [[ ! -f /etc/srvctl/gost.conf ]]
+then
+    msg "Writing host.conf based on hosts.json"
+    out host "$HOSTNAME"
+    exif
+    out host "$HOSTNAME" > /etc/srvctl/host.conf
+    source /etc/srvctl/host.conf
+fi
 regenerate_etc_hosts
 networkd_configuration
 
