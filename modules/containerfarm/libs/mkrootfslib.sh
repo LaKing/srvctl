@@ -42,11 +42,27 @@ function mkrootfs_fedora_base { ## name package-list
     #    dnf --installroot "$INSTALL_ROOT" -y --nogpgcheck install $nodejs_rpm_url
     #fi
     
+    mkrootfs_srvctl "$INSTALL_ROOT"
     mkrootfs_root_ssh "$INSTALL_ROOT"
     
     return
     
     
+}
+function mkrootfs_srvctl { ## needs rootfs
+    
+    local rootfs
+    rootfs="$1"
+    
+    if [[ ! -d "$rootfs/usr/bin" ]]
+    then
+        err "No /usr/bin for srvctl setup in rootfs "
+    else
+        ln -s "$SC_INSTALL_DIR/srvctl.sh" "$INSTALL_ROOT/usr/bin/sc"
+        ln -s "$SC_INSTALL_DIR/srvctl.sh" "$INSTALL_ROOT/usr/bin/srvctl"
+        chmod +x "$INSTALL_ROOT/usr/bin/sc"
+        chmod +x "$INSTALL_ROOT/usr/bin/srvctl"
+    fi
 }
 
 function mkrootfs_root_ssh { ## needs rootfs

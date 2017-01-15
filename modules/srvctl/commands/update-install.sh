@@ -37,34 +37,8 @@ fi
 git config --global user.name "srvctl"
 git config --global user.email "srvctl@$HOSTNAME"
 
-
-if [[ -d /etc/srvctl/data ]]
-then
-    msg "Found /etc/srvctl/data dir."
-else
-    msg "/etc/srvctl/data directory not found. It is recommended to have such a folder prepared."
-    msg "Creating Empty database."
-fi
-
-init_datastore
-
-if [[ ! -f /etc/srvctl/gost.conf ]]
-then
-    msg "Writing host.conf based on hosts.json"
-    out host "$HOSTNAME"
-    exif
-    out host "$HOSTNAME" > /etc/srvctl/host.conf
-    source /etc/srvctl/host.conf
-fi
-regenerate_etc_hosts
-networkd_configuration
-
 msg "Calling update-install hooks."
 run_hooks update-install
-
-
-
-datastore_push
 
 msg "update-install complete"
 echo ""

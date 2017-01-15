@@ -9,6 +9,13 @@ cat > "/srv/$C/$C.nspawn" << EOF
 [Network]
 Bridge=$bridge
 
+[Exec]
+PrivateUsers=pick
+
+[Files]
+PrivateUsersChown=true
+BindReadOnly=$SC_INSTALL_DIR
+
 EOF
     
 }
