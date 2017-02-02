@@ -70,7 +70,7 @@ else
     ## check for arguments
     if [[ $CMD ]]
     then
-        err "Invalid command."
+        err "Invalid command. $?"
     else
         err "No-command."
     fi

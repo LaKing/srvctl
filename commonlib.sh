@@ -133,10 +133,19 @@ function run_command {
     fi
     
     ## call a srvctl function
-    if [[ $CMD == 'exec-function' ]] && [[ $OPAS ]]
+    if [[ $SC_USER == root ]] && [[ $OPAS ]] && [[ $CMD == 'exec-function' ]]
     then
         $OPAS
         exif "failed to exec '$OPAS'"
+        return
+    fi
+    
+    ## call a srvctl data function
+    if [[ $SC_USER == root ]] && [[ $OPAS ]] && [[ $CMD == 'new' ]] ||  [[ $CMD == 'get' ]] ||  [[ $CMD == 'put' ]] ||  [[ $CMD == 'out' ]] ||  [[ $CMD == 'cfg' ]] ||  [[ $CMD == 'del' ]]
+    then
+        # shellcheck disable=SC2086
+        $CMD $OPAS
+        exif "failed to exec '$CMD $OPAS'"
         return
     fi
     
@@ -149,13 +158,11 @@ function run_command {
         if [[ ${!tvrc} == true ]]
         then
             
-            ## find and run default command
+            ## try to find and run default command
             if [[ -f $dir/command.sh ]]
             then
                 [[ $DEBUG == true ]] && ntc "@command.sh ${dir##*/}"
                 source "$dir/command.sh"
-                exif "'$CMD' failed"
-                return
             fi
         fi
     done

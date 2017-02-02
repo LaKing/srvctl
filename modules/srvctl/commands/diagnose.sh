@@ -19,16 +19,21 @@
 ## &en     To flush the mail que, use: postqueue -f
 ## &en     To remove all mail from the mail que use: postsuper -d ALL
 
-
+echo "huh?"
 msg "srvctl version $(cat "$SC_INSTALL_DIR/version")"
 
 diagnose_variables
 
 # printenv
 
-echo " -- Uptime: $(uptime)"
+msg "-- Uptime: $(uptime) --"
 run uname -a
 run sestatus
+
+msg "-- Memory --"
+run free -m
+run vmstat -s
+
 
 if [[ -f /usr/bin/grub2-editenv ]] && [[ -f /boot/grub2/grub.cfg ]]
 then

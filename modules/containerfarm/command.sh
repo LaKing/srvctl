@@ -11,62 +11,67 @@
 
 source "$SC_INSTALL_DIR/modules/srvctl/command.sh"
 
-if [[ $CMD == show ]] || [[ $CMD == status ]] && [[ ! -z $ARG ]]
+C='?'
+
+## for example, sc !
+if [[ $CMD == restart ]]
 then
-    C="$ARG"
-    if [[ -d /srv/$C ]]
-    then
-        run machinectl "$CMD" "$C"
-        exit
-    else
-        err "Container $C does not exist"
-        exit
-    fi
+    return
 fi
 
-if [[ $CMD == reboot ]] || [[ $CMD == poweroff ]] || [[ $CMD == kill ]] || [[ $CMD == login ]] || [[ $CMD == show ]] || [[ $CMD == status ]] && [[ ! -z $ARG ]]
+cop="shell"
+
+if [[ $CMD == reboot ]] || [[ $CMD == poweroff ]] || [[ $CMD == kill ]] || [[ $CMD == login ]] || [[ $CMD == show ]] || [[ $CMD == status ]] || [[ $CMD == show ]] || [[ $CMD == status ]]
 then
-    C="$ARG"
-    
-    if [[ -d /srv/$C ]]
-    then
-        
-        if [[ "$(machinectl show "$C" | grep State)" != "State=running" ]]
-        then
-            err "$C not running"
-            exit
-        fi
-        
-        run machinectl "$CMD" "$ARG"
-        exit
-    else
-        err "Container $C does not exist"
-        exit
-    fi
+    cop="$CMD"
 fi
+
+if [[ $ARG == reboot ]] || [[ $ARG == poweroff ]] || [[ $ARG == kill ]] || [[ $ARG == login ]] || [[ $ARG == show ]] || [[ $ARG == status ]] || [[ $ARG == show ]] || [[ $ARG == status ]]
+then
+    cop="$ARG"
+fi
+
 
 if [[ -d /srv/$CMD ]]
 then
     C="$CMD"
-    
-    if [[ $ARG == show ]] || [[ $ARG == status ]]
-    then
-        run machinectl "$ARG" "$C"
-        exit
-    fi
-    
-    
-    if [[ "$(machinectl show "$C" | grep State)" != "State=running" ]]
-    then
-        err "$C not running"
-        exit
-    fi
-    
-    if [[ $ARG == reboot ]] || [[ $ARG == poweroff ]] || [[ $ARG == kill ]] || [[ $ARG == login ]] || [[ $ARG == show ]] || [[ $ARG == status ]]
-    then
-        run machinectl "$ARG" "$C"
-    fi
-    
+fi
+
+if [[ $ARG ]] && [[ -d /srv/$ARG ]]
+then
+    C="$ARG"
+fi
+
+if [[ -z $C ]]
+then
+    return
+fi
+
+if [[ "$cop" == "$C" ]]
+then
+    return
+fi
+
+if [[ ! -d /srv/$C ]]
+then
+    return
+fi
+
+if [[ $cop == reboot ]] || [[ $cop == poweroff ]] || [[ $cop == kill ]] || [[ $cop == login ]] || [[ $cop == show ]] || [[ $cop == status ]] || [[ $cop == show ]] || [[ $cop == status ]] || [[ $cop == shell ]]
+then
+    msg "$C $cop"
+else
+    return
+fi
+
+if ! run machinectl show "$C" 2> /dev/null
+then
+    err "$C not running"
+    return
+fi
+
+if [[ $cop == shell ]]
+then
     if [[ -f /srv/$C/rootfs/usr/bin/$ARG ]]
     then
         run machinectl shell "$C" "/usr/bin/$ARG $OPAS3"
@@ -74,8 +79,8 @@ then
     fi
     
     run machinectl shell "$SC_COMMAND_ARGUMENTS"
-    exit
+else
+    run machinectl "$cop" "$C" --no-pager
 fi
-
-#err "Container $CMD does not exist."
-#exit
+exit
+#return 1

@@ -30,7 +30,7 @@ function check_container_directories() {
             then
                 if [[ -f $D/rootfs/etc/os-release ]]
                 then
-                    err "Container $C missing from database."
+                    err "Container $C missing from database!"
                     ## AUTOFIX
                     ## C appears to have a valid filesystem
                     local T

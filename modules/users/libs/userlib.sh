@@ -14,7 +14,7 @@ function regenerate_users() {
     do
         if ! id -u "$user" > /dev/null 2>&1
         then
-            uid=$(get user "$user" uid)
+            uid="$(get user "$user" uid)"
             run groupadd -g "$uid" "$user"
             run adduser  -u "$uid" -g "$uid" "$user"
             exif

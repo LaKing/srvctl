@@ -56,6 +56,8 @@ function pound_init {
     pound_init_cfg 3-domains
     pound_init_cfg 2-domains
     pound_init_cfg 1-domains
+    pound_init_cfg 1-domains
+    pound_init_cfg 0-domains
     
     pound_init_add_include domains includes
     pound_init_add_include dddn-domains includes
@@ -68,6 +70,7 @@ function pound_init {
     pound_init_add_include 3-domains wildcard
     pound_init_add_include 2-domains wildcard
     pound_init_add_include 1-domains wildcard
+    pound_init_add_include 0-domains wildcard
     
     ## first of all, set up the acme server
     echo '## srvctl generated letsencrypt responder
@@ -108,12 +111,20 @@ function pound_init {
     hosts="$(cfg system host_list)"
     for H in $hosts
     do
-        echo "Include \"/var/pound/$HOSTNAME/http-includes.cfg\"" >> "/var/pound/$HOSTNAME/http-includes.cfg"
-        echo "Include \"/var/pound/$HOSTNAME/http-wildcard.cfg\"" >> "/var/pound/$HOSTNAME/http-wildcard.cfg"
+        mkdir -p "/var/pound/$H"
         
-        echo "Include \"/var/pound/$HOSTNAME/https-certificates.cfg\"" >> "/var/pound/$HOSTNAME/https-certificates.cfg"
-        echo "Include \"/var/pound/$HOSTNAME/https-includes.cfg\"" >> "/var/pound/$HOSTNAME/https-includes.cfg"
-        echo "Include \"/var/pound/$HOSTNAME/https-wildcard.cfg\"" >> "/var/pound/$HOSTNAME/https-wildcard.cfg"
+        echo "## srvctl $HOSTNAME generated $NOW" > "/var/pound/$H/http-includes.cfg"
+        echo "## srvctl $HOSTNAME generated $NOW" > "/var/pound/$H/http-wildcard.cfg"
+        echo "## srvctl $HOSTNAME generated $NOW" > "/var/pound/$H/https-certificates.cfg"
+        echo "## srvctl $HOSTNAME generated $NOW" > "/var/pound/$H/https-includes.cfg"
+        echo "## srvctl $HOSTNAME generated $NOW" > "/var/pound/$H/https-wildcard.cfg"
+        
+        echo "Include \"/var/pound/$H/http-includes.cfg\"" >> "/var/pound/http-includes.cfg"
+        echo "Include \"/var/pound/$H/http-wildcard.cfg\"" >> "/var/pound/http-wildcard.cfg"
+        
+        echo "Include \"/var/pound/$H/https-certificates.cfg\"" >> "/var/pound/https-certificates.cfg"
+        echo "Include \"/var/pound/$H/https-includes.cfg\"" >> "/var/pound/https-includes.cfg"
+        echo "Include \"/var/pound/$H/https-wildcard.cfg\"" >> "/var/pound/https-wildcard.cfg"
     done
     
     echo 'Include "/var/pound/http-wildcard.cfg"' >> "/var/pound/http-includes.cfg"
@@ -132,8 +143,7 @@ function pound_init {
     
 }
 
-function pound_make_service_config { # host-header address http-port https-port cfg
-    ## this is a procedure, we take variables from the one calling
+function pound_make_service_config { ## this is a procedure, we take variables from the one calling # host-header address http-port https-port cfg host
     
 cat > "$cfg_file.http-service.cfg" << EOF
     Service
@@ -166,8 +176,8 @@ cat > "$cfg_file.https-service.cfg" << EOF
     End
 EOF
     
-    echo "Include \"$cfg_file.http-service.cfg\"" >> "/var/pound/$HOSTNAME/http-$cfg.cfg"
-    echo "Include \"$cfg_file.https-service.cfg\"" >> "/var/pound/$HOSTNAME/https-$cfg.cfg"
+    echo "Include \"$cfg_file.http-service.cfg\"" >> "/var/pound/$host/http-$cfg.cfg"
+    echo "Include \"$cfg_file.https-service.cfg\"" >> "/var/pound/$host/https-$cfg.cfg"
 }
 
 function pound_make_config_http_redirect { ## URL
@@ -177,7 +187,7 @@ cat > "$cfg_file.https-redirect.cfg" << EOF
             Redirect "$1"
         End
 EOF
-    echo "Include \"$cfg_file.https-redirect.cfg\"" >> "/var/pound/$HOSTNAME/http-domains.cfg"
+    echo "Include \"$cfg_file.https-redirect.cfg\"" >> "/var/pound/$host/http-domains.cfg"
 }
 
 function pound_make_config_https_redirect { ## URL
@@ -187,24 +197,26 @@ cat > "$cfg_file.http-redirect.cfg" << EOF
             Redirect "$1"
         End
 EOF
-    echo "Include \"$cfg_file.http-redirect.cfg\"" >> "/var/pound/$HOSTNAME/https-domains.cfg"
+    echo "Include \"$cfg_file.http-redirect.cfg\"" >> "/var/pound/$host/https-domains.cfg"
 }
 
 function pound_make_config { # for container C
     
-    local C DC
+    local C DC host dnl
     
     C="$1"
     DC="$(echo "$C" | tr '.' '-')"
+    dnl=$(echo $C | grep -o "\." | grep -c "\.")
     
     if [[ ${C:0:5} == "mail." ]]
     then
-        ## mail servers have no domains
-        ## TODO - web client?
+        ## mail servers have no domains for pound
         return
     fi
     
-    mkdir -p "/var/pound/$HOSTNAME/$C"
+    host="$(get container "$C" host)"
+    
+    mkdir -p "/var/pound/$host/$C"
     
     ## import container certificates
     
@@ -213,16 +225,26 @@ function pound_make_config { # for container C
     
     #ip="$(get container "$C" ip)"
     
-    http_port="$(get container "$C" http-port)"
-    [[ -z $http_port ]] && http_port=80
+    echo debug $C
+    get container "$C" http-port
+    get container "$C" ip
     
-    http_port="$(get container "$C" https-port)"
-    [[ -z $https_port ]] && http_port=80
+    http_port="$(get container "$C" http_port)"
+    exif "$http_port"
+    https_port="$(get container "$C" https_port)"
+    exif "$https_port"
+    
+    echo "ports $http_port $https_port"
     
     ## DDDN direct acces over the server domain name
-    cfg_file="/var/pound/$HOSTNAME/$C/dddn"
+    cfg_file="/var/pound/$host/$C/dddn"
     host_header="$DC.$SDN"
     cfg=ddn-domains
+    pound_make_service_config
+    
+    cfg_file="/var/pound/$host/$C/domain"
+    host_header="$C"
+    cfg="$dnl-domains" ## count dots
     pound_make_service_config
     
     ## Redirects
@@ -246,8 +268,9 @@ function pound_make_config { # for container C
     [[ $no_https == true ]] && pound_make_config_https_redirect "http://$C"
     
     ## Aliases
-    
     ## Codepad and spec containers
+    
+    
     
 }
 

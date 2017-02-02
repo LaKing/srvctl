@@ -10,27 +10,47 @@ function new {
     local __result
     # shellcheck disable=SC2048
     # shellcheck disable=SC2086
-    /bin/node "$SC_INSTALL_DIR/modules/datastore/data.js" new $* 2>&1
-    exif "Error in data processing, the node-datastore module exited with a failure. (new $*)"
+    __result="$(/bin/node $SC_INSTALL_DIR/modules/datastore/data.js new $* 2>&1)"
+    exif "DATASTORE-ERROR new $* ($?) $__result"
     
     datastore_push "new $*"
 }
 
 function get {
-    local __result
+    local __result __exitcode
+    
     # shellcheck disable=SC2048
     # shellcheck disable=SC2086
-    __result="$(/bin/node "$SC_INSTALL_DIR/modules/datastore/data.js" get $* 2>&1 )"
-    exif "$__result"
-    echo "$__result"
+    __result="$(/bin/node "$SC_INSTALL_DIR/modules/datastore/data.js" get $* 2>&1)"
+    __exitcode="$?"
+    
+    ## missing otional values signal error 100
+    ## return 0 on a value, 100 on a non found optional value
+    
+    if [[ $__exitcode == 0 ]]
+    then
+        echo "$__result"
+        return $__exitcode
+    fi
+    
+    if [[ $__exitcode == 100 ]]
+    then
+        if [[ $CMD == 'exec-function' ]] || [[ $CMD == 'get' ]]
+        then
+            err "DATASTORE get $* ($__exitcode) optional value is not defined. $__result"
+        fi
+        return $__exitcode
+    fi
+    
+    exif "DATASTORE-ERROR get $* ($__exitcode) $__result"
 }
 
 function put {
     local __result
     # shellcheck disable=SC2048
     # shellcheck disable=SC2086
-    __result="$(/bin/node "$SC_INSTALL_DIR/modules/datastore/data.js" put $* 2>&1 )"
-    exif "$__result"
+    __result="$(/bin/node "$SC_INSTALL_DIR/modules/datastore/data.js" put $* 2>&1)"
+    exif "DATASTORE-ERROR put $* ($?) $__result"
     
     datastore_push "put $*"
 }
@@ -39,16 +59,20 @@ function out {
     local __result
     # shellcheck disable=SC2048
     # shellcheck disable=SC2086
-    /bin/node "$SC_INSTALL_DIR/modules/datastore/data.js" out $* 2>&1
-    exif "Error in data processing, the node-datastore exited with a failure. (out $*)"
+    __result="$(/bin/node "$SC_INSTALL_DIR/modules/datastore/data.js" out $* 2>&1)"
+    exif "DATASTORE-ERROR out $* ($?) $__result"
+    
+    echo "$__result"
 }
 
 function cfg {
     local __result
     # shellcheck disable=SC2048
     # shellcheck disable=SC2086
-    /bin/node "$SC_INSTALL_DIR/modules/datastore/data.js" cfg $* 2>&1
-    exif "Error in data processing, the node-datastore module exited with a failure. (cfg $*)"
+    __result="$(/bin/node "$SC_INSTALL_DIR/modules/datastore/data.js" cfg $* 2>&1)"
+    exif "DATASTORE-ERROR cfg $* ($?) $__result"
+    
+    echo "$__result"
 }
 
 function del {
@@ -56,7 +80,7 @@ function del {
     # shellcheck disable=SC2048
     # shellcheck disable=SC2086
     /bin/node "$SC_INSTALL_DIR/modules/datastore/data.js" del $* 2>&1
-    exif "Error in data processing, the node-datastore module exited with a failure. (del $*)"
+    exif "DATASTORE-ERROR del $* ($?) $__result"
     
     datastore_push "del $*"
 }

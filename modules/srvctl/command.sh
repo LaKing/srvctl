@@ -38,9 +38,8 @@ then
     
     if [[ -z $service ]] && [[ $op == 'restart' ]]
     then
-        msg "Regenerate configs"
-        run_hooks regenerate
-        return 88
+        source "$SC_INSTALL_DIR/modules/containerfarm/commands/regenerate.sh"
+        exit
     fi
     
     run_hook adjust-service
@@ -82,7 +81,7 @@ then
         fi
         
         service_action "$service" "$op"
-        
+        exit
     fi
     return 0
     #exit 0

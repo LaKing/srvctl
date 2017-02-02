@@ -48,40 +48,39 @@ const HOSTNAME = process.env.HOSTNAME;
 const SC_HOSTNET = Number(process.env.SC_HOSTNET);
 const SC_RESELLER_USER = process.env.SC_RESELLER_USER;
 
+process.exitCode = 99;
 
 function exit() {
     if (save_containers) write_containers();
     if (save_users) write_users();
-    process.exit(0);
-}
-
-function return_optional_value(msg) {
-    if (msg !== undefined) console.log(msg);
-    process.exit(0);
+    process.exitCode = 0;
 }
 
 function return_value(msg) {
-    if (msg !== undefined)
+    if (msg === undefined || msg === '') process.exitCode = 100;
+    else {
         console.log(msg);
-    else return_error("Undefined value");
-    process.exit(0);
+        process.exitCode = 0;
+    }
 }
 
 function return_error(msg) {
-    console.error('DATA-ERROR:', msg, process.argv);
-    process.exit(10);
+    console.error('DATA-ERROR:', msg);
+    process.exitCode = 111;
+    process.exit(111);
 }
 
 function output(variable, value) {
     console.log(variable + '="' + value + '"');
+    process.exitCode = 0;
 }
 
 // get or put
-if (CMD === undefined) return_error("MISSING CMD ARGUMENT");
+if (CMD === undefined) return_error("MISSING CMD ARGUMENT: get | put | out | cfg | del | new");
 // users or containers
-if (DAT === undefined) return_error("MISSING DAT ARGUMENT");
+if (DAT === undefined) return_error("MISSING DAT ARGUMENT: system | user | reseller | container | host");
 // field
-if (ARG === undefined) return_error("MISSING ARG ARGUMENT");
+if (ARG === undefined) return_error("MISSING ARG ARGUMENT: containername / username / hostname / query");
 // OPA is optional
 
 if (CMD !== GET && CMD !== PUT && CMD !== OUT && CMD !== CFG && CMD !== DEL && CMD !== NEW) return_error("INVALID CMD ARGUMENT: " + CMD);
@@ -118,7 +117,7 @@ function load_resellers() {
     resellers.root.is_reseller_id = 0;
     Object.keys(users).forEach(function(i) {
         if (users[i].is_reseller_id !== undefined)
-            resellers[i]=users[i];
+            resellers[i] = users[i];
     });
 }
 
@@ -126,15 +125,15 @@ function load_users() {
     try {
         users = JSON.parse(fs.readFileSync(SC_USERS_DATA_FILE));
         if (users.root === undefined) {
-             users.root = {};
-             users.root.id = 0;
-             users.root.uid = 0;
-             users.root.reseller = 'root';
-             users.root.is_reseller_id = 0;
+            users.root = {};
+            users.root.id = 0;
+            users.root.uid = 0;
+            users.root.reseller = 'root';
+            users.root.is_reseller_id = 0;
         }
         // resellers are also users
         load_resellers();
-        
+
     } catch (err) {
         return_error('READFILE ' + SC_USERS_DATA_FILE + ' ' + err);
     }
@@ -240,6 +239,16 @@ function container_user(container) {
     return ret;
 }
 
+function container_http_port(container) {
+        if (container.http_port) return_value(container.http_port);
+        else return 80;
+    }
+    
+function container_https_port(container) {
+        if (container.https_port) return_value(container.https_port);
+        else return 443;
+    }
+
 function find_next_cip_for_container_on_network(network) {
     var nipa = network.split(dot);
     var c = 1;
@@ -268,11 +277,11 @@ function get_user_id() {
 
 function get_user_uid(user) {
     if (user.uid !== undefined) return user.uid;
-    
+
     var userid = Number(user.id);
     var resellerid = Number(resellers[user.reseller].is_reseller_id);
-    if (userid >= 0 && resellerid >=0) return 10000 + resellerid * 1000 + userid;
-    else return_error("failed to find user id/uid");    
+    if (userid >= 0 && resellerid >= 0) return 10000 + resellerid * 1000 + userid;
+    else return_error("failed to find user id/uid");
 }
 
 function get_next_user_id(reseller) {
@@ -315,10 +324,10 @@ function new_user(username) {
     user.added_by_username = SC_USER;
     user.added_on_datestamp = NOW;
     user.password = get_password();
-    
+
     if (resellers[SC_USER] !== undefined) user.reseller = SC_USER;
     else user.reseller = 'root';
-    
+
     user.id = get_next_user_id(user.reseller);
 
     users[username] = user;
@@ -476,40 +485,53 @@ if (DAT === 'container') {
         exit();
     }
 
-    if (CMD === GET && OPA === 'exist') return_value(containers[ARG] !== undefined);
+    if (CMD === GET && OPA === 'exist') {
+        if (containers[ARG] !== undefined) return_value("true");
+        else return_value("false");
+    } else {
 
-    if (containers[ARG] === undefined) return_error('CONTAINER DONT EXISTS');
-    var container = containers[ARG];
+        if (containers[ARG] === undefined) return_error('CONTAINER DONT EXISTS');
+        else {
+            // container must exist
+            var container = containers[ARG];
 
-    if (CMD === PUT) {
-        if (VAL === undefined) containers[ARG][OPA] = true;
-        else containers[ARG][OPA] = VAL;
-        save_containers = true;
-        exit();
-    }
+            if (CMD === PUT) {
+                if (VAL === undefined) containers[ARG][OPA] = true;
+                else containers[ARG][OPA] = VAL;
+                save_containers = true;
+                exit();
+            }
 
-    if (CMD === GET) {
-        if (OPA === 'br') return_value(container_bridge_address(container));
-        if (OPA === 'reseller') return_value(container_reseller_user(container));
-        if (OPA === 'host_ip') return_value(container_host_ip(container));
-        if (OPA === 'host') return_value(container_host(container));
+            if (CMD === GET) {
+                if (OPA === 'br') return_value(container_bridge_address(container));
+                else
+                if (OPA === 'reseller') return_value(container_reseller_user(container));
+                else
+                if (OPA === 'host_ip') return_value(container_host_ip(container));
+                else
+                if (OPA === 'host') return_value(container_host(container));
+                else
+                if (OPA === 'http_port') return_value(container_http_port(container));
+                else
+                if (OPA === 'https_port') return_value(container_https_port(container));
+                else
+                    return_value(container[OPA]);
+            }
 
-        // ip use_gsuite  
-        return_optional_value(container[OPA]);
-    }
+            if (CMD == OUT) {
+                output('C', ARG);
+                Object.keys(container).forEach(function(j) {
+                    output(j, container[j]);
+                });
+                exit();
+            }
 
-    if (CMD == OUT) {
-        output('C', ARG);
-        Object.keys(container).forEach(function(j) {
-            output(j, container[j]);
-        });
-        exit();
-    }
-
-    if (CMD === DEL) {
-        delete containers[ARG];
-        save_containers = true;
-        exit();
+            if (CMD === DEL) {
+                delete containers[ARG];
+                save_containers = true;
+                exit();
+            }
+        }
     }
 }
 
@@ -520,64 +542,63 @@ if (DAT === 'user') {
         exit();
     }
 
-    if (CMD === GET && OPA === 'exist') return_value(users[ARG] !== undefined);
+    if (CMD === GET && OPA === 'exist') {
+        if (users[ARG] !== undefined) return_value("true");
+        else return_value("false");
+    } else {
 
-    if (users[ARG] === undefined) return_error('USER DONT EXISTS');
-    var user = users[ARG];
+        if (users[ARG] === undefined) return_error('USER DONT EXISTS');
+        else {
 
-    if (CMD === PUT) {
-        if (VAL === undefined) users[ARG][OPA] = true;
-        else users[ARG][OPA] = VAL;
-        save_users = true;
-        exit();
+            var user = users[ARG];
+
+            if (CMD === PUT) {
+                if (VAL === undefined) users[ARG][OPA] = true;
+                else users[ARG][OPA] = VAL;
+                save_users = true;
+                exit();
+            }
+
+            if (CMD === GET) {
+                if (OPA === 'uid') return_value(get_user_uid(user));
+                else
+                return_value(user[OPA]);
+            }
+
+            if (CMD == OUT) {
+                output('U', ARG);
+                Object.keys(user).forEach(function(j) {
+                    output(j, user[j]);
+                });
+                exit();
+            }
+
+            if (CMD === DEL) {
+                delete users[ARG];
+                save_users = true;
+                exit();
+            }
+        }
     }
-
-    if (CMD === GET) {
-        
-        if (OPA === 'password' && user.password === undefined) return_value('');
-        if (OPA === 'uid') return_value(get_user_uid(user));
-
-        return_optional_value(user[OPA]);
-        exit();
-    }
-
-    if (CMD == OUT) {
-        output('U', ARG);
-        Object.keys(user).forEach(function(j) {
-            output(j, user[j]);
-        });
-        exit();
-    }
-
-    if (CMD === DEL) {
-        delete users[ARG];
-        save_users = true;
-        exit();
-    }
-
 }
 
 if (DAT === 'host') {
 
     if (hosts[ARG] === undefined) return_error('HOST DONT EXISTS');
-    var host = hosts[ARG];
+    else {
+        var host = hosts[ARG];
 
-    if (CMD === GET) {
-        
-        //allow undefined values
-        if (OPA === 'host_ip' && host.host_ip === undefined) exit();
-        if (OPA === 'hostnet' && host.hostnet === undefined) exit();
-        
-        return_optional_value(host[OPA]);
-        exit();
-    }
+        if (CMD === GET) {
+            return_value(host[OPA]);
+        }
 
-    if (CMD == OUT) {
-        output('SC_HOSTNAME', ARG);
-        Object.keys(host).forEach(function(j) {
-            output('SC_' + j.toUpperCase(), host[j]);
-        });
-        exit();
+        if (CMD == OUT) {
+            output('SC_HOSTNAME', ARG);
+            Object.keys(host).forEach(function(j) {
+                output('SC_' + j.toUpperCase(), host[j]);
+            });
+            exit();
+        }
     }
 }
 
@@ -597,4 +618,4 @@ if (DAT === 'system') {
 }
 
 
-return_error("EXIT on data.js EOF :: CMD:" + CMD + " ARG:" + ARG + " OPA:" + OPA);
+//return_error("EXIT on data.js EOF :: CMD:" + CMD + " ARG:" + ARG + " OPA:" + OPA);
