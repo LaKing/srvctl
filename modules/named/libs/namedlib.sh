@@ -1,5 +1,30 @@
 #!/bin/bash
 
+function regenerate_named_conf() {
+    msg "regenerate named conf"
+    
+    namedcfg
+    
+    restart_named
+}
+
+
+function restart_named() {
+    ## all preparations done, activate!
+    systemctl restart named.service
+    test=$(systemctl is-active named.service)
+    if ! [ "$test" == "active" ]
+    then
+        err "Error loading DNS settings."
+        run systemctl status named.service --no-pager
+        exit
+    else
+        msg "DNS server OK"
+    fi
+}
+
+
+
 ## constants
 readonly SC_NAMED_INCLUDES="/var/named/srvctl-includes.conf"
 readonly SC_NAMED_VAR_PATH="/var/named/srvctl"

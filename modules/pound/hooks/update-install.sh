@@ -45,7 +45,7 @@ ListenHTTP
     Err501 "/var/www/html/501.html"
     Err503 "/var/www/html/503.html"
 
-    Include "/var/pound/http-includes.cfg"
+    Include "/var/pound/http.cfg"
 
 End
 ListenHTTPS
@@ -60,7 +60,8 @@ ListenHTTPS
     Err501 "/var/www/html/501.html"
     Err503 "/var/www/html/503.html"
 
-    Include "/var/pound/https-includes.cfg"
+    Include "/var/pound/cert.cfg"
+    Include "/var/pound/https.cfg"
 
 End
 

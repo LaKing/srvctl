@@ -2,19 +2,25 @@
 
 function datastore_push() {
     
-    [[ ! -d /srvctl/data ]] && return
-    
-    if [[ ! -d /srvctl/data/.git ]]
+    if $SC_DATASTORE_RW_USE
     then
-        git init -q /srvctl/data
-cat > /srvctl/data/.gitignore << EOF
+        
+        [[ ! -d $SC_DATASTORE_RW_DIR ]] && return
+        
+        if [[ ! -d $SC_DATASTORE_RW_DIR/.git ]]
+        then
+            git init -q "$SC_DATASTORE_RW_DIR"
+            
+cat > "$SC_DATASTORE_RW_DIR/.gitignore" << EOF
 .git.log
 .gitignore
-users
-containers
 EOF
+        fi
+        
+        echo "$NOW $SC_USER $(cd "$SC_DATASTORE_RW_DIR" && git add ./*.json && git commit -m "$SC_USER@$HOSTNAME $*") $*" >> "$SC_DATASTORE_RW_DIR/.git.log"
+        
+        ## we backup most important data in case we need to fallback to readonly mode
+        cat "$SC_DATASTORE_RW_DIR/containers.json" > "$SC_DATASTORE_RO_DIR/containers.json"
+        cat "$SC_DATASTORE_RW_DIR/users.json" > "$SC_DATASTORE_RO_DIR/users.json"
     fi
-    
-    echo "$NOW $SC_USER $(cd /srvctl/data && git add ./*.json && git commit -m "$SC_USER@$HOSTNAME $*") $*" >> /srvctl/data/.git.log
-    
 }

@@ -92,15 +92,33 @@ function gluster_configure {
     fi
 }
 
+## running at init
 function gluster_mount_data() {
     
-    run mkdir -p /srvctl/data
-    if ! run mount -t glusterfs  -o log-file="/var/log/gluster-mount-$NOW.log" "$HOSTNAME:/srvctl-data" "/srvctl/data"
+    ## assumes that datastore is initialized first
+    
+    if ! mount | grep "$HOSTNAME:/srvctl-data on $SC_DATASTORE_RW_DIR type fuse.glusterfs" > /dev/null
     then
-        if [[ -f "/var/log/gluster-mount-$NOW.log" ]]
+        run mkdir -p "$SC_DATASTORE_RW_DIR"
+        if run mount -t glusterfs  -o log-file="/var/log/gluster-mount-$NOW.log" "$HOSTNAME:/srvctl-data" "$SC_DATASTORE_RW_DIR"
         then
-            cat "/var/log/gluster-mount-$NOW.log"
+            msg "OK"
+        else
+            if [[ -f "/var/log/gluster-mount-$NOW.log" ]]
+            then
+                run cat "/var/log/gluster-mount-$NOW.log"
+            fi
         fi
+    fi
+    
+    if mount | grep "$HOSTNAME:/srvctl-data on $SC_DATASTORE_RW_DIR type fuse.glusterfs" > /dev/null
+    then
+        debug "$SC_DATASTORE_RW_DIR is mounted"
+        # shellcheck disable=SC2034
+        SC_DATASTORE_RO_USE=false
+        init_datastore
+    else
+        err "Cound not mount RW glusterfs datastore! $SC_DATASTORE_RW_DIR"
     fi
 }
 

@@ -14,10 +14,10 @@ const VAL = process.argv[6];
 
 // constatnts
 
-const SC_HOSTS_DATA_FILE = '/etc/srvctl/data/hosts.json';
+const SC_HOSTS_DATA_FILE = process.env.SC_DATASTORE_DIR + '/hosts.json';
 
-const SC_USERS_DATA_FILE = '/srvctl/data/users.json';
-const SC_CONTAINERS_DATA_FILE = '/srvctl/data/containers.json';
+const SC_USERS_DATA_FILE = process.env.SC_DATASTORE_DIR + '/users.json';
+const SC_CONTAINERS_DATA_FILE = process.env.SC_DATASTORE_DIR + '/containers.json';
 
 const PUT = 'put';
 const GET = 'get';

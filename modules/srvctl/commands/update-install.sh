@@ -11,7 +11,6 @@ then
     echo "DEBUG=false" > /etc/srvctl/debug.conf
 fi
 
-
 sc_update
 
 ## disable selinux

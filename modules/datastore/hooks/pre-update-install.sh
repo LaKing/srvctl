@@ -9,8 +9,6 @@ else
     msg "Creating Empty database."
 fi
 
-init_datastore
-
 if [[ ! -f /etc/srvctl/host.conf ]]
 then
     msg "Writing host.conf based on hosts.json"

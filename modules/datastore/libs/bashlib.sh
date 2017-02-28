@@ -7,6 +7,7 @@
 ##
 
 function new {
+    
     local __result
     # shellcheck disable=SC2048
     # shellcheck disable=SC2086
@@ -17,6 +18,7 @@ function new {
 }
 
 function get {
+    
     local __result __exitcode
     
     # shellcheck disable=SC2048
@@ -46,6 +48,7 @@ function get {
 }
 
 function put {
+    
     local __result
     # shellcheck disable=SC2048
     # shellcheck disable=SC2086
@@ -56,6 +59,7 @@ function put {
 }
 
 function out {
+    
     local __result
     # shellcheck disable=SC2048
     # shellcheck disable=SC2086
@@ -66,6 +70,7 @@ function out {
 }
 
 function cfg {
+    
     local __result
     # shellcheck disable=SC2048
     # shellcheck disable=SC2086
@@ -76,6 +81,7 @@ function cfg {
 }
 
 function del {
+    
     local __result
     # shellcheck disable=SC2048
     # shellcheck disable=SC2086

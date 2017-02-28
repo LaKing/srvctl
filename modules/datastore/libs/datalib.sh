@@ -45,30 +45,59 @@ function grab_data() { ## from-host
     
 }
 
-function init_datastore() {
+function init_datastore_install() {
+    msg "init_datastore_install"
     
-    msg "init datastore"
-    
-    ## srvctl3 database is static in /etc/srvctl, shared in /srvctl
+    ## srvctl3 database is static in /etc/srvctl/data, shared in the RW folder
+    mkdir -p "$SC_DATASTORE_RO_DIR"
+    mkdir -p "$SC_DATASTORE_RW_DIR"
     mkdir -p /etc/srvctl/data
-    mkdir -p /srvctl/data
     
-    if ! [[ -f /etc/srvctl/data/hosts.json ]]
+    if [[ ! -f /etc/srvctl/data/hosts.json ]]
     then
-        ntc "INITIALIZE srvctl data hosts"
         echo '{}' > /etc/srvctl/data/hosts.json
     fi
     
+    cat /etc/srvctl/data/hosts.json > "$SC_DATASTORE_RO_DIR/hosts.json"
+    cat /etc/srvctl/data/hosts.json > "$SC_DATASTORE_RW_DIR/hosts.json"
     
-    if ! [[ -f /srvctl/data/containers.json ]]
+    if ! [[ -f "$SC_DATASTORE_DIR/containers.json" ]]
     then
-        ntc "INITIALIZE srvctl data containers"
-        echo '{}' > /srvctl/data/containers.json
+        if [[ -f /etc/srvctl/data/containers.json ]]
+        then
+            cat /etc/srvctl/data/containers.json > "$SC_DATASTORE_DIR/containers.json"
+        else
+            err "INITIALIZE-EMPTY srvctl data containers"
+            echo '{}' > "$SC_DATASTORE_DIR/containers.json"
+        fi
     fi
     
-    if ! [[ -f /srvctl/data/users.json ]]
+    if ! [[ -f "$SC_DATASTORE_DIR/users.json" ]]
     then
-        ntc "INITIALIZE srvctl data users"
-        echo '{}' > /srvctl/data/users.json
+        if [[ -f /etc/srvctl/data/users.json ]]
+        then
+            cat /etc/srvctl/data/users.json > "$SC_DATASTORE_DIR/containers.json"
+        else
+            err "INITIALIZE-EMPTY srvctl data users"
+            echo '{}' > "$SC_DATASTORE_DIR/users.json"
+        fi
     fi
 }
+
+function init_datastore() {
+    
+    if $SC_DATASTORE_RO_USE
+    then
+        SC_DATASTORE_DIR="$SC_DATASTORE_RO_DIR"
+    else
+        SC_DATASTORE_DIR="$SC_DATASTORE_RW_DIR"
+    fi
+    
+    if [[ ! -f $SC_DATASTORE_DIR/hosts.json ]] || [[ ! -f $SC_DATASTORE_DIR/containers.json ]] || [[ ! -f $SC_DATASTORE_DIR/users.json ]]
+    then
+        init_datastore_install
+    fi
+    
+    export SC_DATASTORE_DIR
+}
+

@@ -41,7 +41,7 @@ function load_libs {
         then
             for sourcefile in $dir/libs/*
             do
-                [[ $DEBUG == true ]] && ntc "@lib ${dir##*/} ${sourcefile##*/}"
+                debug "@lib ${dir##*/} ${sourcefile##*/}"
                 
                 [[ -f $sourcefile ]] && source "$sourcefile"
             done
@@ -57,7 +57,7 @@ function run_module_hook { ## module hook
     if [[ -f $dir/hooks/$hook.sh ]]
     then
         
-        [[ $DEBUG == true ]] && ntc "@hook ${dir##*/} $hook"
+        debug "@hook ${dir##*/} $hook"
         
         source "$dir/hooks/$hook.sh"
         exif "$dir hook '$hook' failed"
@@ -78,7 +78,7 @@ function run_hook {
             if [[ -f $dir/hooks/$hook.sh ]]
             then
                 
-                [[ $DEBUG == true ]] && ntc "@hook ${dir##*/} $hook"
+                debug "@hook ${dir##*/} $hook"
                 
                 source "$dir/hooks/$hook.sh"
                 exif "$dir hook '$hook' failed"
@@ -149,7 +149,7 @@ function run_command {
         return
     fi
     
-    [[ $DEBUG == true ]] && ntc "@default-command"
+    debug "@default-command"
     
     for dir in $SC_INSTALL_DIR/modules/*
     do
@@ -161,13 +161,13 @@ function run_command {
             ## try to find and run default command
             if [[ -f $dir/command.sh ]]
             then
-                [[ $DEBUG == true ]] && ntc "@command.sh ${dir##*/}"
+                debug "@command.sh ${dir##*/}"
                 source "$dir/command.sh"
             fi
         fi
     done
     
-    [[ $DEBUG == true ]] && ntc "@run_command end"
+    debug "@run_command end"
     
     return 250
 }

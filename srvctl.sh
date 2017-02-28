@@ -19,6 +19,8 @@
 # shellcheck disable=SC2034
 DEBUG=false
 
+readonly SC_STARTTIME="$(date +%s%3N)"
+
 readonly SC_INSTALL_BIN=$(realpath "$BASH_SOURCE")
 readonly SC_INSTALL_DIR=${SC_INSTALL_BIN:0:-10}
 readonly SC_COMMAND_ARGUMENTS="$*"
@@ -55,22 +57,19 @@ readonly SRVCTL
 
 source "$SC_INSTALL_DIR/init.sh" || echo "Init could not be loaded!" 1>&2
 
-[[ $DEBUG == true ]] && ntc "@Run command"
+debug " == run_command == "
 run_command
 
 if [[ $? == 0 ]]
 then
-    if $DEBUG
-    then
-        msg "#$SRVCTL"
-    fi
+    debug "$SRVCTL"
 else
     ## something gone wrong, or user did something bad
     
     ## check for arguments
     if [[ $CMD ]]
     then
-        err "Invalid command. $?"
+        err "Invalid command."
     else
         err "No-command."
     fi

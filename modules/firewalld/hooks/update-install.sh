@@ -11,5 +11,5 @@ fi
 
 if [[ "$(firewall-cmd --query-masquerade)" != yes ]]
 then
-    run firewall-cmd --add-masquerade --permanent
+    run firewall-cmd --add-masquerade
 fi

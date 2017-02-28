@@ -31,16 +31,35 @@ function logs {
     ## create a log entry
     echo "$NOW: $*" >> "$SC_LOG"
 }
+
+## silent log a file content
+function logfs {
+    ## create a log entry
+    echo "$NOW: cat $*" >> "$SC_LOG"
+    # shellcheck disable=SC2048
+    # shellcheck disable=SC2086
+    cat $* >> "$SC_LOG"
+}
+
 dbgc=0
 function dbg {
     ((dbgc++))
     ## short debug message if debugging is on
     if $DEBUG
     then
-        echo -e "${YELLOW}DEBUG #$dbgc ${BASH_SOURCE[1]}#$BASH_LINENO ${FUNCNAME[1]} ${RED} $* ${CLEAR}"
+        echo -e "${YELLOW}DEBUG #$dbgc ${BASH_SOURCE[1]}#$BASH_LINENO ${FUNCNAME[1]} ${GREEN} $* ${CLEAR}"
     fi
 }
 function debug {
+    ## short debug message if debugging is on
+    local now
+    if $DEBUG
+    then
+        now="$(date +%s%3N)"
+        echo -e "${GREEN}# $((now-SC_STARTTIME))${YELLOW} $* ${CLEAR}"
+    fi
+}
+function trace {
     ## tracing debug message
     echo -e "${YELLOW} DEBUG ${BASH_SOURCE[1]}#$BASH_LINENO ${FUNCNAME[1]} ${RED} $*${CLEAR}"
     set -o posix;

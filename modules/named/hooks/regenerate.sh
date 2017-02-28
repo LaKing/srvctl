@@ -1,3 +1,3 @@
 #!/bin/bash
 
-regenerate_dns
+regenerate_named_conf
