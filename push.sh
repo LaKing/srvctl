@@ -23,7 +23,7 @@ then
     sc
     
     echo "## Srvctl v3 ($(cat $wd/version))" > $rmd
-    echo "A remake for 2016 mostly using systemd tools" >> $rmd
+    cat $wd/README.txt >> $rmd
     
     
     # shellcheck disable=SC2016
