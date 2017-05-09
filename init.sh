@@ -9,6 +9,19 @@ then
     mkdir -p /etc/srvctl
 fi
 
+## create startup symlinks for sc and srvctl commands
+if [[ -f /usr/local/share/srvctl/srvctl.sh ]]
+then
+    if [[ ! -e /bin/sc ]]
+    then
+        sudo ln -s /usr/local/share/srvctl/srvctl.sh /bin/sc
+    fi
+    if [[ ! -e /bin/srvctl ]]
+    then
+        sudo ln -s /usr/local/share/srvctl/srvctl.sh /bin/srvctl
+    fi
+fi
+
 ## lablib is mainly for colorization
 source "$SC_INSTALL_DIR/lablib.sh" || echo "lablib could not be loaded!" 1>&2
 

@@ -10,14 +10,16 @@ A srvctl host should have glusterfs for data storage. While installing your oper
 Setting a hostname is mandatory. Needless to say, you mostly have to operate as root. 
 As root, clone the repo and create some symlinks for it.
 ```
-    cd /usr/local/share
     dnf -y install git
-    git clone https://github.com/LaKing/srvctl.git
-    ln -s /usr/local/share/srvctl/srvctl.sh /bin/sc
-    ln -s /usr/local/share/srvctl/srvctl.sh /bin/srvctl
+    cd /usr/local/share
+    git clone https://github.com/LaKing/srvctl.git && bash srvctl/srvctl.sh
+     
 ```
 
 At this point the srvctl command should be ready to be used.
 To use srvctl as a containerfarm host, the common configuration data has to be written using the JSON format. You may refer to the example-configs.
-    
+
+    cp -R /usr/local/share/srvctl/example-conf/data /etc/srvctl
+
+Most static configuration files reside in /etc/srvctl
     

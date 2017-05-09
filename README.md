@@ -1,4 +1,4 @@
-## Srvctl v3 (3.0.127.1)
+## Srvctl v3 (3.0.127.2)
 srvctl is a containerfarm-manager for microsite hosting webservers. It will help to set up, maintain, and to let a couple of servers work together in order to have a solid web-serving service.
 Version 3 is remake for 2016 mostly using systemd tools, thus using systemd-nspawn as the containerfarm manager. The core is written in bash and javascript, and a modular design allows to extend it with programs.
 
@@ -11,16 +11,18 @@ A srvctl host should have glusterfs for data storage. While installing your oper
 Setting a hostname is mandatory. Needless to say, you mostly have to operate as root. 
 As root, clone the repo and create some symlinks for it.
 ```
-    cd /usr/local/share
     dnf -y install git
-    git clone https://github.com/LaKing/srvctl.git
-    ln -s /usr/local/share/srvctl/srvctl.sh /bin/sc
-    ln -s /usr/local/share/srvctl/srvctl.sh /bin/srvctl
+    cd /usr/local/share
+    git clone https://github.com/LaKing/srvctl.git && bash srvctl/srvctl.sh
+     
 ```
 
 At this point the srvctl command should be ready to be used.
 To use srvctl as a containerfarm host, the common configuration data has to be written using the JSON format. You may refer to the example-configs.
-    
+
+    cp -R /usr/local/share/srvctl/example-conf/data /etc/srvctl
+
+Most static configuration files reside in /etc/srvctl
     
 ```
 
