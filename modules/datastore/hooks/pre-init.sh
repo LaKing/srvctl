@@ -13,3 +13,9 @@
 
 # shellcheck disable=SC2034
 [[ $SC_DATASTORE_DIR ]] || SC_DATASTORE_DIR="$SC_DATASTORE_RO_DIR"
+
+# shellcheck disable=SC2034
+readonly SC_DATASTORE_RO_DIR
+
+# shellcheck disable=SC2034
+readonly SC_DATASTORE_RW_DIR

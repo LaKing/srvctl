@@ -52,6 +52,7 @@ function check_hosts_connectivity() {
             if [[ ! -z "$tempstr" ]]
             then
                 ntc "Adding host-key by hostname"
+                # shellcheck disable=SC2129
                 echo "" >> "$dest"
                 ## add a comment
                 echo "## $host by hostname $NOW" >> "$dest"
@@ -74,11 +75,12 @@ function check_hosts_connectivity() {
                 if [[ ! -z "$tempstr" ]]
                 then
                     ntc "Adding host-key by ip"
+                    # shellcheck disable=SC2129
                     echo "" >> "$dest"
                     ## add a comment
                     echo "## $host by ip $NOW" >> "$dest"
                     ## add the key
-                    echo $tempstr >> "$dest"
+                    echo "$tempstr" >> "$dest"
                     ## add to datastore
                     #
                 else
@@ -115,11 +117,12 @@ function check_hosts_connectivity() {
             if [[ ! -z "$tempstr" ]]
             then
                 ntc "Adding host-key by hostname"
+                # shellcheck disable=SC2129
                 echo "" >> "$dest"
                 ## add a comment
                 echo "## $container by hostname $NOW" >> "$dest"
                 ## and the key
-                echo $tempstr >> "$dest"
+                echo "$tempstr" >> "$dest"
                 ## add to datastore
                 #
             else
@@ -131,17 +134,18 @@ function check_hosts_connectivity() {
         then
             if ! grep "## $container by ip" "$dest"
             then
-                ssh-keyscan -t rsa "$ip" > $tempfile || continue
-                tempstr="$(cat $tempfile)"
+                ssh-keyscan -t rsa "$ip" > "$tempfile" || continue
+                tempstr="$(cat "$tempfile")"
                 
                 if [[ ! -z "$tempstr" ]]
                 then
                     ntc "Adding host-key by ip"
+                    # shellcheck disable=SC2129
                     echo "" >> "$dest"
                     ## add a comment
                     echo "## $container by ip $NOW" >> "$dest"
                     ## add the key
-                    echo $tempstr >> "$dest"
+                    echo "$tempstr" >> "$dest"
                     ## add to datastore
                     #
                 else
