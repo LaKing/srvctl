@@ -56,7 +56,7 @@ function check_hosts_connectivity() {
                 ## add a comment
                 echo "## $host by hostname $NOW" >> "$dest"
                 ## and the key
-                echo $tempstr >> "$dest"
+                echo "$tempstr" >> "$dest"
                 ## add to datastore
                 #
             else
@@ -68,14 +68,16 @@ function check_hosts_connectivity() {
         then
             if ! grep "## $host by ip" "$dest"
             then
-                ssh-keyscan -t rsa "$ip" > $tempfile || continue
-                tempstr="$(cat $tempfile)"
+                ssh-keyscan -t rsa "$ip" > "$tempfile" || continue
+                tempstr="$(cat "$tempfile")"
                 
                 if [[ ! -z "$tempstr" ]]
                 then
                     ntc "Adding host-key by ip"
                     echo "" >> "$dest"
+                    ## add a comment
                     echo "## $host by ip $NOW" >> "$dest"
+                    ## add the key
                     echo $tempstr >> "$dest"
                     ## add to datastore
                     #
@@ -136,7 +138,9 @@ function check_hosts_connectivity() {
                 then
                     ntc "Adding host-key by ip"
                     echo "" >> "$dest"
+                    ## add a comment
                     echo "## $container by ip $NOW" >> "$dest"
+                    ## add the key
                     echo $tempstr >> "$dest"
                     ## add to datastore
                     #

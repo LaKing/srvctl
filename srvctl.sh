@@ -21,6 +21,7 @@
 ## can be set true in /etc/srvctl/config
 # shellcheck disable=SC2034
 DEBUG=false
+# shellcheck disable=SC2034
 [[ -f /bin/pop ]] && DEBUG=true
 
 readonly SC_STARTTIME="$(date +%s%3N)"
