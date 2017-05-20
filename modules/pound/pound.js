@@ -8,14 +8,10 @@ function out(msg) {
 
 // includes
 var fs = require('fs');
+var datastore = require('../datastore/lib.js');
 
 const CMD = process.argv[2];
 // constatnts
-
-const SC_HOSTS_DATA_FILE = process.env.SC_DATASTORE_DIR + '/hosts.json';
-
-const SC_USERS_DATA_FILE = process.env.SC_DATASTORE_DIR + '/users.json';
-const SC_CONTAINERS_DATA_FILE = process.env.SC_DATASTORE_DIR + '/containers.json';
 
 
 const SRVCTL = process.env.SRVCTL;
@@ -51,10 +47,10 @@ function output(variable, value) {
 
 
 // variables
-var hosts = {};
-var users = {};
-var resellers = {};
-var containers = {};
+var hosts = datastore.hosts;
+var users = datastore.users;
+var resellers = datastore.resellers;
+var containers = datastore.containers;
 var user = '';
 var container = '';
 
@@ -63,62 +59,10 @@ var container = '';
 //if (DAT === 'user') user = ARG;
 
 // data functions
-function load_hosts() {
-    try {
-        hosts = JSON.parse(fs.readFileSync(SC_HOSTS_DATA_FILE));
-    } catch (err) {
-        return_error('READFILE ' + SC_HOSTS_DATA_FILE + ' ' + err);
-    }
-}
-// data functions
-function load_resellers() {
-    resellers = {};
-    resellers.root = users.root;
-    resellers.root.is_reseller_id = 0;
-    Object.keys(users).forEach(function(i) {
-        if (users[i].is_reseller_id !== undefined)
-            resellers[i] = users[i];
-    });
-}
 
-function load_users() {
-    try {
-        users = JSON.parse(fs.readFileSync(SC_USERS_DATA_FILE));
-        if (users.root === undefined) {
-            users.root = {};
-            users.root.id = 0;
-            users.root.uid = 0;
-            users.root.reseller = 'root';
-            users.root.is_reseller_id = 0;
-        }
-        // resellers are also users
-        load_resellers();
-
-    } catch (err) {
-        return_error('READFILE ' + SC_USERS_DATA_FILE + ' ' + err);
-    }
-}
-
-function load_containers() {
-    try {
-        containers = JSON.parse(fs.readFileSync(SC_CONTAINERS_DATA_FILE));
-    } catch (err) {
-        return_error('READFILE ' + SC_CONTAINERS_DATA_FILE + ' ' + err);
-    }
-}
 
 function ddn(d) {
     return d.replace(/\./g, "-") + '.' + HOSTNAME;
-}
-
-function container_http_port(container) {
-    if (container.http_port) return container.http_port;
-    else return 80;
-}
-
-function container_https_port(container) {
-    if (container.https_port) return container.https_port;
-    else return 443;
 }
 
 function _url_service(URL, Address, Port) {
@@ -133,7 +77,7 @@ function _url_service(URL, Address, Port) {
     x += br + 'End';
 
     x += br;
-    out(x);
+    return x;
 }
 
 function _head_service(host, Address, Port) {
@@ -148,59 +92,75 @@ function _head_service(host, Address, Port) {
     x += br + 'End';
 
     x += br;
-    out(x);
+    return x;
 }
 
 function scan_path_for_cert(path) {
+    var x = '';
     var dirs = fs.readdirSync(path);
     dirs.forEach(dir => {
         if (fs.existsSync(path + '/' + dir + '/cert.pem')) {
-            out('Cert "' + path + '/' + dir + '/cert.pem"');
+            x += 'Cert "' + path + '/' + dir + '/cert.pem"' + br;
         }
     });
+    return x;
 }
 
-load_hosts();
-load_containers();
-load_users();
-
-if (CMD === 'http') {
-
-    _url_service("^/.well-known/acme-challenge/*", localhost, 1028);
-    _url_service("^/.well-known/autoconfig/mail/config-v1.1.xml", localhost, 1029);
+function write_var_pound_http_cfg() {
+    var str = '';
+    
+    str += _url_service("^/.well-known/acme-challenge/*", localhost, 1028);
+    str += _url_service("^/.well-known/autoconfig/mail/config-v1.1.xml", localhost, 1029);
 
     // normal service
     Object.keys(containers).forEach(function(i) {
         var c = containers[i];
-        _head_service(i, i, container_http_port(c));
+        str += _head_service(i, i, datastore.container_http_port(c));
     });
     // direct acces domain
     Object.keys(containers).forEach(function(i) {
         var c = containers[i];
-        _head_service(ddn(i), i, container_http_port(c));
+        str += _head_service(ddn(i), i, datastore.container_http_port(c));
     });
-
+    fs.writeFile('/var/pound/http.cfg', str, function(err) {
+        if (err) return_error('WRITEFILE ' + err);
+        else console.log('wrote pound srvctl http conf');
+    });
 }
 
-if (CMD === 'cert') {
-
+function write_var_pound_cert_cfg() {
+    var certs_includes = '';
     // certificates
-    scan_path_for_cert('/etc/srvctl/cert');
-    scan_path_for_cert('/var/pound/cert');
+    certs_includes += scan_path_for_cert('/etc/srvctl/cert');
+    certs_includes += scan_path_for_cert('/var/pound/cert');
+    fs.writeFile('/var/pound/cert.cfg', certs_includes, function(err) {
+        if (err) return_error('WRITEFILE ' + err);
+        else console.log('wrote pound srvctl cert conf');
+    });
 }
 
-if (CMD === 'https') {
+function write_var_pound_https_cfg() {
+    var str = '';
     // normal service
     Object.keys(containers).forEach(function(i) {
         var c = containers[i];
-        _head_service(i, i, container_https_port(c));
+        str += _head_service(i, i, datastore.container_https_port(c));
     });
     // direct acces domain
     Object.keys(containers).forEach(function(i) {
         var c = containers[i];
-        _head_service(ddn(i), i, container_https_port(c));
+        str += _head_service(ddn(i), i, datastore.container_https_port(c));
     });
-
+    fs.writeFile('/var/pound/https.cfg', str, function(err) {
+        if (err) return_error('WRITEFILE ' + err);
+        else console.log('wrote pound srvctl https conf');
+    });
 }
+
+
+write_var_pound_http_cfg();
+write_var_pound_cert_cfg();
+write_var_pound_https_cfg();
+process.exitCode = 0;
 
 exit();

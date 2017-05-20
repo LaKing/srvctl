@@ -6,7 +6,6 @@ then
     msg "Found /etc/srvctl/data dir."
 else
     msg "/etc/srvctl/data directory not found. It is recommended to have such a folder prepared."
-    msg "Creating Empty database."
 fi
 
 if [[ ! -f /etc/srvctl/host.conf ]]

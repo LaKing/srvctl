@@ -29,7 +29,6 @@ fi
 ## add to database
 new container "$C" "$T" || exit
 
-
 ## make local container
 create_nspawn_container_filesystem "$C" "$T"
 create_nspawn_container_network "$C" "$T"

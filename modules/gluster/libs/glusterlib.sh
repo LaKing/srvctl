@@ -22,8 +22,6 @@ function gluster_configure {
     if [[ -d /glu/srvctl-data ]]
     then
         
-        mkdir -p /glu/srvctl-data
-        
         sc_install glusterfs-server
         
         firewalld_add_service glusterfs
@@ -41,6 +39,7 @@ function gluster_configure {
         msg "probing for new peers"
         for host in $(cfg system host_list)
         do
+            
             ip="$(get host "$host" host_ip)"
             hs="$(get host "$host" hostnet)"
             
@@ -73,6 +72,14 @@ function gluster_configure {
         if ! run gluster volume status srvctl-data
         then
             
+            ## /glu/srvctl-data/brick - the existance of this directory prevents volume creation, but attemting to create the volume creates the directory
+            if [[ -d /glu/srvctl-data/brick ]] && [[ ! -d /glu/srvctl-data/brick/.glusterfs ]]
+            then
+                rm -fr /glu/srvctl-data/brick
+            fi
+            
+            msg "start volume srvctl-data"
+            
             # shellcheck disable=SC2086
             run gluster volume create srvctl-data replica ${#lista[@]} $list
             
@@ -84,6 +91,7 @@ function gluster_configure {
             
             gluster_mount_data
         fi
+        
         ## todo, moumt it permanently
         
         
@@ -118,7 +126,7 @@ function gluster_mount_data() {
         SC_DATASTORE_RO_USE=false
         init_datastore
     else
-        err "Cound not mount RW glusterfs datastore! $SC_DATASTORE_RW_DIR"
+        err "Could not mount RW glusterfs datastore! $SC_DATASTORE_RW_DIR"
     fi
 }
 

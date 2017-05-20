@@ -10,6 +10,7 @@ function publish_data() {
     
     for host in $hostlist
     do
+        
         if [[ "$(ssh -n -o ConnectTimeout=1 "$host" hostname 2> /dev/null)" == "$host" ]]
         then
             msg "publishing srvctl data to $host"
@@ -58,8 +59,9 @@ function init_datastore_install() {
         echo '{}' > /etc/srvctl/data/hosts.json
     fi
     
-    cat /etc/srvctl/data/hosts.json > "$SC_DATASTORE_RO_DIR/hosts.json"
-    cat /etc/srvctl/data/hosts.json > "$SC_DATASTORE_RW_DIR/hosts.json"
+    ## hosts.json is more or less static data
+    cat /etc/srvctl/data/hosts.json > "$SC_DATASTORE_DIR/hosts.json"
+    
     
     if ! [[ -f "$SC_DATASTORE_DIR/containers.json" ]]
     then
@@ -76,7 +78,7 @@ function init_datastore_install() {
     then
         if [[ -f /etc/srvctl/data/users.json ]]
         then
-            cat /etc/srvctl/data/users.json > "$SC_DATASTORE_DIR/containers.json"
+            cat /etc/srvctl/data/users.json > "$SC_DATASTORE_DIR/users.json"
         else
             err "INITIALIZE-EMPTY srvctl data users"
             echo '{}' > "$SC_DATASTORE_DIR/users.json"

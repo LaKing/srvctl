@@ -8,7 +8,8 @@ root_only #|| return 244
 
 if [[ ! -f /etc/srvctl/debug.conf ]]
 then
-    echo "DEBUG=false" > /etc/srvctl/debug.conf
+    echo "DEBUG=true" > /etc/srvctl/debug.conf
+    msg "Debugging turned on - /etc/srvctl/debug.conf"
 fi
 
 sc_update
@@ -29,12 +30,15 @@ then
     mcedit /etc/hostname
     cat /etc/hostname
     msg "after setting a hostname, a reboot is required"
+    rm -fr /etc/srvctl/modules.conf
     exit
 fi
 
 ## just some default
 git config --global user.name "srvctl"
 git config --global user.email "srvctl@$HOSTNAME"
+
+check_hosts_connectivity
 
 msg "Calling update-install hooks."
 run_hooks update-install

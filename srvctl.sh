@@ -15,15 +15,21 @@
 ###  But please, then, do, etc on seperate lines. Better readble.
 ###
 
+## okay THIS IS REALLY only for development.
+[[ -f /bin/pop ]] && /bin/pop
+
 ## can be set true in /etc/srvctl/config
 # shellcheck disable=SC2034
 DEBUG=false
+[[ -f /bin/pop ]] && DEBUG=true
 
 readonly SC_STARTTIME="$(date +%s%3N)"
 
 readonly SC_INSTALL_BIN=$(realpath "$BASH_SOURCE")
 readonly SC_INSTALL_DIR=${SC_INSTALL_BIN:0:-10}
 readonly SC_COMMAND_ARGUMENTS="$*"
+
+export SC_INSTALL_DIR
 
 ## command arguments saved into variables
 # shellcheck disable=SC2034

@@ -2,8 +2,11 @@
 
 function datastore_push() {
     
-    if $SC_DATASTORE_RW_USE
+    if $SC_DATASTORE_RO_USE
     then
+        ntc "Datastore is in readonly mode."
+    else
+        ## RW use
         
         [[ ! -d $SC_DATASTORE_RW_DIR ]] && return
         

@@ -44,7 +44,8 @@ function get {
         return $__exitcode
     fi
     
-    exif "DATASTORE-ERROR get $* ($__exitcode) $__result"
+    err "DATASTORE-ERROR get $* ($__exitcode) $__result"
+    return $__exitcode
 }
 
 function put {

@@ -1,29 +1,34 @@
 #!/bin/bash
 
 function regenerate_named_conf() {
-    msg "regenerate named conf"
     
-    namedcfg
+    if [[ $SC_DNS_SERVER == 'master' ]] || [[ $SC_DNS_SERVER == 'slave' ]]
+    then
+        msg "regenerate_named_conf $SC_DNS_SERVER $SC_COMPANY_DOMAIN"
+        namedcfg "$SC_DNS_SERVER"
+    else
+        err "this is not a DNS server"
+    fi
     
-    restart_named
 }
 
 
 function restart_named() {
     ## all preparations done, activate!
-    systemctl restart named.service
+    run systemctl restart named.service
     test=$(systemctl is-active named.service)
     if ! [ "$test" == "active" ]
     then
         err "Error loading DNS settings."
         run systemctl status named.service --no-pager
-        exit
+        #exit
     else
         msg "DNS server OK"
     fi
 }
 
 
+return
 
 ## constants
 readonly SC_NAMED_INCLUDES="/var/named/srvctl-includes.conf"

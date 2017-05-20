@@ -15,14 +15,14 @@ local C
 C="$ARG"
 if [[ -f /etc/srvctl/containers/$C.service ]]
 then
-    systemctl stop "$C"
-    systemctl disable "$C"
-    rm -fr "/etc/srvctl/containers/$C.service"
+    run systemctl stop "$C"
+    run systemctl disable "$C"
+    run rm -fr "/etc/srvctl/containers/$C.service"
 fi
 
 if [[ -d /srv/$C ]]
 then
-    rm -fr "/srv/$C"
+    run rm -fr "/srv/$C"
 fi
 
 del container "$C"

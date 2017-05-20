@@ -12,11 +12,9 @@ var fs = require('fs');
 const CMD = process.argv[2];
 // constatnts
 
-const SC_HOSTS_DATA_FILE = process.env.SC_DATASTORE_DIR + '/hosts.json';
+const CDN = process.env.SC_COMPANY_DOMAIN;
 
-const SC_USERS_DATA_FILE = process.env.SC_DATASTORE_DIR + '/users.json';
-const SC_CONTAINERS_DATA_FILE = process.env.SC_DATASTORE_DIR + '/containers.json';
-
+var datastore = require('../datastore/lib.js');
 
 const SRVCTL = process.env.SRVCTL;
 const SC_ROOT = process.env.SC_ROOT;
@@ -51,67 +49,90 @@ function output(variable, value) {
 
 
 // variables
-var hosts = {};
-var users = {};
-var resellers = {};
-var containers = {};
-var user = '';
-var container = '';
+var hosts = datastore.hosts;
+var users = datastore.users;
+var resellers = datastore.resellers;
+var containers = datastore.containers;
 
 
-//if (DAT === 'container') container = ARG;
-//if (DAT === 'user') user = ARG;
-
-// data functions
-function load_hosts() {
-    try {
-        hosts = JSON.parse(fs.readFileSync(SC_HOSTS_DATA_FILE));
-    } catch (err) {
-        return_error('READFILE ' + SC_HOSTS_DATA_FILE + ' ' + err);
-    }
-}
-// data functions
-function load_resellers() {
-    resellers = {};
-    resellers.root = users.root;
-    resellers.root.is_reseller_id = 0;
-    Object.keys(users).forEach(function(i) {
-        if (users[i].is_reseller_id !== undefined)
-            resellers[i] = users[i];
+function get_container_zone(i) {
+    var container = containers[i];
+    var zone = '';
+    var ip = datastore.container_host_ip(container);
+    var spf_string = "v=spf1";
+    
+    Object.keys(hosts).forEach(function(i) {
+        if (hosts[i].host_ip !== undefined) spf_string += " ip4:" + hosts[i].host_ip;
+        if (hosts[i].host_ipv6 !== undefined) spf_string += " ip6:" + hosts[i].host_ipv6;
     });
+
+    spf_string += " a mx";
+
+    if (container.use_gsuite) spf_string += " include:_spf.google.com ~all";
+    else spf_string += " -all";
+
+    zone += "$TTL 1D" + br;
+    zone += "@        IN SOA        @ hostmaster." + CDN + ". (" + br;
+    zone += "                                        '$serial'        ; serial" + br;
+    zone += "                                        1D        ; refresh" + br;
+    zone += "                                        1H        ; retry" + br;
+    zone += "                                        1W        ; expire" + br;
+    zone += "                                        3H )        ; minimum" + br;
+    zone += "        IN         NS        ns1." + CDN + "." + br;
+    zone += "        IN         NS        ns2." + CDN + "." + br;
+    zone += "        IN         NS        ns3." + CDN + "." + br;
+    zone += "        IN         NS        ns4." + CDN + "." + br;
+    zone += "*        IN         A        " + ip + br;
+    zone += "@        IN         A        " + ip + br;
+
+    if (container.use_gsuite) {
+        zone += "; nameservers for google apps" + br;
+        zone += "@    IN    MX    1    ASPMX.L.GOOGLE.COM" + br;
+        zone += "@    IN    MX    5    ALT1.ASPMX.L.GOOGLE.COM" + br;
+        zone += "@    IN    MX    5    ALT2.ASPMX.L.GOOGLE.COM" + br;
+        zone += "@    IN    MX    10    ALT3.ASPMX.L.GOOGLE.COM" + br;
+        zone += "@    IN    MX    10    ALT4.ASPMX.L.GOOGLE.COM" + br;
+    } else zone += "@        IN        MX        10        mail" + br;
+
+    zone += '@        IN        TXT        "'+spf_string + '"' + br;
+    
+    if (container.dkim_default_domainkey !== undefined) zone += 'default._domainkey       IN        TXT       ( "v=DKIM1; k=rsa; " "p='+container.dkim_default_domainkey_domainkey + '" )' + br;
+
+    return zone;
 }
 
-function load_users() {
-    try {
-        users = JSON.parse(fs.readFileSync(SC_USERS_DATA_FILE));
-        if (users.root === undefined) {
-            users.root = {};
-            users.root.id = 0;
-            users.root.uid = 0;
-            users.root.reseller = 'root';
-            users.root.is_reseller_id = 0;
-        }
-        // resellers are also users
-        load_resellers();
+var master_server_ip = '';
 
-    } catch (err) {
-        return_error('READFILE ' + SC_USERS_DATA_FILE + ' ' + err);
-    }
+Object.keys(hosts).forEach(function(i) {
+    if (hosts[i].dns_server === 'master') master_server_ip = hosts[i].host_ip;
+});
+
+if (CMD === 'master') {
+    var zones = '';
+    Object.keys(containers).forEach(function(i) {
+        zones += 'zone "' + i + '" {type master; file "/var/named/srvctl/' + i + '.zone";};' + br;
+        fs.writeFile("/var/named/srvctl/" + i + ".zone", get_container_zone(i), function(err) {
+            if (err) return_error('WRITEFILE zone ' + err);
+        });
+    });
+
+    fs.writeFile("/var/named/srvctl.conf", zones, function(err) {
+        if (err) return_error('WRITEFILE ' + err);
+        else console.log('wrote named srvctl master conf');
+    });
+
+    exit();
 }
 
-function load_containers() {
-    try {
-        containers = JSON.parse(fs.readFileSync(SC_CONTAINERS_DATA_FILE));
-    } catch (err) {
-        return_error('READFILE ' + SC_CONTAINERS_DATA_FILE + ' ' + err);
-    }
+if (CMD === 'slave') {
+    var slaves = '';
+    Object.keys(containers).forEach(function(i) {
+        slaves += 'zone "' + i + '" {type slave; masters {' + master_server_ip + ';}; file "/var/named/srvctl/' + i + '.slave.zone";};' + br;
+    });
+    fs.writeFile("/var/named/srvctl.conf", slaves, function(err) {
+        if (err) return_error('WRITEFILE ' + err);
+        else console.log('wrote named srvctl slave conf');
+    });
+
+    exit();
 }
-
-
-load_hosts();
-load_containers();
-load_users();
-
-out('nothing');
-
-exit();

@@ -9,9 +9,7 @@ function regenerate_pound_conf {
     mkdir -p /var/srvctl3-datastore/rw/cert
     rsync -a /var/srvctl3-datastore/rw/cert /var/srvctl3-datastore/ro
     rsync -a /var/srvctl3-datastore/ro/cert /var/pound
-    poundcfg cert > /var/pound/cert.cfg
-    poundcfg http > /var/pound/http.cfg
-    poundcfg https > /var/pound/https.cfg
+    poundcfg
     restart_pound
 }
 

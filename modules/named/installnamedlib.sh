@@ -63,7 +63,7 @@ zone "." IN {
 include "/etc/named.rfc1912.zones";
 include "/etc/named.root.key";
 
-include "/var/named/srvctl-includes.conf";
+include "/var/named/srvctl.conf";
 EOF
 }
 

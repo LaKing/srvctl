@@ -22,6 +22,8 @@ function check_pem { ## file
 ## create selfsigned certificate the hard way
 function create_selfsigned_domain_certificate { ## for domain
     
+    msg "create_selfsigned_domain_certificate $1"
+    
     local domain cert_path
     
     domain="$1"
@@ -72,15 +74,16 @@ function create_selfsigned_domain_certificate { ## for domain
     
     if [[ -f $ssl_pem ]] && [[ ! -z "$(cat "$ssl_pem")" ]]
     then
-        if openssl x509 -checkend 604800 -noout -in "$ssl_pem"
+        
+        if run openssl x509 -checkend 604800 -noout -in "$ssl_pem"
         then
-            openssl verify -CAfile "$ssl_pem $ssl_pem" > /dev/null
+            run openssl verify -CAfile "$ssl_pem $ssl_pem" > /dev/null
             if [[ "$?" == "2" ]]
             then
                 #ntc "$domain already has a Self signed certificate!"
                 return
             else
-                if openssl verify -CAfile "$ssl_pem" -verify_hostname "$domain" "$ssl_pem" > /dev/null
+                if run openssl verify -CAfile "$ssl_pem" -verify_hostname "$domain" "$ssl_pem" > /dev/null
                 then
                     if [[ ! -f $ssl_key ]]
                     then
@@ -156,17 +159,17 @@ EOF
     #### create certificate
     
     ## Generate a Private Key
-    openssl genrsa -des3 -passout pass:"$ssl_password" -out "$ssl_key" 2048 2> /dev/null
+    run openssl genrsa -des3 -passout pass:"$ssl_password" -out "$ssl_key" 2048 2> /dev/null
     
     ## Generate a CSR (Certificate Signing Request)
-    openssl req -new -passin pass:"$ssl_password" -passout pass:"$ssl_password" -key "$ssl_key" -out "$ssl_csr" -days "$ssl_days" -config "$ssl_config" 2> /dev/null
+    run openssl req -new -passin pass:"$ssl_password" -passout pass:"$ssl_password" -key "$ssl_key" -out "$ssl_csr" -days "$ssl_days" -config "$ssl_config" 2> /dev/null
     
     ## Remove Passphrase from Key
-    cp "$ssl_key" "$ssl_org"
-    openssl rsa -passin pass:"$ssl_password" -in "$ssl_org" -out "$ssl_key" 2> /dev/null
+    run cp "$ssl_key" "$ssl_org"
+    run openssl rsa -passin pass:"$ssl_password" -in "$ssl_org" -out "$ssl_key" 2> /dev/null
     
     ## Self-Sign Certificate
-    openssl x509 -req -days "$ssl_days" -passin pass:"$ssl_password" -extensions v3_req -extfile "$ssl_extfile" -in "$ssl_csr" -signkey "$ssl_key" -out "$ssl_crt" 2> /dev/null
+    run openssl x509 -req -days "$ssl_days" -passin pass:"$ssl_password" -extensions v3_req -extfile "$ssl_extfile" -in "$ssl_csr" -signkey "$ssl_key" -out "$ssl_crt" 2> /dev/null
     
     ## create a certificate chainfile in pem format
     cat "$ssl_key" >  "$ssl_pem"

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # shellcheck disable=SC2034
-DEBUG=false
+
 [[ -f /etc/srvctl/debug.conf ]] && source /etc/srvctl/debug.conf
 
 if [[ ! -d /etc/srvctl ]]
@@ -40,25 +40,31 @@ SC_LOG=~/.srvctl.log
 if [[ $CMD == update-install ]]
 then
     rm -fr /etc/srvctl/modules.conf
+    
+    for sourcefile in /etc/srvctl/data/*.conf
+    do
+        [[ -f $sourcefile ]] && cat "$sourcefile" > /etc/srvctl/"${sourcefile:17}" && debug "@init data -> /etc/srvctl/${sourcefile:17}"
+    done
 fi
-
-test_srvctl_modules
-source /etc/srvctl/modules.conf
-
-debug "init@run_hook pre-init"
-run_hook "pre-init-$CMD"
-run_hook pre-init
-
-source /etc/os-release
 
 ## LOAD CONFIGs
 ## source custom configurations
+
+test_srvctl_modules
+#source /etc/srvctl/modules.conf
 
 for sourcefile in /etc/srvctl/*.conf
 do
     debug "@conf $sourcefile"
     [[ -f $sourcefile ]] && source "$sourcefile"
 done
+
+
+debug "init@run_hook pre-init"
+run_hook "pre-init-$CMD"
+run_hook pre-init
+
+source /etc/os-release
 
 ## homedir=$( getent passwd "$USER" | cut -d: -f6 )
 
@@ -80,7 +86,7 @@ fi
 readonly SC_HOME="$(getent passwd "$SC_USER" | cut -f6 -d:)"
 
 # shellcheck disable=SC2034
-[[ ! $SC_ROOT == true ]] && SC_LOG_DIR=$SC_HOME/.srvct/log
+[[ ! $SC_ROOT == true ]] && SC_LOG_DIR=$SC_HOME/.srvctl/log
 
 
 readonly CMD

@@ -1,6 +1,6 @@
 #! /bin/bash
 
-if [[ $SC_DNS_SERVER == 'named' ]]
+if [[ $SC_DNS_SERVER == 'master' ]] || [[ $SC_DNS_SERVER == 'slave' ]]
 then
     echo true
     return

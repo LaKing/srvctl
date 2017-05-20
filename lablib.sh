@@ -77,6 +77,7 @@ function err {
 
 function run {
     local signum='$'
+    local __exitcode
     if [ "$USER" == root ]
     then
         signum='#'
@@ -87,11 +88,14 @@ function run {
     
     # shellcheck disable=SC2048
     $*
-    if [[ $1 != systemctl ]] && [[ $2 != status ]] && [[ $? != 3 ]]
+    __exitcode=$?
+    
+    if [[ $1 != systemctl ]] && [[ $2 != status ]] && [[ $__exitcode != 3 ]]
     then
-        eyif "command '$*' returned with an error"
+        eyif "command '$*' returned with an error $__exitcode"
     fi
-    return "$?"
+    
+    return $__exitcode
 }
 
 ## exit if failed
