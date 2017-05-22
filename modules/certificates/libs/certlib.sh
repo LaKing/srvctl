@@ -20,14 +20,14 @@ function check_pem { ## file
 }
 
 ## create selfsigned certificate the hard way
-function create_selfsigned_domain_certificate { ## for domain
+function create_selfsigned_domain_certificate { ## for domain on path
     
     msg "create_selfsigned_domain_certificate $1"
     
     local domain cert_path
     
     domain="$1"
-    cert_path=/etc/srvctl/cert/$domain
+    cert_path="$2"
     
     if [[ -z "$domain" ]]
     then
@@ -43,7 +43,7 @@ function create_selfsigned_domain_certificate { ## for domain
     
     mkdir -p "$cert_path"
     
-    ssl_days=365
+    ssl_days=3650
     
     ## configuration files
     ssl_random="$cert_path/random.txt"

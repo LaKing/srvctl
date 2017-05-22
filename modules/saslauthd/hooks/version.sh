@@ -1,0 +1,4 @@
+#!/bin/bash
+
+saslauthd -v
+

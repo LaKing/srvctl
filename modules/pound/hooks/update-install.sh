@@ -80,7 +80,7 @@ add_conf /etc/rsyslog.conf 'local0.*                         -/var/log/pound'
 
 systemctl restart rsyslog.service
 
-create_selfsigned_domain_certificate "$HOSTNAME"
+create_selfsigned_domain_certificate "$HOSTNAME" "/etc/srvctl/cert/$HOSTNAME"
 regenerate_pound_conf
 add_service pound
 

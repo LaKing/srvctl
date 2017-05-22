@@ -61,6 +61,8 @@ function get_container_zone(i) {
     var ip = datastore.container_host_ip(container);
     var spf_string = "v=spf1";
     
+    var serial =  Math.floor( new Date().getTime() / 1000);
+    
     Object.keys(hosts).forEach(function(i) {
         if (hosts[i].host_ip !== undefined) spf_string += " ip4:" + hosts[i].host_ip;
         if (hosts[i].host_ipv6 !== undefined) spf_string += " ip6:" + hosts[i].host_ipv6;
@@ -73,7 +75,7 @@ function get_container_zone(i) {
 
     zone += "$TTL 1D" + br;
     zone += "@        IN SOA        @ hostmaster." + CDN + ". (" + br;
-    zone += "                                        '$serial'        ; serial" + br;
+    zone += "                                        " + serial + "        ; serial" + br;
     zone += "                                        1D        ; refresh" + br;
     zone += "                                        1H        ; retry" + br;
     zone += "                                        1W        ; expire" + br;
@@ -96,8 +98,11 @@ function get_container_zone(i) {
 
     zone += '@        IN        TXT        "'+spf_string + '"' + br;
     
-    if (container.dkim_default_domainkey !== undefined) zone += 'default._domainkey       IN        TXT       ( "v=DKIM1; k=rsa; " "p='+container.dkim_default_domainkey_domainkey + '" )' + br;
-
+    if (container["dkim-default-domainkey"] !== undefined) zone += 'default._domainkey       IN        TXT       ( "v=DKIM1; k=rsa; " "p='+container["dkim-default-domainkey"] + '" )' + br;
+    
+    if (containers["mail."+i] !== undefined)
+        if (containers["mail."+i]["dkim-mail-domainkey"] !== undefined) zone += 'mail._domainkey       IN        TXT       ( "v=DKIM1; k=rsa; " "p='+containers["mail."+i]["dkim-mail-domainkey"] + '" )' + br;
+        
     return zone;
 }
 

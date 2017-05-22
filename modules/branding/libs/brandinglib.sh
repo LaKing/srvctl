@@ -1,11 +1,14 @@
 #!/bin/bash
 
-function setup_index_html { ## needs rootfs and some name as argument
+function setup_index_html { ## name rootfs
     
+    local _index _name rootfs
     ## set default index page
     # shellcheck disable=SC2154
-    local _index="$rootfs/var/www/html/index.html"
-    local _name="$1"
+    _name="$1"
+    _rootfs="$2"
+    _index="$rootfs/var/www/html/index.html"
+    
     
 cat > "$_index" << EOF
 <!DOCTYPE html>
@@ -17,7 +20,7 @@ cat > "$_index" << EOF
 <body style="background-color:#333;">
     <div id="header" style="background-color:#222;">
         <p align="center">
-            "$(cat "$SC_INSTALL_DIR/modules/logo.svg")"
+            "$(cat "$SC_INSTALL_DIR/modules/branding/logo.svg")"
         </p>
     </div>
         <p align="center">
@@ -29,6 +32,6 @@ cat > "$_index" << EOF
 </html>
 EOF
     
-    cp "$SC_INSTALL_DIR/modules/favicon.ico" "$rootfs/var/www/html"
+    cp "$SC_INSTALL_DIR/modules/branding/favicon.ico" "$_rootfs/var/www/html"
     
 }

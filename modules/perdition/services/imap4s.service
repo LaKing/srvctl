@@ -1,0 +1,15 @@
+[Unit]
+Description=Perdition IMAP4S reverse proxy
+After=syslog.target network.target
+
+
+[Service]
+Type=forking
+PIDFile=/var/run/perdition/perdition-imap4s.pid
+EnvironmentFile=-/etc/sysconfig/perdition
+ExecStart=/usr/sbin/perdition.imap4s --pid_file /var/run/perdition/perdition-imap4s.pid --protocol IMAP4S
+
+
+[Install]
+WantedBy=multi-user.target
+

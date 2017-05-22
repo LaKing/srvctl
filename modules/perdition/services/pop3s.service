@@ -1,0 +1,15 @@
+[Unit]
+Description=Perdition POP3S reverse proxy
+After=syslog.target network.target
+
+
+[Service]
+Type=forking
+PIDFile=/var/run/perdition/perdition-pop3s.pid
+EnvironmentFile=-/etc/sysconfig/perdition
+ExecStart=/usr/sbin/perdition.pop3s --pid_file /var/run/perdition/perdition-pop3s.pid --protocol POP3S
+
+
+[Install]
+WantedBy=multi-user.target
+
