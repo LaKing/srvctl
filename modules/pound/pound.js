@@ -124,7 +124,7 @@ function write_var_pound_http_cfg() {
     });
     fs.writeFile('/var/pound/http.cfg', str, function(err) {
         if (err) return_error('WRITEFILE ' + err);
-        else console.log('wrote pound srvctl http conf');
+        else console.log('[ OK ] pound srvctl http conf');
     });
 }
 
@@ -135,7 +135,7 @@ function write_var_pound_cert_cfg() {
     certs_includes += scan_path_for_cert('/var/pound/cert');
     fs.writeFile('/var/pound/cert.cfg', certs_includes, function(err) {
         if (err) return_error('WRITEFILE ' + err);
-        else console.log('wrote pound srvctl cert conf');
+        else console.log('[ OK ] pound srvctl cert conf');
     });
 }
 
@@ -153,7 +153,7 @@ function write_var_pound_https_cfg() {
     });
     fs.writeFile('/var/pound/https.cfg', str, function(err) {
         if (err) return_error('WRITEFILE ' + err);
-        else console.log('wrote pound srvctl https conf');
+        else console.log('[ OK ] pound srvctl https conf');
     });
 }
 

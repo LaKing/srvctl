@@ -123,7 +123,7 @@ if (CMD === 'master') {
 
     fs.writeFile("/var/named/srvctl.conf", zones, function(err) {
         if (err) return_error('WRITEFILE ' + err);
-        else console.log('wrote named srvctl master conf');
+        else console.log('[ OK ] named srvctl master conf');
     });
 
     exit();
@@ -136,7 +136,7 @@ if (CMD === 'slave') {
     });
     fs.writeFile("/var/named/srvctl.conf", slaves, function(err) {
         if (err) return_error('WRITEFILE ' + err);
-        else console.log('wrote named srvctl slave conf');
+        else console.log('[ OK ] named srvctl slave conf');
     });
 
     exit();

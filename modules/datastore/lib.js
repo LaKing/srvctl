@@ -111,7 +111,7 @@ function write_users() {
         try {
             fs.writeFile(SC_USERS_DATA_FILE, JSON.stringify(users, null, 2), function(err) {
                 if (err) return_error('WRITEFILE ' + err);
-                else console.log('wrote users.json');
+                else console.log('[ OK ] users.json');
             });
         } catch (err) {
             return_error('WRITEFILE ' + SC_USERS_DATA_FILE + ' ' + err);
@@ -128,7 +128,7 @@ function write_containers() {
         try {
             fs.writeFile(SC_CONTAINERS_DATA_FILE, JSON.stringify(containers, null, 2), function(err) {
                 if (err) return_error('WRITEFILE ' + err);
-                else console.log('wrote containers.json');
+                else console.log('[ OK ] containers.json');
             });
         } catch (err) {
             return_error('WRITEFILE ' + SC_CONTAINERS_DATA_FILE + ' ' + err);
@@ -413,7 +413,7 @@ function system_etc_hosts() {
     });
     fs.writeFile('/etc/hosts', str, function(err) {
         if (err) return_error('WRITEFILE ' + err);
-        else console.log('wrote etc-hosts');
+        else console.log('[ OK ] etc-hosts');
     });
 }
 
@@ -428,7 +428,7 @@ function system_postfix_relaydomains() {
     });
     fs.writeFile('/etc/postfix/relaydomains', str, function(err) {
         if (err) return_error('WRITEFILE ' + err);
-        else console.log('wrote postfix relaydomains');
+        else console.log('[ OK ] postfix relaydomains');
     });
 }
 
@@ -452,7 +452,7 @@ function system_ssh_config() {
     });
     fs.writeFile('/etc/ssh/ssh_config.d/srvctl-containers.conf', str, function(err) {
         if (err) return_error('WRITEFILE ' + err);
-        else console.log('wrote ssh srvctl-containers.conf');
+        else console.log('[ OK ] ssh srvctl-containers.conf');
     });
 }
 
@@ -474,7 +474,7 @@ function system_host_keys() {
     });
     fs.writeFile('/etc/ssh/ssh_known_hosts', str, function(err) {
         if (err) return_error('WRITEFILE ' + err);
-        else console.log('wrote ssh known_hosts');
+        else console.log('[ OK ] ssh known_hosts');
     });
 }
 

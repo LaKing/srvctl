@@ -8,10 +8,7 @@ echo 'ALL ALL=(ALL) NOPASSWD: /usr/share/srvctl/srvctl.sh *' >> /etc/sudoers.d/s
 msg "installing User tools"
 
 ## maintenance system tools
-if [ -z "$(dnf list installed | grep dnf-plugins-system-upgrade)" ]
-then
-    run dnf -y install dnf-plugin-system-upgrade
-fi
+sc_install dnf-plugin-system-upgrade
 
 ## vncserver
 sc_install tigervnc-server
@@ -23,7 +20,7 @@ sc_install hg
 sc_install fdupes
 
 ## mail
-sc_install mail
+sc_install mailx
 
 ## ratposion
 sc_install ratpoison

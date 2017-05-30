@@ -2,6 +2,8 @@
 
 ## import certificates from root's folder to the system
 
+[[ $SRVCTL ]] || exit 4
+
 ## certificate chainfile
 local certpath
 certpath="/etc/srvctl/cert/localhost"
@@ -24,4 +26,10 @@ then
     [[ -f /root/ca-bundle.pem ]] && cat /root/ca-bundle.pem >> "$certpath"/cert.pem 2> /dev/null
 else
     ntc "No certificates in /root directory to import."
+fi
+
+
+if [[ $SC_ROOTCA_HOST == $HOSTNAME ]]
+then
+    root_CA_init
 fi

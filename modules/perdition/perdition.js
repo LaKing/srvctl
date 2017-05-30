@@ -34,7 +34,7 @@ function return_value(msg) {
 }
 
 function return_error(msg) {
-    console.error('DATA-ERROR:', msg);
+    console.error('DATA-ERR R:', msg);
     process.exitCode = 111;
     process.exit(111);
 }
@@ -66,7 +66,7 @@ function write_popmap_cfg() {
     var str = '';
     
     // 
-    Object.keys(containers).forEach(function(i) {
+     Object.keys(containers).forEach(function(i) {
         var mx = "mail." + i;
         if (i.substring(0,5) === "mail") mx = i;
         str += "(.*)@" + i + ": " + mx;
@@ -75,7 +75,7 @@ function write_popmap_cfg() {
     fs.writeFile('/var/perdition/popmap.re', str, function(err) {
         if (err) return_error('WRITEFILE ' + err);
         else {
-            console.log('wrote perdition popmap.re');
+            console.log('[ OK ] perdition popmap.re');
             exit();
         }
     });

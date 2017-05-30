@@ -38,8 +38,6 @@ fi
 git config --global user.name "srvctl"
 git config --global user.email "srvctl@$HOSTNAME"
 
-check_hosts_connectivity
-
 msg "Calling update-install hooks."
 run_hooks update-install
 

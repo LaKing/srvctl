@@ -5,13 +5,6 @@ function regenerate_etc_hosts() {
     #> /etc/hosts
 }
 
-function regenerate_etc_postfix_relaydomains() {
-    if [[ -d /etc/postfix/ ]]
-    then
-        cfg system postfix_relaydomains
-    fi
-}
-
 function regenerate_ssh_config() {
     
     #echo '' > /etc/ssh/ssh_known_hosts
@@ -19,20 +12,21 @@ function regenerate_ssh_config() {
     ## we could store host_keys in our datastore (as well). But we wont. At least not for now.
     #cfg system host_keys
     
-    check_hosts_connectivity
+    echo "## Scan $NOW" > /etc/ssh/ssh_known_hosts
+    check_hosts_ssh_keys
+    #check_containers_ssh_keys
     
     mkdir -p /etc/ssh/ssh_config.d
     cfg system ssh_config
 }
 
-function check_hosts_connectivity() {
+function check_hosts_ssh_keys() {
     ## simple rsync based data syncronization
-    msg "Checking ssh connectivity and host-keys"
+    msg "Checking ssh connectivity and server host-keys"
     local hostlist ip tempfile tempstr dest
     hostlist="$(cfg system host_list)"
-    containerlist="$(cfg system container_list)"
+    
     dest=/etc/ssh/ssh_known_hosts
-    echo "## Scan $NOW" > "$dest"
     
     msg "hosts: $hostlist"
     
@@ -98,6 +92,15 @@ function check_hosts_connectivity() {
             err "host $host is offline"
         fi
     done
+    
+}
+function check_containers_ssh_keys() {
+    
+    #### Actually we do not check for host keys when connecting to internal containers.
+    msg "Checking ssh connectivity and container host-keys"
+    local hostlist ip tempfile tempstr dest
+    containerlist="$(cfg system container_list)"
+    dest=/etc/ssh/ssh_known_hosts
     
     msg "containers: $containerlist"
     

@@ -1,4 +1,4 @@
-## Srvctl v3 (3.0.131.0)
+## Srvctl v3 (3.0.131.2)
 Under construction, - srvctl is a containerfarm-manager for microsite hosting webservers with fedora as the host operating system. It will help to set up, maintain, and to let a couple of servers work together in order to have a solid web-serving service.
 Version 3 is remake for 2016 mostly using systemd tools, thus using systemd-nspawn as the containerfarm manager. The core is written in bash and javascript, and a modular design allows to extend it with programs. Basically it is a collection of scripts.
 
@@ -146,6 +146,11 @@ COMMAND - from srvctl
      Notes
          To flush the mail que, use: postqueue -f
          To remove all mail from the mail que use: postsuper -d ALL
+    
+   ls                                    List files sorted by update                    
+    
+     List all files recursive, sorted by last modified date
+    
     
    update-install                        Run the installation/update script.            
     
