@@ -60,9 +60,9 @@ function get_container_zone(i) {
     var zone = '';
     var ip = datastore.container_host_ip(container);
     var spf_string = "v=spf1";
-    
-    var serial =  Math.floor( new Date().getTime() / 1000);
-    
+
+    var serial = Math.floor(new Date().getTime() / 1000);
+
     Object.keys(hosts).forEach(function(i) {
         if (hosts[i].host_ip !== undefined) spf_string += " ip4:" + hosts[i].host_ip;
         if (hosts[i].host_ipv6 !== undefined) spf_string += " ip6:" + hosts[i].host_ipv6;
@@ -96,13 +96,15 @@ function get_container_zone(i) {
         zone += "@    IN    MX    10    ALT4.ASPMX.L.GOOGLE.COM" + br;
     } else zone += "@        IN        MX        10        mail" + br;
 
-    zone += '@        IN        TXT        "'+spf_string + '"' + br;
-    
-    if (container["dkim-default-domainkey"] !== undefined) zone += 'default._domainkey       IN        TXT       ( "v=DKIM1; k=rsa; " "p='+container["dkim-default-domainkey"] + '" )' + br;
-    
-    if (containers["mail."+i] !== undefined)
-        if (containers["mail."+i]["dkim-mail-domainkey"] !== undefined) zone += 'mail._domainkey       IN        TXT       ( "v=DKIM1; k=rsa; " "p='+containers["mail."+i]["dkim-mail-domainkey"] + '" )' + br;
-        
+    zone += '@        IN        TXT        "' + spf_string + '"' + br;
+
+    if (container["dkim-default-domainkey"] !== undefined) zone += 'default._domainkey       IN        TXT       ( "v=DKIM1; k=rsa; " "' + container["dkim-default-domainkey"] + '" )' + br;
+
+    if (containers["mail." + i] !== undefined) {
+        if (container["dkim-mail-domainkey"] !== undefined) zone += 'mail._domainkey       IN        TXT       ( "v=DKIM1; k=rsa; " "' + container["dkim-mail-domainkey"] + '" )' + br;
+    } else {
+        if (containers["mail." + i]["dkim-mail-domainkey"] !== undefined) zone += 'mail._domainkey       IN        TXT       ( "v=DKIM1; k=rsa; " "' + containers["mail." + i]["dkim-mail-domainkey"] + '" )' + br;
+    }
     return zone;
 }
 

@@ -10,75 +10,33 @@ function regenerate_opendkim {
     
     msg "regenerate opendkim"
     
+    mkdir -p "$SC_DATASTORE_DIR/opendkim"
+    chmod 000 "$SC_DATASTORE_DIR/opendkim"
     mkdir -p /var/opendkim
     
-    chmod 750 /var/opendkim
-    rm -rf /var/opendkim/*
-    # shellcheck disable=SC2129
-    echo '127.0.0.1' >> /var/opendkim/TrustedHosts
-    echo '::1' >> /var/opendkim/TrustedHosts
-    echo "10.0.0.0/8" >> /var/opendkim/TrustedHosts
-    echo '' >> /var/opendkim/SigningTable
-    echo '' >> /var/opendkim/KeyTable
+    opendkim_main
     
-    chmod -R 640 /var/opendkim
-    chmod 750 /var/opendkim
-    
-    local containerlist p
-    containerlist="$(cfg system container_list)"
-    
-    for container in $containerlist
-    do
+    if ! diff -rq /var/opendkim "$SC_DATASTORE_DIR/opendkim" > /dev/null
+    then
+        msg "Updating $HOSTNAME opendkim runtime configuration"
+        rm -fr /var/opendkim
+        cp -R "$SC_DATASTORE_DIR/opendkim" /var
+        chown -R opendkim:opendkim /var/opendkim
+        chmod -R 640 /var/opendkim
+        chmod 750 /var/opendkim
         
-        if [[ ! -d "/srv/$container/rootfs" ]]
+        restart_opendkim
+    else
+        
+        if [ "$(systemctl is-active opendkim.service)" != "active" ]
         then
-            continue
-        fi
-        
-        if [ ! -d "/srv/$container/opendkim" ]
-        then
-            dkim_selector="default"
-            if [ "${container:0:5}" == "mail." ]
-            then
-                dkim_selector="mail"
-            fi
-            mkdir -p "/srv/$container/opendkim"
-            opendkim-genkey -D "/srv/$container/opendkim" -d "$container" -s "$dkim_selector"
-        fi
-        
-        
-        if [ "${container: -6}" == "-devel" ] || [ "${container: -6}" == ".devel" ] || [ "${container: -6}" == "-local" ] || [ "${container: -6}" == ".local" ]
-        then
-            echo 'Skipping' > /dev/null
+            msg "Configuration for opendkim is up-to-date."
+            err "opendkim.service is not running!"
+            run systemctl start opendkim
+            run systemctl enable opendkim
+            run systemctl status opendkim --no-pager
         else
-            
-            echo "$container" >> /var/opendkim/TrustedHosts
-            
-            for i in /srv/"$container"/opendkim/*.private
-            do
-                selector="$(basename "$i")"
-                selector="${selector:0:-8}"
-                
-                mkdir -p "/var/opendkim/$container"
-                chmod 750 "/var/opendkim/$container"
-                
-                cat "/srv/$container/opendkim/$selector.private" > "/var/opendkim/$container/$selector.private"
-                chmod -R 640 "/var/opendkim/$container/$selector.private"
-                
-                echo "$selector._domainkey.$container $container:$selector:/var/opendkim/$container/$selector.private" >> /var/opendkim/KeyTable
-                echo "*@$container $selector._domainkey.$container" >> /var/opendkim/SigningTable
-                
-                p=''
-                str="$(cat "/srv/$container/opendkim/$selector.txt")"
-                procedure_get_dkim_p "$str"
-                put container "$container" "dkim-$selector-domainkey" "$p"
-                
-            done
+            msg "Configuration for opendkim is up-to-date, opendkim.service running"
         fi
-        
-    done
-    
-    
-    restart_opendkim
-    
+    fi
 }

@@ -29,7 +29,9 @@ else
 fi
 
 
-if [[ $SC_ROOTCA_HOST == $HOSTNAME ]]
+if [[ "$SC_ROOTCA_HOST" == "$HOSTNAME" ]]
 then
     root_CA_init
 fi
+
+install_acme
