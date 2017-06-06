@@ -146,7 +146,7 @@ if (DAT === 'container') {
 if (DAT === 'user') {
 
     if (CMD === NEW) {
-        new_user(ARG);
+        datastore.new_user(ARG);
         exit();
     }
 
@@ -168,7 +168,7 @@ if (DAT === 'user') {
             }
 
             if (CMD === GET) {
-                if (OPA === 'uid') return_value(get_user_uid(user));
+                if (OPA === 'uid') return_value(datastore.get_user_uid(user));
                 else
                 return_value(user[OPA]);
             }

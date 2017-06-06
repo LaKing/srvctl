@@ -99,10 +99,9 @@ function get_container_zone(i) {
     zone += '@        IN        TXT        "' + spf_string + '"' + br;
 
     if (container["dkim-default-domainkey"] !== undefined) zone += 'default._domainkey       IN        TXT       ( "v=DKIM1; k=rsa; " "' + container["dkim-default-domainkey"] + '" )' + br;
-
+    if (container["dkim-mail-domainkey"] !== undefined) zone += 'mail._domainkey       IN        TXT       ( "v=DKIM1; k=rsa; " "' + container["dkim-mail-domainkey"] + '" )' + br;
+    
     if (containers["mail." + i] !== undefined) {
-        if (container["dkim-mail-domainkey"] !== undefined) zone += 'mail._domainkey       IN        TXT       ( "v=DKIM1; k=rsa; " "' + container["dkim-mail-domainkey"] + '" )' + br;
-    } else {
         if (containers["mail." + i]["dkim-mail-domainkey"] !== undefined) zone += 'mail._domainkey       IN        TXT       ( "v=DKIM1; k=rsa; " "' + containers["mail." + i]["dkim-mail-domainkey"] + '" )' + br;
     }
     return zone;

@@ -15,6 +15,3 @@ sc_install systemd-container
 create_srvctl_nspawn_service
 
 run systemctl enable machines.target
-
-
-regenerate_ssh_config

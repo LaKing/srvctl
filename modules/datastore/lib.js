@@ -330,8 +330,8 @@ function new_user(username) {
     write_users();
 }
 
-exports.new_container = function(username) {
-    new_container(username);
+exports.new_user = function(username) {
+    new_user(username);
 };
 
 
@@ -395,6 +395,10 @@ function new_container(C, T) {
     write_containers();
 }
 
+exports.new_container = function(C, T) {
+    new_container(C, T);
+};
+
 function system_etc_hosts() {
     var str = '';
     str += "## srvctl generated" + br;
@@ -438,12 +442,12 @@ exports.system_postfix_relaydomains = function() {
 
 function system_ssh_config() {
     var str = '## ssh_config' + br;
-    Object.keys(hosts).forEach(function(i) {
-        str += "Host " + i + br;
-        str += "User root" + br;
-        str += "StrictHostKeyChecking no" + br;
+    //Object.keys(hosts).forEach(function(i) {
+    //    str += "Host " + i + br;
+        //str += "User root" + br;
+        //str += "StrictHostKeyChecking no" + br;
         str += "" + br;
-    });
+    //});
     Object.keys(containers).forEach(function(i) {
         str += "Host " + i + br;
         str += "User root" + br;

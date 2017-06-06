@@ -14,6 +14,13 @@
 
 ## this is a special command, as it has several ways to be invoked
 
+#### these specs are used in the gui
+## spec //service×start×start a service×start SERVICE
+## spec //service×stop×stop a service×stop SERVICE
+## spec //service×restart×restart a service×restart SERVICE
+## spec //service×status×status of a service×status SERVICE
+## spec //service×kill×kill a service×kill SERVICE
+
 ## adjust-service
 if [[ $ARG == enable ]] || [[ $ARG == start ]] || [[ $ARG == restart ]] || [[ $ARG == stop ]] || [[ $ARG == status ]]  || [[ $ARG == disable ]] || [[ $ARG == kill ]] \
 || [[ $CMD == enable ]] || [[ $CMD == start ]] || [[ $CMD == restart ]] || [[ $CMD == stop ]] || [[ $CMD == status ]]  || [[ $CMD == disable ]] || [[ $CMD == kill ]]

@@ -98,6 +98,20 @@ function run {
     return $__exitcode
 }
 
+## a kind of run, but without running anything
+function say {
+    local signum='$'
+    local __exitcode
+    if [ "$USER" == root ]
+    then
+        signum='#'
+    fi
+    local WDIR
+    WDIR="$(basename "$PWD")"
+    echo -e "${BLUE}[$USER@${HOSTNAME%%.*} ${WDIR/#$HOME/\~}]$signum ${YELLOW}$*${CLEAR}"
+}
+
+
 ## exit if failed
 function exif {
     local exif_code="$?"

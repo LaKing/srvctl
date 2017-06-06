@@ -5,6 +5,7 @@
 ## &en It is possible to create a custom command in ~/srvctl-includes
 ## &en A custom command should have a name, and will contain a blank help:
 
+## interactive - disabled in gui frontpage.
 
 if [[ -z $ARG ]]
 then

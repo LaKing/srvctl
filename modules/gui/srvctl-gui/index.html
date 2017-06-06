@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html ng-app="app">
+
+<head>
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+    <meta charset="utf-8">
+    <title>srvctl-gui</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="/bootstrap/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/index.css">
+
+    <!--script src="/bootstrap/js/bootstrap.min.js"></script-->
+    <script src="/angular/angular.min.js"></script>
+    <script src="/angular-ui-bootstrap/ui-bootstrap.js"></script>
+    <script src="/angular-sanitize/angular-sanitize.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/index.js"></script>
+
+</head>
+
+<body ng-controller="mainController">
+    <div id="top-nav" class="navbar navbar-inverse navbar-static-top">
+        <div class="container-fluid">
+            <div class="navbar-header">
+                <h4 class="navbar-brand">{{ main.user }}@{{ main.host }}</h4>
+            </div>
+        </div>
+    </div>
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-sm-2">
+
+                <h4><i class="glyphicon glyphicon-hdd"></i> servers</h4>
+
+                <div class="list-group">
+                    <button ng-repeat="(hostname,hostobj) in main.hosts" class="list-group-item {{ hostname === sel ? 'active' : 'inactive' }}" ng-click=" set(hostname); command('srvctl status'); " type="button" ng-disabled="lock">{{hostname}}</button>
+                </div>
+
+                <h4><i class="glyphicon glyphicon-list"></i> containers</h4>
+
+                <div class="list-group">
+                    <div ng-repeat="(containername,containerobj) in main.containers" class="dropdown">
+                        <button class="list-group-item dropdown-toggle {{ containername === sel ? 'active' : 'inactive' }}" type="button" ng-click="set(containername); command('srvctl status'); " data-toggle="dropdown" ng-disabled="lock">{{containername}} </button>
+                    </div>
+                </div>
+
+                <h4><i class="glyphicon glyphicon-list"></i> services</h4>
+
+                <div class="list-group">
+                    <button class="list-group-item" ng-click="" type="button">service</button>
+                </div>
+            </div>
+
+            <div class="col-sm-10">
+
+
+                <div ng-if="lock" class="btn-group btn-group-justified">
+                    <div class="btn-group">
+                        <button class="btn btn-primary col-sm-3 dropdown-toggle" type="button" ng-click="lock=false">
+                            <i class="glyphicon glyphicon-remove-sign"></i>
+                            <br> Working!
+                        </button>
+                    </div>
+                </div>
+                <div ng-if="!lock " class="btn-group-justified">
+                    <div class="btn-group">
+                        <a target="_blank" href="/ssh/{{main.user}}@{{host}}" class="btn btn-primary">
+                            <i class="glyphicon glyphicon-wrench"></i>
+                            <br>ssh
+                        </a>
+                    </div>
+                    <div class="btn-group dropdown-toggle" ng-repeat="(cat_name,cat) in main.spec" uib-dropdown on-toggle="toggled(open)">
+                        <button class="btn btn-primary" uib-dropdown-toggle>
+                            <i class="glyphicon glyphicon-cog"></i>
+                            <br>{{cat_name}}
+                        </button>
+                        <ul class="dropdown-menu" uib-dropdown-menu aria-labelledby="simple-dropdown">
+                            <li ng-repeat="(cmd_name,cmd) in cat">
+                                <button ng-if="cmd.args.length < 2" class="list-group-item" ng-click="command('srvctl ' + cmd_name)">
+                                    <span>{{cmd_name}}</span>
+                                </button>
+                                <button ng-if="cmd.args.length > 1" class="list-group-item" ng-click="command('srvctl ' + cmd_name)">
+                                    <span ng-repeat="i in cmd.args">
+                                        {{i}} 
+                                    </span>
+                                </button>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+
+                <br>
+                <div id="terminal" ng-bind-html='terminal'></div>
+
+            </div>
+        </div>
+    </div>
+
+</body>
+
+</html>

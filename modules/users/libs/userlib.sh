@@ -10,6 +10,7 @@ function regenerate_users() {
     local userlist password passfile uid
     userlist="$(cfg system user_list)"
     
+    ## TODO maybe this should be javascript too
     for user in $userlist
     do
         if ! id -u "$user" > /dev/null 2>&1
@@ -37,36 +38,13 @@ function regenerate_users() {
             fi
         fi
         
+        ## function defined in modules/ssh/sshlib.sh
         create_user_ssh "$user"
         
-        
+        ## function defined in modules/certificates/certlib.sh
+        create_user_client_cert "$user"
         
     done
 }
 
-function create_user_ssh() { ## user
-    
-    local user home
-    user="$1"
-    home="$(getent passwd "$user" | cut -f6 -d:)"
-    
-    mkdir -p "$home/.ssh"
-    
-    ## create ssh keypair
-    if [[ ! -f "$home/.ssh/id_rsa" ]] || [[ ! -f "$home/.ssh/id_rsa.pub" ]]
-    then
-        ssh-keygen -t rsa -b 4096 -f "$home/.ssh/id_rsa" -N '' -C "$user@$SC_COMPANY_DOMAIN ($HOSTNAME $NOW)"
-    fi
-    
-    cat /root/.ssh/authorized_keys > "$home/.ssh/authorized_keys"
-    cat "$home/.ssh/id_rsa.pub" >> "$home/.ssh/authorized_keys"
-    
-    
-    
-    ## TODO import publik keys
-    
-    chown -R "$user:$user" "$home/.ssh"
-    chmod -R 600 "$home/.ssh"
-    chmod    700 "$home/.ssh"
-    
-}
+

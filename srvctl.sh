@@ -16,13 +16,13 @@
 ###
 
 ## okay THIS IS REALLY only for development.
-[[ -f /bin/pop ]] && /bin/pop
+[[ -f /bin/pop ]] && sudo /bin/pop
 
 ## can be set true in /etc/srvctl/config
 # shellcheck disable=SC2034
 DEBUG=false
 # shellcheck disable=SC2034
-[[ -f /bin/pop ]] && DEBUG=true
+#[[ -f /bin/pop ]] && DEBUG=true
 
 readonly SC_STARTTIME="$(date +%s%3N)"
 
@@ -63,6 +63,11 @@ readonly SRVCTL
 
 
 source "$SC_INSTALL_DIR/init.sh" || echo "Init could not be loaded!" 1>&2
+
+if [[ ! /etc/srvctl/commands.json ]]
+then
+    make_commands_spec
+fi
 
 debug " == run_command == "
 run_command

@@ -68,11 +68,11 @@ function scan_domain(domain) {
     var cdds = containers[domain].dns_scan;
     cdds.A={};
     dns.resolve4(domain, function(err, addresses) {
-        //if (err) throw err;
+        if (err) return console.log(err.code, err.hostname);
             if (addresses !== undefined)
             addresses.forEach((a) => {
                 dns.reverse(a, (err, hostnames) => {
-                //if (err) throw err;
+                if (err) return console.log(err.code, err.hostname);
                 console.log(domain, 'IN A',hostnames[0], '(', a, ')');
                     cdds.A[a] = hostnames[0];
                 });
@@ -80,11 +80,11 @@ function scan_domain(domain) {
     });
     cdds.AAAA={};
     dns.resolve6(domain, function(err, addresses) {
-        //if (err) throw err;
+        if (err) return console.log(err.code, err.hostname);
             if (addresses !== undefined)
             addresses.forEach((a) => {
                 dns.reverse(a, (err, hostnames) => {
-                //if (err) throw err;
+                if (err) return console.log(err.code, err.hostname);
                 console.log(domain, 'AAAA',hostnames[0], '(', a, ')');
                     cdds.AAAA[a] = hostnames[0];
                 });
@@ -92,21 +92,21 @@ function scan_domain(domain) {
     });
     cdds.MX='';
     dns.resolveMx(domain, function(err, addresses) {
-        //if (err) throw err;
+        if (err) return console.log(err.code, err.hostname);
          if (addresses !== undefined)
             addresses.forEach((a) => {
-                //if (err) throw err;
+                if (err) return console.log(err.code, err.hostname);
                 console.log(domain, 'MX',a.priority, a.exchange);
                 cdds.MX[a.priority] = a.exchange;
             });
     });
     cdds.NS=[];
     dns.resolveNs(domain, function(err, addresses) {
-        //if (err) throw err;
+        if (err) return console.log(err.code, err.hostname);
             if (addresses !== undefined) {
                  cdds.NS = addresses; 
                     addresses.forEach((a) => {
-                    //if (err) throw err;
+                    if (err) return console.log(err.code, err.hostname);
                     console.log(domain, 'NS', a);
                  });
             }

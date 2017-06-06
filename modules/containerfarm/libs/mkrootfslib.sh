@@ -43,7 +43,9 @@ function mkrootfs_fedora_base { ## name package-list
     #fi
     
     mkrootfs_srvctl "$INSTALL_ROOT"
-    mkrootfs_root_ssh "$INSTALL_ROOT"
+    
+    ## function defined in modules/ssh/libs/mkrootfslib.sh
+    mkrootfs_root_ssh_config "$INSTALL_ROOT"
     
     return
     
@@ -62,25 +64,5 @@ function mkrootfs_srvctl { ## needs rootfs
         ln -s "$SC_INSTALL_DIR/srvctl.sh" "$INSTALL_ROOT/usr/bin/srvctl"
         chmod +x "$INSTALL_ROOT/usr/bin/sc"
         chmod +x "$INSTALL_ROOT/usr/bin/srvctl"
-    fi
-}
-
-function mkrootfs_root_ssh { ## needs rootfs
-    
-    local rootfs
-    rootfs="$1"
-    
-    if [[ ! -d "$rootfs/root" ]]
-    then
-        err "No rootfs for setup_rootfs_ssh "
-    else
-        ## make root's key access
-        mkdir -p -m 600 "$rootfs/root/.ssh"
-        cat /root/.ssh/id_rsa.pub > "$rootfs/root/.ssh/authorized_keys"
-        cat /root/.ssh/authorized_keys >> "$rootfs/root/.ssh/authorized_keys"
-        chmod 600 "$rootfs/root/.ssh/authorized_keys"
-        
-        ## disable password authentication on ssh
-        sed -i.bak "s/PasswordAuthentication yes/PasswordAuthentication no/g" "$rootfs/etc/ssh/sshd_config"
     fi
 }

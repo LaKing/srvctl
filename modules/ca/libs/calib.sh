@@ -5,38 +5,38 @@
 
 function root_CA_create {
     
-    local _name=$1
+    local _net=$1
     
-    if [[ ! -f "$SC_ROOTCA_DIR/ca/$_name.key.pem" ]]
+    if [[ ! -f "$SC_ROOTCA_DIR/ca/$_net.key.pem" ]]
     then
         # Create own Root Certificate Authority
-        msg "create $_name ca-key"
+        msg "create $_net ca-key"
         
         run openssl genrsa \
-        -out "$SC_ROOTCA_DIR/ca/$_name.key.pem" \
+        -out "$SC_ROOTCA_DIR/ca/$_net.key.pem" \
         4096
         
-        chmod 600 "$SC_ROOTCA_DIR/ca/$_name.key.pem"
+        chmod 600 "$SC_ROOTCA_DIR/ca/$_net.key.pem"
     fi
     
-    if [[ ! -f "$SC_ROOTCA_DIR/ca/$_name.crt.pem" ]]
+    if [[ ! -f "$SC_ROOTCA_DIR/ca/$_net.crt.pem" ]]
     then
-        msg "create $_name ca-cert"
+        msg "create $_net ca-cert"
         run openssl req \
         -x509 \
         -new \
         -nodes \
-        -key "$SC_ROOTCA_DIR/ca/$_name.key.pem" \
+        -key "$SC_ROOTCA_DIR/ca/$_net.key.pem" \
         -days 3652 \
-        -out "$SC_ROOTCA_DIR/ca/$_name.crt.pem" \
-        -subj "$SC_ROOTCA_SUBJ/CN=$SC_COMPANY-$_name-ca"
+        -out "$SC_ROOTCA_DIR/ca/$_net.crt.pem" \
+        -subj "$SC_ROOTCA_SUBJ/CN=$SC_COMPANY-$_net-ca"
     fi
     
-    if [[ ! -f "$SC_ROOTCA_DIR/ca/$_name.srl" ]]
+    if [[ ! -f "$SC_ROOTCA_DIR/ca/$_net.srl" ]]
     then
-        echo 02 > "$SC_ROOTCA_DIR/ca/$_name.srl"
+        echo 02 > "$SC_ROOTCA_DIR/ca/$_net.srl"
         
-        run openssl x509 -noout -text -in "$SC_ROOTCA_DIR/ca/$_name.crt.pem"
+        run openssl x509 -noout -text -in "$SC_ROOTCA_DIR/ca/$_net.crt.pem"
     fi
     
     
@@ -65,119 +65,137 @@ function root_CA_init {
 }
 
 
-function create_ca_certificate { ## arguments: type user
+function create_ca_certificate { ## type net name
     
-    if [[ "$SC_ROOTCA_HOST" == "$HOSTNAME" ]]
+    if [[ "$SC_ROOTCA_HOST" != "$HOSTNAME" ]]
     then
-        ## network: server / client
-        local _e="$1"
-        ## usernet / hostnet
-        local _name="$2"
-        ## user / root / host -name
-        local _u="$3"
+        return
+    fi
+    
+    local _e _net _u _ext _file
+    
+    ## network: server / client
+    _e="$1"
+    ## usernet / hostnet
+    _net="$2"
+    ## user / root / host -name
+    _u="$3"
+    
+    _ext=''
+    
+    ## check for correct arguments
+    if [[ "$_e" == server ]] || [[ "$_e" == client ]]
+    then
+        local _file="$_e-$_u"
+    else
+        err "create_ca_certificate error client/server not specified!"
+        return
+    fi
+    
+    if [[ "$_e" == server ]]
+    then
+        _ext="-extfile $SC_INSTALL_DIR/modules/certificates/openssl-server-ext.cnf -extensions server"
+    fi
+    
+    ## Check if certificate is invalid or expired and remove if so
+    if  [[ -f "$SC_ROOTCA_DIR/$_net/$_file.key.pem" ]] && [[ -f "$SC_ROOTCA_DIR/$_net/$_file.crt.pem" ]]
+    then
         
-        local _ext=''
-        
-        if [[ "$_e" == server ]] || [[ "$_e" == client ]]
+        if [[ "$(openssl x509 -noout -modulus -in "$SC_ROOTCA_DIR/$_net/$_file.crt.pem" | openssl md5)" == "$(openssl rsa -noout -modulus -in "$SC_ROOTCA_DIR/$_net/$_file.key.pem" | openssl md5)" ]]
         then
-            local _file="$_e-$_u"
-        else
-            err "create_ca_certificate error client/server not specified!"
-            return
-        fi
-        
-        if [[ "$_e" == server ]]
-        then
-            _ext="-extfile $SC_INSTALL_DIR/modules/certificates/openssl-server-ext.cnf -extensions server"
-        fi
-        
-        if  [[ -f "$SC_ROOTCA_DIR/$_name/$_file.key.pem" ]] && [[ -f "$SC_ROOTCA_DIR/$_name/$_file.crt.pem" ]]
-        then
-            
-            if [[ "$(openssl x509 -noout -modulus -in "$SC_ROOTCA_DIR/$_name/$_file.crt.pem" | openssl md5)" == "$(openssl rsa -noout -modulus -in "$SC_ROOTCA_DIR/$_name/$_file.key.pem" | openssl md5)" ]]
+            if openssl x509 -checkend 86400 -noout -in "$SC_ROOTCA_DIR/$_net/$_file.crt.pem"
             then
-                if openssl x509 -checkend 86400 -noout -in "$SC_ROOTCA_DIR/$_name/$_file.crt.pem"
-                then
-                    echo "$_name certificate for $_u is OK" > /dev/null
-                else
-                    err "$_name certificate for $_u EXPIRED"
-                    rm -fr "$SC_ROOTCA_DIR/$_name/$_file.crt.pem"
-                    rm -fr "$SC_ROOTCA_DIR/$_name/$_file.key.pem"
-                fi
+                echo "$_net certificate for $_u is OK" > /dev/null
             else
-                err "$_name certificate for $_u INVALID"
-                rm -fr "$SC_ROOTCA_DIR/$_name/$_file.crt.pem"
-                rm -fr "$SC_ROOTCA_DIR/$_name/$_file.key.pem"
+                err "$_net certificate for $_u EXPIRED"
+                rm -fr "$SC_ROOTCA_DIR/$_net/$_file.crt.pem"
+                rm -fr "$SC_ROOTCA_DIR/$_net/$_file.key.pem"
             fi
-            
+        else
+            err "$_net certificate for $_u INVALID"
+            rm -fr "$SC_ROOTCA_DIR/$_net/$_file.crt.pem"
+            rm -fr "$SC_ROOTCA_DIR/$_net/$_file.key.pem"
         fi
         
-        if [[ ! -f "$SC_ROOTCA_DIR/$_name/$_file.key.pem" ]] || [[ ! -f "$SC_ROOTCA_DIR/$_name/$_file.crt.pem" ]]
-        then
-            msg "create $_name $_file key"
-            #echo "openssl genrsa -out $SC_ROOTCA_DIR/$_name/$_file.key.pem 4096"
-            run openssl genrsa \
-            -out "$SC_ROOTCA_DIR/$_name/$_file.key.pem" \
-            4096
-            
-            chmod 600 "$SC_ROOTCA_DIR/$_name/$_file.key.pem"
-            
-            msg "create $_name $_u csr"
-            # Create a trusted client cert
-            
-            run openssl req -new \
-            -key "$SC_ROOTCA_DIR/$_name/$_file.key.pem" \
-            -out "$SC_ROOTCA_DIR/tmp/$_file.csr.pem" \
-            -subj "$SC_ROOTCA_SUBJ/CN=$_u"
-            
-            msg "create $_name $_file cert"
-            
-            # Sign the request from Trusted Client with your Root CA
-            # we wont use CAcreateserial
-            
-            run openssl x509 "$_ext" \
-            -req -in "$SC_ROOTCA_DIR/tmp/$_file.csr.pem" \
-            -CA "$SC_ROOTCA_DIR/ca/$_name.crt.pem" \
-            -CAkey "$SC_ROOTCA_DIR/ca/$_name.key.pem" \
-            -CAserial "$SC_ROOTCA_DIR/ca/$_name.srl" \
-            -out "$SC_ROOTCA_DIR/$_name/$_file.crt.pem" \
-            -days 1095
-        fi
+    fi
+    
+    ## create if dont exists
+    if [[ ! -f "$SC_ROOTCA_DIR/$_net/$_file.key.pem" ]] || [[ ! -f "$SC_ROOTCA_DIR/$_net/$_file.crt.pem" ]]
+    then
+        msg "create $_net $_file key"
+        #echo "openssl genrsa -out $SC_ROOTCA_DIR/$_net/$_file.key.pem 4096"
+        run openssl genrsa \
+        -out "$SC_ROOTCA_DIR/$_net/$_file.key.pem" \
+        4096
         
-        if [[ -f "/var/srvctl-users/$_u/.password" ]]
+        chmod 600 "$SC_ROOTCA_DIR/$_net/$_file.key.pem"
+        
+        msg "create $_net $_u csr"
+        # Create a trusted client cert
+        
+        run openssl req -new \
+        -key "$SC_ROOTCA_DIR/$_net/$_file.key.pem" \
+        -out "$SC_ROOTCA_DIR/tmp/$_file.csr.pem" \
+        -subj "$SC_ROOTCA_SUBJ/CN=$_u"
+        
+        msg "create $_net $_file cert"
+        
+        # Sign the request from Trusted Client with your Root CA
+        # we wont use CAcreateserial
+        
+        run openssl x509 "$_ext" \
+        -req -in "$SC_ROOTCA_DIR/tmp/$_file.csr.pem" \
+        -CA "$SC_ROOTCA_DIR/ca/$_net.crt.pem" \
+        -CAkey "$SC_ROOTCA_DIR/ca/$_net.key.pem" \
+        -CAserial "$SC_ROOTCA_DIR/ca/$_net.srl" \
+        -out "$SC_ROOTCA_DIR/$_net/$_file.crt.pem" \
+        -days 1095
+    fi
+    
+    
+    if [[ $_e == client ]] && [[ $_net == usernet ]]
+    then
+        
+        if [[ ! -f "$SC_ROOTCA_DIR/$_net/$_file.p12" ]]
         then
             local _passphrase
-            _passphrase="$(cat "/var/srvctl-users/$_u/.password")"
+            ##_passphrase="$(cat "/var/srvctl-users/$_u/.password")"
+            _passphrase="$(get user "$_u" password)"
             
-            if [[ ! -f "$SC_ROOTCA_DIR/$_name/$_file.p12" ]]
+            ntc "create $_file p12 ($_passphrase)"
+            
+            run openssl pkcs12 -export \
+            -passout pass:"$_passphrase" \
+            -in "$SC_ROOTCA_DIR/$_net/$_file.crt.pem" \
+            -inkey "$SC_ROOTCA_DIR/$_net/$_file.key.pem" \
+            -out "$SC_ROOTCA_DIR/$_net/$_file.p12"
+            
+            echo "$_passphrase ($NOW)" > "$SC_ROOTCA_DIR/$_net/$_file.pass"
+            cat "$SC_ROOTCA_DIR/$_net/$_file.pass"
+            
+            #if [[ ! -f "/home/$_u/$SC_COMPANY_DOMAIN-$_file.p12" ]]
+            #then
+            #    cat "$SC_ROOTCA_DIR/$_net/$_file.p12" > "/home/$_u/$SC_COMPANY_DOMAIN-$_file.p12"
+            #    chown "$_u:$_u" "/home/$_u/$SC_COMPANY_DOMAIN-$_file.p12"
+            #    chmod 400 "/home/$_u/$SC_COMPANY_DOMAIN-$_file.p12"
+            #fi
+            
+            if [[ -f "$SC_ROOTCA_DIR/$_net/$_file.p12" ]]
             then
-                ntc "create $_file p12 ($_passphrase)"
-                
-                run openssl pkcs12 -export \
-                -passout pass:"$_passphrase" \
-                -in "$SC_ROOTCA_DIR/$_name/$_file.crt.pem" \
-                -inkey "$SC_ROOTCA_DIR/$_name/$_file.key.pem" \
-                -out "$SC_ROOTCA_DIR/$_name/$_file.p12"
-                
-                echo "$_passphrase" > "$SC_ROOTCA_DIR/$_name/$_file.pass"
+                mkdir -p $SC_DATASTORE_DIR/user
+                cat "$SC_ROOTCA_DIR/$_net/$_file.p12" > "$SC_DATASTORE_DIR/users/$_u/$_u@$SC_COMPANY_DOMAIN.p12"
+                cat "$SC_ROOTCA_DIR/$_net/$_file.pass" > "$SC_DATASTORE_DIR/users/$_u/$_u@$SC_COMPANY_DOMAIN.pass"
             fi
             
-            if [[ ! -f "/home/$_u/$SC_COMPANY_DOMAIN-$_file.p12" ]]
-            then
-                cat "$SC_ROOTCA_DIR/$_name/$_file.p12" > "/home/$_u/$SC_COMPANY_DOMAIN-$_file.p12"
-                chown "$_u:$_u" "/home/$_u/$SC_COMPANY_DOMAIN-$_file.p12"
-                chmod 400 "/home/$_u/$SC_COMPANY_DOMAIN-$_file.p12"
-            fi
         fi
-        
-        # verify server extension
-        #openssl x509 -noout -text -in $SC_ROOTCA_DIR/$_name/$_file.crt.pem
-        #openssl x509 -noout -in /etc/srvctl/CA/hostnet/server-sc.d250.hu.crt.pem -purpose
-        #sleep 2
-        
-        #else
-        #    msg ".. this is not the CA"
     fi
+    # verify server extension
+    #openssl x509 -noout -text -in $SC_ROOTCA_DIR/$_net/$_file.crt.pem
+    #openssl x509 -noout -in /etc/srvctl/CA/hostnet/server-sc.d250.hu.crt.pem -purpose
+    #sleep 2
+    
+    #else
+    #    msg ".. this is not the CA"
     
 }
 

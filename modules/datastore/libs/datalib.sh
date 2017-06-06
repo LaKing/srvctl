@@ -47,6 +47,12 @@ function grab_data() { ## from-host
 }
 
 function init_datastore_install() {
+    
+    if [[ $USER != root ]]
+    then
+        return
+    fi
+    
     msg "init_datastore_install"
     
     ## srvctl3 database is static in /etc/srvctl/data, shared in the RW folder

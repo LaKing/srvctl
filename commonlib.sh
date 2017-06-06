@@ -14,10 +14,20 @@ readonly HELP='## &en'
 readonly CLEAR='\e[0m'
 ## functions common to all areas of srvctl
 function hint {
+    local cmd hint file
+    cmd="$1"
+    hint="$2"
+    file="$3"
     
     ## print formatted hint
-    printf "${GREEN}%-40s${CLEAR}" "   $1"
-    printf "${GREEN}%-48s${CLEAR}" " $2"
+    if $DEBUG && [[ $CMD == help ]]
+    then
+        printf "${BLUE}%-48s${CLEAR}" "   $file"
+        echo ''
+    fi
+    
+    printf "${GREEN}%-40s${CLEAR}" "   $cmd"
+    printf "${GREEN}%-48s${CLEAR}" " $hint"
     ## newline
     echo ''
     
@@ -189,9 +199,9 @@ function hint_on_file {
     
     if [[ -z $hintcmd ]]
     then
-        hint "${command:0: -3}" "${hintstr:7}"
+        hint "${command:0: -3}" "${hintstr:7}" "$1"
     else
-        hint "${hintcmd:7}" "${hintstr:7}"
+        hint "${hintcmd:7}" "${hintstr:7}" "$1"
     fi
 }
 
@@ -249,7 +259,7 @@ function hint_commands {
         
         if [[ ${!tvhc} == true ]]
         then
-            if [[ "$dir/command.sh" ]]
+            if [[ -f "$dir/command.sh" ]]
             then
                 hint_on_file "$dir/command.sh"
             fi
@@ -269,7 +279,7 @@ function help_on_file {
     local hintstr command
     hintstr="$(head "$1" | grep "$HINT")"
     command="$(basename "$1")"
-    hint "${command:0: -3}" "${hintstr:7}"
+    hint "${command:0: -3}" "${hintstr:7}" "$1"
     printf "${YELLOW}%-4s" ""
     echo ''
     grep "$HELP" "$1" | sed "s/$HELP/    /g"
@@ -349,6 +359,7 @@ function test_srvctl_modules() {
     if [[ ! -f /etc/srvctl/modules.conf ]]
     then
         msg "Srvctl modules configuration"
+        ## test value / test result on tested module
         local tvtm trtm
         for dir in $SC_INSTALL_DIR/modules/*
         do
@@ -368,7 +379,23 @@ function test_srvctl_modules() {
             #declare $tv=$tr
             echo "$tvtm=$trtm" >> /etc/srvctl/modules.conf
         done
+        
     fi
+}
+
+function set_permissions() {
+    msg "Set permissions."
+    
+    chmod -R 600 /etc/srvctl
+    chmod 755 /etc/srvctl
+    chmod 644 /etc/srvctl/*.conf
+    
+    chmod 700 "$SC_DATASTORE_RO_DIR"
+    chmod 700 "$SC_DATASTORE_RW_DIR"
+    
+    chmod 700 "$SC_MOUNTS_DIR"
+    chmod 700 "$SC_ROOTFS_DIR"
+    
 }
 
 #function hint_cms {
@@ -377,4 +404,62 @@ function test_srvctl_modules() {
 #        [[ -f "$sourcefile" ]] && source "$sourcefile"
 #    done
 #}
+
+function make_commands_spec_on_file() {
+    [[ ! -f $1 ]] && return
+    head "$1" | grep -q 'root_only' && return
+    head "$1" | grep -q '## interactive' && return
+    local hintstr command
+    
+    command="$(basename "$1")"
+    hintstr="$(head "$1" | grep "$HINT")"
+    hintcmd="$(head "$1" | grep -m 1 "$HEMP" "$1")"
+    
+    command="${command:0: -3}"
+    hintstr="${hintstr:7}"
+    hintcmd="${hintcmd:7}"
+    
+    echo "$1×$command×$hintstr×$hintcmd" >> /etc/srvctl/commands.spec
+    
+}
+
+function make_commands_spec() {
+    msg "Make user commands spec for srvctl-gui."
+    rm -fr /etc/srvctl/commands.spec
+    
+    for sourcefile in /root/srvctl-includes/*.sh
+    do
+        make_commands_spec_on_file "$sourcefile"
+    done
+    
+    for sourcefile in $SC_INSTALL_DIR/modules/*/commands/*.sh
+    do
+        make_commands_spec_on_file "$sourcefile"
+    done
+    
+    for homedir in /home/*
+    do
+        if [ -d "$homedir/srvctl-includes" ]
+        then
+            for sourcefile in $homedir/srvctl-includes/*.sh
+            do
+                make_commands_spec_on_file  "$sourcefile"
+            done
+        fi
+    done
+    
+    for dir in $SC_INSTALL_DIR/modules/*
+    do
+        tvhc="SC_USE_${dir##*/}"
+        
+        if [[ ${!tvhc} == true ]]
+        then
+            if [[ -f "$dir/command.sh" ]]
+            then
+                cat "$dir/command.sh" | grep "## spec" >> /etc/srvctl/commands.spec
+            fi
+        fi
+    done
+    ## We dont read individual user commands
+}
 

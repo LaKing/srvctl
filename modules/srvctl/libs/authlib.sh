@@ -30,8 +30,7 @@ function authorize {
 function sudomize {
     if [[ $USER != root ]]
     then
-        msg "$USER sudo $SC_INSTALL_DIR/srvctl.sh $SC_COMMAND_ARGUMENTS "
-        if ! sudo "$SC_INSTALL_DIR/srvctl.sh" "$SC_COMMAND_ARGUMENTS"
+        if ! run sudo "$SC_INSTALL_DIR/srvctl.sh" "$SC_COMMAND_ARGUMENTS"
         then
             err "Could not use sudo."
         fi

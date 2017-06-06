@@ -8,6 +8,7 @@
 ## if [[ $SC_VIRT == systemd-nspawn ]] || [[ $SC_VIRT == lxc ]]
 ## SC_USE_containerfarm
 
+sudomize
 argument username
 
 local username password reseller

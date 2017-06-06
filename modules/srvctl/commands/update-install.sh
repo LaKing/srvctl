@@ -41,5 +41,8 @@ git config --global user.email "srvctl@$HOSTNAME"
 msg "Calling update-install hooks."
 run_hooks update-install
 
+make_commands_spec
+
+set_permissions
 msg "update-install complete"
 echo ""
