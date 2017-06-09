@@ -73,8 +73,8 @@ The datastore
 
 Srvctl maintains configuration data in json files. These files may reside at the following locations
 /etc/srvctl/data - static configuration files
-/var/srvctl3-datastore/ro - readonly, fallback 
-/var/srvctl3-datastore/rw - readwrite gluster data volume
+/var/srvctl3/datastore/ro - readonly, fallback 
+/var/srvctl3/datastore/rw - readwrite gluster data volume
 
 
 

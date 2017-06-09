@@ -10,7 +10,7 @@ const port = 250;
 
 //const SC_DATASTORE_DIR = process.env.SC_DATASTORE_DIR;
 // okay, this is not visible here .. TODO, make it so, ...
-const SC_DATASTORE_DIR = '/var/srvctl3-datastore/rw';
+const SC_DATASTORE_DIR = '/var/srvctl3/datastore/rw';
 const SC_INSTALL_DIR = '/usr/local/share/srvctl';
 
 const https = require('https');

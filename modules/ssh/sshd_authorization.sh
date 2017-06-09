@@ -14,7 +14,7 @@ function catif() {
 }
 
 ## used on the host, for host-to-host authentication
-catif "/var/srvctl3-datastore/rw/users/$_user/authorized_keys"
+catif "/var/srvctl3/datastore/rw/users/$_user/authorized_keys"
 
 ## used by root as root
 catif "/etc/srvctl/authorized_keys"
