@@ -1,5 +1,5 @@
 #!/bin/bash
 
-#regenerate_ssh_config
+regenerate_ssh_config
 
 

@@ -39,10 +39,18 @@
     app.controller('mainController', ['$scope', '$http', '$rootScope', 'socket', function($scope, $http, $rootScope, socket) {
         $scope.main = {};
 
+
+        $scope.HOST = 'host';
+        $scope.CONTAINER = 'container';
+        $scope.SERVICE = 'service';
+        $scope.USER = 'user';
+        
+        $scope.selected = 'host';        
         $scope.host = 'localhost';
-         
-        $scope.set = function(sel) {
-            $scope.host = sel;
+        
+        $scope.set = function(sel,set) {
+            $scope.selected = sel;
+            $scope[sel] = set;    
         };
         
         socket.on('main', function(main) {
@@ -66,6 +74,10 @@
 
             var cmd_json = {
                 host: $scope.host,
+                container: $scope.container,
+                service: $scope.service,
+                user: $scope.user,
+                selected: $scope.selected,
                 command: command
             };
             socket.emit('command', cmd_json);

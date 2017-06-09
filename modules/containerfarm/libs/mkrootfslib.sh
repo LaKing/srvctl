@@ -44,9 +44,6 @@ function mkrootfs_fedora_base { ## name package-list
     
     mkrootfs_srvctl "$INSTALL_ROOT"
     
-    ## function defined in modules/ssh/libs/mkrootfslib.sh
-    mkrootfs_root_ssh_config "$INSTALL_ROOT"
-    
     return
     
     

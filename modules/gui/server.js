@@ -54,6 +54,8 @@ app.get('/ssh/:user', function(req, res) {
     res.sendFile(__dirname + '/srvctl-gui/wetty.html');
 });
 
+
+
 const containers = JSON.parse(fs.readFileSync(SC_DATASTORE_DIR + '/containers.json'));
 const users = JSON.parse(fs.readFileSync(SC_DATASTORE_DIR + '/users.json'));
 const hosts = JSON.parse(fs.readFileSync(SC_DATASTORE_DIR + '/hosts.json'));
@@ -98,6 +100,7 @@ function send_main(socket) {
     main.hosts = hosts;
     main.users = users;
     main.spec = spec;
+    main.services = {};
     
     main.user = socket.user;
     main.host = socket.host;
@@ -115,27 +118,24 @@ function send_main(socket) {
 
 function run_command(socket, command) {
     send_main(socket);
-    console.log('ssh2 connection sc_command ');
+    
+    console.log("run_command", socket.host, socket.user, command);
+
     var conn = new Client();
     conn.on('ready', function() {
         var adat = '[' + socket.user + '@' + socket.host + ']$ ' + command + '\n';
+        console.log('command:', adat);
         conn.exec(command + ' 2>&1', function(err, stream) {
             if (err) throw err;
             stream.on('close', function(code, signal) {
                 conn.end();
-                //users[uix].main.hosts[hix].containers = line_to_arrob(adat);
-                //update_user(uix);
-                //console.log('Closed ssh2 connection');
                 socket.emit('lock', false);
             }).on('data', function(data) {
                 adat += data;
                 socket.emit('terminal', term2html(adat));
             }).stderr.on('data', function(data) {
-                //users[uix].main.debug = data;
-                //update_user(uix);
-                console.log('stderr');
-                //socket.emit('set-terminal', 'Error.');
-                //socket.emit('lock', false);
+                adat += data;
+                socket.emit('terminal', term2html(adat));
             });
         });
     });
@@ -188,12 +188,12 @@ io.on('connection', function(socket) {
 
             socket.term.on('data', function(data) {
                 socket.emit('output', data);
-
             });
             socket.term.on('exit', function(code) {
                 console.log((new Date()) + " PID=" + socket.term.pid + " ENDED");
             });
             socket.on('resize', function(data) {
+                if (!socket.term.readable || !socket.term.writable || socket.term.destroyed) return;
                 socket.term.resize(data.col, data.row);
             });
             socket.on('input', function(data) {
@@ -208,11 +208,11 @@ io.on('connection', function(socket) {
         send_main(socket);
     });
 
-    socket.on('command', function(cmd_json) {
-        console.log('run_command (' + socket.user + ') ' + JSON.stringify(cmd_json));
-        socket.host = cmd_json.host;
+    socket.on('command', function(cmd) {
+        socket.host = cmd.host;
+        if (cmd.selected === 'container') socket.host = cmd.container;
         if (socket.host === 'localhost') socket.host = HOSTNAME;
-        run_command(socket, cmd_json.command);
+        run_command(socket, cmd.command);
     });
 
     socket.on('disconnect', function() {

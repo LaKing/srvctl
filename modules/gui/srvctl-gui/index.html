@@ -33,21 +33,19 @@
                 <h4><i class="glyphicon glyphicon-hdd"></i> servers</h4>
 
                 <div class="list-group">
-                    <button ng-repeat="(hostname,hostobj) in main.hosts" class="list-group-item {{ hostname === sel ? 'active' : 'inactive' }}" ng-click=" set(hostname); command('srvctl status'); " type="button" ng-disabled="lock">{{hostname}}</button>
+                    <button ng-repeat="(hostname,hostobj) in main.hosts" class="list-group-item {{ hostname === sel ? 'active' : 'inactive' }}" ng-click=" set(HOST, hostname); command('srvctl status'); " type="button" ng-disabled="lock">{{hostname}}</button>
                 </div>
 
                 <h4><i class="glyphicon glyphicon-list"></i> containers</h4>
 
                 <div class="list-group">
-                    <div ng-repeat="(containername,containerobj) in main.containers" class="dropdown">
-                        <button class="list-group-item dropdown-toggle {{ containername === sel ? 'active' : 'inactive' }}" type="button" ng-click="set(containername); command('srvctl status'); " data-toggle="dropdown" ng-disabled="lock">{{containername}} </button>
-                    </div>
+                        <button ng-repeat="(containername,containerobj) in main.containers" class="list-group-item dropdown-toggle {{ containername === sel ? 'active' : 'inactive' }}" type="button" ng-click="set(CONTAINER, containername); command('srvctl status'); " data-toggle="dropdown" ng-disabled="lock">{{containername}}</button>
                 </div>
 
-                <h4><i class="glyphicon glyphicon-list"></i> services</h4>
+                <h4><i class="glyphicon glyphicon-cog"></i> services</h4>
 
                 <div class="list-group">
-                    <button class="list-group-item" ng-click="" type="button">service</button>
+                    <button ng-repeat="(servicename,serviceobj) in main.services" class="list-group-item" ng-click="" type="button">{{servicename}}</button>
                 </div>
             </div>
 
@@ -63,12 +61,20 @@
                     </div>
                 </div>
                 <div ng-if="!lock " class="btn-group-justified">
-                    <div class="btn-group">
+
+                    <div ng-if="selected === HOST" class="btn-group">
                         <a target="_blank" href="/ssh/{{main.user}}@{{host}}" class="btn btn-primary">
                             <i class="glyphicon glyphicon-wrench"></i>
                             <br>ssh
                         </a>
                     </div>
+                    <div ng-if="selected === CONTAINER" class="btn-group">
+                        <a target="_blank" href="/ssh/{{main.user}}@{{container}}" class="btn btn-primary">
+                            <i class="glyphicon glyphicon-wrench"></i>
+                            <br>ssh
+                        </a>
+                    </div>
+                    
                     <div class="btn-group dropdown-toggle" ng-repeat="(cat_name,cat) in main.spec" uib-dropdown on-toggle="toggled(open)">
                         <button class="btn btn-primary" uib-dropdown-toggle>
                             <i class="glyphicon glyphicon-cog"></i>
