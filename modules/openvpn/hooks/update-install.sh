@@ -160,7 +160,7 @@ EOF
     chmod +x /etc/openvpn/hostnet-server.sh
 else
     
-    err "SC_HOSTNET undefined"
+    err "Openvpn configuration: SC_HOSTNET undefined"
 fi
 
 local hostlist ip hs b
@@ -175,7 +175,7 @@ do
     if [[ ! -z $ip ]] && [[ ! -z $hs ]] && [[ $host != "$HOSTNAME" ]]
     then
         
-        msg "Writing openvpn hostnet-client config for $host"
+        msg "Writing openvpn hostnet-client config for $host ($ip) $hs"
         
         cat > "/etc/openvpn/hostnet-client-$hs.conf" << EOF
 ## srvctl hostnet openvpn client file for $host

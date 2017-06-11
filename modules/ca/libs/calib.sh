@@ -97,6 +97,8 @@ function create_ca_certificate { ## type net name
         _ext="-extfile $SC_INSTALL_DIR/modules/certificates/openssl-server-ext.cnf -extensions server"
     fi
     
+    msg "CA-lib create_ca_certificate $_e $_net $_u"
+    
     ## Check if certificate is invalid or expired and remove if so
     if  [[ -f "$SC_ROOTCA_DIR/$_net/$_file.key.pem" ]] && [[ -f "$SC_ROOTCA_DIR/$_net/$_file.crt.pem" ]]
     then
@@ -160,18 +162,22 @@ function create_ca_certificate { ## type net name
         then
             local _passphrase
             ##_passphrase="$(cat "/var/srvctl-users/$_u/.password")"
-            _passphrase="$(get user "$_u" password)"
-            
-            ntc "create $_file p12 ($_passphrase)"
-            
-            run openssl pkcs12 -export \
-            -passout pass:"$_passphrase" \
-            -in "$SC_ROOTCA_DIR/$_net/$_file.crt.pem" \
-            -inkey "$SC_ROOTCA_DIR/$_net/$_file.key.pem" \
-            -out "$SC_ROOTCA_DIR/$_net/$_file.p12"
-            
-            echo "$_passphrase ($NOW)" > "$SC_ROOTCA_DIR/$_net/$_file.pass"
-            cat "$SC_ROOTCA_DIR/$_net/$_file.pass"
+            _passphrase="$(new_password)"
+            if [[ ! -z "$_passphrase" ]]
+            then
+                
+                ntc "create $_file p12 ($_passphrase)"
+                
+                run openssl pkcs12 -export \
+                -passout pass:"$_passphrase" \
+                -in "$SC_ROOTCA_DIR/$_net/$_file.crt.pem" \
+                -inkey "$SC_ROOTCA_DIR/$_net/$_file.key.pem" \
+                -out "$SC_ROOTCA_DIR/$_net/$_file.p12"
+                
+                echo "$_passphrase ($NOW)" > "$SC_ROOTCA_DIR/$_net/$_file.pass"
+                cat "$SC_ROOTCA_DIR/$_net/$_file.pass"
+                
+            fi
             
             #if [[ ! -f "/home/$_u/$SC_COMPANY_DOMAIN-$_file.p12" ]]
             #then

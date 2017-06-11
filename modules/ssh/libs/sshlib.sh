@@ -1,5 +1,10 @@
 #!/bin/bash
 
+function regenerate_ssh_config() {
+    msg "regenerate ssh configs"
+    ssh_main
+}
+
 function update_install_ssh_config() {
     
     if [[ ! $SC_HOSTNET ]]
@@ -20,7 +25,7 @@ function update_install_ssh_config() {
     #check_containers_ssh_keys
     
     mkdir -p /etc/ssh/ssh_config.d
-    cfg system ssh_config
+    ssh_main
     
     ## authorized keys
     ## we will store keys in the datastore dir and in /etc/srvctl
@@ -53,7 +58,7 @@ function update_install_ssh_config() {
     mkdir -p $SC_DATASTORE_RW_DIR/users
     
     run systemctl enable sshd
-    run systemctl start sshd
+    run systemctl restart sshd
     run systemctl status sshd --no-pager
 }
 

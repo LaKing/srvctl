@@ -43,6 +43,7 @@ function mkrootfs_fedora_base { ## name package-list
     #fi
     
     mkrootfs_srvctl "$INSTALL_ROOT"
+    mkrootfs_sshd_config "$INSTALL_ROOT"
     
     return
     

@@ -7,6 +7,8 @@ msg "Installing perdition. Custom service files are: imap4.service, imap4s.servi
 sc_install perdition
 
 ## deal with certificates
+create_selfsigned_domain_certificate "$HOSTNAME" "/etc/srvctl/cert/$HOSTNAME"
+
 ## TODO add wildcard certificate for CDN
 
 cat "/etc/srvctl/cert/$HOSTNAME/$HOSTNAME.pem" > /etc/perdition/crt.pem

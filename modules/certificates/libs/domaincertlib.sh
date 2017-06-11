@@ -112,7 +112,7 @@ function create_selfsigned_domain_certificate { ## for domain on path
     if [[ -z "$ssl_password" ]]
     then
         
-        ssl_password="$(get_password)"
+        ssl_password="$(new_password)"
     fi
     
     msg "Create certificate for $domain."

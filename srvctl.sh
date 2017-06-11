@@ -15,8 +15,20 @@
 ###  But please, then, do, etc on seperate lines. Better readble.
 ###
 
-## okay THIS IS REALLY only for development.
-[[ -f /bin/pop ]] && sudo /bin/pop
+if tty > /dev/null
+then
+    ## in terminal
+    TTY=true
+else
+    ## in srvctl-gui
+    TTY=false
+fi
+
+if [[ $USER == root ]]
+then
+    ## okay THIS IS REALLY only for development.
+    [[ -f /bin/pop ]] && "$TTY" && sudo /bin/pop
+fi
 
 ## can be set true in /etc/srvctl/config
 # shellcheck disable=SC2034
@@ -30,6 +42,7 @@ readonly SC_INSTALL_BIN=$(realpath "$BASH_SOURCE")
 readonly SC_INSTALL_DIR=${SC_INSTALL_BIN:0:-10}
 readonly SC_COMMAND_ARGUMENTS="$*"
 
+## should be /usr/local/share/srvctl
 export SC_INSTALL_DIR
 
 ## command arguments saved into variables

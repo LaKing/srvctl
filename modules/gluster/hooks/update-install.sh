@@ -37,7 +37,7 @@ then
     
 else
     
-    if [ "$(ssh -n -o ConnectTimeout=1 "$SC_ROOTCA_HOST" hostname 2> /dev/null)" == "$SC_ROOTCA_HOST" ]
+    if [ "$(ssh -n -o ConnectTimeout=1 -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no "$SC_ROOTCA_HOST" hostname 2> /dev/null)" == "$SC_ROOTCA_HOST" ]
     then
         
         msg "regenerate gluster certificate config - CA is $SC_ROOTCA_HOST"

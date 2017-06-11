@@ -18,7 +18,7 @@ username="${ARG,,}"
 if $SC_USE_datastore
 then
     
-    if [[ true == "$(get user "$username" exist)" ]]
+    if [[ "$(get user "$username" exist)" == true ]]
     then
         err "User $username already exist."
     else
@@ -26,12 +26,11 @@ then
         regenerate_users
     fi
     
-    password="$(get user "$username" password)"
     reseller="$(get user "$username" reseller)"
     
     if [[ $SC_USER == "$reseller" ]]
     then
-        ntc "Password for $username is: $password"
+        ntc "$username has reseller rights."
     else
         ntc "Reseller for $username is: $reseller"
     fi
@@ -44,7 +43,7 @@ else
         return
     fi
     
-    password="$(get_password)"
+    password="$(new_password)"
     ntc "Password for $username is: $password"
     
     adduser "$username"

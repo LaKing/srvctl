@@ -3,24 +3,25 @@
 ## @en List container statuses
 
 local list
-list="$(cfg system container_list)" || exit
+if [[ $SC_USER == root ]]
+then
+    list="$(cfg system container_list)" || exit
+else
+    list="$(cfg user container_list)" || exit
+fi
 
 echo ''
 printf "${YELLOW}%-10s${CLEAR}" "STATUS"
 printf "${YELLOW}%-48s${CLEAR}" "HOSTNAME"
 printf "${YELLOW}%-14s${CLEAR}" "IP-INTERNAL"
-printf "${YELLOW}%-3s${CLEAR}" "IN"
-printf "${YELLOW}%-12s${CLEAR}" "HTTP  HTTPS "
-printf "${YELLOW}%-4s${CLEAR}" "RES"
-printf "${YELLOW}%-3s${CLEAR}" "MX"
-printf "${YELLOW}%-5s${CLEAR}" "DISK"
-printf "${YELLOW}%-32s${CLEAR}" "USERs"
+printf "${YELLOW}%-16s${CLEAR}" "RESELLER"
+printf "${YELLOW}%-16s${CLEAR}" "USERNAME"
 
 echo ''
 
 for C in $list
 do
-    local ip ping_ms
+    local ip ping_ms user reseller
     ip="$(get container "$C" ip)"
     exif "Could not get IP for $C"
     
@@ -44,6 +45,9 @@ do
     fi
     
     printf "${GREEN}%-14s${CLEAR}" "$ip"
+    printf "${YELLOW}%-16s${CLEAR}" "$(get container "$C" reseller)"
+    printf "${YELLOW}%-16s${CLEAR}" "$(get container "$C" user)"
+    
     echo ''
 done
 

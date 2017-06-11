@@ -7,7 +7,7 @@ function regenerate_users() {
     
     msg "regenerate users"
     
-    local userlist password passfile uid
+    local userlist password passfile uid passuser
     userlist="$(cfg system user_list)"
     
     ## TODO maybe this should be javascript too
@@ -25,17 +25,24 @@ function regenerate_users() {
         if [[ $user != root ]] && id -u "$user" > /dev/null 2>&1
         then
             ## update password?
-            password="$(get user "$user" password)"
-            passfile="$(getent passwd "$user" | cut -f6 -d:)/.password"
-            if [[ ! -z "$password" ]]
+            
+            passfile="$SC_DATASTORE_DIR/users/$user/.password"
+            passuser="$(getent passwd "$user" | cut -f6 -d:)/.password"
+            
+            if [[ -f $passfile ]]
             then
-                if [[ ! -f $passfile ]] || [[ $password != "$(cat "$passfile")" ]]
-                then
-                    msg "Password-update for $user"
-                    echo "$password" | passwd "$user" --stdin 2> /dev/null 1> /dev/null
-                    echo -e "$password" > "$passfile"
-                fi
+                password="$(cat "$passfile")"
             fi
+            
+            if [[ -z $password ]]
+            then
+                password="$(new_password)"
+                echo "$password" > "$passfile"
+            fi
+            
+            #msg "Password-update for $user $password"
+            echo "$password" | passwd "$user" --stdin 2> /dev/null 1> /dev/null
+            echo "$password" > "$passuser"
         fi
         
         ## function defined in modules/ssh/sshlib.sh

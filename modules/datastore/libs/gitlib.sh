@@ -1,5 +1,12 @@
 #!/bin/bash
 
+function datastore_cat_to_ro() {
+    ## we backup most important data in case we need to fallback to readonly mode
+    [[ $USER == root ]] || return
+    cat "$SC_DATASTORE_RW_DIR/containers.json" > "$SC_DATASTORE_RO_DIR/containers.json"
+    cat "$SC_DATASTORE_RW_DIR/users.json" > "$SC_DATASTORE_RO_DIR/users.json"
+}
+
 function datastore_push() {
     
     if $SC_DATASTORE_RO_USE
@@ -22,8 +29,6 @@ EOF
         
         echo "$NOW $SC_USER $(cd "$SC_DATASTORE_RW_DIR" && git add ./*.json && git commit -m "$SC_USER@$HOSTNAME $*") $*" >> "$SC_DATASTORE_RW_DIR/.git.log"
         
-        ## we backup most important data in case we need to fallback to readonly mode
-        cat "$SC_DATASTORE_RW_DIR/containers.json" > "$SC_DATASTORE_RO_DIR/containers.json"
-        cat "$SC_DATASTORE_RW_DIR/users.json" > "$SC_DATASTORE_RO_DIR/users.json"
+        datastore_cat_to_ro
     fi
 }

@@ -1,23 +1,19 @@
 #!/bin/bash
 
-local _user
-
-_user=$1
+_user="$1"
 
 function catif() {
-    local _file
-    _file=$1
-    if [[ -f $_file ]]
+    if [[ -f $1 ]]
     then
-        cat $_file
+        cat "$1"
     fi
 }
-
-## used on the host, for host-to-host authentication
-catif "/var/srvctl3/datastore/rw/users/$_user/authorized_keys"
 
 ## used by root as root
 catif "/etc/srvctl/authorized_keys"
 
-## used in containers for users
-catif "/etc/srvctl/users/$_user/authorized_keys"
+## used on the host, for host-to-host authentication
+catif "/var/srvctl3/datastore/rw/users/$_user/authorized_keys"
+
+## used in containers for user as root
+catif "/var/srvctl3/share/containers/$HOSTNAME"/users/*/authorized_keys

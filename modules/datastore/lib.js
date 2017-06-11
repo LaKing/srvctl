@@ -28,7 +28,7 @@ const SRVCTL = process.env.SRVCTL;
 const SC_ROOT = process.env.SC_ROOT;
 const HOSTNAME = process.env.HOSTNAME;
 const SC_HOSTNET = Number(process.env.SC_HOSTNET);
-const SC_RESELLER_USER = process.env.SC_RESELLER_USER;
+
 
 // includes
 var fs = require('fs');
@@ -298,27 +298,11 @@ function find_ip_for_container() {
     return '10.' + a + dot + b + dot + c;
 }
 
-function random(items) {
-    return items[Math.floor(Math.random() * items.length)];
-}
-
-function get_password() {
-    var ad = ["ld", "ng", "nt", "lf", "br", "kr", "pr", "fr", "gr", "tr", "rt", "st", "x", "q", "w"];
-    var aa = ["B", "C", "D", "F", "G", "H", "J", "K", "L", "M", "N", "P", "R", "S", "T", "V", "Z"];
-    var ar = ["b", "c", "d", "f", "g", "h", "j", "k", "l", "m", "n", "p", "r", "s", "t", "v", "z"];
-    var bb = ["a", "e", "i", "o", "u"];
-    var bc = ["A", "E", "I", "O", "U"];
-    var w1 = random([random(bc) + random(ad.concat(ar)), random(aa) + random(bb) + random(ar)]) + random(bb) + random(ad.concat(ar)) + random(bb);
-    var w2 = random([random(bc) + random(ad.concat(ar)), random(aa) + random(bb) + random(ar)]) + random(bb) + random(ad.concat(ar)) + random(bb);
-    return w1 + '-' + w2;
-}
-
 function new_user(username) {
     if (users[username] !== undefined) return_error('USER EXISTS');
     var user = {};
     user.added_by_username = SC_USER;
     user.added_on_datestamp = NOW;
-    user.password = get_password();
 
     if (resellers[SC_USER] !== undefined) user.reseller = SC_USER;
     else user.reseller = 'root';
@@ -440,29 +424,6 @@ exports.system_postfix_relaydomains = function() {
     system_postfix_relaydomains();
 };
 
-function system_ssh_config() {
-    var str = '## ssh_config' + br;
-    //Object.keys(hosts).forEach(function(i) {
-    //    str += "Host " + i + br;
-        //str += "User root" + br;
-        //str += "StrictHostKeyChecking no" + br;
-        str += "" + br;
-    //});
-    Object.keys(containers).forEach(function(i) {
-        str += "Host " + i + br;
-        str += "User root" + br;
-        str += "StrictHostKeyChecking no" + br;
-        str += "" + br;
-    });
-    fs.writeFile('/etc/ssh/ssh_config.d/srvctl-containers.conf', str, function(err) {
-        if (err) return_error('WRITEFILE ' + err);
-        else console.log('[ OK ] ssh srvctl-containers.conf');
-    });
-}
-
-exports.system_ssh_config = function() {
-    system_ssh_config();
-};
 
 function system_host_keys() {
     var str = '';
@@ -509,6 +470,19 @@ function system_container_list() {
 
 exports.system_container_list = function() {
     return system_container_list();
+};
+
+function user_container_list() {
+    var str = '';
+    Object.keys(containers).forEach(function(i) {
+        if (containers[i].user === SC_USER) str += i + ' ';
+        else if (users[containers[i].user].reseller === SC_USER) str += i + ' ';
+    });
+    return str;
+}
+
+exports.user_container_list = function() {
+    return user_container_list();
 };
 
 function system_host_list() {

@@ -390,11 +390,16 @@ function set_permissions() {
     chmod 755 /etc/srvctl
     chmod 644 /etc/srvctl/*.conf
     
-    chmod 700 "$SC_DATASTORE_RO_DIR"
-    chmod 700 "$SC_DATASTORE_RW_DIR"
+    chmod -R 600 "$SC_DATASTORE_RO_DIR"
+    chmod -R 600 "$SC_DATASTORE_RW_DIR"
     
-    chmod 700 "$SC_MOUNTS_DIR"
-    chmod 700 "$SC_ROOTFS_DIR"
+    chmod 755 "$SC_DATASTORE_RO_DIR"
+    chmod 755 "$SC_DATASTORE_RW_DIR"
+    chmod 644 "$SC_DATASTORE_RO_DIR"/*.json
+    chmod 644 "$SC_DATASTORE_RW_DIR"/*.json
+    
+    [[ -d "$SC_MOUNTS_DIR" ]] && chmod 700 "$SC_MOUNTS_DIR"
+    [[ -d "$SC_ROOTFS_DIR" ]] && chmod 700 "$SC_ROOTFS_DIR"
     
 }
 

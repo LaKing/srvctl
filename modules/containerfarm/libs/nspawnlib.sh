@@ -15,7 +15,10 @@ PrivateUsers=pick
 [Files]
 PrivateUsersChown=true
 BindReadOnly=$SC_INSTALL_DIR
-
+BindReadOnly=/var/srvctl3/share/containers/$C
+BindReadOnly=/var/srvctl3/share/common
 EOF
+    
+    mkdir -p "/var/srvctl3/share/containers/$C/users"
     
 }

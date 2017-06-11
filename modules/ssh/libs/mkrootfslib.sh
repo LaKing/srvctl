@@ -1,23 +1,29 @@
 #!/bin/bash
 
-## this is for container creation
-function mkrootfs_root_ssh_config { ## rootfs
+## this is for container creation /update
+function mkrootfs_sshd_config { ## rootfs
     
     local rootfs
     rootfs="$1"
     
-    if [[ ! -d "$rootfs/root" ]]
+    if [[ ! -f "$rootfs/etc/ssh/sshd_config" ]]
     then
-        err "No rootfs for setup_rootfs_ssh "
-    else
-        ## make root's key access
-        mkdir -p -m 600 "$rootfs/root/.ssh"
-        cat /etc/srvctl/authorized_keys > "$rootfs/root/.ssh/authorized_keys"
-        cat "$SC_DATASTORE_DIR/users/$SC_USER/authorized_keys" >> "$rootfs/root/.ssh/authorized_keys"
-        
-        chmod 600 "$rootfs/root/.ssh/authorized_keys"
-        
+        err "No ssh setup present."
+        return
+    fi
+    
+    if false
+    then
         ## disable password authentication on ssh
         sed -i.bak "s/PasswordAuthentication yes/PasswordAuthentication no/g" "$rootfs/etc/ssh/sshd_config"
+        
+        local sedstr
+        sed -i.bak "s|#AuthorizedKeysCommandUser nobody|AuthorizedKeysCommandUser root|g" "$rootfs/etc/ssh/sshd_config"
+        sedstr="AuthorizedKeysCommand /usr/bin/cat $SC_DATASTORE_RW_DIR/users/%u/authorized_keys /etc/srvctl/authorized_keys"
+        sed -i.bak "s|#AuthorizedKeysCommand none|$sedstr## |g" /etc/ssh/sshd_config
     fi
+    
+    msg "mkrootfs_ssh_config $rootfs"
+    cat "$SC_INSTALL_DIR/modules/ssh/sshd_config" > "$rootfs/etc/ssh/sshd_config"
+    
 }

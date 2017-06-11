@@ -13,9 +13,8 @@ const execSync = require('child_process').execSync;
 
 const CMD = process.argv[2];
 // constatnts
-
+const SC_DATASTORE_DIR = process.env.SC_DATASTORE_DIR;
 const SC_CONTAINERS_DATA_FILE = process.env.SC_DATASTORE_DIR + '/containers.json';
-const SC_OPENDKIM_FOLDER = process.env.SC_DATASTORE_DIR + '/opendkim';
 
 const SRVCTL = process.env.SRVCTL;
 const SC_ROOT = process.env.SC_ROOT;
@@ -65,58 +64,75 @@ TrustedHosts += '127.0.0.1' + br;
 TrustedHosts += '::1' + br;
 TrustedHosts += '10.0.0.0/8' + br;
 
-function run_domain(domain) {
-    var selector = "default";
-    if (domain.substring(0, 5) === 'mail.') selector = "mail";
-    var private_file = "/srv/" + domain + "/opendkim/" + selector + ".private";
-    var txt_file = "/srv/" + domain + "/opendkim/" + selector + ".txt";
-
-    // we could check if container os in this host also via IP, we just check for the folder now.
-    if (fs.existsSync("/srv/"+domain))
-    if (!fs.existsSync(private_file)) {
-        var opendkim_folder = '/srv/' + domain + '/opendkim';
-        if (!fs.existsSync(opendkim_folder)) fs.mkdirSync(opendkim_folder);
-        console.log('opendkim-genkey -D "' + opendkim_folder + '" -d "' + domain + '" -s "' + selector + '"');
-        var code = execSync('opendkim-genkey -D "' + opendkim_folder + '" -d "' + domain + '" -s "' + selector + '"');
-        console.log(code.toString('utf8'));
+function copy_user_key(c,u) {
+    
+    var key =  fs.readFileSync(SC_DATASTORE_DIR + "/users/" + u + "/authorized_keys");
+    
+    var dir = '/var/srvctl3/share/containers/' + c;
+    if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir);
+    }
+    dir = '/var/srvctl3/share/containers/' + c + '/users';
+    if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir);
+    }
+    dir = '/var/srvctl3/share/containers/' + c + '/users/' + u;
+    if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir);
     }
 
-    if (fs.existsSync(private_file)) {
-        var private = fs.readFileSync(private_file, 'UTF8');
-        var target_folder = SC_OPENDKIM_FOLDER + '/' + domain;
-        if (!fs.existsSync(target_folder)) fs.mkdirSync(target_folder);
-        var target_file = SC_OPENDKIM_FOLDER + '/' + domain + '/' + selector + '.private';
-        //if (! fs.existsSync(target_file)) 
-        fs.writeFileSync(target_file, private);
-    
-        if (fs.existsSync(txt_file)) {
-            var txt = fs.readFileSync(txt_file, 'UTF8');
-            var p = txt.split('"')[3];
-            containers[domain]['dkim-' + selector + '-domainkey'] = p;
-        }
-    }
-    
-    TrustedHosts += domain + br;
-    KeyTable += selector + "._domainkey." + domain +" " + domain + ":" + selector + ":/var/opendkim/" + domain + "/" + selector + ".private" + br;
-    SigningTable += "*@" + domain + " " + selector + "._domainkey." + domain + br;
+    fs.writeFileSync(dir + '/authorized_keys', key);
+
+}
+
+function remake_ssh_keys(c) {
+    copy_user_key(c,containers[c].user);
 }
 
 function main() {
     Object.keys(containers).forEach(function(i) {
-        if ((i.substr(i.length - 6) !== '.devel') && (i.substr(i.length - 6) !== '-devel') && (i.substr(i.length - 6) !== '.local') && (i.substr(i.length - 6) !== '-local'))
-            run_domain(i);
+            remake_ssh_keys(i);
     });
 }
+
+function system_ssh_config() {
+    var str = '## ssh_config' + br;
+        str += "Host localhost" + br;
+        str += "User root" + br;
+        str += "StrictHostKeyChecking no" + br;
+        str += "" + br;
+        
+        str += "Host 127.0.0.1" + br;
+        str += "User root" + br;
+        str += "StrictHostKeyChecking no" + br;
+        str += "" + br;
+    
+    //Object.keys(hosts).forEach(function(i) {
+    //    str += "Host " + i + br;
+        //str += "User root" + br;
+        //str += "StrictHostKeyChecking no" + br;
+        str += "" + br;
+    //});
+    Object.keys(containers).forEach(function(i) {
+        str += "Host " + i + br;
+        str += "User root" + br;
+        str += "StrictHostKeyChecking no" + br;
+        str += "" + br;
+    });
+    fs.writeFile('/etc/ssh/ssh_config.d/srvctl-containers.conf', str, function(err) {
+        if (err) return_error('WRITEFILE ' + err);
+        else console.log('[ OK ] ssh srvctl-containers.conf');
+    });
+}
+
+system_ssh_config();
 
 main();
 
 process.exitCode = 0;
 
 process.on('exit', function() {
-    fs.writeFileSync(SC_OPENDKIM_FOLDER + '/TrustedHosts', TrustedHosts);
-    fs.writeFileSync(SC_OPENDKIM_FOLDER + '/KeyTable', KeyTable);
-    fs.writeFileSync(SC_OPENDKIM_FOLDER + '/SigningTable', SigningTable);
-    fs.writeFileSync(SC_CONTAINERS_DATA_FILE, JSON.stringify(containers, null, 2));
+
 });
 
 exit();

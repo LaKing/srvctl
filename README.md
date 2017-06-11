@@ -1,4 +1,4 @@
-## Srvctl v3 (3.0.134.1)
+## Srvctl v3 (3.0.134.2)
 Under construction, - srvctl is a containerfarm-manager for microsite hosting webservers with fedora as the host operating system. It will help to set up, maintain, and to let a couple of servers work together in order to have a solid web-serving service.
 Version 3 is remake for 2016 mostly using systemd tools, thus using systemd-nspawn as the containerfarm manager. The core is written in bash and javascript, and a modular design allows to extend it with programs. Basically it is a collection of scripts.
 
@@ -82,6 +82,11 @@ Srvctl maintains configuration data in json files. These files may reside at the
 
 
 ```
+# 8 @conf /etc/srvctl/debug.conf 
+# 10 @conf /etc/srvctl/modules.conf 
+# 12 init@run_hook pre-init 
+# 15 @hook srvctl pre-init 
+# 17 @hook ve pre-init 
 
 srvctl COMMAND [arguments]              
 
@@ -91,6 +96,7 @@ COMMAND
 
 COMMAND - from root                     
 
+   /root/srvctl-includes/custom-command.sh      
    custom-command                        A Custom command from root 2017.01.07-12:23:11 
     
      This command does something custom, like running a bash script.
@@ -99,28 +105,30 @@ COMMAND - from root
 
 COMMAND - from srvctl                   
 
+   /srv/codepad-project/modules/containerfarm/commands/add-ve.sh
    add-ve                                Add a fedora container.                        
     
      Generic container for customization.
      Contains basic packages.
     
+   /srv/codepad-project/modules/containerfarm/commands/destroy-ve.sh
    destroy-ve                            Delete container with all its files            
     
      Delete all files and all records regarding the VE.
     
-   regenerate-rootfs                     Create the container base.                     
-    
-     Download container filesystems that will be used as base when creating containers.
-    
-    
-   regenerate                            Write all config files with the current settings.
+   /srv/codepad-project/modules/containerfarm/commands/regenerate.sh
+   regenerate                            Update configuration settings.                 
     
      Get all modules to write and overwrite config files with the actual configurations.
+     The argument all-hosts makes the command perform on all hosts.
+     The regenerate rootfs command rebuilds the container base images.
     
     
+   /srv/codepad-project/modules/containerfarm/commands/status.sh
    status                                List container statuses                        
     
     
+   /srv/codepad-project/modules/srvctl/commands/customize.sh
    customize                             Create/edit a custom command.                  
     
      It is possible to create a custom command in ~/srvctl-includes
@@ -128,6 +136,7 @@ COMMAND - from srvctl
      This command does something custom, like running a bash script.
      It might be customized further, depending on the author.
     
+   /srv/codepad-project/modules/srvctl/commands/diagnose.sh
    diagnose                              First-aid diagnoistic command.                 
     
      Set of troubleshooting commands, that include information about:
@@ -147,24 +156,32 @@ COMMAND - from srvctl
          To flush the mail que, use: postqueue -f
          To remove all mail from the mail que use: postsuper -d ALL
     
+   /srv/codepad-project/modules/srvctl/commands/ls.sh
    ls                                    List all files recursive, sorted by last modified date
     
      List all files recursive, sorted by last modified date
     
     
+   /srv/codepad-project/modules/srvctl/commands/update-install.sh
    update-install                        Run the installation/update script.            
     
      Update/Install all components
      On host systems install the containerfarm
     
+   /srv/codepad-project/modules/srvctl/commands/version.sh
    version                               List software versions installed.              
     
      Contact the package manager, and query important packages
     
     
+   /srv/codepad-project/modules/users/commands/add-user.sh
    add-user                              Add user to the systems                        
     
      Add user to database and create it on the system.
      users will have default passwords, certificates, etc, ..
+    
+   /srv/codepad-project/modules/ve/commands/status.sh
+   status                                List container status parameters               
+    
     
 ```

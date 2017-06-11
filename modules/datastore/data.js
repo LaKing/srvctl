@@ -23,6 +23,7 @@ const SC_HOSTS_DATA_FILE = process.env.SC_DATASTORE_DIR + '/hosts.json';
 const SC_USERS_DATA_FILE = process.env.SC_DATASTORE_DIR + '/users.json';
 const SC_CONTAINERS_DATA_FILE = process.env.SC_DATASTORE_DIR + '/containers.json';
 const SC_DATASTORE_RO = process.env.SC_DATASTORE_RO;
+const SC_RESELLER_USER = process.env.SC_RESELLER_USER;
 
 const PUT = 'put';
 const GET = 'get';
@@ -148,8 +149,12 @@ if (DAT === 'user') {
     if (CMD === NEW) {
         datastore.new_user(ARG);
         exit();
-    }
-
+    } else
+    
+    if (CMD === CFG) {
+        if (ARG === 'container_list') return_value(datastore.user_container_list());    
+    } else
+    
     if (CMD === GET && OPA === 'exist') {
         if (users[ARG] !== undefined) return_value("true");
         else return_value("false");
@@ -186,8 +191,10 @@ if (DAT === 'user') {
                 datastore.write_users();
                 exit();
             }
+            
         }
     }
+    
 }
 
 if (DAT === 'host') {
@@ -214,7 +221,6 @@ if (DAT === 'system') {
     if (CMD === CFG) {
         if (ARG === 'etc_hosts') datastore.system_etc_hosts();
         if (ARG === 'postfix_relaydomains') datastore.system_postfix_relaydomains();
-        if (ARG === 'ssh_config') datastore.system_ssh_config();
         if (ARG === 'host_keys') datastore.system_host_keys();
         if (ARG === 'container_list') return_value(datastore.system_container_list());
         if (ARG === 'host_list') return_value(datastore.system_host_list());

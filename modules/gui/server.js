@@ -5,7 +5,6 @@
 /*jshint esnext: true */
 
 const global_install_prefix = '/usr/lib/node_modules/';
-const HOSTNAME = process.env.HOSTNAME;
 const port = 250;
 
 //const SC_DATASTORE_DIR = process.env.SC_DATASTORE_DIR;
@@ -14,7 +13,7 @@ const SC_DATASTORE_DIR = '/var/srvctl3/datastore/rw';
 const SC_INSTALL_DIR = '/usr/local/share/srvctl';
 
 const https = require('https');
-
+const os = require('os');
 const fs = require('fs');
 const exec = require('child_process').exec;
 
@@ -24,6 +23,7 @@ const pty = require(global_install_prefix + 'pty.js');
 // NOTE https://github.com/mscdex/ssh2/issues/433
 
 // todo, dont burn by CDN in here
+const HOSTNAME = os.hostname();
 
 const options = {
     cert: fs.readFileSync('/etc/srvctl/cert/' + HOSTNAME + '/' + HOSTNAME + '.pem'),
@@ -116,20 +116,31 @@ function send_main(socket) {
 
 }
 
-function run_command(socket, command) {
+function run_command(socket, cmd) {
     send_main(socket);
+    socket.emit('lock', true);
     
-    console.log("run_command", socket.host, socket.user, command);
+    var user = socket.user;
+    var host = cmd.host;
+    var command = cmd.command;
+    //socket.host = command.host;
+    if (cmd.host === 'localhost') host = HOSTNAME;
+    if (cmd.selected === 'container') {
+        host = cmd.container;
+        user = "root";
+    }
+    
+    console.log("run_command", host, user, command);
 
     var conn = new Client();
     conn.on('ready', function() {
-        var adat = '[' + socket.user + '@' + socket.host + ']$ ' + command + '\n';
+        var adat = '[' + user + '@' + host + ']$ ' + command + '\n';
         console.log('command:', adat);
         conn.exec(command + ' 2>&1', function(err, stream) {
             if (err) throw err;
             stream.on('close', function(code, signal) {
                 conn.end();
-                socket.emit('lock', false);
+                //socket.emit('lock', false);
             }).on('data', function(data) {
                 adat += data;
                 socket.emit('terminal', term2html(adat));
@@ -146,11 +157,12 @@ function run_command(socket, command) {
     });
     conn.on('close', function(err) {
         //console.log('ssh2 connection closed');
+        socket.emit('lock', false);
     });
     conn.connect({
-        host: socket.host,
+        host: host,
         port: 22,
-        username: socket.user,
+        username: user,
         privateKey: socket.key,
         readyTimeout: 500
     });
@@ -208,11 +220,8 @@ io.on('connection', function(socket) {
         send_main(socket);
     });
 
-    socket.on('command', function(cmd) {
-        socket.host = cmd.host;
-        if (cmd.selected === 'container') socket.host = cmd.container;
-        if (socket.host === 'localhost') socket.host = HOSTNAME;
-        run_command(socket, cmd.command);
+    socket.on('command', function(command) {
+        run_command(socket, command);
     });
 
     socket.on('disconnect', function() {

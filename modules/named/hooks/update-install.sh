@@ -32,6 +32,8 @@ mkdir -p /var/named/srvctl
 chown -R named:named /var/named #?/srvctl
 chmod 750 /var/named/srvctl
 
+regenerate_named_conf
+
 add_service named
 firewalld_add_service dns
 

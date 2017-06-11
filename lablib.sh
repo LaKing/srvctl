@@ -45,7 +45,7 @@ dbgc=0
 function dbg {
     ((dbgc++))
     ## short debug message if debugging is on
-    if $DEBUG
+    if $DEBUG && $TTY
     then
         echo -e "${YELLOW}DEBUG #$dbgc ${BASH_SOURCE[1]}#$BASH_LINENO ${FUNCNAME[1]} ${GREEN} $* ${CLEAR}"
     fi
@@ -53,12 +53,13 @@ function dbg {
 function debug {
     ## short debug message if debugging is on
     local now
-    if $DEBUG
+    if $DEBUG && $TTY
     then
         now="$(date +%s%3N)"
         echo -e "${GREEN}# $((now-SC_STARTTIME))${YELLOW} $* ${CLEAR}"
     fi
 }
+
 function trace {
     ## tracing debug message
     echo -e "${YELLOW} DEBUG ${BASH_SOURCE[1]}#$BASH_LINENO ${FUNCNAME[1]} ${RED} $*${CLEAR}"

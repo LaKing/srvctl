@@ -1,7 +1,5 @@
 #!/bin/bash
 
-mkdir -p /var/srvctl-gui
-
 cat > /usr/lib/systemd/system/srvctl-gui.service << EOF
 [Unit]
 Description=srvctl-gui server.
@@ -9,7 +7,7 @@ After=syslog.target network.target
 
 [Service]
 Type=simple
-ExecStart=/bin/node $SC_INSTALL_DIR/modules/gui/srvctl-gui.js
+ExecStart=/bin/node $SC_INSTALL_DIR/modules/gui/server.js
 User=root
 Group=root
 

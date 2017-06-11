@@ -81,7 +81,7 @@ function gluster_configure {
             msg "start volume srvctl-data"
             
             # shellcheck disable=SC2086
-            run gluster volume create srvctl-data replica ${#lista[@]} $list
+            run gluster volume create srvctl-data replica ${#lista[@]} $list force
             
             run gluster volume set srvctl-data client.ssl on
             run gluster volume set srvctl-data server.ssl on
@@ -90,6 +90,8 @@ function gluster_configure {
             run gluster volume status srvctl-data
             
             gluster_mount_data
+        else
+            msg "gluster volume srvctl-data ok"
         fi
         
         ## todo, moumt it permanently
@@ -110,7 +112,7 @@ function gluster_mount_data() {
         run mkdir -p "$SC_DATASTORE_RW_DIR"
         if run mount -t glusterfs  -o log-file="/var/log/gluster-mount-$NOW.log" "$HOSTNAME:/srvctl-data" "$SC_DATASTORE_RW_DIR"
         then
-            msg "OK"
+            msg "[ OK ] Gluster mounted."
         else
             if [[ -f "/var/log/gluster-mount-$NOW.log" ]]
             then

@@ -20,6 +20,8 @@ then
     run rm -fr "/etc/srvctl/containers/$C.service"
 fi
 
+cd /srv
+
 if [[ -d /srv/$C ]]
 then
     run rm -fr "/srv/$C"

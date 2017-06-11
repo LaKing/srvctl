@@ -15,3 +15,6 @@ sc_install systemd-container
 create_srvctl_nspawn_service
 
 run systemctl enable machines.target
+
+mkdir -p /var/srvctl3/share/containers
+mkdir -p /var/srvctl3/share/common

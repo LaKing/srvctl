@@ -1,5 +1,21 @@
 #!/bin/bash
 
+function regenerate_all_hosts() {
+    
+    for host in $(cfg system host_list)
+    do
+        msg "regenerate $host"
+        if [[ $host == "$HOSTNAME" ]]
+        then
+            run_hook regenerate
+        else
+            run ssh -o ConnectTimeout=1 -o BatchMode=yes $host "srvctl regenerate" || err "Skipping $host"
+        fi
+        
+    done
+    
+}
+
 function regenerate_etc_hosts() {
     cfg system etc_hosts
     #> /etc/hosts
