@@ -10,6 +10,8 @@ hs_only
 [[ $SRVCTL ]] || exit 4
 
 argument container
+authorize
+sudomize
 
 local C
 C="$ARG"
@@ -18,15 +20,22 @@ then
     run systemctl stop "$C"
     run systemctl disable "$C"
     run rm -fr "/etc/srvctl/containers/$C.service"
+    msg "$C service removed."
 fi
 
 cd /srv
 
+if [[ "$(get container "$C" exist)" == true ]]
+then
+    del container "$C"
+    exif
+    msg "$C is removed from the datastore."
+fi
+
 if [[ -d /srv/$C ]]
 then
     run rm -fr "/srv/$C"
+    msg "$C files removed."
 fi
 
-del container "$C"
-
-msg "$C destroyed."
+msg "$C is destroyed."

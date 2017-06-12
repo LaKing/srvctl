@@ -29,3 +29,5 @@ then
 else
     run_hook regenerate
 fi
+
+msg "regenerate done"

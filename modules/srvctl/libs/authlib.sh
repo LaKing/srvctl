@@ -23,18 +23,21 @@ function authorize {
     then
         return
     else
-        err "Authorization implementation not complete"
+        err "DEV (Authorization implementation not complete.)"
     fi
 }
 
 function sudomize {
     if [[ $USER != root ]]
     then
+        debug "@sudomize"
         if ! run sudo "$SC_INSTALL_DIR/srvctl.sh" "$SC_COMMAND_ARGUMENTS"
         then
-            err "Could not use sudo."
+            debug "Error $? in srvctl-sudo"
+            exit 10
+        else
+            exit 0
         fi
-        exit
     fi
 }
 

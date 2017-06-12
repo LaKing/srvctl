@@ -31,7 +31,7 @@ then
     cat /etc/hostname
     msg "after setting a hostname, a reboot is required"
     rm -fr /etc/srvctl/modules.conf
-    exit
+    exit 5
 fi
 
 ## just some default

@@ -15,7 +15,7 @@ function create_nspawn_container_filesystem() { ## C T
         if [[ ! -d $SC_ROOTFS_DIR/$T ]]
         then
             err "FATAL ERROR - rootfs $T not available"
-            exit
+            exit 66
         fi
     fi
     
@@ -31,9 +31,6 @@ function create_nspawn_container_filesystem() { ## C T
     
     ## copy the filesystem root
     run cp -R -p "$SC_ROOTFS_DIR/$T/*" "$rootfs"
-    
-    ## add user's keys
-    cat "$SC_HOME/.ssh/authorized_keys" >> "$rootfs/root/.ssh/authorized_keys"
     
     ## end of function
 }

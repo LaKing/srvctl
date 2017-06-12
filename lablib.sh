@@ -144,6 +144,18 @@ function eyif {
     return "$eyif_code"
 }
 
+function exit_0() {
+    
+    if $DEBUG && $TTY
+    then
+        debug "$SRVCTL"
+        exit 0
+    fi
+    
+    msg "## $SRVCTL"
+    exit 0
+}
+
 function sed_file {
     ## used to replace a line in a file
     ## filename=$1 oldline=$2 newline=$3

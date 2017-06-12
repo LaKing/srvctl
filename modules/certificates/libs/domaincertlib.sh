@@ -88,7 +88,7 @@ function create_selfsigned_domain_certificate { ## for domain on path
                     if [[ ! -f $ssl_key ]]
                     then
                         err "Domain $domain has certificate, but no key-file! $ssl_key ?"
-                        exit
+                        exit 46
                     fi
                     cat "$ssl_pem" > "$cert_path/cert.pem"
                     msg "$domain has a valid certificate."

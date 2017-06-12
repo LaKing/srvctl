@@ -14,6 +14,12 @@ argument username
 local username password reseller
 username="${ARG,,}"
 
+if ! [[ "$username" =~ ([a-z_][a-z0-9_]{2,30}) ]]
+then
+    err "Invalid username: $username"
+    exit 22
+fi
+
 # shellcheck disable=SC2154
 if $SC_USE_datastore
 then
@@ -21,19 +27,14 @@ then
     if [[ "$(get user "$username" exist)" == true ]]
     then
         err "User $username already exist."
+        
     else
         new user "$username"
         regenerate_users
     fi
     
     reseller="$(get user "$username" reseller)"
-    
-    if [[ $SC_USER == "$reseller" ]]
-    then
-        ntc "$username has reseller rights."
-    else
-        ntc "Reseller for $username is: $reseller"
-    fi
+    ntc "Reseller for $username is: $reseller"
     
 else
     

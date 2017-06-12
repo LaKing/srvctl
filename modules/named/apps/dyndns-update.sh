@@ -12,7 +12,7 @@ then
     if [[ "$IP" == "$LIP" ]]
     then
         echo "Nothing to do."
-        exit
+        exit 0
     fi
 fi
 

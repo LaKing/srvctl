@@ -2,6 +2,9 @@
 
 function regenerate_ssh_config() {
     msg "regenerate ssh configs"
+    
+    rm -fr /var/srvctl3/share/containers/*/users/*/authorized_keys
+    
     ssh_main
 }
 
@@ -31,14 +34,7 @@ function update_install_ssh_config() {
     ## we will store keys in the datastore dir and in /etc/srvctl
     ## for that we will use multiple AuthorizedKeysFile entries.
     
-    ## disable password authentication on ssh
-    sed -i.bak "s|PasswordAuthentication yes|PasswordAuthentication no|g" /etc/ssh/sshd_config
-    
-    ## enable srvctl locations for authorized keys
-    local sedstr
-    sed -i.bak "s|#AuthorizedKeysCommandUser nobody|AuthorizedKeysCommandUser root|g" /etc/ssh/sshd_config
-    sedstr="AuthorizedKeysCommand /usr/bin/cat $SC_DATASTORE_RW_DIR/users/%u/authorized_keys /etc/srvctl/authorized_keys"
-    sed -i.bak "s|#AuthorizedKeysCommand none|$sedstr## |g" /etc/ssh/sshd_config
+    cat "$SC_INSTALL_DIR/modules/ssh/sshd_config" > /etc/ssh/sshd_config
     
     if [[ ! -f /etc/srvctl/authorized_keys ]] && [[ -f /etc/srvctl/data/authorized_keys ]]
     then
@@ -212,47 +208,4 @@ function check_containers_ssh_keys() {
     done
 }
 
-function create_user_ssh() { ## user
-    
-    local user home
-    user="$1"
-    home="$(getent passwd "$user" | cut -f6 -d:)"
-    
-    [[ $user == root ]] && return;
-    
-    ## create ssh keypair
-    if [[ ! -f "$SC_DATASTORE_DIR/users/$user/id_rsa" ]] || [[ ! -f "$SC_DATASTORE_DIR/users/$user/srvctl_id_rsa" ]] || [[ ! -f "$home/.ssh/id_rsa" ]]
-    then
-        msg "Update on ssh configuration for $user"
-        
-        mkdir -p "$SC_DATASTORE_DIR/users/$user"
-        
-        if [[ ! -f "$SC_DATASTORE_DIR/users/$user/id_rsa" ]]
-        then
-            msg "Create datastore id_rsa for $user"
-            ssh-keygen -t rsa -b 4096 -f "$SC_DATASTORE_DIR/users/$user/id_rsa" -N '' -C "$user@$SC_COMPANY_DOMAIN (id_rsa $HOSTNAME $NOW)"
-            exif
-        fi
-        if [[ ! -f "$SC_DATASTORE_DIR/users/$user/srvctl_id_rsa" ]]
-        then
-            msg "Create datastore srvctl id_rsa for $user"
-            ssh-keygen -t rsa -b 4096 -f "$SC_DATASTORE_DIR/users/$user/srvctl_id_rsa" -N '' -C "$user@$SC_COMPANY_DOMAIN (srvctl $HOSTNAME-$NOW)"
-            exif
-        fi
-        
-        cat "$SC_DATASTORE_DIR/users/$user/id_rsa.pub" > "$SC_DATASTORE_DIR/users/$user/authorized_keys"
-        cat "$SC_DATASTORE_DIR/users/$user/srvctl_id_rsa.pub" >> "$SC_DATASTORE_DIR/users/$user/authorized_keys"
-        
-        chmod -R 600 "$SC_DATASTORE_DIR/users/$user"
-        
-        mkdir -p "$home/.ssh"
-        cat "$SC_DATASTORE_DIR/users/$user/id_rsa.pub" > "$home/.ssh/id_rsa.pub"
-        cat "$SC_DATASTORE_DIR/users/$user/id_rsa" > "$home/.ssh/id_rsa"
-        
-        chown -R "$user:$user" "$home/.ssh"
-        chmod -R 600 "$home/.ssh"
-        chmod    700 "$home/.ssh"
-    fi
-    
-    ## TODO import user added public keys
-}
+

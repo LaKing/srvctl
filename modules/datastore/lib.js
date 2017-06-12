@@ -304,13 +304,12 @@ function new_user(username) {
     user.added_by_username = SC_USER;
     user.added_on_datestamp = NOW;
 
-    if (resellers[SC_USER] !== undefined) user.reseller = SC_USER;
-    else user.reseller = 'root';
+    user.reseller = users[SC_USER].reseller;
 
     user.id = get_next_user_id(user.reseller);
 
     users[username] = user;
-    //save_users = true;
+
     write_users();
 }
 
@@ -318,6 +317,28 @@ exports.new_user = function(username) {
     new_user(username);
 };
 
+function new_reseller(username) {
+    if (users[username] !== undefined) return_error('USER EXISTS');
+    var user = {};
+    user.added_by_username = SC_USER;
+    user.added_on_datestamp = NOW;
+    
+    user.reseller = username;
+    user.id = 0;
+    var rid = 1;
+    Object.keys(users).forEach(function(i) {
+        if (users[i].is_reseller_id >= rid) rid = users[i].is_reseller_id + 1;
+    });
+    user.is_reseller_id = rid;
+    
+    users[username] = user;
+    //save_users = true;
+    write_users();
+}
+
+exports.new_reseller = function(username) {
+    new_reseller(username);
+};
 
 function add_project_to_user(P, U) {
     if (users[U] === undefined) new_user(U);

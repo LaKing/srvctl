@@ -1,4 +1,4 @@
-## Srvctl v3 (3.0.134.2)
+## Srvctl v3 (3.0.134.3)
 Under construction, - srvctl is a containerfarm-manager for microsite hosting webservers with fedora as the host operating system. It will help to set up, maintain, and to let a couple of servers work together in order to have a solid web-serving service.
 Version 3 is remake for 2016 mostly using systemd tools, thus using systemd-nspawn as the containerfarm manager. The core is written in bash and javascript, and a modular design allows to extend it with programs. Basically it is a collection of scripts.
 
@@ -82,11 +82,11 @@ Srvctl maintains configuration data in json files. These files may reside at the
 
 
 ```
-# 8 @conf /etc/srvctl/debug.conf 
-# 10 @conf /etc/srvctl/modules.conf 
-# 12 init@run_hook pre-init 
-# 15 @hook srvctl pre-init 
-# 17 @hook ve pre-init 
+# 11 @conf /etc/srvctl/debug.conf 
+# 13 @conf /etc/srvctl/modules.conf 
+# 15 init@run_hook pre-init 
+# 19 @hook srvctl pre-init 
+# 21 @hook ve pre-init 
 
 srvctl COMMAND [arguments]              
 
@@ -174,6 +174,12 @@ COMMAND - from srvctl
      Contact the package manager, and query important packages
     
     
+   /srv/codepad-project/modules/users/commands/add-reseller.sh
+   add-reseller                          Add user to the systems                        
+    
+     Add user to database and create it on the system.
+     users will have default passwords, certificates, etc, ..
+    
    /srv/codepad-project/modules/users/commands/add-user.sh
    add-user                              Add user to the systems                        
     
@@ -184,4 +190,5 @@ COMMAND - from srvctl
    status                                List container status parameters               
     
     
+# 112 srvctl-3.0.134.3 
 ```

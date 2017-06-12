@@ -82,25 +82,25 @@ then
     make_commands_spec
 fi
 
-debug " == run_command == "
+debug " == run_command srvctl $CMD $ARG == "
 run_command
 
 if [[ $? == 0 ]]
 then
-    debug "$SRVCTL"
-else
-    ## something gone wrong, or user did something bad
-    
-    ## check for arguments
-    if [[ $CMD ]]
-    then
-        err "Invalid command."
-    else
-        err "No-command."
-    fi
-    
-    hint_commands
+    exit_0
 fi
 
+## something gone wrong, or user did something bad
 
+## check for arguments
+if [[ $CMD ]]
+then
+    err "Invalid command."
+else
+    err "No-command."
+fi
+
+hint_commands
+
+exit 1
 

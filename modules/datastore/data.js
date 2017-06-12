@@ -197,6 +197,14 @@ if (DAT === 'user') {
     
 }
 
+if (DAT === 'reseller') {
+
+    if (CMD === NEW) {
+        datastore.new_reseller(ARG);
+        exit();
+    }
+}
+
 if (DAT === 'host') {
 
     if (hosts[ARG] === undefined) return_error('HOST '+ ARG +' DONT EXISTS '+JSON.stringify(hosts));

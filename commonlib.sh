@@ -117,6 +117,7 @@ function run_command {
         return
     fi
     
+    ## command from a module
     for dir in $SC_INSTALL_DIR/modules/*
     do
         
@@ -176,8 +177,6 @@ function run_command {
             fi
         fi
     done
-    
-    debug "@run_command end"
     
     return 250
 }

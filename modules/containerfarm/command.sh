@@ -22,6 +22,7 @@ C='?'
 ## for example, sc !
 if [[ $CMD == restart ]]
 then
+    echo "return from $CMD"
     return
 fi
 
@@ -81,12 +82,15 @@ then
     if [[ -f /srv/$C/rootfs/usr/bin/$ARG ]]
     then
         run machinectl shell "$C" "/usr/bin/$ARG $OPAS3"
-        exit
+        exif
+        exit 0
     fi
     
     run machinectl shell "$SC_COMMAND_ARGUMENTS"
 else
     run machinectl "$cop" "$C" --no-pager
 fi
-exit
+
+err "Command could not be interpreted."
+exit 35
 #return 1

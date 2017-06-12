@@ -46,7 +46,7 @@ then
     if [[ -z $service ]] && [[ $op == 'restart' ]]
     then
         source "$SC_INSTALL_DIR/modules/containerfarm/commands/regenerate.sh"
-        exit
+        exit_0
     fi
     
     run_hook adjust-service
@@ -88,7 +88,7 @@ then
         fi
         
         service_action "$service" "$op"
-        exit
+        exit_0
     fi
     return 0
     #exit 0

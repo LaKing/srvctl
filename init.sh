@@ -110,7 +110,7 @@ export SRVCTL
 if [[ $CMD == "man" ]] || [[ $CMD == "help" ]] || [[ $CMD == "-help" ]] || [[ $CMD == "--help" ]]
 then
     help_commands
-    exit
+    exit_0
 fi
 
 ## load libs for running commands

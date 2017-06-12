@@ -6,8 +6,8 @@
 ## &en Contains basic packages.
 
 argument container-name
-sudomize
 authorize
+sudomize
 
 local C T
 C="$ARG"
@@ -16,12 +16,12 @@ T="fedora"
 if [[ ! -d $SC_ROOTFS_DIR/$T ]]
 then
     err "No base for rootfs $T. Please run: srvctl regenerate-rootfs"
-    exit
+    exit 10
 fi
 
 if [[ "$(get container "$C" exist)" == true ]]
 then
-    err "$C already exists in the system! Exiting"
+    err "$C already exists"
     exit 11
 fi
 
@@ -29,11 +29,14 @@ fi
 if [[ -d /srv/$C ]]
 then
     err "/srv/$C already exists! Exiting"
-    exit 11
+    exit 12
 fi
 
 ## add to database
-new container "$C" "$T" || exit
+new container "$C" "$T"
+exif "Could not add container to datastore."
+
+msg "$T container $C added to datastore."
 
 ## make local container
 create_nspawn_container_filesystem "$C" "$T"

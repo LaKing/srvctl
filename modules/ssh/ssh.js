@@ -65,9 +65,8 @@ TrustedHosts += '::1' + br;
 TrustedHosts += '10.0.0.0/8' + br;
 
 function copy_user_key(c,u) {
-    
-    var key =  fs.readFileSync(SC_DATASTORE_DIR + "/users/" + u + "/authorized_keys");
-    
+    if (u === 'root') return;
+ 
     var dir = '/var/srvctl3/share/containers/' + c;
     if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir);
@@ -80,13 +79,28 @@ function copy_user_key(c,u) {
     if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir);
     }
-
-    fs.writeFileSync(dir + '/authorized_keys', key);
+    var files = fs.readdirSync(SC_DATASTORE_DIR + "/users/" + u);
+    
+    var pub;
+    for (i = 0; i < files.length; i++) { 
+        if (files[i].split('.')[1] === 'pub') {
+            pub = fs.readFileSync(SC_DATASTORE_DIR + "/users/" + u + "/" + files[i]);
+            fs.writeFileSync(dir + '/' + u + '-' + files[i], pub);
+        }
+    }
+    
+    //#var key =  fs.readFileSync(SC_DATASTORE_DIR + "/users/" + u + "/authorized_keys");
+    //#fs.writeFileSync(dir + '/authorized_keys', key);
 
 }
 
 function remake_ssh_keys(c) {
+    // primary user
     copy_user_key(c,containers[c].user);
+    
+    // reseller
+    copy_user_key(c,users[containers[c].user].reseller);
+    
 }
 
 function main() {
@@ -117,6 +131,8 @@ function system_ssh_config() {
         str += "Host " + i + br;
         str += "User root" + br;
         str += "StrictHostKeyChecking no" + br;
+        str += "UserKnownHostsFile /dev/null" + br;
+        str += "LogLevel quiet" + br;
         str += "" + br;
     });
     fs.writeFile('/etc/ssh/ssh_config.d/srvctl-containers.conf', str, function(err) {

@@ -2,18 +2,13 @@
 
 _user="$1"
 
-function catif() {
-    if [[ -f $1 ]]
-    then
-        cat "$1"
-    fi
-}
-
 ## used by root as root
-catif "/etc/srvctl/authorized_keys"
+cat "/etc/srvctl/authorized_keys" 2> /dev/null
 
 ## used on the host, for host-to-host authentication
-catif "/var/srvctl3/datastore/rw/users/$_user/authorized_keys"
+cat "/var/srvctl3/datastore/rw/users/$_user"/*.pub 2> /dev/null
 
 ## used in containers for user as root
-catif "/var/srvctl3/share/containers/$HOSTNAME"/users/*/authorized_keys
+cat "/var/srvctl3/share/containers/$HOSTNAME"/users/*/*.pub 2> /dev/null
+
+exit 0
