@@ -1,11 +1,5 @@
 #!/bin/bash
 
-function procedure_get_dkim_p {
-    local x
-    x="$8"
-    p="${x:3: -1}"
-}
-
 function regenerate_opendkim {
     
     msg "regenerate opendkim"

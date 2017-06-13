@@ -98,7 +98,8 @@ readonly DEBUG
 
 for dir in $SC_INSTALL_DIR/modules/*
 do
-    readonly "SC_USE_${dir##*/}"
+    module="${dir##*/}"
+    readonly "SC_USE_${module^^}"
 done
 
 

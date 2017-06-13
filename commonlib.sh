@@ -42,11 +42,12 @@ function title {
 }
 
 function load_libs {
-    local tvll
+    local tvll module
     
     for dir in $SC_INSTALL_DIR/modules/*
     do
-        tvll="SC_USE_${dir##*/}"
+        module="${dir##*/}"
+        tvll="SC_USE_${module^^}"
         if [[ ${!tvll} == true ]]
         then
             for sourcefile in $dir/libs/*
@@ -75,11 +76,12 @@ function run_module_hook { ## module hook
 }
 
 function run_hook {
-    local hook tvrh
+    local hook tvrh module
     hook="$1"
     for dir in $SC_INSTALL_DIR/modules/*
     do
-        tvrh="SC_USE_${dir##*/}"
+        module="${dir##*/}"
+        tvrh="SC_USE_${module^^}"
         
         if [[ ${!tvrh} == true ]]
         then
@@ -107,7 +109,7 @@ function run_command {
     
     [[ $CMD ]] || return 54
     
-    local tvrc
+    local tvrc module
     
     ## permissions will determine the visibility of these commands
     if [[ -f /root/srvctl-includes/$CMD.sh ]]
@@ -121,7 +123,9 @@ function run_command {
     for dir in $SC_INSTALL_DIR/modules/*
     do
         
-        tvrc="SC_USE_${dir##*/}"
+        module="${dir##*/}"
+        tvrc="SC_USE_${module^^}"
+        
         if [[ ${!tvrc} == true ]]
         then
             
@@ -165,7 +169,9 @@ function run_command {
     for dir in $SC_INSTALL_DIR/modules/*
     do
         
-        tvrc="SC_USE_${dir##*/}"
+        module="${dir##*/}"
+        tvrc="SC_USE_${module^^}"
+        
         if [[ ${!tvrc} == true ]]
         then
             
@@ -226,11 +232,12 @@ function hint_commands {
         title "COMMAND - from srvctl"
     fi
     
-    local tvhc
+    local tvhc module
     for dir in $SC_INSTALL_DIR/modules/*
     do
         
-        tvhc="SC_USE_${dir##*/}"
+        module="${dir##*/}"
+        tvhc="SC_USE_${module^^}"
         
         if [[ ${!tvhc} == true ]]
         then
@@ -254,7 +261,8 @@ function hint_commands {
     
     for dir in $SC_INSTALL_DIR/modules/*
     do
-        tvhc="SC_USE_${dir##*/}"
+        module="${dir##*/}"
+        tvhc="SC_USE_${module^^}"
         
         if [[ ${!tvhc} == true ]]
         then
@@ -359,10 +367,11 @@ function test_srvctl_modules() {
     then
         msg "Srvctl modules configuration"
         ## test value / test result on tested module
-        local tvtm trtm
+        local tvtm trtm module
         for dir in $SC_INSTALL_DIR/modules/*
         do
-            tvtm="SC_USE_${dir##*/}"
+            module="${dir##*/}"
+            tvtm="SC_USE_${module^^}"
             trtm=false
             if [[ -f $dir/module-condition.sh ]]
             then
@@ -452,15 +461,17 @@ function make_commands_spec() {
         fi
     done
     
+    local tvhc module
     for dir in $SC_INSTALL_DIR/modules/*
     do
-        tvhc="SC_USE_${dir##*/}"
+        module="${dir##*/}"
+        tvhc="SC_USE_${module^^}"
         
         if [[ ${!tvhc} == true ]]
         then
             if [[ -f "$dir/command.sh" ]]
             then
-                cat "$dir/command.sh" | grep "## spec" >> /etc/srvctl/commands.spec
+                grep "## spec" "$dir/command.sh" >> /etc/srvctl/commands.spec
             fi
         fi
     done

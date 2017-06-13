@@ -56,7 +56,7 @@ function regenerate_users() {
     
     msg "regenerate users"
     
-    local userlist password passfile uid passuser
+    local userlist password passfile passuser
     userlist="$(cfg system user_list)"
     
     ## optimized for speed, we just check if the user already exists, and perform all the action if not.

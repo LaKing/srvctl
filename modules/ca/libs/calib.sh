@@ -188,7 +188,7 @@ function create_ca_certificate { ## type net name
             
             if [[ -f "$SC_ROOTCA_DIR/$_net/$_file.p12" ]]
             then
-                mkdir -p $SC_DATASTORE_DIR/users
+                mkdir -p "$SC_DATASTORE_DIR/users"
                 cat "$SC_ROOTCA_DIR/$_net/$_file.p12" > "$SC_DATASTORE_DIR/users/$_u/$_u@$SC_COMPANY_DOMAIN.p12"
                 cat "$SC_ROOTCA_DIR/$_net/$_file.pass" > "$SC_DATASTORE_DIR/users/$_u/$_u@$SC_COMPANY_DOMAIN.pass"
             fi

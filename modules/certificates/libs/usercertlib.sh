@@ -11,7 +11,7 @@ function create_user_client_cert() { ## user
         return
     fi
     
-    if $SC_USE_ca
+    if $SC_USE_CA
     then
         create_ca_certificate client usernet "$user"
     fi
@@ -19,11 +19,11 @@ function create_user_client_cert() { ## user
     if [[ ! -f "$home/$user@$SC_COMPANY_DOMAIN.p12" ]] && [[ -f "$SC_DATASTORE_DIR/users/$user/$user@$SC_COMPANY_DOMAIN.p12" ]]
     then
         cat "$SC_DATASTORE_DIR/users/$user/$user@$SC_COMPANY_DOMAIN.p12" > "$home/$user@$SC_COMPANY_DOMAIN.p12"
-        chown "$_u:$_u" "$home/$user@$SC_COMPANY_DOMAIN.p12"
+        chown "$user:$user" "$home/$user@$SC_COMPANY_DOMAIN.p12"
         chmod 400 "$home/$user@$SC_COMPANY_DOMAIN.p12"
         
         cat "$SC_DATASTORE_DIR/users/$user/$user@$SC_COMPANY_DOMAIN.pass" > "$home/$user@$SC_COMPANY_DOMAIN.pass"
-        chown "$_u:$_u" "$home/$user@$SC_COMPANY_DOMAIN.pass"
+        chown "$user:$user" "$home/$user@$SC_COMPANY_DOMAIN.pass"
         chmod 400 "$home/$user@$SC_COMPANY_DOMAIN.pass"
         
         msg "Placed p12 client certificate in home folder for $user"

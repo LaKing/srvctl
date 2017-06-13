@@ -51,7 +51,7 @@ function update_install_ssh_config() {
     chown root:root /etc/srvctl/authorized_keys
     chmod 600 /etc/srvctl/authorized_keys
     
-    mkdir -p $SC_DATASTORE_RW_DIR/users
+    mkdir -p "$SC_DATASTORE_RW_DIR/users"
     
     run systemctl enable sshd
     run systemctl restart sshd

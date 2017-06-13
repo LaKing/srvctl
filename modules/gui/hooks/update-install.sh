@@ -19,7 +19,7 @@ systemctl daemon-reload
 
 dnf -y install gcc-c++
 
-cd $SC_INSTALL_DIR/modules/gui/
+cd "$SC_INSTALL_DIR/modules/gui/"
 
 #npm install
 

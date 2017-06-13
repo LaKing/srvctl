@@ -1,7 +1,7 @@
 #!/bin/bash
 
 function get_disk_usage {
-    du -hs /srv/$1 | head -c 4
+    du -hs "/srv/$1" | head -c 4
 }
 
 function containerfarm_status() {
@@ -25,7 +25,7 @@ function containerfarm_status() {
     
     for C in $list
     do
-        local ip ping_ms user reseller
+        local ip ping_ms
         ip="$(get container "$C" ip)"
         exif "Could not get IP for $C"
         

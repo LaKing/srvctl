@@ -9,7 +9,6 @@ root_only
 hs_only
 argument username
 
-local username password reseller
 username="${ARG,,}"
 
 if [[ "$username" =~ ([a-z_][a-z0-9_]{2,30}) ]]
@@ -21,7 +20,7 @@ else
 fi
 
 # shellcheck disable=SC2154
-if ! $SC_USE_datastore
+if ! $SC_USE_DATASTORE
 then
     err "Datastore not available."
     exit 23
