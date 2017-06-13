@@ -363,7 +363,7 @@ function help_commands {
 }
 
 function test_srvctl_modules() {
-    if [[ ! -f /etc/srvctl/modules.conf ]]
+    if [[ ! -f /var/srvctl3/srvctl/modules.conf ]]
     then
         msg "Srvctl modules configuration"
         ## test value / test result on tested module
@@ -385,7 +385,7 @@ function test_srvctl_modules() {
                 ntc "tested module: $tvtm=$trtm"
             fi
             #declare $tv=$tr
-            echo "$tvtm=$trtm" >> /etc/srvctl/modules.conf
+            echo "$tvtm=$trtm" >> /var/srvctl3/srvctl/modules.conf
         done
         
     fi
@@ -432,13 +432,13 @@ function make_commands_spec_on_file() {
     hintstr="${hintstr:7}"
     hintcmd="${hintcmd:7}"
     
-    echo "$1×$command×$hintstr×$hintcmd" >> /etc/srvctl/commands.spec
+    echo "$1×$command×$hintstr×$hintcmd" >> /var/srvctl3/srvctl/commands.spec
     
 }
 
 function make_commands_spec() {
     msg "Make user commands spec for srvctl-gui."
-    rm -fr /etc/srvctl/commands.spec
+    rm -fr /var/srvctl3/srvctl/commands.spec
     
     for sourcefile in /root/srvctl-includes/*.sh
     do
@@ -471,7 +471,7 @@ function make_commands_spec() {
         then
             if [[ -f "$dir/command.sh" ]]
             then
-                grep "## spec" "$dir/command.sh" >> /etc/srvctl/commands.spec
+                grep "## spec" "$dir/command.sh" >> /var/srvctl3/srvctl/commands.spec
             fi
         fi
     done

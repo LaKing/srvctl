@@ -9,7 +9,7 @@ then
     mkdir -p /etc/srvctl
 fi
 
-## create startup symlinks for sc and srvctl commands
+## create startup symlinks for sc and srvctl commands if installed on the standard path
 if [[ -f /usr/local/share/srvctl/srvctl.sh ]]
 then
     if [[ ! -e /bin/sc ]]
@@ -37,9 +37,11 @@ SC_LOG_DIR=~
 # shellcheck disable=SC2034
 SC_LOG=~/.srvctl.log
 
+mkdir -p /var/srvctl3/srvctl
+
 if [[ $CMD == update-install ]]
 then
-    rm -fr /etc/srvctl/modules.conf
+    rm -fr /var/srvctl3/srvctl/modules.conf
     
     for sourcefile in /etc/srvctl/data/*.conf
     do
@@ -51,7 +53,7 @@ fi
 ## source custom configurations
 
 test_srvctl_modules
-#source /etc/srvctl/modules.conf
+source /var/srvctl3/srvctl/modules.conf
 
 for sourcefile in /etc/srvctl/*.conf
 do

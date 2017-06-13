@@ -77,7 +77,7 @@ readonly SRVCTL
 
 source "$SC_INSTALL_DIR/init.sh" || echo "Init could not be loaded!" 1>&2
 
-if [[ ! -f /etc/srvctl/commands.spec ]]
+if [[ ! -f /var/srvctl3/srvctl/commands.spec ]]
 then
     make_commands_spec
 fi
