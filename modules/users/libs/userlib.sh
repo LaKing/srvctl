@@ -62,7 +62,10 @@ function regenerate_users() {
     ## optimized for speed, we just check if the user already exists, and perform all the action if not.
     for user in $userlist
     do
-        [[ $user != root ]] && create_user_id "$user"
+        if [[ $user != root ]]
+        then
+            create_user_id "$user"
+        fi
     done
 }
 

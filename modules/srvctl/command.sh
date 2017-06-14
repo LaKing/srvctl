@@ -15,11 +15,11 @@
 ## this is a special command, as it has several ways to be invoked
 
 #### these specs are used in the gui
-## spec //service×start×start a service×start SERVICE
-## spec //service×stop×stop a service×stop SERVICE
-## spec //service×restart×restart a service×restart SERVICE
-## spec //service×status×status of a service×status SERVICE
-## spec //service×kill×kill a service×kill SERVICE
+## spec //services×start×start a service×start SERVICE
+## spec //services×stop×stop a service×stop SERVICE
+## spec //services×restart×restart a service×restart SERVICE
+## spec //services×status×status of a service×status SERVICE
+## spec //services×kill×kill a service×kill SERVICE
 
 ## adjust-service
 if [[ $ARG == enable ]] || [[ $ARG == start ]] || [[ $ARG == restart ]] || [[ $ARG == stop ]] || [[ $ARG == status ]]  || [[ $ARG == disable ]] || [[ $ARG == kill ]] \
@@ -45,7 +45,7 @@ then
     
     if [[ -z $service ]] && [[ $op == 'restart' ]]
     then
-        source "$SC_INSTALL_DIR/modules/containerfarm/commands/regenerate.sh"
+        source "$SC_INSTALL_DIR/modules/containers/commands/regenerate.sh"
         exit_0
     fi
     

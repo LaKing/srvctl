@@ -11,7 +11,7 @@ function create_nspawn_container_filesystem() { ## C T
     then
         ntc "No base for rootfs $T. Creating rootfs, this may take a while."
         msg "srvctl regenerate-rootfs"
-        source "$SC_INSTALL_DIR/modules/containerfarm/commands/regenerate-rootfs.sh"
+        source "$SC_INSTALL_DIR/modules/containers/commands/regenerate-rootfs.sh"
         if [[ ! -d $SC_ROOTFS_DIR/$T ]]
         then
             err "FATAL ERROR - rootfs $T not available"

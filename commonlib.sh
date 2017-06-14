@@ -193,7 +193,7 @@ function hint_on_file {
     
     ## root_only: if not root, and file marked as root_only skip this item
     ! $SC_ROOT && head "$1" | grep -q 'root_only' && return 133
-    #! [[ $SC_HOSTNET ]] && head "$1" | grep -q 'hs_only' && return 134
+    ! [[ $SC_HOSTNET ]] && head "$1" | grep -q 'hs_only' && return 134
     #! $SC_ON_VE && head "$1" | grep -q 've_only' && return 135
     
     local hintstr command hintcmd

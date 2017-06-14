@@ -15,7 +15,7 @@ T="fedora"
 
 if [[ ! -d $SC_ROOTFS_DIR/$T ]]
 then
-    err "No base for rootfs $T. Please run: srvctl regenerate-rootfs"
+    err "No base for rootfs $T. Please run: srvctl regenerate rootfs"
     exit 10
 fi
 

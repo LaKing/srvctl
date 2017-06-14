@@ -6,7 +6,7 @@
 ## &en users will have default passwords, certificates, etc, ..
 
 ## if [[ $SC_VIRT == systemd-nspawn ]] || [[ $SC_VIRT == lxc ]]
-## SC_USE_CONTAINERFARM
+## SC_USE_CONTAINERS
 
 sudomize
 argument username

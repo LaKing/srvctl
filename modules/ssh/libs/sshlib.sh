@@ -6,6 +6,10 @@ function regenerate_ssh_config() {
     rm -fr /var/srvctl3/share/containers/*/users/*/authorized_keys
     
     ssh_main
+    
+    # moved to js
+    #check_hosts_ssh_keys
+    #check_containers_ssh_keys
 }
 
 function update_install_ssh_config() {
@@ -56,155 +60,163 @@ function update_install_ssh_config() {
     run systemctl enable sshd
     run systemctl restart sshd
     run systemctl status sshd --no-pager
+    
+    mkdir -p /var/srvctl3/ssh
+    echo '' > /var/srvctl3/ssh/known_hosts
+}
+
+function check_host_ssh_keys() { ## host
+    local host ip tempfile tempstr dest
+    
+    host="$1"
+    
+    if ! grep -q "## $host by hostname" /var/srvctl3/ssh/known_hosts
+    then
+        tempfile=$(mktemp)
+        
+        ssh-keyscan -t rsa "$host" > "$tempfile" || continue
+        
+        tempstr="$(cat "$tempfile")"
+        
+        if [[ ! -z "$tempstr" ]]
+        then
+            
+            ntc "Adding host-key by hostname"
+            {
+                echo ""
+                echo "## $host by hostname $NOW"
+                echo "$tempstr"
+            } >> /var/srvctl3/ssh/known_hosts
+            
+        else
+            err "Could not add host key for hostname $host"
+        fi
+    fi
+    
+    if [[ $host == localhost ]]
+    then
+        ip="127.0.0.1"
+    else
+        ip="$(get host "$host" host_ip)"
+    fi
+    
+    
+    if [[ ! -z "$ip" ]]
+    then
+        if ! grep -q "## $host by ip" /var/srvctl3/ssh/known_hosts
+        then
+            tempfile=$(mktemp)
+            
+            ssh-keyscan -t rsa "$ip" > "$tempfile" || continue
+            tempstr="$(cat "$tempfile")"
+            
+            if [[ ! -z "$tempstr" ]]
+            then
+                ntc "Adding host-key by ip"
+                {
+                    echo ""
+                    echo "## $host by ip $NOW"
+                    echo "$tempstr"
+                } >> /var/srvctl3/ssh/known_hosts
+            else
+                err "Could not add host key by ip $ip for hostname $host"
+            fi
+        fi
+    fi
 }
 
 function check_hosts_ssh_keys() {
     ## simple rsync based data syncronization
     msg "Checking ssh connectivity and server host-keys"
-    local hostlist ip tempfile tempstr dest
-    hostlist="$(cfg system host_list)"
+    local hostlist
+    hostlist="localhost $(cfg system host_list)"
     
-    dest=/etc/ssh/ssh_known_hosts
+    #msg "hosts: $hostlist"
+    tempfile=$(mktemp)
     
-    msg "hosts: $hostlist"
+    if [[ ! -f /var/srvctl3/ssh/known_hosts ]]
+    then
+        mkdir -p /var/srvctl3/ssh
+        echo '' > /var/srvctl3/ssh/known_hosts
+    fi
     
     for host in $hostlist
     do
-        ip="$(get host "$host" host_ip)"
-        
-        ntc "$host: $ip"
-        tempfile=$(mktemp)
-        
-        if ! grep "## $host by hostname" "$dest"
-        then
-            ssh-keyscan -t rsa "$host" > "$tempfile" || continue
-            
-            tempstr="$(cat "$tempfile")"
-            
-            if [[ ! -z "$tempstr" ]]
-            then
-                ntc "Adding host-key by hostname"
-                # shellcheck disable=SC2129
-                echo "" >> "$dest"
-                ## add a comment
-                echo "## $host by hostname $NOW" >> "$dest"
-                ## and the key
-                echo "$tempstr" >> "$dest"
-                ## add to datastore
-                #
-            else
-                err "Could not add host key for hostname $host"
-            fi
-        fi
-        
-        if [[ ! -z "$ip" ]]
-        then
-            if ! grep "## $host by ip" "$dest"
-            then
-                ssh-keyscan -t rsa "$ip" > "$tempfile" || continue
-                tempstr="$(cat "$tempfile")"
-                
-                if [[ ! -z "$tempstr" ]]
-                then
-                    ntc "Adding host-key by ip"
-                    # shellcheck disable=SC2129
-                    echo "" >> "$dest"
-                    ## add a comment
-                    echo "## $host by ip $NOW" >> "$dest"
-                    ## add the key
-                    echo "$tempstr" >> "$dest"
-                    ## add to datastore
-                    #
-                else
-                    err "Could not add host key by ip $ip for hostname $host"
-                fi
-            fi
-        fi
-        
-        ntc "connecting ..."
-        if [[ "$(ssh -n -o ConnectTimeout=1 "$host" hostname 2> /dev/null)" == "$host" ]]
-        then
-            msg "host $host is online"
-            
-        else
-            err "host $host is offline"
-        fi
+        check_host_ssh_keys $host
     done
     
 }
 
-## this function is deprecated actually.
+function check_container_ssh_keys() { ## container
+    
+    
+    local container ip tempfile tempstr dest
+    container="$1"
+    
+    if ! grep -q "## $container by hostname" /var/srvctl3/ssh/known_hosts
+    then
+        tempfile=$(mktemp)
+        ssh-keyscan -t rsa "$container" > "$tempfile" || continue
+        tempstr="$(cat "$tempfile")"
+        
+        if [[ ! -z "$tempstr" ]]
+        then
+            ntc "Adding host-key by hostname $container"
+            {
+                echo ""
+                echo "## $container by hostname $NOW"
+                echo "$tempstr"
+            } >> /var/srvctl3/ssh/known_hosts
+        else
+            err "Could not add host key for container $container"
+        fi
+    fi
+    
+    ip="$(get container "$container" ip)"
+    
+    if [[ ! -z "$ip" ]]
+    then
+        if ! grep -q "## $container by ip" /var/srvctl3/ssh/known_hosts
+        then
+            tempfile=$(mktemp)
+            ssh-keyscan -t rsa "$ip" > "$tempfile" || continue
+            tempstr="$(cat "$tempfile")"
+            
+            if [[ ! -z "$tempstr" ]]
+            then
+                ntc "Adding $container host-key by ip $ip"
+                {
+                    echo ""
+                    echo "## $container by ip $NOW"
+                    echo "$tempstr"
+                } >> /var/srvctl3/ssh/known_hosts
+            else
+                err "Could not add container key by ip $ip for hostname $container"
+            fi
+        fi
+    fi
+}
+
+
 function check_containers_ssh_keys() {
     
     #### Actually we do not check for host keys when connecting to internal containers.
     msg "Checking ssh connectivity and container host-keys"
     local hostlist ip tempfile tempstr dest
     containerlist="$(cfg system container_list)"
-    dest=/etc/ssh/ssh_known_hosts
+    dest=/var/srvctl3/ssh/known_hosts
     
-    msg "containers: $containerlist"
+    #msg "containers: $containerlist"
+    
+    if [[ ! -f /var/srvctl3/ssh/known_hosts ]]
+    then
+        mkdir -p /var/srvctl3/ssh
+        echo '' > /var/srvctl3/ssh/known_hosts
+    fi
     
     for container in $containerlist
     do
-        ip="$(get container "$container" ip)"
-        
-        ntc "$container: $ip"
-        tempfile=$(mktemp)
-        
-        if ! grep "## $container by hostname" "$dest"
-        then
-            ssh-keyscan -t rsa "$container" > "$tempfile" || continue
-            
-            tempstr="$(cat "$tempfile")"
-            
-            if [[ ! -z "$tempstr" ]]
-            then
-                ntc "Adding host-key by hostname"
-                # shellcheck disable=SC2129
-                echo "" >> "$dest"
-                ## add a comment
-                echo "## $container by hostname $NOW" >> "$dest"
-                ## and the key
-                echo "$tempstr" >> "$dest"
-                ## add to datastore
-                #
-            else
-                err "Could not add host key for container $container"
-            fi
-        fi
-        
-        if [[ ! -z "$ip" ]]
-        then
-            if ! grep "## $container by ip" "$dest"
-            then
-                ssh-keyscan -t rsa "$ip" > "$tempfile" || continue
-                tempstr="$(cat "$tempfile")"
-                
-                if [[ ! -z "$tempstr" ]]
-                then
-                    ntc "Adding host-key by ip"
-                    # shellcheck disable=SC2129
-                    echo "" >> "$dest"
-                    ## add a comment
-                    echo "## $container by ip $NOW" >> "$dest"
-                    ## add the key
-                    echo "$tempstr" >> "$dest"
-                    ## add to datastore
-                    #
-                else
-                    err "Could not add container key by ip $ip for hostname $container"
-                fi
-            fi
-        fi
-        
-        ntc "connecting ..."
-        if [[ "$(ssh -n -o ConnectTimeout=1 "$container" hostname 2> /dev/null)" == "$container" ]]
-        then
-            msg "container $container is online"
-            
-        else
-            err "container $container is offline"
-        fi
+        check_container_ssh_keys "$container"
     done
 }
 

@@ -12,9 +12,9 @@ Before=machines.target
 After=network.target
 
 [Service]
-ExecStartPre=/bin/bash $SC_INSTALL_DIR/modules/containerfarm/execstartpre.sh %i
+ExecStartPre=/bin/bash $SC_INSTALL_DIR/modules/containers/execstartpre.sh %i
 ExecStart=/usr/bin/systemd-nspawn --quiet --keep-unit --boot --link-journal=try-guest -U --settings=trusted --machine=%i -D /srv/%i/rootfs
-ExecStartPost=/bin/bash $SC_INSTALL_DIR/modules/containerfarm/execstartpost.sh %i
+ExecStartPost=/bin/bash $SC_INSTALL_DIR/modules/containers/execstartpost.sh %i
 KillMode=mixed
 Type=notify
 RestartForceExitStatus=133
@@ -63,7 +63,7 @@ After=network.target
 
 [Service]
 # ExecStart=/usr/bin/systemd-nspawn --quiet --keep-unit --boot --link-journal=try-guest --network-bridge=$bridge -U --settings=override --machine=$C -D /srv/$C/rootfs
-ExecStart=$SC_INSTALL_DIR/modules/containerfarm/execstart.sh $C
+ExecStart=$SC_INSTALL_DIR/modules/containers/execstart.sh $C
 KillMode=mixed
 Type=notify
 RestartForceExitStatus=133

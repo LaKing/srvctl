@@ -2,4 +2,4 @@
 
 ## @en List container statuses
 
-containerfarm_status
+containers_status

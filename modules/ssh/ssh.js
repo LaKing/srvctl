@@ -14,6 +14,8 @@ const execSync = require('child_process').execSync;
 const CMD = process.argv[2];
 // constatnts
 const SC_DATASTORE_DIR = process.env.SC_DATASTORE_DIR;
+
+const SC_HOSTS_DATA_FILE = process.env.SC_DATASTORE_DIR + '/hosts.json';
 const SC_CONTAINERS_DATA_FILE = process.env.SC_DATASTORE_DIR + '/containers.json';
 
 const SRVCTL = process.env.SRVCTL;
@@ -103,17 +105,18 @@ function remake_ssh_keys(c) {
     
 }
 
-function main() {
+function user_keys() {
     Object.keys(containers).forEach(function(i) {
             remake_ssh_keys(i);
     });
 }
 
-function system_ssh_config() {
+function ssh_config() {
     var str = '## ssh_config' + br;
         str += "Host localhost" + br;
         str += "User root" + br;
         str += "StrictHostKeyChecking no" + br;
+        str += "UserKnownHostsFile /var/srvctl3/ssh/known_hosts" + br;
         str += "" + br;
         
         str += "Host 127.0.0.1" + br;
@@ -121,18 +124,18 @@ function system_ssh_config() {
         str += "StrictHostKeyChecking no" + br;
         str += "" + br;
     
-    //Object.keys(hosts).forEach(function(i) {
-    //    str += "Host " + i + br;
-        //str += "User root" + br;
-        //str += "StrictHostKeyChecking no" + br;
+    Object.keys(hosts).forEach(function(i) {
+        str += "Host " + i + br;
+        str += "UserKnownHostsFile /var/srvctl3/ssh/known_hosts" + br;
         str += "" + br;
-    //});
+    });
     Object.keys(containers).forEach(function(i) {
         str += "Host " + i + br;
         str += "User root" + br;
         str += "StrictHostKeyChecking no" + br;
         str += "UserKnownHostsFile /dev/null" + br;
-        str += "LogLevel quiet" + br;
+        str += "UserKnownHostsFile /var/srvctl3/ssh/known_hosts" + br;
+        
         str += "" + br;
     });
     fs.writeFile('/etc/ssh/ssh_config.d/srvctl-containers.conf', str, function(err) {
@@ -141,9 +144,71 @@ function system_ssh_config() {
     });
 }
 
-system_ssh_config();
+// for known hosts
 
-main();
+function scan_host_keys() {
+    Object.keys(hosts).forEach(function(i) {
+        if (check_host_keys(hosts,i)) fs.writeFileSync(SC_HOSTS_DATA_FILE, JSON.stringify(hosts, null, 2));
+    }); 
+    Object.keys(containers).forEach(function(i) {
+        if (check_host_keys(containers,i)) fs.writeFileSync(SC_CONTAINERS_DATA_FILE, JSON.stringify(containers, null, 2));
+    }); 
+}
+
+function check_host_keys(data, i) {
+    if (data[i].host_key === undefined) {        
+        try {
+            var result = execSync("ssh-keyscan -t rsa -T 1 " + i +" 2> /tmp/srvctl-host-key-scan");
+            data[i].host_key = result.toString().slice(0,-1).split(' ')[2];
+        } catch(err) {
+            if (err) console.log(err);
+            if (err) return false;
+        }
+        return true;
+    }
+}
+
+function make_host_keys(){
+    var keys ='## srvctl generated' +br;
+    
+    Object.keys(hosts).forEach(function(i) {
+        if (hosts[i].host_key !== undefined)
+        { 
+            keys += i + " ssh-rsa " + hosts[i].host_key + br;
+            keys += hosts[i].host_ip + " ssh-rsa " + hosts[i].host_key + br + br;
+        }
+    });
+    Object.keys(containers).forEach(function(i) {
+        if (containers[i].host_key !== undefined)
+        { 
+            keys += i + " ssh-rsa " + containers[i].host_key + br;
+            keys += containers[i].ip + " ssh-rsa " + containers[i].host_key + br + br;
+        }        
+    });       
+    
+    fs.writeFile('/var/srvctl3/share/common/known_hosts', keys, function(err) {
+        if (err) return_error('WRITEFILE ' + err);
+        else console.log('[ OK ] ssh share/common/known_hosts');
+    });
+    
+    if (hosts[HOSTNAME].host_key !== undefined)
+    { 
+        keys += "localhost ssh-rsa " + hosts[HOSTNAME].host_key + br;
+        keys += "127.0.0.1 ssh-rsa " + hosts[HOSTNAME].host_key + br;
+    }
+    
+    fs.writeFile('/var/srvctl3/ssh/known_hosts', keys, function(err) {
+        if (err) return_error('WRITEFILE ' + err);
+        else console.log('[ OK ] ssh ssh/known_hosts');
+    });
+}
+
+ssh_config();
+
+scan_host_keys();
+make_host_keys();
+
+user_keys();
 
 process.exitCode = 0;
 

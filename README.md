@@ -1,4 +1,4 @@
-## Srvctl v3 (3.1.0.2)
+## Srvctl v3 (3.1.0.3)
 Under construction, - srvctl is a containerfarm-manager for microsite hosting webservers with fedora as the host operating system. It will help to set up, maintain, and to let a couple of servers work together in order to have a solid web-serving service.
 Version 3 is remake for 2016 mostly using systemd tools, thus using systemd-nspawn as the containerfarm manager. The core is written in bash and javascript, and a modular design allows to extend it with programs. Basically it is a collection of scripts.
 
@@ -82,11 +82,11 @@ Srvctl maintains configuration data in json files. These files may reside at the
 
 
 ```
-# 12 @conf /etc/srvctl/debug.conf 
-# 14 @conf /etc/srvctl/modules.conf 
-# 16 init@run_hook pre-init 
-# 20 @hook srvctl pre-init 
-# 22 @hook ve pre-init 
+# 8 @conf /etc/srvctl/debug.conf 
+# 10 @conf /etc/srvctl/modules.conf 
+# 11 init@run_hook pre-init 
+# 14 @hook srvctl pre-init 
+# 15 @hook ve pre-init 
 
 srvctl COMMAND [arguments]              
 
@@ -105,18 +105,18 @@ COMMAND - from root
 
 COMMAND - from srvctl                   
 
-   /srv/codepad-project/modules/containerfarm/commands/add-ve.sh
+   /srv/codepad-project/modules/containers/commands/add-ve.sh
    add-ve                                Add a fedora container.                        
     
      Generic container for customization.
      Contains basic packages.
     
-   /srv/codepad-project/modules/containerfarm/commands/destroy-ve.sh
+   /srv/codepad-project/modules/containers/commands/destroy-ve.sh
    destroy-ve                            Delete container with all its files            
     
      Delete all files and all records regarding the VE.
     
-   /srv/codepad-project/modules/containerfarm/commands/regenerate.sh
+   /srv/codepad-project/modules/containers/commands/regenerate.sh
    regenerate                            Update configuration settings.                 
     
      Get all modules to write and overwrite config files with the actual configurations.
@@ -124,7 +124,7 @@ COMMAND - from srvctl
      The regenerate rootfs command rebuilds the container base images.
     
     
-   /srv/codepad-project/modules/containerfarm/commands/status.sh
+   /srv/codepad-project/modules/containers/commands/status.sh
    status                                List container statuses                        
     
     
@@ -190,5 +190,5 @@ COMMAND - from srvctl
    status                                List container status parameters               
     
     
-# 113 srvctl-3.1.0.2 
+# 82 srvctl-3.1.0.3 
 ```

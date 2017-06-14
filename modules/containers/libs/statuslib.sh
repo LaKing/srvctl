@@ -52,3 +52,38 @@ function containerfarm_status() {
     
     echo ''
 }
+
+function check_hosts_connectivity() {
+    ## simple rsync based data syncronization
+    msg "Checking hosts connectivity ..."
+    
+    for host in $(cfg system host_list)
+    do
+        ntc "connecting ..."
+        if [[ "$(ssh -n -o ConnectTimeout=1 "$host" hostname 2> /dev/null)" == "$host" ]]
+        then
+            msg "host $host is online"
+            
+        else
+            err "host $host is offline"
+        fi
+    done
+    
+}
+
+function check_containers_connectivity() {
+    
+    msg "Checking containers connectivity .."
+    
+    for container in $(cfg system container_list)
+    do
+        ntc "connecting to $container ..."
+        if [[ "$(ssh -n -o ConnectTimeout=1 "$container" hostname 2> /dev/null)" == "$container" ]]
+        then
+            msg "container $container is online"
+            
+        else
+            err "container $container is offline"
+        fi
+    done
+}

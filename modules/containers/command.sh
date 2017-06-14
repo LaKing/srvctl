@@ -6,11 +6,11 @@
 ## &en Commands may have arguments as well.
 
 #### these specs are used in the gui
-## spec //containerfarm×status×get the container status×status VE
-## spec //containerfarm×show×show container parameters×poweroff VE
-## spec //containerfarm×reboot×reboot a container×reboot VE
-## spec //containerfarm×poweroff×poweroff a container×poweroff VE
-## spec //containerfarm×kill×kill a container with all processes×kill VE
+## spec //containers×status×get the container status×status VE
+## spec //containers×show×show container parameters×poweroff VE
+## spec //containers×reboot×reboot a container×reboot VE
+## spec //containers×poweroff×poweroff a container×poweroff VE
+## spec //containers×kill×kill a container with all processes×kill VE
 
 ## this is a special command, as it has several ways to be invoked
 ## we assume this as default command.
@@ -79,6 +79,13 @@ fi
 
 if [[ $cop == shell ]]
 then
+    if [[ -f /srv/$C/rootfs/usr/sbin/$ARG ]]
+    then
+        run machinectl shell "$C" "/usr/sbin/$ARG $OPAS3"
+        exif
+        exit 0
+    fi
+    
     if [[ -f /srv/$C/rootfs/usr/bin/$ARG ]]
     then
         run machinectl shell "$C" "/usr/bin/$ARG $OPAS3"
@@ -86,9 +93,20 @@ then
         exit 0
     fi
     
+    if [[ -z "$ARG" ]]
+    then
+        run machinectl shell "$C" /bin/bash && exit
+        exif
+        exit 0
+    fi
+    
     run machinectl shell "$SC_COMMAND_ARGUMENTS"
+    exif
+    exit 0
 else
     run machinectl "$cop" "$C" --no-pager
+    exif
+    exit 0
 fi
 
 err "Command could not be interpreted."
