@@ -16,7 +16,8 @@ const CMD = process.argv[2];
 
 const SRVCTL = process.env.SRVCTL;
 const SC_ROOT = process.env.SC_ROOT;
-const HOSTNAME = process.env.HOSTNAME;
+const os =  require('os');
+const HOSTNAME = os.hostname();
 const localhost = 'localhost';
 const br = '\n';
 process.exitCode = 99;
@@ -89,6 +90,14 @@ function _head_service(host, Address, Port) {
     x += br + '        Address ' + Address;
     x += br + '        Port ' + Port;
     x += br + '    End';
+    
+    if (process.env.SC_USE_STATIC) {
+        x += br + 'Emergency';
+        x += br + 'Address 127.0.0.1';
+        x += br + 'Port 1280';
+        x += br + 'End';
+    }
+    
     x += br + 'End';
 
     x += br;

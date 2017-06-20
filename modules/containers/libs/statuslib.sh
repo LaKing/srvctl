@@ -4,7 +4,7 @@ function get_disk_usage {
     du -hs "/srv/$1" | head -c 4
 }
 
-function containerfarm_status() {
+function containers_status() {
     
     local list
     if [[ $SC_USER == root ]]

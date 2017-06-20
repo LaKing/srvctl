@@ -87,6 +87,6 @@ then
     run openssl dhparam -out /etc/ssl/dhparam.pem 2048
 fi
 
+gluster_install
 
-gluster_configure
 

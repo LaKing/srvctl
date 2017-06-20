@@ -23,11 +23,9 @@ function update_install_ssh_config() {
     ## we could store host_keys in our datastore (as well). But we wont. At least not for now.
     #cfg system host_keys
     
-    echo "## Scan $NOW" > /etc/ssh/ssh_known_hosts
-    check_hosts_ssh_keys
-    #check_containers_ssh_keys
-    
     mkdir -p /etc/ssh/ssh_config.d
+    mkdir -p /var/srvctl3/share/common
+    mkdir -p /var/srvctl3/ssh
     ssh_main
     
     ## authorized keys
@@ -36,20 +34,20 @@ function update_install_ssh_config() {
     
     cat "$SC_INSTALL_DIR/modules/ssh/sshd_config" > /etc/ssh/sshd_config
     
-    if [[ ! -f /etc/srvctl/authorized_keys ]] && [[ -f /etc/srvctl/data/authorized_keys ]]
+    if [[ ! -f /var/srvctl3/share/common/authorized_keys ]] && [[ -f /etc/srvctl/data/authorized_keys ]]
     then
-        msg "Import root authorized_keys from etc/srvctl/data dir"
-        cat /etc/srvctl/data/authorized_keys > /etc/srvctl/authorized_keys
+        msg "Import root authorized_keys from /etc/srvctl/data dir"
+        cat /etc/srvctl/data/authorized_keys > /var/srvctl3/share/common/authorized_keys
     fi
     
-    if [[ ! -f /etc/srvctl/authorized_keys ]] && [[ -f /root/.ssh/authorized_keys ]]
+    if [[ ! -f /var/srvctl3/share/common/authorized_keys ]] && [[ -f /root/.ssh/authorized_keys ]]
     then
         msg "Import root authorized_keys from /root/.ssh dir"
-        cat /root/.ssh/authorized_keys > /etc/srvctl/authorized_keys
+        cat /root/.ssh/authorized_keys > /var/srvctl3/share/common/authorized_keys
     fi
     
-    chown root:root /etc/srvctl/authorized_keys
-    chmod 600 /etc/srvctl/authorized_keys
+    chown root:root /var/srvctl3/share/common/authorized_keys
+    chmod 644 /var/srvctl3/share/common/authorized_keys
     
     mkdir -p "$SC_DATASTORE_RW_DIR/users"
     
@@ -57,7 +55,5 @@ function update_install_ssh_config() {
     run systemctl restart sshd
     run systemctl status sshd --no-pager
     
-    mkdir -p /var/srvctl3/ssh
-    echo '' > /var/srvctl3/ssh/known_hosts
 }
 

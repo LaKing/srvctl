@@ -97,7 +97,7 @@ function create_ca_certificate { ## type net name
         _ext="-extfile $SC_INSTALL_DIR/modules/certificates/openssl-server-ext.cnf -extensions server"
     fi
     
-    msg "CA-lib create_ca_certificate $_e $_net $_u"
+    # msg "CA-lib create_ca_certificate $_e $_net $_u"
     
     ## Check if certificate is invalid or expired and remove if so
     if  [[ -f "$SC_ROOTCA_DIR/$_net/$_file.key.pem" ]] && [[ -f "$SC_ROOTCA_DIR/$_net/$_file.crt.pem" ]]
@@ -105,13 +105,13 @@ function create_ca_certificate { ## type net name
         
         if [[ "$(openssl x509 -noout -modulus -in "$SC_ROOTCA_DIR/$_net/$_file.crt.pem" | openssl md5)" == "$(openssl rsa -noout -modulus -in "$SC_ROOTCA_DIR/$_net/$_file.key.pem" | openssl md5)" ]]
         then
-            if openssl x509 -checkend 86400 -noout -in "$SC_ROOTCA_DIR/$_net/$_file.crt.pem"
+            if ! openssl x509 -checkend 86400 -noout -in "$SC_ROOTCA_DIR/$_net/$_file.crt.pem" > /dev/null
             then
-                echo "$_net certificate for $_u is OK" > /dev/null
-            else
                 err "$_net certificate for $_u EXPIRED"
                 rm -fr "$SC_ROOTCA_DIR/$_net/$_file.crt.pem"
                 rm -fr "$SC_ROOTCA_DIR/$_net/$_file.key.pem"
+                #else
+                #    msg "$_net certificate for $_u is OK"
             fi
         else
             err "$_net certificate for $_u INVALID"

@@ -1,40 +1,55 @@
 #!/bin/bash
 
-function gluster_reset {
+function gluster_reset { ## datadir
+    local datadir
+    datadir="$1"
     run gluster volume info
     run umount /srvctl/data
-    run gluster volume stop srvctl-data force
-    run gluster volume remove-brick srvctl-data "$HOSTNAME:/glu/srvctl-data/brick" force
-    run gluster volume delete srvctl-data
+    run gluster volume stop "$datadir" force
+    run gluster volume remove-brick "$datadir" "$HOSTNAME:/glu/$datadir/brick" force
+    run gluster volume delete "$datadir"
     
     attr -R -r glusterfs.volume-id .
-    setfattr -x trusted.glusterfs.volume-id /glu/srvctl-data/brick
-    setfattr -x trusted.gfid /glu/srvctl-data/brick
+    setfattr -x trusted.glusterfs.volume-id /glu/"$datadir"/brick
+    setfattr -x trusted.gfid /glu/"$datadir"/brick
     
-    run rm -fr /glu/srvctl-data/brick #/.glusterfs
+    run rm -fr /glu/"$datadir"/brick #/.glusterfs
     run systemctl stop glusterd
     
     ntc "A reboot is required to reset gluster properly."
 }
 
-function gluster_configure {
+function gluster_install {
     
-    if [[ -d /glu/srvctl-data ]]
+    sc_install glusterfs-server
+    
+    firewalld_add_service glusterfs
+    
+    run systemctl enable glusterd
+    run systemctl start glusterd
+    run systemctl status glusterd --no-pager
+    
+    ln -sf /etc/ssl/gluster-ca.crt.pem /etc/ssl/glusterfs.ca
+    ln -sf /etc/ssl/gluster-server.crt.pem /etc/ssl/glusterfs.pem
+    ln -sf /etc/ssl/gluster-server.key.pem /etc/ssl/glusterfs.key
+    
+    run gluster peer status
+}
+
+function gluster_configure { ## datadir mountdir
+    
+    local datadir mountdir
+    datadir="$1"
+    mountdir="$2"
+    
+    if ! systemctl is-active glusterd > /dev/null
     then
-        
-        sc_install glusterfs-server
-        
-        firewalld_add_service glusterfs
-        
-        run systemctl enable glusterd
-        run systemctl start glusterd
-        run systemctl status glusterd --no-pager
-        
-        ln -sf /etc/ssl/gluster-ca.crt.pem /etc/ssl/glusterfs.ca
-        ln -sf /etc/ssl/gluster-server.crt.pem /etc/ssl/glusterfs.pem
-        ln -sf /etc/ssl/gluster-server.key.pem /etc/ssl/glusterfs.key
-        
-        run gluster peer status
+        err "gluster inactive"
+        return 0
+    fi
+    
+    if [[ -d "/glu/$datadir" ]]
+    then
         
         msg "probing for new peers"
         for host in $(cfg system host_list)
@@ -63,72 +78,80 @@ function gluster_configure {
             
             if [[ ! -z $ip ]] && [[ ! -z $hs ]]
             then
-                list="$list $host:/glu/srvctl-data/brick"
+                list="$list $host:/glu/$datadir/brick"
             fi
         done
         
         lista=( $list )
         
-        if ! run gluster volume status srvctl-data
+        if ! run gluster volume status "$datadir"
         then
             
-            ## /glu/srvctl-data/brick - the existance of this directory prevents volume creation, but attemting to create the volume creates the directory
-            if [[ -d /glu/srvctl-data/brick ]] && [[ ! -d /glu/srvctl-data/brick/.glusterfs ]]
+            ## /glu/"$datadir"/brick - the existance of this directory prevents volume creation, but attemting to create the volume creates the directory
+            if [[ -d "/glu/$datadir/brick" ]] && [[ ! -d "/glu/$datadir/brick/.glusterfs" ]]
             then
-                rm -fr /glu/srvctl-data/brick
+                rm -fr /glu/"$datadir"/brick
             fi
             
-            msg "start volume srvctl-data"
+            msg "start volume $datadir"
             
             # shellcheck disable=SC2086
-            run gluster volume create srvctl-data replica ${#lista[@]} $list force
+            run gluster volume create "$datadir" replica ${#lista[@]} $list force
             
-            run gluster volume set srvctl-data client.ssl on
-            run gluster volume set srvctl-data server.ssl on
+            run gluster volume set "$datadir" client.ssl on
+            run gluster volume set "$datadir" server.ssl on
             
-            run gluster volume start srvctl-data force
-            run gluster volume status srvctl-data
+            run gluster volume start "$datadir" force
+            run gluster volume status "$datadir"
             
-            gluster_mount_data
+            gluster_mount_data "$datadir" "$mountdir"
+            return $?
+            
         else
-            msg "gluster volume srvctl-data ok"
+            msg "gluster volume $datadir ok"
+            return 0
         fi
         
         ## todo, moumt it permanently
         
         
     else
-        ntc "A proper srvctl containerfarm host-installation needs a seperate partition mounted at /glu/srvctl-data for a gluster brick"
+        ntc "A srvctl module needs /glu/$datadir for a gluster brick"
+        return 1
     fi
 }
 
 ## running at init
-function gluster_mount_data() {
+function gluster_mount_data() { ## datadir mountdir
+    
+    local datadir mountdir
+    datadir="$1"
+    mountdir="$2" ## SC_DATASTORE_RW_DIR
     
     ## assumes that datastore is initialized first
     
-    if ! mount | grep "$HOSTNAME:/srvctl-data on $SC_DATASTORE_RW_DIR type fuse.glusterfs" > /dev/null
+    if ! mount | grep "$HOSTNAME:/$datadir on $mountdir type fuse.glusterfs" > /dev/null
     then
-        run mkdir -p "$SC_DATASTORE_RW_DIR"
-        if run mount -t glusterfs  -o log-file="/var/log/gluster-mount-$NOW.log" "$HOSTNAME:/srvctl-data" "$SC_DATASTORE_RW_DIR"
+        run mkdir -p "$mountdir"
+        if run mount -t glusterfs  -o log-file="/var/log/gluster-$datadir-mount-$NOW.log" "$HOSTNAME:/$datadir" "$mountdir"
         then
-            msg "[ OK ] Gluster mounted."
+            msg "[ OK ] Gluster mounted $datadir"
         else
-            if [[ -f "/var/log/gluster-mount-$NOW.log" ]]
+            if [[ -f "/var/log/gluster-$datadir-mount-$NOW.log" ]]
             then
-                run cat "/var/log/gluster-mount-$NOW.log"
+                run cat "/var/log/gluster-$datadir-mount-$NOW.log"
             fi
         fi
     fi
     
-    if mount | grep "$HOSTNAME:/srvctl-data on $SC_DATASTORE_RW_DIR type fuse.glusterfs" > /dev/null
+    if mount | grep "$HOSTNAME:/$datadir on $mountdir type fuse.glusterfs" > /dev/null
     then
-        debug "$SC_DATASTORE_RW_DIR is mounted"
+        debug "$mountdir is mounted"
         # shellcheck disable=SC2034
-        SC_DATASTORE_RO_USE=false
-        init_datastore
+        return 0
     else
-        err "Could not mount RW glusterfs datastore! $SC_DATASTORE_RW_DIR"
+        err "Could not mount $datadir on $mountdir"
+        return 1
     fi
 }
 

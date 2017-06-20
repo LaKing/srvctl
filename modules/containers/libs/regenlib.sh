@@ -9,7 +9,10 @@ function regenerate_all_hosts() {
         then
             run_hook regenerate
         else
-            run ssh -o ConnectTimeout=1 -o BatchMode=yes "$host" "srvctl regenerate" || err "Skipping $host"
+            if ! run ssh -o ConnectTimeout=1 -o BatchMode=yes "$host" "srvctl regenerate" 2> /dev/null
+            then
+                err "Skipping unreachable host $host"
+            fi
         fi
         
     done

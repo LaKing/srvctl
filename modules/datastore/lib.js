@@ -26,7 +26,8 @@ const SC_ON_HS = ON_HS;
 
 const SRVCTL = process.env.SRVCTL;
 const SC_ROOT = process.env.SC_ROOT;
-const HOSTNAME = process.env.HOSTNAME;
+const os =  require('os');
+const HOSTNAME = os.hostname();
 const SC_HOSTNET = Number(process.env.SC_HOSTNET);
 
 
@@ -146,6 +147,15 @@ function container_bridge_address(container) {
 
 exports.container_bridge_address = function(container) {
     return container_bridge_address(container);
+};
+
+function container_bridge_host_ip(container) {
+    var cipa = container.ip.split(dot);
+    return '10' + dot + Number(cipa[1]) + dot + Number(cipa[2]) + dot + '1';
+}
+
+exports.container_bridge_host_ip = function(container) {
+    return container_bridge_host_ip(container);
 };
 
 function container_reseller_id(container) {

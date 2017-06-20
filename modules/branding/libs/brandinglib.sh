@@ -1,13 +1,12 @@
 #!/bin/bash
 
-function setup_index_html { ## name rootfs
+function setup_index_html() { ## name dir
     
-    local _index _name rootfs
+    local _index _name
     ## set default index page
     # shellcheck disable=SC2154
     _name="$1"
-    _rootfs="$2"
-    _index="$rootfs/var/www/html/index.html"
+    _index="$2/index.html"
     
     
 cat > "$_index" << EOF
@@ -32,6 +31,6 @@ cat > "$_index" << EOF
 </html>
 EOF
     
-    cp "$SC_INSTALL_DIR/modules/branding/favicon.ico" "$_rootfs/var/www/html"
+    cp "$SC_INSTALL_DIR/modules/branding/favicon.ico" "$2"
     
 }

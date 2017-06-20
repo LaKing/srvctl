@@ -2,11 +2,12 @@ Under construction, - srvctl is a containerfarm-manager for microsite hosting we
 Version 3 is remake for 2016 mostly using systemd tools, thus using systemd-nspawn as the containerfarm manager. The core is written in bash and javascript, and a modular design allows to extend it with programs. Basically it is a collection of scripts.
 
 How it works:
-After installation there should be a main-command available called srvctl or in short sc. This will trigger srvctl scripts, and process srvctl-commands, and their arguments. Goal is to make easy to use, and easy to remember human-friendly command sets for daily usage.  
+After installation there should be a main-command available called srvctl or in short sc. This will trigger srvctl scripts, and process srvctl-commands, with their arguments. Goal is to make easy to use, and easy to remember human-friendly command sets for daily usage. Primary goal is managment of a web-hosting server and containerfarm that hosts microsites. 
 
 Installation:
 Srvctl 3 is designed for a standard fedora server edition. It may work on similar distros. Containers may use other distributions. 
-A srvctl host should have glusterfs for data storage. While installing your operating system, create an XFS partition mounted on /glu/srvctl/data
+A srvctl host should have glusterfs for data storage. While installing your operating system, create one extra XFS partition mounted on /glu/srvctl-data, that will store certificates, passwords, and littée other sensitive data. 
+Beside that smaller partition create an extra partition, preferably on a seperate drive for data storage, such as static file service or ftp. It should be mounted on /glu/srvtl-storage 
 It is advisable to create separate partitions for directories such as /var/log and /home so that the primary root partition wont get full at any time.
 Setting a hostname is mandatory. Needless to say, you mostly have to operate as root. Also, correct DNS entries (forward and reverse) and NTP are essential.
 As root, clone the repo and create some symlinks for it.
@@ -40,6 +41,11 @@ Bridges use a 10.b.b.x/24 (255.255.255.0) address space. That means 4080 bridges
 We divide users and assign them to 16 resellers.
 That means we can have up to 16 servers, each hosting for 16 resellers.
 Resellers have ~250 users on each server. Each user can have ~200 containers on each server.
+
+Therfore IP 10.a.b.c can be calculated as, 
+a = HOSTNET * 16 + RESELLER_ID
+b = RESELLERS-USER
+c = CONTAINER 20..200
 
 Container netblock IP's are assigned as follows:
 

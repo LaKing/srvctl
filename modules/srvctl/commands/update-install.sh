@@ -1,7 +1,7 @@
 #!/bin/bash
 
 root_only #|| return 244
-
+## @@@ update-install [HOSTNAME]
 ## @en Run the installation/update script.
 ## &en Update/Install all components
 ## &en On host systems install the containerfarm
@@ -24,19 +24,40 @@ echo 'SELINUX=disabled' > /etc/selinux/config
 [[ -f /bin/node ]] || sc_install nodejs
 [[ -f /bin/git ]] || sc_install git
 
+
 if [[ $HOSTNAME == localhost.localdomain ]]
 then
-    msg "please set a hostname"
-    mcedit /etc/hostname
-    cat /etc/hostname
+    
+    if [[ $ARG ]]
+    then
+        msg "setting hostname as $ARG"
+        echo "$ARG" > /etc/hostname
+    else
+        msg "please set a hostname"
+        mcedit /etc/hostname
+        cat /etc/hostname
+    fi
+    
     msg "after setting a hostname, a reboot is required"
-    rm -fr /etc/srvctl/modules.conf
+    rm -fr /var/srvctl3/srvctl/modules.conf
     exit 5
 fi
 
 ## just some default
 git config --global user.name "srvctl"
 git config --global user.email "srvctl@$HOSTNAME"
+
+if $SC_USE_CONTAINERS
+then
+    mkdir -p /var/srvctl3/ssh
+    mkdir -p ~/.ssh
+    for host in $(cfg system host_list)
+    do
+        msg "ssh-keyscan $host"
+        ssh-keyscan "$host" >> ~/.ssh/known_hosts
+        #ssh-keyscan -t rsa "$host" >> /var/srvctl3/ssh/known_hosts
+    done
+fi
 
 msg "Calling update-install hooks."
 run_hooks update-install

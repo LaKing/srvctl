@@ -18,7 +18,8 @@ var datastore = require('../datastore/lib.js');
 
 const SRVCTL = process.env.SRVCTL;
 const SC_ROOT = process.env.SC_ROOT;
-const HOSTNAME = process.env.HOSTNAME;
+const os =  require('os');
+const HOSTNAME = os.hostname();
 const localhost = 'localhost';
 const br = '\n';
 process.exitCode = 99;

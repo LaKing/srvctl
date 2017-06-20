@@ -3,7 +3,7 @@
 _user="$1"
 
 ## used by root as root
-cat "/etc/srvctl/authorized_keys" 2> /dev/null
+cat "/var/srvctl3/share/common/authorized_keys" 2> /dev/null
 
 ## used on the host, for host-to-host authentication
 cat "/var/srvctl3/datastore/rw/users/$_user"/*.pub 2> /dev/null

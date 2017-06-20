@@ -114,6 +114,8 @@ if (DAT === 'container') {
             if (CMD === GET) {
                 if (OPA === 'br') return_value(datastore.container_bridge_address(container));
                 else
+                if (OPA === 'br_host_ip') return_value(datastore.container_bridge_host_ip(container));
+                else
                 if (OPA === 'reseller') return_value(datastore.container_reseller_user(container));
                 else
                 if (OPA === 'host_ip') return_value(datastore.container_host_ip(container));

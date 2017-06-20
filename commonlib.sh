@@ -212,8 +212,8 @@ function hint_on_file {
 
 function hint_commands {
     
-    msg "Usage: srvctl command [argument]"
-    msg "  currently available commands for $SC_USER"
+    prg "Usage: srvctl command [argument]"
+    prg "  currently available commands for $SC_USER"
     if [[ -d $SC_HOME/srvctl-includes ]] && [[ $SC_HOME != /root ]]
     then
         title "COMMAND"
@@ -344,7 +344,7 @@ function help_commands {
             if [[ -f $dir/commands/$arg ]]
             then
                 help_on_file "$dir/commands/$arg.sh"
-                msg "srvctl v3 command"
+                prg "srvctl v3 command"
                 return
             fi
         done
@@ -352,7 +352,7 @@ function help_commands {
         if [[ -f $SC_HOME/srvctl-includes/$arg.sh ]] && [[ $SC_HOME != /root ]]
         then
             help_on_file "$SC_HOME/srvctl-includes/$arg.sh"
-            msg "Custom command defined in $SC_HOME/srvctl-includes/$arg.sh"
+            prg "Custom command defined in $SC_HOME/srvctl-includes/$arg.sh"
             return
         fi
         

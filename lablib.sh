@@ -9,20 +9,30 @@ readonly GRAY='\e[37m'
 
 ## Lablib functions
 
+function prg {
+    ## print green
+    echo -e "${GREEN}$*${CLEAR}"
+}
+
+function pry {
+    ## print yellow
+    echo -e "${YELLOW}$*${CLEAR}"
+}
+
 function msg {
     ## message for the user
-    echo -e "${GREEN}$*${CLEAR}"
+    echo -e "${BLUE}[ ${HOSTNAME%%.*} ] ${GREEN}$*${CLEAR}"
 }
 
 function ntc {
     ## notice for the user
-    echo -e "${YELLOW}$*${CLEAR}"
+    echo -e "${BLUE}[ ${HOSTNAME%%.*} ] ${YELLOW}$*${CLEAR}"
 }
 
 
 function log {
     ## create a log entry
-    echo -e "${YELLOW}$1${CLEAR}"
+    echo -e "${BLUE}[ ${HOSTNAME%%.*} ] ${YELLOW}$1${CLEAR}"
     echo "$NOW: $*" >> "$SC_LOG"
 }
 
@@ -72,8 +82,8 @@ function trace {
 }
 function err {
     ## error message
-    echo -e "$NOW ERROR ${RED}$*${CLEAR}" >> "$SC_LOG"
-    echo -e "${RED}$*${CLEAR}" >&2
+    echo -e "$USER@$HOSTNAME $NOW ERROR ${RED}$*${CLEAR}" >> "$SC_LOG"
+    echo -e "${BLUE}[ ${HOSTNAME%%.*} ] ${RED}$*${CLEAR}" >&2
 }
 
 function run {

@@ -46,9 +46,10 @@ create_selfsigned_domain_certificate "$C" "/srv/$C/cert"
 cat "/srv/$C/cert/$C.crt" > "/srv/$C/rootfs/etc/pki/tls/certs/localhost.crt"
 cat "/srv/$C/cert/$C.key" > "/srv/$C/rootfs/etc/pki/tls/private/localhost.key"
 
-setup_index_html "$C" "/srv/$C/rootfs"
-ln -s "/srv/$C/rootfs/usr/lib/systemd/system/httpd.service" "/srv/$C/rootfs/etc/systemd/system/multi-user.target.wants/httpd.service"
+setup_index_html "$C" "/srv/$C/rootfs/var/www/html"
+nfs_generate_exports "$C"
 
+ln -s "/srv/$C/rootfs/usr/lib/systemd/system/httpd.service" "/srv/$C/rootfs/etc/systemd/system/multi-user.target.wants/httpd.service"
 run systemctl start "srvctl-nspawn@$C" --no-pager
 run systemctl status "srvctl-nspawn@$C" --no-pager
 
