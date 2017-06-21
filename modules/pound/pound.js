@@ -66,7 +66,7 @@ function ddn(d) {
     return d.replace(/\./g, "-") + '.' + HOSTNAME;
 }
 
-function _url_service(URL, Address, Port) {
+function http_url_service(URL, Address, Port) {
     var x = '';
 
     x += br + 'Service';
@@ -80,8 +80,22 @@ function _url_service(URL, Address, Port) {
     x += br;
     return x;
 }
+function https_url_service(URL, Address, Port) {
+    var x = '';
 
-function _head_service(host, Address, Port) {
+    x += br + 'Service';
+    x += br + '    URL "' + URL + '"';
+    x += br + '    BackEnd';
+    x += br + '        Address ' + Address;
+    x += br + '        Port ' + Port;
+    x += br + '        HTTPS';
+    x += br + '    End';
+    x += br + 'End';
+
+    x += br;
+    return x;
+}
+function http_head_service(host, Address, Port) {
     var x = '';
 
     x += br + 'Service';
@@ -89,13 +103,14 @@ function _head_service(host, Address, Port) {
     x += br + '    BackEnd';
     x += br + '        Address ' + Address;
     x += br + '        Port ' + Port;
+    x += br + '        TimeOut 300';
     x += br + '    End';
     
     if (process.env.SC_USE_STATIC) {
-        x += br + 'Emergency';
-        x += br + 'Address 127.0.0.1';
-        x += br + 'Port 1280';
-        x += br + 'End';
+        x += br + '    Emergency';
+        x += br + '        Address 127.0.0.1';
+        x += br + '        Port 1280';
+        x += br + '    End';
     }
     
     x += br + 'End';
@@ -103,6 +118,32 @@ function _head_service(host, Address, Port) {
     x += br;
     return x;
 }
+
+function https_head_service(host, Address, Port) {
+    var x = '';
+
+    x += br + 'Service';
+    x += br + '    headRequire "Host: ' + host + '"';
+    x += br + '    BackEnd';
+    x += br + '        Address ' + Address;
+    x += br + '        Port ' + Port;
+    x += br + '        TimeOut 300';
+    x += br + '        HTTPS';
+    x += br + '    End';
+    
+    if (process.env.SC_USE_STATIC) {
+        x += br + '    Emergency';
+        x += br + '        Address 127.0.0.1';
+        x += br + '        Port 1280';
+        x += br + '    End';
+    }
+    
+    x += br + 'End';
+
+    x += br;
+    return x;
+}
+
 
 function scan_path_for_cert(path) {
     var x = '';
@@ -118,18 +159,23 @@ function scan_path_for_cert(path) {
 function write_var_pound_http_cfg() {
     var str = '';
     
-    str += _url_service("^/.well-known/acme-challenge/*", localhost, 1028);
-    str += _url_service("^/.well-known/autoconfig/mail/config-v1.1.xml", localhost, 1029);
+    str += http_url_service("^/.well-known/acme-challenge/*", localhost, 1028);
+    str += http_url_service("^/.well-known/autoconfig/mail/config-v1.1.xml", localhost, 1029);
 
     // normal service
     Object.keys(containers).forEach(function(i) {
         var c = containers[i];
-        str += _head_service(i, i, datastore.container_http_port(c));
+        str += http_head_service(i, i, datastore.container_http_port(c));
     });
     // direct acces domain
     Object.keys(containers).forEach(function(i) {
         var c = containers[i];
-        str += _head_service(ddn(i), i, datastore.container_http_port(c));
+        str += http_head_service(ddn(i), i, datastore.container_http_port(c));
+    });
+    if (process.env.SC_USE_STATIC)
+    Object.keys(containers).forEach(function(i) {
+        var c = containers[i];
+        str += http_head_service('static.' + i, '127.0.0.1', '1280');
     });
     fs.writeFile('/var/pound/http.cfg', str, function(err) {
         if (err) return_error('WRITEFILE ' + err);
@@ -153,13 +199,19 @@ function write_var_pound_https_cfg() {
     // normal service
     Object.keys(containers).forEach(function(i) {
         var c = containers[i];
-        str += _head_service(i, i, datastore.container_https_port(c));
+        str += https_head_service(i, i, datastore.container_https_port(c));
     });
     // direct acces domain
     Object.keys(containers).forEach(function(i) {
         var c = containers[i];
-        str += _head_service(ddn(i), i, datastore.container_https_port(c));
+        str += https_head_service(ddn(i), i, datastore.container_https_port(c));
     });
+    if (process.env.SC_USE_STATIC)
+    Object.keys(containers).forEach(function(i) {
+        var c = containers[i];
+        str += http_head_service('static.' + i, '127.0.0.1', '1281');
+    });
+    
     fs.writeFile('/var/pound/https.cfg', str, function(err) {
         if (err) return_error('WRITEFILE ' + err);
         else console.log('[ OK ] pound srvctl https conf');

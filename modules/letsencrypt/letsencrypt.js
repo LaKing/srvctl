@@ -108,7 +108,7 @@ function run_domain(domain) {
     //if (containers[domain].dns_scan.A[hosts[HOSTNAME].host_ip] === undefined) return; 
     
     console.log("Certificate required for " + domain);
-    var cmd = "letsencrypt certonly --non-interactive --agree-tos --keep-until-expiring --expand --webroot --webroot-path /var/acme/ -d " + domain + " -d www." + domain + " >> /srv/" + domain + "/letsencrypt.log";
+    var cmd = "letsencrypt certonly --non-interactive --agree-tos --keep-until-expiring --expand --webroot --webroot-path /var/acme/ -d " + domain + " -d www." + domain + " -d static." + domain + " -d mail." + domain + " >> /srv/" + domain + "/letsencrypt.log";
     console.log(cmd);
     try {
         execSync(cmd);

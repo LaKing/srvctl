@@ -5,10 +5,10 @@ function regenerate_static_server() {
     for dir in $(cfg system container_list)
     do
         msg "$dir"
-        mkdir -p "/var/srvctl3/static/$dir/html"
-        if [[ ! -f "/var/srvctl3/static/$dir/html/index.html" ]]
+        mkdir -p "/var/srvctl3/storage/static/$dir/html"
+        if [[ ! -f "/var/srvctl3/storage/static/$dir/html/index.html" ]]
         then
-            setup_index_html "$dir (static)" "/var/srvctl3/static/$dir/html"
+            setup_index_html "$dir (static)" "/var/srvctl3/storage/static/$dir/html"
         fi
     done
 }

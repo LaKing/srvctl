@@ -1,5 +1,25 @@
 #!/bin/bash
 
+function all_containers() {
+    local list cop
+    cop="$1"
+    if [[ $SC_USER == root ]]
+    then
+        list="$(cfg system container_list)" || exit 15
+    else
+        list="$(cfg user container_list)" || exit 15
+    fi
+    
+    for C in $list
+    do
+        if [[ -d /srv/$C ]]
+        then
+            run "machinectl $cop $C --no-pager"
+        fi
+        
+    done
+}
+
 function get_disk_usage {
     du -hs "/srv/$1" | head -c 4
 }

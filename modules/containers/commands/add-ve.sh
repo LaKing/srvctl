@@ -32,6 +32,11 @@ then
     exit 12
 fi
 
+## TODO
+## if the first 12 characters of the domain match against against a containers first 12 characters, then nspawn will fail to assign the vb- interface
+## Failed to add new veth interfaces (vb-alpha-test.:host0): File exists
+## alpha-test.domain1.ve alpha-test.domain2.ve
+
 ## add to database
 new container "$C" "$T"
 exif "Could not add container to datastore."

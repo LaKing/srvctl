@@ -101,6 +101,7 @@ readonly DEBUG
 for dir in $SC_INSTALL_DIR/modules/*
 do
     module="${dir##*/}"
+    export "SC_USE_${module^^}"
     readonly "SC_USE_${module^^}"
 done
 

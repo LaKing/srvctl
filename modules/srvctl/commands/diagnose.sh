@@ -34,6 +34,8 @@ msg "-- Memory --"
 run free -m
 run vmstat -s
 
+msg "-- Disks --"
+run df -H
 
 if [[ -f /usr/bin/grub2-editenv ]] && [[ -f /boot/grub2/grub.cfg ]]
 then

@@ -4,9 +4,9 @@
 // but actually measurment tests say that we get a file served within ~0.150ms .) ..
 // note that we will use only HTTP, as pound does not know to serve emergency http ...
 
-var finalhandler = require('finalhandler');
+var finalhandler = require('/usr/lib/node_modules/finalhandler');
 var http = require('http');
-var serveStatic = require('serve-static');
+var serveStatic = require('/usr/lib/node_modules/serve-static');
 
 var server = http.createServer(function onRequest(req, res) {
 
@@ -19,7 +19,7 @@ var server = http.createServer(function onRequest(req, res) {
     
     // handling the request
     var done = finalhandler(req, res);
-    var serve = serveStatic('/var/srvctl3/static/' + host + '/html');
+    var serve = serveStatic('/var/srvctl3/storage/static/' + host + '/html');
     serve(req, res, done);
 
 });

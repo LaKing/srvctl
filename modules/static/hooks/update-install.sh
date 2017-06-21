@@ -2,7 +2,7 @@
 
 if $SC_USE_GLUSTER
 then
-    gluster_configure srvctl-storage /var/srvctl3/static
+    gluster_configure srvctl-storage /var/srvctl3/storage
 fi
 
 cat > /usr/lib/systemd/system/static-server.service << EOF
@@ -12,7 +12,7 @@ After=syslog.target network.target
 
 [Service]
 Type=simple
-ExecStart=/bin/node $SC_INSTALL_DIR/modules/static-server/server.js
+ExecStart=/bin/node $SC_INSTALL_DIR/modules/static/server.js
 User=root
 Group=root
 
@@ -29,7 +29,7 @@ cd "$SC_INSTALL_DIR/modules/static-server/"
 npm install -g finalhandler
 npm install -g serve-static
 
-mkdir -p /var/srvctl3/static
+mkdir -p /var/srvctl3/storage/static
 
 run systemctl enable static-server.service
 run systemctl start static-server.service
