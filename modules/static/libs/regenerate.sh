@@ -1,10 +1,9 @@
 #!/bin/bash
 
 function regenerate_static_server() {
-    msg "start"
+    msg "regenerate static server index files"
     for dir in $(cfg system container_list)
     do
-        msg "$dir"
         mkdir -p "/var/srvctl3/storage/static/$dir/html"
         if [[ ! -f "/var/srvctl3/storage/static/$dir/html/index.html" ]]
         then

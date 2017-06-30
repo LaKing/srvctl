@@ -2,6 +2,8 @@
 
 function firewalld_add_service() { ## name proto port
     
+    systemctl start firewalld.service
+    
     local zone
     zone=$(firewall-cmd --get-default-zone)
     
@@ -36,3 +38,5 @@ EOF
     run firewall-cmd --reload
     
 }
+
+

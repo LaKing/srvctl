@@ -7,6 +7,7 @@ function wait() {
 
 echo "Lets test the system!"
 wait
+
 sc add-reseller alpha
 sc add-reseller bravo
 sc add-reseller charlie
@@ -23,7 +24,7 @@ sc add-reseller mike
 sc add-reseller november
 sc add-reseller oscar
 sc add-reseller papa
-sc add-reseller quebec
+
 wait
 su alpha -c "sc add-user alpha1"
 su alpha -c "sc add-user alpha2"

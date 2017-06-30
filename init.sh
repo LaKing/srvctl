@@ -37,11 +37,11 @@ SC_LOG_DIR=~
 # shellcheck disable=SC2034
 SC_LOG=~/.srvctl.log
 
-mkdir -p /var/srvctl3/srvctl
+mkdir -p /var/local/srvctl
 
 if [[ $CMD == update-install ]]
 then
-    rm -fr /var/srvctl3/srvctl/modules.conf
+    rm -fr /var/local/srvctl/modules.conf
     
     for sourcefile in /etc/srvctl/data/*.conf
     do
@@ -53,7 +53,7 @@ fi
 ## source custom configurations
 
 test_srvctl_modules
-source /var/srvctl3/srvctl/modules.conf
+source /var/local/srvctl/modules.conf
 
 for sourcefile in /etc/srvctl/*.conf
 do

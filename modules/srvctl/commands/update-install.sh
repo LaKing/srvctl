@@ -39,7 +39,7 @@ then
     fi
     
     msg "after setting a hostname, a reboot is required"
-    rm -fr /var/srvctl3/srvctl/modules.conf
+    rm -fr /var/local/srvctl/modules.conf
     exit 5
 fi
 

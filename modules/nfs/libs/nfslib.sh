@@ -1,19 +1,26 @@
 #!/bin/bash
 
-function nfs_generate_exports { # for container
+function nfs_generate_exports { # for host
     
-    ## Ip is the bridge address with 1 instead of x
-    local C bridge
-    
-    C="$1"
-    bridge="$(get container "$C" br_host_ip)"
-    
-cat > "/srv/$C/rootfs/etc/exports" << EOF
+cat > /etc/exports << EOF
 ## srvctl generated
-/var/log $bridge(ro)
-/srv $bridge(rw,all_squash,anonuid=101,anongid=101)
-/var/git $bridge(rw,all_squash,anonuid=102,anongid=102)
-/var/www/html $bridge(rw,all_squash,anonuid=48,anongid=48)
+/srv 10.15.0.0/255.255.0.0(rw,no_root_squash)
 EOF
     
+}
+
+function nfs_mount() {
+    
+    msg "nfs mount"
+    
+    local hs
+    for host in $(cfg system host_list)
+    do
+        if run showmount -e "$host"
+        then
+            mkdir -p "/var/srvctl3/nfs/$host/srv"
+            hs="$(get host "$host" hostnet)"
+            run "mount 10.15.$hs.$hs:/srv /var/srvctl3/nfs/$host/srv"
+        fi
+    done
 }

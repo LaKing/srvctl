@@ -62,7 +62,7 @@ const hosts = JSON.parse(fs.readFileSync(SC_DATASTORE_DIR + '/hosts.json'));
 
 
 function process_commands_spec() {
-    var commands_spec = fs.readFileSync('/var/srvctl3/srvctl/commands.spec', 'UTF8');
+    var commands_spec = fs.readFileSync('/var/local/srvctl/commands.spec', 'UTF8');
     var r = {};
     
     // spec lines array

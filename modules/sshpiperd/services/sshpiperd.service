@@ -1,0 +1,12 @@
+[Unit]
+Description=srvctl sshpiperd.
+After=syslog.target network.target
+
+[Service]
+Type=simple
+ExecStart=/bin/sshpiperd --server_key /etc/sshpiper/ssh_host_rsa_key
+User=sshpiper
+Group=sshpiper
+
+[Install]
+WantedBy=multi-user.target

@@ -22,7 +22,7 @@ EOF
 
 systemctl daemon-reload
 
-cd "$SC_INSTALL_DIR/modules/static-server/"
+cd "$SC_INSTALL_DIR/modules/static/"
 
 #npm install
 

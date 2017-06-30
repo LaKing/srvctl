@@ -131,7 +131,18 @@ function ssh_config() {
         str += "Host " + i + br;
         str += "UserKnownHostsFile /var/srvctl3/ssh/known_hosts" + br;
         str += "" + br;
+        
+        str += "Host " + i.split('.')[0] + br;
+        str += "UserKnownHostsFile /var/srvctl3/ssh/known_hosts" + br;
+        str += "" + br;
+        
     });
+    fs.writeFile('/etc/ssh/ssh_config.d/srvctl-chosts.conf', str, function(err) {
+        if (err) return_error('WRITEFILE ' + err);
+        else console.log('[ OK ] ssh srvctl-hosts.conf');
+    });
+    
+    str = '';
     Object.keys(containers).forEach(function(i) {
         str += "Host " + i + br;
         str += "User root" + br;
@@ -178,7 +189,10 @@ function make_host_keys(){
         if (hosts[i].host_key !== undefined)
         { 
             keys += i + " ssh-rsa " + hosts[i].host_key + br;
-            keys += hosts[i].host_ip + " ssh-rsa " + hosts[i].host_key + br + br;
+            keys += hosts[i].host_ip + " ssh-rsa " + hosts[i].host_key + br;
+            keys += i.split('.')[0] + " ssh-rsa " + hosts[i].host_key + br;
+            keys += "10.15." + hosts[i].hostnet + "." + hosts[i].hostnet + " ssh-rsa " + hosts[i].host_key + br;
+            keys += br;
         }
     });
     Object.keys(containers).forEach(function(i) {
@@ -194,6 +208,7 @@ function make_host_keys(){
         else console.log('[ OK ] ssh share/common/known_hosts');
     });
     
+    // in addition, localhost
     if (hosts[HOSTNAME].host_key !== undefined)
     { 
         keys += "localhost ssh-rsa " + hosts[HOSTNAME].host_key + br;

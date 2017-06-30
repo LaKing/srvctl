@@ -1,7 +1,7 @@
 #!/bin/bash
 
-function all_containers() {
-    local list cop
+function all_containers() { ## op
+    local list cop host
     cop="$1"
     if [[ $SC_USER == root ]]
     then
@@ -14,7 +14,21 @@ function all_containers() {
     do
         if [[ -d /srv/$C ]]
         then
-            run "machinectl $cop $C --no-pager"
+            if [[ $cop == start ]]
+            then
+                run "systemctl start srvctl-nspawn@$C --no-pager"
+            else
+                run "machinectl $cop $C --no-pager"
+            fi
+        else
+            host="$(get container alpha-one.ve host)"
+            if [[ $cop == start ]]
+            then
+                run "ssh $host systemctl start srvctl-nspawn@$C --no-pager"
+            else
+                run "ssh $host machinectl $cop $C --no-pager"
+            fi
+            
         fi
         
     done
@@ -24,7 +38,38 @@ function get_disk_usage {
     du -hs "/srv/$1" | head -c 4
 }
 
-function containers_status() {
+function bash_container_status() {
+    
+    local ip ping_ms C
+    
+    C="$1"
+    
+    ip="$(get container "$C" ip)"
+    exif "Could not get IP for $C"
+    
+    if ping_ms=$(ping -W 1 -c 1 "$ip" | grep rtt)
+    then
+        printf "${GREEN}%-10s${CLEAR}" "${ping_ms:23:5}ms"
+    else
+        printf "${RED}%-10s${CLEAR}" "ERROR"
+    fi
+    
+    if [[ -d /srv/$C ]]
+    then
+        printf "${GREEN}%-48s${CLEAR}" "$C"
+    else
+        printf "${YELLOW}%-48s${CLEAR}" "$C"
+    fi
+    
+    printf "${GREEN}%-14s${CLEAR}" "$ip"
+    printf "${YELLOW}%-16s${CLEAR}" "$(get container "$C" reseller)"
+    printf "${YELLOW}%-16s${CLEAR}" "$(get container "$C" user)"
+    
+    echo ''
+    
+}
+
+function bash_containers_status() {
     
     local list
     if [[ $SC_USER == root ]]
@@ -45,29 +90,7 @@ function containers_status() {
     
     for C in $list
     do
-        local ip ping_ms
-        ip="$(get container "$C" ip)"
-        exif "Could not get IP for $C"
-        
-        if ping_ms=$(ping -W 1 -c 1 "$ip" | grep rtt)
-        then
-            printf "${GREEN}%-10s${CLEAR}" "${ping_ms:23:5}ms"
-        else
-            printf "${RED}%-10s${CLEAR}" "ERROR"
-        fi
-        
-        if [[ -d /srv/$C ]]
-        then
-            printf "${GREEN}%-48s${CLEAR}" "$C"
-        else
-            printf "${YELLOW}%-48s${CLEAR}" "$C"
-        fi
-        
-        printf "${GREEN}%-14s${CLEAR}" "$ip"
-        printf "${YELLOW}%-16s${CLEAR}" "$(get container "$C" reseller)"
-        printf "${YELLOW}%-16s${CLEAR}" "$(get container "$C" user)"
-        
-        echo ''
+        container_status "$C"
     done
     
     echo ''

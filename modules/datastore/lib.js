@@ -422,6 +422,7 @@ function system_etc_hosts() {
     str += "## hosts" + br;
     Object.keys(hosts).forEach(function(i) {
         if (hosts[i].host_ip) str += hosts[i].host_ip + '    ' + i + br;
+        if (hosts[i].hostnet) str += '10.15.'+hosts[i].hostnet+'.'+hosts[i].hostnet + '    ' + i.split('.')[0] + br;
     });
     str += "## containers" + br;
     Object.keys(containers).forEach(function(i) {

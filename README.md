@@ -1,4 +1,4 @@
-## Srvctl v3 (3.1.1.0)
+## Srvctl v3 (3.1.2.2)
 Under construction, - srvctl is a containerfarm-manager for microsite hosting webservers with fedora as the host operating system. It will help to set up, maintain, and to let a couple of servers work together in order to have a solid web-serving service.
 Version 3 is remake for 2016 mostly using systemd tools, thus using systemd-nspawn as the containerfarm manager. The core is written in bash and javascript, and a modular design allows to extend it with programs. Basically it is a collection of scripts.
 
@@ -25,13 +25,20 @@ To use srvctl as a containerfarm host, the common configuration data has to be w
     cp -R /usr/local/share/srvctl/example-conf/data /etc/srvctl
 
 Most static configuration files reside in /etc/srvctl. Data is stored in BASH formatted, sourcable variable description files, and in JSON files.
-The so called datastore saves configuration informations, and gluster can be used to sync the data across servers.
+The datastore module saves configuration informations, and gluster can be used to sync the data across servers.
 Servers can interact with each other over VPN, and containers are on an internal network:
 
 In srvctl3 we use a single class A network 10.x.x.x for communication of containers and hosts.
 This network is devided to 16 subnets. netmask: 255.240.0.0 or /12
 
-10.0.0.0 - 10.15.255.255 - reserved for external networks and openvpn connections outside of srvctl
+Each server has to have a unique HOSTNET id between 1..16 for the server cluster.
+By convention, each host should be prefixed with a two digit host identifier on your company domain.
+
+10.0.0.0 - 10.14.255.255 - reserved for external networks and openvpn connections outside of srvctl
+10.15.x.y - reserved for openvpn hostnet-network - connections from host to host. Openvpn connections created from every server to every server, thus x is the server hostnet y the client hostnet on a particlar host. On the server-side interfaces x is always equal to y. 
+
+Container networks:
+
 10.16.0.0 - 10.31.255.255 - HOSTNET 1
 10.32.0.0 - 10.47.255.255 - HOSTNET 2
 ...
@@ -40,8 +47,8 @@ This network is devided to 16 subnets. netmask: 255.240.0.0 or /12
 Bridges use a 10.b.b.x/24 (255.255.255.0) address space. That means 4080 bridges per hostnet. 
 
 We divide users and assign them to 16 resellers.
-That means we can have up to 16 servers, each hosting for 16 resellers.
-Resellers have ~250 users on each server. Each user can have ~200 containers on each server.
+That means we can have up to 15 servers in a cluster, each hosting users and containers for 16 resellers.
+Resellers can have ~250 users, they will have the same users on each server. Each user can have ~250 containers on each server.
 
 Therfore IP 10.a.b.c can be calculated as, 
 a = HOSTNET * 16 + RESELLER_ID
@@ -53,15 +60,14 @@ Container netblock IP's are assigned as follows:
 0: network address
 1: host-bridge ip
 ...
-16: host-bridge ip
-20: containers
-200 containers
-201: vpn-clients
-250: vpn-clients
+2..252: containers
+...
+253 .. 254: user vpn-client
 255: broadcast address
 
 [...]
 
+A single user might have less containers, and more vpn clients.
 
 Using srvctl
 
@@ -71,6 +77,7 @@ The update_install process can be, and eventually has to be run over and over. T
 
 Experts may run certain functions in context of srvctl, that means with internal variables and settings
     srvctl exec-function SRVCTL_FUNCTION
+
 The main datastore functions may be accessed directly, so instead of writing 
     srvctl exec-function out host t1.test.vm
 .. it is possible to write directly
@@ -83,16 +90,22 @@ Srvctl maintains configuration data in json files. These files may reside at the
 /var/srvctl3/datastore/ro - readonly, fallback 
 /var/srvctl3/datastore/rw - readwrite gluster data volume
 
+Accessing the VE
+
+There are several options for users to access their VE.
+- ssh to host, from there to the VE
+- ssh to the host and use a container share point
+- ssh directly to the VE, for example "ssh charlie_charlie-one.ve_root@192.168.88.13 -p 2222" Note the USER_VE_VEUSER syntax.
 
 
 
 
 ```
-# 13 @conf /etc/srvctl/debug.conf 
-# 15 @conf /etc/srvctl/modules.conf 
-# 17 init@run_hook pre-init 
-# 20 @hook srvctl pre-init 
-# 22 @hook ve pre-init 
+# 9 @conf /etc/srvctl/debug.conf 
+# 10 @conf /etc/srvctl/modules.conf 
+# 11 init@run_hook pre-init 
+# 14 @hook srvctl pre-init 
+# 16 @hook ve pre-init 
 
 srvctl COMMAND [arguments]              
 
@@ -196,5 +209,5 @@ COMMAND - from srvctl
    status                                List container status parameters               
     
     
-# 108 srvctl-3.1.1.0 
+# 87 srvctl-3.1.2.2 
 ```
