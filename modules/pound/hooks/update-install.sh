@@ -21,8 +21,10 @@ sc_install Pound
 firewalld_add_service http
 firewalld_add_service https
 
-mkdir -p /var/pound
+run mkdir -p /var/pound
+run mkdir -p "$SC_DATASTORE_DIR/cert"
 
+msg "write /etc/pound.cfg"
 cat > /etc/pound.cfg << EOF
 ## srvctl pound.cfg
 User "pound"
@@ -78,7 +80,7 @@ sc_install rsyslog
 
 add_conf /etc/rsyslog.conf 'local0.*                         -/var/log/pound'
 
-systemctl restart rsyslog.service
+run systemctl restart rsyslog.service
 
 create_selfsigned_domain_certificate "$HOSTNAME" "/etc/srvctl/cert/$HOSTNAME"
 regenerate_pound_conf

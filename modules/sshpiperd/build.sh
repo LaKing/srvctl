@@ -24,7 +24,10 @@ go get github.com/tg123/sshpiper/sshpiperd
 echo "building sshpiperd $ver"
 
 cat workingdir.go > /root/go/src/github.com/tg123/sshpiper/sshpiperd/workingdir.go
-sed -i -- "s/SRVCTL_VERSION/$ver/g" /root/go/src/github.com/tg123/sshpiper/sshpiperd/workingdir.go
+
+sed -i -- "s|@SRVCTL_VERSION|$ver|g" /root/go/src/github.com/tg123/sshpiper/sshpiperd/workingdir.go
+sed -i -- "s|@SRVCTL_INSTALL_DIR|/usr/local/share/srvctl|g" /root/go/src/github.com/tg123/sshpiper/sshpiperd/workingdir.go
+
 $(cd /root/go/src/github.com/tg123/sshpiper/sshpiperd && go build -o "$wd/sshpiperd")
 
 if [[ ! -f "$wd/sshpiperd" ]]

@@ -20,7 +20,12 @@ function nfs_mount() {
         then
             mkdir -p "/var/srvctl3/nfs/$host/srv"
             hs="$(get host "$host" hostnet)"
-            run "mount 10.15.$hs.$hs:/srv /var/srvctl3/nfs/$host/srv"
+            if ping -c 1 -W 1 "10.15.$hs.$hs"
+            then
+                run "mount 10.15.$hs.$hs:/srv /var/srvctl3/nfs/$host/srv"
+            else
+                err "Could not ping 10.15.$hs.$hs"
+            fi
         fi
     done
 }

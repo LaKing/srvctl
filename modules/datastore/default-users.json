@@ -1,0 +1,127 @@
+{
+    "root": {
+        "is_reseller_id": 0,
+        "uid" : 0,
+        "name": "root"       
+    },
+    "a": {
+        "is_reseller_id": 1,
+        "uid" : 1001,
+        "name": "Alpha"
+    },
+    "b": {
+        "is_reseller_id": 2,
+        "uid" : 1002,
+        "name": "Bravo"
+    },
+    "c": {
+        "is_reseller_id": 3,
+        "uid" : 1003,
+        "name": "Charlie"
+    },
+    "d": {
+        "is_reseller_id": 4,
+        "uid" : 1004,
+        "name": "Delta"
+    },
+    "e": {
+        "is_reseller_id": 5,
+        "uid" : 1005,
+        "name": "Echo"
+    },
+    "f": {
+        "is_reseller_id": 6,
+        "uid" : 1006,
+        "name": "Foxtrot"
+    },
+    "g": {
+        "is_reseller_id": 7,
+        "uid" : 1007,
+        "name": "Golf"
+    },
+    "h": {
+        "is_reseller_id": 8,
+        "uid" : 1008,
+        "name": "Hotel"
+    },
+    "i": {
+        "is_reseller_id": 9,
+        "uid" : 1009,
+        "name": "India"
+    },
+    "j": {
+        "is_reseller_id": 10,
+        "uid" : 1010,
+        "name": "Juliett"
+    },
+    "k": {
+        "is_reseller_id": 11,
+        "uid" : 1011,
+        "name": "Kilo"
+    },
+    "l": {
+        "is_reseller_id": 12,
+        "uid" : 1012,
+        "name": "Lima"
+    },
+    "m": {
+        "is_reseller_id": 13,
+        "uid" : 1013,
+        "name": "Mike"
+    },
+    "n": {
+        "is_reseller_id": 14,
+        "uid" : 1014,
+        "name": "November"
+    },
+    "o": {
+        "is_reseller_id": 15,
+        "uid" : 1015,
+        "name": "Oscar"
+    },
+    "p": {
+        "is_reseller_id": 16,
+        "uid" : 1016,
+        "name": "Papa"
+    },
+    "q": {
+        "is_reseller_id": 17,
+        "uid" : 1017,
+        "name": "Quebec"
+    },
+    "r": {
+        "is_reseller_id": 18,
+        "uid" : 1018,
+        "name": "Romeo"
+    },
+    "s": {
+        "is_reseller_id": 19,
+        "uid" : 1019,
+        "name": "Sierra"
+    },
+    "t": {
+        "is_reseller_id": 20,
+        "uid" : 1020,
+        "name": "Tango"
+    },
+    "u": {
+        "is_reseller_id": 21,
+        "uid" : 1021,
+        "name": "Uniform"
+    },
+    "v": {
+        "is_reseller_id": 22,
+        "uid" : 1022,
+        "name": "Viktor"
+    },
+    "w": {
+        "is_reseller_id": 23,
+        "uid" : 1023,
+        "name": "Whisky"
+    },
+    "x": {
+        "is_reseller_id": 24,
+        "uid" : 1024,
+        "name": "Xray"
+    }
+}

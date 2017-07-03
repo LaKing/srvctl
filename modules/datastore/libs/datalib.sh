@@ -86,10 +86,26 @@ function init_datastore_install() {
         then
             cat /etc/srvctl/data/users.json > "$SC_DATASTORE_DIR/users.json"
         else
-            err "INITIALIZE-EMPTY srvctl data users"
-            echo '{}' > "$SC_DATASTORE_DIR/users.json"
+            err "INITIALIZE-DEFAULT srvctl data users"
+            cat "$SC_INSTALL_DIR/modules/datastore/default-users.json" > "$SC_DATASTORE_DIR/users.json"
         fi
     fi
+    
+    if [[ ! -d $SC_DATASTORE_RW_DIR/.git ]]
+    then
+        msg "git init datastore"
+        git init -q "$SC_DATASTORE_RW_DIR"
+        
+cat > "$SC_DATASTORE_RW_DIR/.gitignore" << EOF
+.git.log
+.gitignore
+EOF
+    fi
+    
+    
+    mkdir -p "$SC_DATASTORE_RW_DIR/users"
+    mkdir -p "$SC_DATASTORE_RW_DIR/cert"
+    
 }
 
 function init_datastore() {

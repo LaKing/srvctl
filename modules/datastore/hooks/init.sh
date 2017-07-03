@@ -6,5 +6,3 @@ then
     SC_DATASTORE_RO_USE=false
 fi
 init_datastore
-
-#datastore_cat_to_ro

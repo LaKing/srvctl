@@ -7,7 +7,8 @@ run adduser --system sshpiper
 run mkdir -p /var/sshpiper
 
 sc_install bindfs
-run bindfs -r -p +X --map=root/sshpiper /var/srvctl3/datastore/rw/users /var/sshpiper
+
+mount_sshpiper
 
 run mkdir -p /etc/sshpiper
 

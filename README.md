@@ -1,4 +1,4 @@
-## Srvctl v3 (3.1.2.2)
+## Srvctl v3 (3.1.2.6)
 Under construction, - srvctl is a containerfarm-manager for microsite hosting webservers with fedora as the host operating system. It will help to set up, maintain, and to let a couple of servers work together in order to have a solid web-serving service.
 Version 3 is remake for 2016 mostly using systemd tools, thus using systemd-nspawn as the containerfarm manager. The core is written in bash and javascript, and a modular design allows to extend it with programs. Basically it is a collection of scripts.
 
@@ -7,9 +7,10 @@ After installation there should be a main-command available called srvctl or in 
 
 Installation:
 Srvctl 3 is designed for a standard fedora server edition. It may work on similar distros. Containers may use other distributions. 
-A srvctl host should have glusterfs for data storage. While installing your operating system, create one extra XFS partition mounted on /glu/srvctl-data, that will store certificates, passwords, and littée other sensitive data. 
+A srvctl host should have glusterfs for data storage. While installing your operating system, create one extra XFS partition mounted on /glu/srvctl-data, that will store certificates, passwords, and other sensitive data. 
 Beside that smaller partition create an extra partition, preferably on a seperate drive for data storage, such as static file service or ftp. It should be mounted on /glu/srvtl-storage 
-It is advisable to create separate partitions for directories such as /var/log and /home so that the primary root partition wont get full at any time.
+It is advisable to create separate partitions for directories such as /var/log and /home so that the primary root partition wont get full at any time. 
+Users and UID/GID numbers have to be consistent across the clustered servers, therefore, don't create any users. 
 Setting a hostname is mandatory. Needless to say, you mostly have to operate as root. Also, correct DNS entries (forward and reverse) and NTP are essential.
 As root, clone the repo and create some symlinks for it.
 ```
@@ -35,7 +36,7 @@ Each server has to have a unique HOSTNET id between 1..16 for the server cluster
 By convention, each host should be prefixed with a two digit host identifier on your company domain.
 
 10.0.0.0 - 10.14.255.255 - reserved for external networks and openvpn connections outside of srvctl
-10.15.x.y - reserved for openvpn hostnet-network - connections from host to host. Openvpn connections created from every server to every server, thus x is the server hostnet y the client hostnet on a particlar host. On the server-side interfaces x is always equal to y. 
+10.15.x.y - reserved for openvpn hostnet-network - connections from host to host. Openvpn connections created from every server to every server, thus x is the server hostnet y the client hostnet on a particlar host. On the server-side interfaces x and y is always equal to the HOSTNET value. 
 
 Container networks:
 
@@ -87,8 +88,8 @@ The datastore
 
 Srvctl maintains configuration data in json files. These files may reside at the following locations
 /etc/srvctl/data - static configuration files
-/var/srvctl3/datastore/ro - readonly, fallback 
-/var/srvctl3/datastore/rw - readwrite gluster data volume
+/var/srvctl3/datastore - readwrite gluster data volume (/var/srvctl3/gluster/srvctl-data as readonly fallback)
+
 
 Accessing the VE
 
@@ -103,8 +104,8 @@ There are several options for users to access their VE.
 ```
 # 9 @conf /etc/srvctl/debug.conf 
 # 10 @conf /etc/srvctl/modules.conf 
-# 11 init@run_hook pre-init 
-# 14 @hook srvctl pre-init 
+# 12 init@run_hook pre-init 
+# 15 @hook srvctl pre-init 
 # 16 @hook ve pre-init 
 
 srvctl COMMAND [arguments]              
@@ -193,21 +194,21 @@ COMMAND - from srvctl
      Contact the package manager, and query important packages
     
     
-   /srv/codepad-project/modules/users/commands/add-reseller.sh
-   add-reseller                          Add user to the systems                        
+   /srv/codepad-project/modules/usersonhost/commands/add-user.sh
+   add-user                              Add user to the host cluster                   
     
      Add user to database and create it on the system.
      users will have default passwords, certificates, etc, ..
     
-   /srv/codepad-project/modules/users/commands/add-user.sh
-   add-user                              Add user to the systems                        
+   /srv/codepad-project/modules/usersonve/commands/add-user.sh
+   add-user                              Add user to the container                      
     
-     Add user to database and create it on the system.
-     users will have default passwords, certificates, etc, ..
+     Add user to the container, so that they have their own files, email accouns, and so on.
+     users will have a default password, and a directory structure in the container home.
     
    /srv/codepad-project/modules/ve/commands/status.sh
    status                                List container status parameters               
     
     
-# 87 srvctl-3.1.2.2 
+# 91 srvctl-3.1.2.6 
 ```

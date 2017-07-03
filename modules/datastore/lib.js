@@ -62,15 +62,14 @@ exports.hosts = hosts;
 
 function load_users() {
     try {
-        var users = JSON.parse(fs.readFileSync(SC_USERS_DATA_FILE));
-        if (users.root === undefined) {
-            users.root = {};
-            users.root.id = 0;
-            users.root.uid = 0;
-            users.root.reseller = 'root';
-            users.root.is_reseller_id = 0;
-        }
-        return users;
+        return JSON.parse(fs.readFileSync(SC_USERS_DATA_FILE));
+        //if (users.root === undefined) {
+        //    users.root = {};
+        //    users.root.id = 0;
+        //    users.root.uid = 0;
+        //    users.root.reseller = 'root';
+        //    users.root.is_reseller_id = 0;
+        //}
 
     } catch (err) {
         return_error('READFILE ' + SC_USERS_DATA_FILE + ' ' + err);
@@ -88,8 +87,7 @@ function load_resellers() {
         if (users[i].is_reseller_id !== undefined)
             resellers[i] = users[i];
     });
-
-    return resellers;
+    return resellers;    
 }
 
 var resellers = load_resellers();
@@ -138,6 +136,15 @@ function write_containers() {
 
 exports.write_containers = function() {
     write_containers();
+};
+
+function container_uid(container) {
+    var cipa = container.ip.split(dot);
+    return 65536 * ((Number(cipa[2]) * 255) + Number(cipa[3]));
+}
+
+exports.container_uid = function(container) {
+    return container_uid(container);
 };
 
 function container_bridge_address(container) {

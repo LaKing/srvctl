@@ -6,9 +6,10 @@ After installation there should be a main-command available called srvctl or in 
 
 Installation:
 Srvctl 3 is designed for a standard fedora server edition. It may work on similar distros. Containers may use other distributions. 
-A srvctl host should have glusterfs for data storage. While installing your operating system, create one extra XFS partition mounted on /glu/srvctl-data, that will store certificates, passwords, and littée other sensitive data. 
+A srvctl host should have glusterfs for data storage. While installing your operating system, create one extra XFS partition mounted on /glu/srvctl-data, that will store certificates, passwords, and other sensitive data. 
 Beside that smaller partition create an extra partition, preferably on a seperate drive for data storage, such as static file service or ftp. It should be mounted on /glu/srvtl-storage 
-It is advisable to create separate partitions for directories such as /var/log and /home so that the primary root partition wont get full at any time.
+It is advisable to create separate partitions for directories such as /var/log and /home so that the primary root partition wont get full at any time. 
+Users and UID/GID numbers have to be consistent across the clustered servers, therefore, don't create any users. 
 Setting a hostname is mandatory. Needless to say, you mostly have to operate as root. Also, correct DNS entries (forward and reverse) and NTP are essential.
 As root, clone the repo and create some symlinks for it.
 ```
@@ -34,7 +35,7 @@ Each server has to have a unique HOSTNET id between 1..16 for the server cluster
 By convention, each host should be prefixed with a two digit host identifier on your company domain.
 
 10.0.0.0 - 10.14.255.255 - reserved for external networks and openvpn connections outside of srvctl
-10.15.x.y - reserved for openvpn hostnet-network - connections from host to host. Openvpn connections created from every server to every server, thus x is the server hostnet y the client hostnet on a particlar host. On the server-side interfaces x is always equal to y. 
+10.15.x.y - reserved for openvpn hostnet-network - connections from host to host. Openvpn connections created from every server to every server, thus x is the server hostnet y the client hostnet on a particlar host. On the server-side interfaces x and y is always equal to the HOSTNET value. 
 
 Container networks:
 
@@ -86,8 +87,8 @@ The datastore
 
 Srvctl maintains configuration data in json files. These files may reside at the following locations
 /etc/srvctl/data - static configuration files
-/var/srvctl3/datastore/ro - readonly, fallback 
-/var/srvctl3/datastore/rw - readwrite gluster data volume
+/var/srvctl3/datastore - readwrite gluster data volume (/var/srvctl3/gluster/srvctl-data as readonly fallback)
+
 
 Accessing the VE
 

@@ -32,6 +32,8 @@ function check_container_directories() {
         if [[ -d $D ]]
         then
             local C
+            
+            ## strip /srv
             C="${D:5}"
             
             if [[ "$(get container "$C" exist)" != true ]]
@@ -60,6 +62,11 @@ function check_container_directories() {
                         create_nspawn_container_network "$C" "$T"
                     fi
                 fi
+            fi
+            
+            if [[ ! -f "/srv/$C/$C.nspawn" ]]
+            then
+                create_nspawn_container_settings "$C"
             fi
         fi
     done

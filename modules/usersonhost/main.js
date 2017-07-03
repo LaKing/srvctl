@@ -119,10 +119,10 @@ function make_share(u, c) {
 
 Object.keys(users).forEach(function(u) {
     if (u === root) return;
-
     if (!rok("id " + u)) {
-        run("adduser " + u);
+        run("adduser -U -c " + users[u].name + " -u " + users[u].uid + " " + u);
     }
+    
 });
 
 Object.keys(containers).forEach(function(c) {

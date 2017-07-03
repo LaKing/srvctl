@@ -7,6 +7,7 @@
         "dns1": "192.168.88.1",
         "dns2": "8.8.8.8",
         "hostnet": 1,
+        "cluster": 1,
         "dns_server": "master",
         "reverse_proxy": "pound"
     },
@@ -18,10 +19,11 @@
         "dns1": "192.168.88.1",
         "dns2": "8.8.8.8",
         "hostnet": 2,
+        "cluster": 1,
         "dns_server": "slave",
         "reverse_proxy": "pound"
     },
     "srvctl-devel" : {
-        "dev_server": true 
+        "cluster": 20
     }
 }

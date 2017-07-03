@@ -1,16 +1,26 @@
 #!/bin/bash
 
 function create_nspawn_container_settings {
+    
+    
+    
     local C bridge
     C="$1"
-    bridge="$2"
+    br="$2"
+    if [[ -z $br ]]
+    then
+        br="$(get container "$C" br)" || exit
+    fi
+    uid="$(get container "$C" uid)"
+    
+    msg "Create nspawn container settings for $C $br ($uid)"
     
 cat > "/srv/$C/$C.nspawn" << EOF
 [Network]
-Bridge=$bridge
+Bridge=$br
 
 [Exec]
-PrivateUsers=pick
+PrivateUsers=$uid
 
 [Files]
 PrivateUsersChown=true

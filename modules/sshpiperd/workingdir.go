@@ -41,7 +41,7 @@ func init() {
         // srvctl -  we use this custom regexp
         usernameRule, _ = regexp.Compile("^[a-z][-a-z0-9\\.]{0,31}_[-a-z0-9\\.]{0,256}_[-a-z0-9]{0,31}$")
         
-        logger.Printf("sshpiperd modified for srvctl3 (SRVCTL_VERSION)")
+        logger.Printf("sshpiperd modified for srvctl3 (@SRVCTL_VERSION)")
 }
 
 func userSpecFile(user, file string) string {

@@ -84,6 +84,10 @@ function copy_user_key(c,u) {
     if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir);
     }
+    dir = SC_DATASTORE_DIR + "/users/" + u;
+    if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir);
+    }
     var files = fs.readdirSync(SC_DATASTORE_DIR + "/users/" + u);
     
     var pub;

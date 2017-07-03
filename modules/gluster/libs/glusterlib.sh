@@ -128,6 +128,24 @@ function gluster_mount_data() { ## datadir mountdir
     datadir="$1"
     mountdir="$2" ## SC_DATASTORE_RW_DIR
     
+    ## first of all make sur ethere is a brick
+    if [[ ! -d "/glu/$datadir/brick" ]]
+    then
+        err "There is no brick for $datadir"
+        return
+    fi
+    
+    ## we create the ro bindmount to access data, even if gluster is not working for some reason, files will reside here if they were before
+    if mount | grep " on /var/srvctl3/gluster/$datadir" > /dev/null
+    then
+        debug "The readonly brick for $datadir is mounted"
+    else
+        run mkdir -p "/var/srvctl3/gluster/$datadir"
+        run mount "/glu/$datadir/brick" "/var/srvctl3/gluster/$datadir" -o bind,ro
+        run mount "/var/srvctl3/gluster/$datadir" -o remount,ro,bind
+    fi
+    
+    
     ## assumes that datastore is initialized first
     
     if ! mount | grep "$HOSTNAME:/$datadir on $mountdir type fuse.glusterfs" > /dev/null

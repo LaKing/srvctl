@@ -126,6 +126,8 @@ if (DAT === 'container') {
                 else
                 if (OPA === 'https_port') return_value(datastore.container_https_port(container));
                 else
+                if (OPA === 'uid') return_value(datastore.container_uid(container));
+                else
                     return_value(container[OPA]);
             }
 

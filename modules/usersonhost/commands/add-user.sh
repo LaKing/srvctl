@@ -1,7 +1,7 @@
 #!/bin/bash
 
 ## @@@ add-user USERNAME
-## @en Add user to the systems
+## @en Add user to the host cluster
 ## &en Add user to database and create it on the system.
 ## &en users will have default passwords, certificates, etc, ..
 
@@ -18,11 +18,7 @@ if ! [[ "$username" =~ ([a-z_][a-z0-9_]{2,30}) ]]
 then
     err "Invalid username: $username"
     exit 22
-fi
-
-# shellcheck disable=SC2154
-if $SC_USE_DATASTORE
-then
+else
     
     if [[ "$(get user "$username" exist)" == true ]]
     then
@@ -36,21 +32,4 @@ then
     reseller="$(get user "$username" reseller)"
     ntc "Reseller for $username is: $reseller"
     
-else
-    
-    if id -u "$username" > /dev/null 2>&1
-    then
-        err "User $username already exist."
-        return
-    fi
-    
-    password="$(new_password)"
-    ntc "Password for $username is: $password"
-    
-    adduser "$username"
-    echo "$password" | passwd "$username" --stdin 2> /dev/null 1> /dev/null
-    echo -e "$password" > "$(getent passwd "$username" | cut -f6 -d:)/.password"
-    
 fi
-
-
