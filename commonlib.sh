@@ -409,7 +409,7 @@ function test_srvctl_modules() {
     
     if [[ -f $conf ]]
     then
-        source $conf
+        source "$conf"
     fi
     
 }

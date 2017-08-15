@@ -65,26 +65,7 @@ fi
 ## LOAD CONFIGs
 ## source custom configurations
 
-
-
-test_srvctl_modules
-
-
-
-for sourcefile in /etc/srvctl/*.conf
-do
-    debug "@conf $sourcefile"
-    [[ -f $sourcefile ]] && source "$sourcefile"
-    
-done
-
-debug "init@run_hook pre-init"
-run_hook "pre-init-$CMD"
-run_hook pre-init
-
 source /etc/os-release
-
-## homedir=$( getent passwd "$USER" | cut -d: -f6 )
 
 
 if [[ $USER == root ]] && [[ -z $SUDO_USER ]]
@@ -126,12 +107,28 @@ export SC_USER
 export SC_ROOT
 export SRVCTL
 
+for sourcefile in /etc/srvctl/*.conf
+do
+    debug "@conf $sourcefile"
+    [[ -f $sourcefile ]] && source "$sourcefile"
+    
+done
+
+
+## load root and user modules
+test_srvctl_modules
+
+debug "init@run_hook pre-init"
+run_hook "pre-init-$CMD"
+run_hook pre-init
+
 ## breakout to help-only
 if [[ $CMD == "man" ]] || [[ $CMD == "help" ]] || [[ $CMD == "-help" ]] || [[ $CMD == "--help" ]]
 then
     help_commands
     exit_0
 fi
+
 
 ## load libs for running commands
 debug "init@Load libs"
