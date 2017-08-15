@@ -77,11 +77,6 @@ readonly SRVCTL
 
 source "$SC_INSTALL_DIR/init.sh" || echo "Init could not be loaded!" 1>&2
 
-if [[ ! -f /var/local/srvctl/commands.spec ]]
-then
-    make_commands_spec
-fi
-
 debug " == run_command srvctl $CMD $ARG == "
 run_command
 
