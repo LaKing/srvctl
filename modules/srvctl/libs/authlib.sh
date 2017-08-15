@@ -10,6 +10,16 @@ function root_only {
     fi
 }
 
+function reseller_only {
+    if get user "$SC_USER" reseller_id
+    then
+        return 0
+    else
+        err "Resellers only."
+        exit 44
+    fi
+}
+
 function argument {
     if [[ -z $ARG ]]
     then

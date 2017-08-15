@@ -1,126 +1,151 @@
 {
     "root": {
-        "is_reseller_id": 0,
+        "reseller_id": 0,
+        "user_id": 0,
         "uid" : 0,
         "name": "root"       
     },
     "a": {
-        "is_reseller_id": 1,
+        "reseller_id": 1,
+        "user_id": 1,
         "uid" : 1001,
         "name": "Alpha"
     },
     "b": {
-        "is_reseller_id": 2,
+        "reseller_id": 2,
+        "user_id": 2,
         "uid" : 1002,
         "name": "Bravo"
     },
     "c": {
-        "is_reseller_id": 3,
+        "reseller_id": 3,
+        "user_id": 3,
         "uid" : 1003,
         "name": "Charlie"
     },
     "d": {
-        "is_reseller_id": 4,
+        "reseller_id": 4,
+        "user_id": 4,
         "uid" : 1004,
         "name": "Delta"
     },
     "e": {
-        "is_reseller_id": 5,
+        "reseller_id": 5,
+        "user_id": 5,
         "uid" : 1005,
         "name": "Echo"
     },
     "f": {
-        "is_reseller_id": 6,
+        "reseller_id": 6,
+        "user_id": 6,
         "uid" : 1006,
         "name": "Foxtrot"
     },
     "g": {
-        "is_reseller_id": 7,
+        "reseller_id": 7,
+        "user_id": 7,
         "uid" : 1007,
         "name": "Golf"
     },
     "h": {
-        "is_reseller_id": 8,
+        "reseller_id": 8,
+        "user_id": 8,
         "uid" : 1008,
         "name": "Hotel"
     },
     "i": {
-        "is_reseller_id": 9,
+        "reseller_id": 9,
+        "user_id": 9,
         "uid" : 1009,
         "name": "India"
     },
     "j": {
-        "is_reseller_id": 10,
+        "reseller_id": 10,
+        "user_id": 10,
         "uid" : 1010,
         "name": "Juliett"
     },
     "k": {
-        "is_reseller_id": 11,
+        "reseller_id": 11,
+        "user_id": 11,
         "uid" : 1011,
         "name": "Kilo"
     },
     "l": {
-        "is_reseller_id": 12,
+        "reseller_id": 12,
+        "user_id": 12,
         "uid" : 1012,
         "name": "Lima"
     },
     "m": {
-        "is_reseller_id": 13,
+        "reseller_id": 13,
+        "user_id": 13,
         "uid" : 1013,
         "name": "Mike"
     },
     "n": {
-        "is_reseller_id": 14,
+        "reseller_id": 14,
+        "user_id": 14,
         "uid" : 1014,
         "name": "November"
     },
     "o": {
-        "is_reseller_id": 15,
+        "reseller_id": 15,
+        "user_id": 15,
         "uid" : 1015,
         "name": "Oscar"
     },
     "p": {
-        "is_reseller_id": 16,
+        "reseller_id": 16,
+        "user_id": 16,
         "uid" : 1016,
         "name": "Papa"
     },
     "q": {
-        "is_reseller_id": 17,
+        "reseller_id": 17,
+        "user_id": 17,
         "uid" : 1017,
         "name": "Quebec"
     },
     "r": {
-        "is_reseller_id": 18,
+        "reseller_id": 18,
+        "user_id": 18,
         "uid" : 1018,
         "name": "Romeo"
     },
     "s": {
-        "is_reseller_id": 19,
+        "reseller_id": 19,
+        "user_id": 19,
         "uid" : 1019,
         "name": "Sierra"
     },
     "t": {
-        "is_reseller_id": 20,
+        "reseller_id": 20,
+        "user_id": 20,
         "uid" : 1020,
         "name": "Tango"
     },
     "u": {
-        "is_reseller_id": 21,
+        "reseller_id": 21,
+        "user_id": 21,
         "uid" : 1021,
         "name": "Uniform"
     },
     "v": {
-        "is_reseller_id": 22,
+        "reseller_id": 22,
+        "user_id": 22,
         "uid" : 1022,
         "name": "Viktor"
     },
     "w": {
-        "is_reseller_id": 23,
+        "reseller_id": 23,
+        "user_id": 23,
         "uid" : 1023,
         "name": "Whisky"
     },
     "x": {
-        "is_reseller_id": 24,
+        "reseller_id": 24,
+        "user_id": 24,
         "uid" : 1024,
         "name": "Xray"
     }

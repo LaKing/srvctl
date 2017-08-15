@@ -6,7 +6,7 @@ function publish_data() {
     ## simple rsync based data syncronization
     
     local hostlist
-    hostlist="$(cfg system host_list)"
+    hostlist="$(cfg cluster host_list)"
     
     for host in $hostlist
     do
@@ -60,14 +60,12 @@ function init_datastore_install() {
     mkdir -p "$SC_DATASTORE_RW_DIR"
     mkdir -p /etc/srvctl/data
     
-    if [[ ! -f /etc/srvctl/data/hosts.json ]]
-    then
-        echo '{}' > /etc/srvctl/data/hosts.json
-    fi
     
     ## hosts.json is more or less static data
-    cat /etc/srvctl/data/hosts.json > "$SC_DATASTORE_DIR/hosts.json"
-    
+    if ! [[ -f "$SC_DATASTORE_DIR/hosts.json" ]]
+    then
+        cat /etc/srvctl/hosts.json > "$SC_DATASTORE_DIR/hosts.json"
+    fi
     
     if ! [[ -f "$SC_DATASTORE_DIR/containers.json" ]]
     then

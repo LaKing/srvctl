@@ -3,7 +3,7 @@
 function regenerate_etc_postfix_relaydomains() {
     if [[ -d /etc/postfix/ ]]
     then
-        cfg system postfix_relaydomains
+        cfg cluster postfix_relaydomains
     fi
 }
 

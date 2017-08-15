@@ -20,10 +20,10 @@ cat > "/srv/$C/$C.nspawn" << EOF
 Bridge=$br
 
 [Exec]
-PrivateUsers=$uid
+#PrivateUsers=$uid
 
 [Files]
-PrivateUsersChown=true
+#PrivateUsersChown=true
 BindReadOnly=$SC_INSTALL_DIR
 BindReadOnly=/var/srvctl3/share/containers/$C
 BindReadOnly=/var/srvctl3/share/common

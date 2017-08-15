@@ -2,5 +2,5 @@
 
 
 msg "-- hosts.json --"
-cat /etc/srvctl/data/hosts.json
+cat /etc/srvctl/hosts.json
 

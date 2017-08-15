@@ -1,7 +1,7 @@
 #!/bin/bash
 
 function hs_only {
-    if [[ $SC_HOSTNET ]]
+    if $SC_ON_HS
     then
         return 0
     else
@@ -11,7 +11,7 @@ function hs_only {
 }
 
 function ve_only {
-    if $SC_USE_VE
+    if $SC_ON_VE
     then
         return 0
     else

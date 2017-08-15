@@ -18,7 +18,7 @@ then
         return
     fi
     
-    if [[ -f /etc/srvctl/data/hosts.json ]] && grep --quiet "\"$HOSTNAME\"" /etc/srvctl/data/hosts.json
+    if [[ -f /etc/srvctl/hosts.json ]] && grep --quiet "\"$HOSTNAME\"" /etc/srvctl/hosts.json
     then
         echo true
         return

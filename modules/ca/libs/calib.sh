@@ -166,7 +166,7 @@ function create_ca_certificate { ## type net name
             if [[ ! -z "$_passphrase" ]]
             then
                 
-                ntc "create $_file p12 ($_passphrase)"
+                ntc "create $_file p12"
                 
                 run openssl pkcs12 -export \
                 -passout pass:"$_passphrase" \
@@ -175,7 +175,6 @@ function create_ca_certificate { ## type net name
                 -out "$SC_ROOTCA_DIR/$_net/$_file.p12"
                 
                 echo "$_passphrase ($NOW)" > "$SC_ROOTCA_DIR/$_net/$_file.pass"
-                cat "$SC_ROOTCA_DIR/$_net/$_file.pass"
                 
             fi
             

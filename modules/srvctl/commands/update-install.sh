@@ -1,10 +1,11 @@
 #!/bin/bash
 
-root_only #|| return 244
 ## @@@ update-install [HOSTNAME]
 ## @en Run the installation/update script.
 ## &en Update/Install all components
 ## &en On host systems install the containerfarm
+
+root_only
 
 if [[ ! -f /etc/srvctl/debug.conf ]]
 then
@@ -51,7 +52,7 @@ if $SC_USE_CONTAINERS
 then
     mkdir -p /var/srvctl3/ssh
     mkdir -p ~/.ssh
-    for host in $(cfg system host_list)
+    for host in $(cfg cluster host_list)
     do
         msg "ssh-keyscan $host"
         ssh-keyscan "$host" >> ~/.ssh/known_hosts

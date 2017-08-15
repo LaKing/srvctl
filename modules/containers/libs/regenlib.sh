@@ -2,7 +2,7 @@
 
 function regenerate_all_hosts() {
     
-    for host in $(cfg system host_list)
+    for host in $(cfg cluster host_list)
     do
         msg "regenerate $host"
         if [[ $host == "$HOSTNAME" ]]
@@ -20,7 +20,7 @@ function regenerate_all_hosts() {
 }
 
 function regenerate_etc_hosts() {
-    cfg system etc_hosts
+    cfg cluster etc_hosts
     #> /etc/hosts
 }
 
@@ -75,7 +75,7 @@ function check_container_directories() {
 function check_container_database() {
     msg "Checking for containers in the database"
     local container_list h
-    container_list="$(cfg system container_list)"
+    container_list="$(cfg cluster container_list)"
     for C in $container_list
     do
         h="$(get container "$C" host)"

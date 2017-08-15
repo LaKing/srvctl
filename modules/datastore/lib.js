@@ -10,9 +10,6 @@ const dot = '.';
 const root = 'root';
 const br = '\n';
 
-// netblock size
-const NBC = 16;
-
 if (process.env.SC_USER !== undefined) SC_USER = process.env.SC_USER;
 else SC_USER = process.env.USER;
 
@@ -29,6 +26,7 @@ const SC_ROOT = process.env.SC_ROOT;
 const os =  require('os');
 const HOSTNAME = os.hostname();
 const SC_HOSTNET = Number(process.env.SC_HOSTNET);
+const SC_CLUSTERNAME = process.env.SC_CLUSTERNAME;
 
 
 // includes
@@ -68,7 +66,7 @@ function load_users() {
         //    users.root.id = 0;
         //    users.root.uid = 0;
         //    users.root.reseller = 'root';
-        //    users.root.is_reseller_id = 0;
+        //    users.root.reseller_id = 0;
         //}
 
     } catch (err) {
@@ -81,10 +79,8 @@ exports.users = users;
 
 function load_resellers() {
     var resellers = {};
-    resellers.root = users.root;
-    resellers.root.is_reseller_id = 0;
     Object.keys(users).forEach(function(i) {
-        if (users[i].is_reseller_id !== undefined)
+        if (users[i].reseller_id !== undefined)
             resellers[i] = users[i];
     });
     return resellers;    
@@ -165,17 +161,8 @@ exports.container_bridge_host_ip = function(container) {
     return container_bridge_host_ip(container);
 };
 
-function container_reseller_id(container) {
-    var cipa = container.ip.split(dot);
-    var hostnet = Math.floor(cipa[1] / 16);
-    var resellerid = cipa[1] - (16 * hostnet);
-    return resellerid;
-}
-
 function container_hostnet(container) {
-    var cipa = container.ip.split(dot);
-    var hostnet = Math.floor(cipa[1] / 16);
-    return hostnet;
+    return container.ip.split(dot)[1];
 }
 
 exports.container_hostnet = function(container) {
@@ -199,7 +186,7 @@ exports.container_host = function(container) {
 
 function container_host_ip(container) {
     var hostnet = container_hostnet(container);
-    var ret;
+    var ret = "ERROR datastore/lib.js: container_host_ip not found";
     Object.keys(hosts).forEach(function(i) {
         if (hosts[i].hostnet == hostnet)
             ret = hosts[i].host_ip;
@@ -212,13 +199,8 @@ exports.container_host_ip = function(container) {
 };
 
 function container_reseller_user(container) {
-    var resellerid = container_reseller_id(container);
-    var ret = 'root';
-    Object.keys(resellers).forEach(function(i) {
-        if (resellers[i].is_reseller_id == resellerid)
-            ret = i;
-    });
-    return ret;
+
+    return container;
 }
 
 exports.container_reseller_user = function(container) {
@@ -266,49 +248,67 @@ function find_next_cip_for_container_on_network(network) {
             if (cc >= c) c = cc + 1;
         }
     });
-    if (c > 199) return_error("out of range in find_next_cip_for_container_on_network " + network);
+    if (c > 250) return_error("out of range in find_next_cip_for_container_on_network " + network);
     return c;
 }
-
+/*
 function get_reseller_id(user) {
+    
+    //var user_id = Number(user.user_id);
+    //var reseller_id = 0; 
+    //if (user.reseller === undefined) user.reseller = root;
+    //if (resellers[user.reseller] === undefined) return_error(user.reseller + " could not be located under the list of resellers");
+    //if (resellers[user.reseller].reseller_id === undefined) return_error(user.reseller + " RESELLER_ID could not be located.");
+    //reseller_id = Number(resellers[user.reseller].reseller_id);
+    
     if (users[user].reseller === undefined) return 0;
-    var n = Number(resellers[users[user].reseller].is_reseller_id);
+    var n = Number(resellers[users[user].reseller].reseller_id);
     if (n >= 0) return n;
     else return_error("failed to find reseller id");
 }
+*/
 
 function get_user_id() {
-    var ret = Number(users[SC_USER].id);
+    //if (users[SC_USER].reseller_id !== undefined) return_error("Could not find reseller_id for " + SC_USER);
+    var ret = Number(users[SC_USER].user_id);
     if (ret === undefined) return_error("failed to find user id");
     return ret;
 }
 
-function get_user_uid(user) {
-    if (user.uid !== undefined) return user.uid;
+// username actually
+function get_user_uid(u) {
+    if (users[u] === undefined) return_error("User could not be located");
+    if (users[u].uid !== undefined) return users[u].uid;
 
-    var userid = Number(user.id);
-    var resellerid = Number(resellers[user.reseller].is_reseller_id);
-    if (userid >= 0 && resellerid >= 0) return 10000 + resellerid * 1000 + userid;
-    else return_error("failed to find user id/uid");
+
+    var ret = 1000;
+    Object.keys(users).forEach(function(i) {
+        if (Number(users[i].uid) >= ret) ret = Number(users[i].uid) + 1;
+    });
+    
+    if (ret > 65530) return_error("Could not find a valid user uid, out of range. " + user);
+    users[u].uid = ret;
+    write_users();
+    return ret;
 }
 
-exports.get_user_uid = function(user) {
-    return get_user_uid(user);
+exports.get_user_uid = function(u) {
+    return get_user_uid(u);
 };
 
-function get_next_user_id(reseller) {
+// users uid is between 1000 and 10000
+function get_next_user_id() {
     var ret = 1;
     Object.keys(users).forEach(function(i) {
-        if (users[i].reseller === reseller)
-            if (Number(users[i].id) >= ret) ret = Number(users[i].id) + 1;
+        if (Number(users[i].user_id) >= ret) ret = Number(users[i].user_id) + 1;
     });
-    if (ret > 250) return_error("Out of range. Can not allocate user id for reseller " + reseller);
+    if (ret > 255) return_error("Out of range. Can not allocate user_id");
     else return ret;
 }
 
 function find_ip_for_container() {
 
-    var a = (16 * SC_HOSTNET) + get_reseller_id(SC_USER);
+    var a = SC_HOSTNET;
     var b = get_user_id();
     var c = find_next_cip_for_container_on_network('10.' + a + dot + b + dot + 'x');
 
@@ -321,13 +321,14 @@ function new_user(username) {
     user.added_by_username = SC_USER;
     user.added_on_datestamp = NOW;
 
-    user.reseller = users[SC_USER].reseller;
+    
+    if (users[SC_USER].reseller_id === undefined) return_error('MISSING RESELLER_ID');
 
-    user.id = get_next_user_id(user.reseller);
-
+    user.reseller = SC_USER;
+    user.user_id = get_next_user_id();
     users[username] = user;
 
-    write_users();
+    get_user_uid(username);
 }
 
 exports.new_user = function(username) {
@@ -341,59 +342,20 @@ function new_reseller(username) {
     user.added_on_datestamp = NOW;
     
     user.reseller = username;
-    user.id = 0;
     var rid = 1;
     Object.keys(users).forEach(function(i) {
-        if (users[i].is_reseller_id >= rid) rid = users[i].is_reseller_id + 1;
+        if (users[i].reseller_id >= rid) rid = users[i].reseller_id + 1;
     });
-    user.is_reseller_id = rid;
+    user.reseller_id = rid;
     
     users[username] = user;
-    //save_users = true;
-    write_users();
+
+    get_user_uid(username);
 }
 
 exports.new_reseller = function(username) {
     new_reseller(username);
 };
-
-function add_project_to_user(P, U) {
-    if (users[U] === undefined) new_user(U);
-    var user = users[U];
-    if (user.projects === undefined) user.projects = {};
-    var projects = user.projects;
-    if (projects[P] === undefined) {
-        var project = {};
-        project.containers = [];
-        //save_users = true;
-        write_users();
-        return project;
-    }
-
-    return projects[P];
-}
-
-function add_container_to_user(C, U) {
-    if (users[U] === undefined) new_user(U);
-    var user = users[U];
-    if (user.projects === undefined) user.projects = {};
-
-    var user_has_it = false;
-    Object.keys(user.projects).forEach(function(i) {
-        var p = user.projects[i];
-        // if this project has this container
-        if (p.containers !== undefined && p.containers.indexOf(C) > -1) user_has_it = true;
-    });
-
-    if (user_has_it) return;
-
-    // new project, new container ...
-    var project = add_project_to_user(C, U);
-    project.containers.push(C);
-    //save_users = true;
-    write_users();
-
-}
 
 function new_container(C, T) {
 
@@ -401,8 +363,6 @@ function new_container(C, T) {
 
     var container = {};
     var U = SC_USER;
-
-    add_container_to_user(C, U);
 
     container.user = U;
 
@@ -421,7 +381,7 @@ exports.new_container = function(C, T) {
     new_container(C, T);
 };
 
-function system_etc_hosts() {
+function cluster_etc_hosts() {
     var str = '';
     str += "## srvctl generated" + br;
     str += "127.0.0.1    localhost.localdomain localhost" + br;
@@ -444,11 +404,11 @@ function system_etc_hosts() {
     });
 }
 
-exports.system_etc_hosts = function() {
-    system_etc_hosts();
+exports.cluster_etc_hosts = function() {
+    cluster_etc_hosts();
 };
 
-function system_postfix_relaydomains() {
+function cluster_postfix_relaydomains() {
     var str = '';
     Object.keys(hosts).forEach(function(i) {
         str += i + ' #' + br;
@@ -459,12 +419,12 @@ function system_postfix_relaydomains() {
     });
 }
 
-exports.system_postfix_relaydomains = function() {
-    system_postfix_relaydomains();
+exports.cluster_postfix_relaydomains = function() {
+    cluster_postfix_relaydomains();
 };
 
 
-function system_host_keys() {
+function cluster_host_keys() {
     var str = '';
     Object.keys(hosts).forEach(function(i) {
         Object.keys(hosts[i]).forEach(function(j) {
@@ -482,11 +442,11 @@ function system_host_keys() {
     });
 }
 
-exports.system_host_keys = function() {
-    system_host_keys();
+exports.cluster_host_keys = function() {
+    cluster_host_keys();
 };
 
-function system_user_list() {
+function cluster_user_list() {
     var str = '';
     Object.keys(users).forEach(function(i) {
         str += i + ' ';
@@ -494,12 +454,12 @@ function system_user_list() {
     return str;
 }
 
-exports.system_user_list = function() {
-    return system_user_list();
+exports.cluster_user_list = function() {
+    return cluster_user_list();
 };
 
 
-function system_container_list() {
+function cluster_container_list() {
     var str = '';
     Object.keys(containers).forEach(function(i) {
         str += i + ' ';
@@ -507,8 +467,8 @@ function system_container_list() {
     return str;
 }
 
-exports.system_container_list = function() {
-    return system_container_list();
+exports.cluster_container_list = function() {
+    return cluster_container_list();
 };
 
 function user_container_list() {
@@ -524,7 +484,7 @@ exports.user_container_list = function() {
     return user_container_list();
 };
 
-function system_host_list() {
+function cluster_host_list() {
     var str = '';
     Object.keys(hosts).forEach(function(i) {
         str += i + ' ';
@@ -532,11 +492,11 @@ function system_host_list() {
     return str;
 }
 
-exports.system_host_list = function() {
-    return system_host_list();
+exports.cluster_host_list = function() {
+    return cluster_host_list();
 };
 
-function system_host_ip_list() {
+function cluster_host_ip_list() {
     var str = '';
     Object.keys(hosts).forEach(function(i) {
         if (hosts[i].host_ip !== undefined) str += hosts[i].host_ip + ' ';
@@ -544,8 +504,8 @@ function system_host_ip_list() {
     return str;
 }
 
-exports.system_host_ip_list = function() {
-    return system_host_ip_list();
+exports.cluster_host_ip_list = function() {
+    return cluster_host_ip_list();
 };
 
 

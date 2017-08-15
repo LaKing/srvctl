@@ -30,20 +30,7 @@ const $BLUE='\x1b[34m';
 const $GRAY='\x1b[37m';
 const $CLEAR='\x1b[37m';
 const $TAG = $BLUE + '[ ' + HOSTNAME.split('.')[0] + ' ]';
-
-String.prototype.padding = function(n, c){
-        var val = this.valueOf();
-        if ( Math.abs(n) <= val.length ) {
-                return val;
-        }
-        var m = Math.max((Math.abs(n) - this.length) || 0, 0);
-        var pad = Array(m + 1).join(String(c || ' ').charAt(0));
-//      var pad = String(c || ' ').charAt(0).repeat(Math.abs(n) - this.length);
-        return (n < 0) ? pad + val : val + pad;
-//      return (n < 0) ? val + pad : pad + val;
-
-};
-        
+const SC_INSTALL_DIR = process.env.SC_INSTALL_DIR;
 
 exports.msg = function msg(str) {
      console.log($TAG + $GREEN, str, $CLEAR);   
@@ -53,15 +40,15 @@ exports.ntc = function ntc(str) {
      console.log($YELLOW, str, $CLEAR);   
 };
 exports.err = function err(str) {
-     console.log($RED +'ERROR', str, $CLEAR);   
+     console.log($RED +'JS-ERROR', str, $CLEAR);   
 };
 
 exports.get = function get(cmd) {
     try {
-        var result = execSync(cmd).toString();
+        var result = execSync(cmd,{shell: "/bin/bash"}).toString();
         if (result.length > 0) return result;
     } catch (e) {
-        console.log($RED +'ERROR', e.stderr.toString(), $CLEAR);
+        console.log($RED +'JS-ERROR', e.stderr.toString(), $CLEAR);
     }
 };
 
@@ -69,17 +56,19 @@ exports.get = function get(cmd) {
 exports.run = function run(cmd) {
     try {
         console.log($BLUE + '[' + process.env.USER + '@' + HOSTNAME + ' ' + process.env.PWD.split('/')[process.env.PWD.split('/').length -1] +']#' + $YELLOW , cmd, $CLEAR);
-        var result = execSync(cmd).toString();
+        var result = execSync(cmd,{shell: "/bin/bash"}).toString();
         if (result.length > 0) console.log(result);
     } catch (e) {
-        console.log($RED +'ERROR', e.stderr.toString(), $CLEAR);
+        var stderr = '';
+        if (e.stderr !== undefined ) stderr =  e.stderr.toString();
+        console.log($RED +'JS-ERROR lablib.js run ' + cmd, stderr, $CLEAR);
     }
 };
 
 
 exports.rok = function check(cmd) {
     try {
-        var result = execSync(cmd + ' 2> /dev/null');
+        var result = execSync(cmd + ' 2> /dev/null',{shell: "/bin/bash"});
         return true;
     } catch (e) {
         /// exit code
@@ -91,3 +80,15 @@ exports.rok = function check(cmd) {
     }
 };
 
+exports.exec_function = function run(cmd) {
+    try {
+        console.log($GREEN , cmd, $CLEAR);
+        var prefix = SC_INSTALL_DIR + "/srvctl.sh exec-function ";
+        var result = execSync(prefix + cmd,{shell: "/bin/bash"}).toString();
+        if (result.length > 0) console.log(result);
+    } catch (e) {
+        var stderr = '';
+        if (e.stderr !== undefined ) stderr =  e.stderr.toString();
+        console.log($RED +'ERROR lablib.js exec_function ' + cmd, e, $CLEAR);
+    }
+};

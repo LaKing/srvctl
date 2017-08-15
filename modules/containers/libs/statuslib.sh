@@ -5,7 +5,7 @@ function all_containers() { ## op
     cop="$1"
     if [[ $SC_USER == root ]]
     then
-        list="$(cfg system container_list)" || exit 15
+        list="$(cfg cluster container_list)" || exit 15
     else
         list="$(cfg user container_list)" || exit 15
     fi
@@ -74,7 +74,7 @@ function bash_containers_status() {
     local list
     if [[ $SC_USER == root ]]
     then
-        list="$(cfg system container_list)" || exit 15
+        list="$(cfg cluster container_list)" || exit 15
     else
         list="$(cfg user container_list)" || exit 15
     fi
@@ -100,7 +100,7 @@ function check_hosts_connectivity() {
     ## simple rsync based data syncronization
     msg "Checking hosts connectivity ..."
     
-    for host in $(cfg system host_list)
+    for host in $(cfg cluster host_list)
     do
         ntc "connecting ..."
         if [[ "$(ssh -n -o ConnectTimeout=1 "$host" hostname 2> /dev/null)" == "$host" ]]
@@ -118,7 +118,7 @@ function check_containers_connectivity() {
     
     msg "Checking containers connectivity .."
     
-    for container in $(cfg system container_list)
+    for container in $(cfg cluster container_list)
     do
         ntc "connecting to $container ..."
         if [[ "$(ssh -n -o ConnectTimeout=1 "$container" hostname 2> /dev/null)" == "$container" ]]

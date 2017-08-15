@@ -51,8 +51,8 @@ function gluster_configure { ## datadir mountdir
     if [[ -d "/glu/$datadir" ]]
     then
         
-        msg "probing for new peers"
-        for host in $(cfg system host_list)
+        msg "probing gluster peers"
+        for host in $(cfg cluster host_list)
         do
             
             ip="$(get host "$host" host_ip)"
@@ -71,7 +71,7 @@ function gluster_configure { ## datadir mountdir
         
         local list lista
         list=''
-        for host in $(cfg system host_list)
+        for host in $(cfg cluster host_list)
         do
             ip="$(get host "$host" host_ip)"
             hs="$(get host "$host" hostnet)"
@@ -96,16 +96,18 @@ function gluster_configure { ## datadir mountdir
             msg "start volume $datadir"
             
             # shellcheck disable=SC2086
-            run gluster volume create "$datadir" replica ${#lista[@]} $list force
-            
-            run gluster volume set "$datadir" client.ssl on
-            run gluster volume set "$datadir" server.ssl on
-            
-            run gluster volume start "$datadir" force
-            run gluster volume status "$datadir"
-            
-            gluster_mount_data "$datadir" "$mountdir"
-            return $?
+            if run gluster volume create "$datadir" replica ${#lista[@]} $list force
+            then
+                
+                run gluster volume set "$datadir" client.ssl on
+                run gluster volume set "$datadir" server.ssl on
+                
+                run gluster volume start "$datadir" force
+                run gluster volume status "$datadir"
+                
+                gluster_mount_data "$datadir" "$mountdir"
+                return $?
+            fi
             
         else
             msg "gluster volume $datadir ok"
@@ -113,6 +115,9 @@ function gluster_configure { ## datadir mountdir
         fi
         
         ## todo, moumt it permanently
+        
+        ## okay this command will bring back all bricks, if for some reason one should be offline.
+        run gluster volume start "$datadir" force
         
         
     else
@@ -124,7 +129,9 @@ function gluster_configure { ## datadir mountdir
 ## running at init
 function gluster_mount_data() { ## datadir mountdir
     
-    local datadir mountdir
+    [[ $USER == root ]] || return
+    
+    local datadir mountdir check
     datadir="$1"
     mountdir="$2" ## SC_DATASTORE_RW_DIR
     
@@ -133,6 +140,16 @@ function gluster_mount_data() { ## datadir mountdir
     then
         err "There is no brick for $datadir"
         return
+    fi
+    
+    ## make sure all bricks are online
+    check="$(gluster volume status "$datadir" | grep 'N/A       N/A        N       N/A')"
+    if [[ ! -z "$check" ]]
+    then
+        
+        run gluster volume status "$datadir"
+        run gluster volume start "$datadir" force
+        eyif
     fi
     
     ## we create the ro bindmount to access data, even if gluster is not working for some reason, files will reside here if they were before

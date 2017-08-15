@@ -76,6 +76,12 @@ function copy_user_key(c,u) {
     if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir);
     }
+    
+    dir = SC_DATASTORE_DIR + "/users/" + u;
+    if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir);
+    }
+    
     dir = '/var/srvctl3/share/containers/' + c + '/users';
     if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir);
@@ -84,10 +90,7 @@ function copy_user_key(c,u) {
     if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir);
     }
-    dir = SC_DATASTORE_DIR + "/users/" + u;
-    if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir);
-    }
+
     var files = fs.readdirSync(SC_DATASTORE_DIR + "/users/" + u);
     
     var pub;
@@ -104,10 +107,16 @@ function copy_user_key(c,u) {
 }
 
 function remake_ssh_keys(c) {
+    
+    if (containers[c].user === undefined) return;
+    
+    
     // primary user
     copy_user_key(c,containers[c].user);
     
     // reseller
+    if (users[containers[c].user] === undefined) return;
+    if (users[containers[c].user].reseller === undefined) return;
     copy_user_key(c,users[containers[c].user].reseller);
     
 }

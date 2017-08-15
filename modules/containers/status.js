@@ -111,8 +111,10 @@ Object.keys(containers).forEach(function(c) {
     if (containers[c].dns_scan.MX.length === 0) ext += ' MX?';
     if (Object.keys(containers[c].dns_scan.A).length === 0) ext += ' A?';
     if (Object.keys(containers[c].dns_scan.AAAA).length === 0) ext += ' AAAA?';
+    var reseller = containers[c].user;
+    if (users[containers[c].user].reseller !== undefined) reseller = users[containers[c].user].reseller;
     
-    console.log(ping + ' ' + c.tab(32) + ' ' + containers[c].ip.tab(12) + ' ' + containers[c].type.tab(12) + ' ' + containers[c].user.tab(12) + ' ' + datastore.container_reseller_user(containers[c]).tab(12) + ' ' + $RED + ext);
+    console.log(ping + ' ' + c.tab(32) + ' ' + containers[c].ip.tab(12) + ' ' + containers[c].type.tab(12) + ' ' + containers[c].user.tab(12) + ' ' + reseller.tab(12) + ' ' + $RED + ext);
 });
 
 exit();

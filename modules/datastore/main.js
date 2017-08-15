@@ -67,13 +67,13 @@ function output(variable, value) {
 // get or put
 if (CMD === undefined) return_error("MISSING CMD ARGUMENT: get | put | out | cfg | del | new");
 // users or containers
-if (DAT === undefined) return_error("MISSING DAT ARGUMENT: system | user | reseller | container | host");
+if (DAT === undefined) return_error("MISSING DAT ARGUMENT: cluster | user | reseller | container | host");
 // field
 if (ARG === undefined) return_error("MISSING ARG ARGUMENT: containername / username / hostname / query");
 // OPA is optional
 
 if (CMD !== GET && CMD !== PUT && CMD !== OUT && CMD !== CFG && CMD !== DEL && CMD !== NEW) return_error("INVALID CMD ARGUMENT: " + CMD);
-if (DAT !== 'system' && DAT !== 'user' && DAT != 'container' && DAT != 'host' && DAT != 'reseller') return_error("INVALID DAT ARGUMENT: " + DAT);
+if (DAT !== 'cluster' && DAT !== 'user' && DAT != 'container' && DAT != 'host' && DAT != 'reseller') return_error("INVALID DAT ARGUMENT: " + DAT);
 
 // variables
 var user = '';
@@ -167,7 +167,8 @@ if (DAT === 'user') {
         if (users[ARG] === undefined) return_error('USER DONT EXISTS');
         else {
 
-            var user = users[ARG];
+            
+            
 
             if (CMD === PUT) {
                 if (VAL === undefined) users[ARG][OPA] = true;
@@ -177,13 +178,14 @@ if (DAT === 'user') {
             }
 
             if (CMD === GET) {
-                if (OPA === 'uid') return_value(datastore.get_user_uid(user));
-                else
-                return_value(user[OPA]);
+                //if (OPA === 'uid') return_value(datastore.get_user_uid(user));
+                //else
+                return_value(users[ARG][OPA]);
             }
 
             if (CMD == OUT) {
                 output('U', ARG);
+                var user = users[ARG];
                 Object.keys(user).forEach(function(j) {
                     output(j, user[j]);
                 });
@@ -229,15 +231,15 @@ if (DAT === 'host') {
     }
 }
 
-if (DAT === 'system') {
+if (DAT === 'cluster') {
     if (CMD === CFG) {
-        if (ARG === 'etc_hosts') datastore.system_etc_hosts();
-        if (ARG === 'postfix_relaydomains') datastore.system_postfix_relaydomains();
-        if (ARG === 'host_keys') datastore.system_host_keys();
-        if (ARG === 'container_list') return_value(datastore.system_container_list());
-        if (ARG === 'host_list') return_value(datastore.system_host_list());
-        if (ARG === 'host_ip_list') return_value(datastore.system_host_ip_list());
-        if (ARG === 'user_list') return_value(datastore.system_user_list());
+        if (ARG === 'etc_hosts') datastore.cluster_etc_hosts();
+        if (ARG === 'postfix_relaydomains') datastore.cluster_postfix_relaydomains();
+        if (ARG === 'host_keys') datastore.cluster_host_keys();
+        if (ARG === 'container_list') return_value(datastore.cluster_container_list());
+        if (ARG === 'host_list') return_value(datastore.cluster_host_list());
+        if (ARG === 'host_ip_list') return_value(datastore.cluster_host_ip_list());
+        if (ARG === 'user_list') return_value(datastore.cluster_user_list());
         exit();
     }
 

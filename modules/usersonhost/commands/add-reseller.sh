@@ -1,11 +1,11 @@
 #!/bin/bash
 
-## @@@ add-user USERNAME
-## @en Add user to the current cluster
-## &en Create the user in the current cluster datastore and create it on the system.
+## @@@ add-reseller USERNAME
+## @en Add user as reseller to the host cluster
+## &en Add user to the current cluster datastore and create it on the system.
 ## &en users will have default passwords, certificates, etc, ..
 
-reseller_only
+root_only
 
 sudomize
 argument username
@@ -22,13 +22,8 @@ else
     if [[ "$(get user "$username" exist)" == true ]]
     then
         err "User $username already exist."
-        
     else
-        new user "$username"
+        new reseller "$username"
         regenerate_users
     fi
-    
-    reseller="$(get user "$username" reseller)"
-    ntc "Reseller for $username is: $reseller"
-    
 fi

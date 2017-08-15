@@ -11,7 +11,7 @@ function new {
     local __result
     # shellcheck disable=SC2048
     # shellcheck disable=SC2086
-    __result="$(/bin/node $SC_INSTALL_DIR/modules/datastore/data.js new $* 2>&1)"
+    __result="$(/bin/node $SC_INSTALL_DIR/modules/datastore/main.js new $* 2>&1)"
     exif "DATASTORE-ERROR new $* ($?) $__result"
     
     datastore_push "new $*"
@@ -23,7 +23,7 @@ function get {
     
     # shellcheck disable=SC2048
     # shellcheck disable=SC2086
-    __result="$(/bin/node "$SC_INSTALL_DIR/modules/datastore/data.js" get $* 2>&1)"
+    __result="$(/bin/node "$SC_INSTALL_DIR/modules/datastore/main.js" get $* 2>&1)"
     __exitcode="$?"
     
     ## missing otional values signal error 100
@@ -53,7 +53,7 @@ function put {
     local __result
     # shellcheck disable=SC2048
     # shellcheck disable=SC2086
-    __result="$(/bin/node "$SC_INSTALL_DIR/modules/datastore/data.js" put $* 2>&1)"
+    __result="$(/bin/node "$SC_INSTALL_DIR/modules/datastore/main.js" put $* 2>&1)"
     exif "DATASTORE-ERROR put $* ($?) $__result"
     
     datastore_push "put $*"
@@ -64,7 +64,7 @@ function out {
     local __result
     # shellcheck disable=SC2048
     # shellcheck disable=SC2086
-    __result="$(/bin/node "$SC_INSTALL_DIR/modules/datastore/data.js" out $* 2>&1)"
+    __result="$(/bin/node "$SC_INSTALL_DIR/modules/datastore/main.js" out $* 2>&1)"
     exif "DATASTORE-ERROR out $* ($?) $__result"
     
     echo "$__result"
@@ -75,7 +75,7 @@ function cfg {
     local __result
     # shellcheck disable=SC2048
     # shellcheck disable=SC2086
-    __result="$(/bin/node "$SC_INSTALL_DIR/modules/datastore/data.js" cfg $* 2>&1)"
+    __result="$(/bin/node "$SC_INSTALL_DIR/modules/datastore/main.js" cfg $* 2>&1)"
     exif "DATASTORE-ERROR cfg $* ($?) $__result"
     
     echo "$__result"
@@ -86,7 +86,7 @@ function del {
     local __result
     # shellcheck disable=SC2048
     # shellcheck disable=SC2086
-    /bin/node "$SC_INSTALL_DIR/modules/datastore/data.js" del $* 2>&1
+    /bin/node "$SC_INSTALL_DIR/modules/datastore/main.js" del $* 2>&1
     exif "DATASTORE-ERROR del $* ($?) $__result"
     
     datastore_push "del $*"

@@ -1,10 +1,17 @@
 #!/bin/bash
 
+return
+
+## this function has been implemented in node.js in the usersonhost module
+## it is kept temporary for reference
+
 function create_user_client_cert() { ## user
     local user home certfile
     user="$1"
     home="$(getent passwd "$user" | cut -f6 -d:)"
     certfile="$home/$user@$SC_COMPANY_DOMAIN.p12"
+    
+    msg "check & create_user_client_cert for $user"
     
     if [[ -f $certfile ]]
     then
@@ -16,7 +23,13 @@ function create_user_client_cert() { ## user
         create_ca_certificate client usernet "$user"
     fi
     
-    if [[ ! -f "$home/$user@$SC_COMPANY_DOMAIN.p12" ]] && [[ -f "$SC_DATASTORE_DIR/users/$user/$user@$SC_COMPANY_DOMAIN.p12" ]]
+    if [[ ! -f "$SC_DATASTORE_DIR/users/$user/$user@$SC_COMPANY_DOMAIN.p12" ]]
+    then
+        err "no client cert for $user"
+        return
+    fi
+    
+    if [[ ! -f "$home/$user@$SC_COMPANY_DOMAIN.p12" ]]
     then
         cat "$SC_DATASTORE_DIR/users/$user/$user@$SC_COMPANY_DOMAIN.p12" > "$home/$user@$SC_COMPANY_DOMAIN.p12"
         chown "$user:$user" "$home/$user@$SC_COMPANY_DOMAIN.p12"
@@ -28,4 +41,5 @@ function create_user_client_cert() { ## user
         
         msg "Placed p12 client certificate in home folder for $user"
     fi
+    
 }

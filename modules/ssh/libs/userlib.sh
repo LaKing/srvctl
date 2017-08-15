@@ -1,18 +1,22 @@
 #!/bin/bash
+return
 
-function create_user_ssh() { ## user
+## this function has been replaced with a nodejs implementation in the usersonhost module.
+## It is kept here temporary as a reference.
+
+function create_user_ssh() { ## user ## reseller
     
-    local user home
+    local user home reseller
     user="$1"
+    reseller="$1"
     home="$(getent passwd "$user" | cut -f6 -d:)"
     
     msg "create_user_ssh for $user"
     
-    [[ $user == root ]] && return;
-    
-    ## create ssh keypair
-    if [[ ! -f "$SC_DATASTORE_DIR/users/$user/id_rsa" ]] || [[ ! -f "$SC_DATASTORE_DIR/users/$user/srvctl_id_rsa" ]] || [[ ! -f "$home/.ssh/id_rsa" ]]
+    if [[ $user == root ]]
     then
+        return;
+    else
         msg "Update on ssh configuration for $user"
         
         mkdir -p "$SC_DATASTORE_DIR/users/$user"
@@ -38,17 +42,20 @@ function create_user_ssh() { ## user
             exif
         fi
         
-        mkdir -p "$home/.ssh"
-        cat "$SC_DATASTORE_DIR/users/$user/id_rsa.pub" > "$home/.ssh/id_rsa.pub"
-        cat "$SC_DATASTORE_DIR/users/$user/id_rsa" > "$home/.ssh/id_rsa"
+        if [[ ! -f "$home/.ssh/id_rsa" ]]
+        then
+            mkdir -p "$home/.ssh"
+            cat "$SC_DATASTORE_DIR/users/$user/id_rsa.pub" > "$home/.ssh/id_rsa.pub"
+            cat "$SC_DATASTORE_DIR/users/$user/id_rsa" > "$home/.ssh/id_rsa"
+        fi
         
         chown -R "$user:$user" "$home/.ssh"
         chmod -R 600 "$home/.ssh"
         chmod    700 "$home/.ssh"
     fi
     
-    reseller="$(get user "$user" reseller)"
-    if [[ "$reseller" != "$user" ]] && [[ "$reseller" != root ]]
+    
+    if [[ ! -z "$reseller" ]] && [[ "$reseller" != "$user" ]] && [[ "$reseller" != root ]]
     then
         [[ -f "$SC_DATASTORE_DIR/users/$user/reseller_id_rsa.pub" ]] || ln -s "../$reseller/id_rsa.pub" "$SC_DATASTORE_DIR/users/$user/reseller_id_rsa.pub"
         [[ -f "$SC_DATASTORE_DIR/users/$user/reseller_srvctl_id_rsa.pub" ]] || ln -s "../$reseller/srvctl_id_rsa.pub" "$SC_DATASTORE_DIR/users/$user/reseller_srvctl_id_rsa.pub"

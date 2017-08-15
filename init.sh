@@ -49,8 +49,23 @@ then
     done
 fi
 
+if [[ $CMD == update-install ]] && [[ ! -f /etc/srvctl/hosts.json ]]
+then
+    ## this is included inline
+    if [[ -f /etc/srvctl/data/clusters.json ]] && [[ -f /bin/node ]] && [[ -f $SC_INSTALL_DIR/modules/containers/host-conf.js ]]
+    then
+        debug "@init data -> /etc/srvctl/host.conf"
+        /bin/node "$SC_INSTALL_DIR/modules/containers/host-conf.js"
+        exif
+        source /etc/srvctl/host.conf
+    fi
+    
+fi
+
 ## LOAD CONFIGs
 ## source custom configurations
+
+
 
 test_srvctl_modules
 source /var/local/srvctl/modules.conf
@@ -59,8 +74,8 @@ for sourcefile in /etc/srvctl/*.conf
 do
     debug "@conf $sourcefile"
     [[ -f $sourcefile ]] && source "$sourcefile"
+    
 done
-
 
 debug "init@run_hook pre-init"
 run_hook "pre-init-$CMD"
@@ -86,7 +101,7 @@ else
 fi
 
 readonly SC_HOME="$(getent passwd "$SC_USER" | cut -f6 -d:)"
-
+export SC_HOME
 # shellcheck disable=SC2034
 [[ ! $SC_ROOT == true ]] && SC_LOG_DIR=$SC_HOME/.srvctl/log
 

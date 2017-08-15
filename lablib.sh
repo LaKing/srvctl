@@ -162,7 +162,7 @@ function exit_0() {
         exit 0
     fi
     
-    msg "## $SRVCTL"
+    [[ $CMD != "exec-function" ]] &&  msg "## $SRVCTL"
     exit 0
 }
 

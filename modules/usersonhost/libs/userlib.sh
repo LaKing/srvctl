@@ -55,9 +55,13 @@ function crate_user_password() { ## user
 function regenerate_users() {
     
     msg "regenerate users"
+    userscfg
+    
+    return
+    
     
     local userlist password passfile passuser
-    userlist="$(cfg system user_list)"
+    userlist="$(cfg cluster user_list)"
     
     ## optimized for speed, we just check if the user already exists, and perform all the action if not.
     for user in $userlist

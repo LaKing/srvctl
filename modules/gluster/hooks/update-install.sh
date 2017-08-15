@@ -28,7 +28,7 @@ then
     #cat /etc/srvctl/CA/gluster/client-"$HOSTNAME".crt.pem > /etc/ssl/gluster-client.crt.pem
     
     
-    for S in $(cfg system host_list)
+    for S in $(cfg cluster host_list)
     do
         ## ssl gluster certificate
         create_ca_certificate server gluster "$S"
