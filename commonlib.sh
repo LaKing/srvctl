@@ -364,10 +364,18 @@ function help_commands {
 }
 
 function test_srvctl_modules() {
-    if [[ ! -f /var/local/srvctl/modules.conf ]]
+    
+    local conf
+    if [[ $USER == root ]]
     then
-        
-        mkdir -p /var/local/srvctl || return
+        conf=/var/local/srvctl/modules.conf
+    else
+        conf="$SC_HOME/.srvctl/modules.conf"
+        mkdir -p "$SC_HOME/.srvctl"
+    fi
+    
+    if [[ ! -f $conf ]]
+    then
         msg "Srvctl modules configuration"
         
         ## test value / test result on tested module
@@ -389,10 +397,21 @@ function test_srvctl_modules() {
                 ntc "tested module: $tvtm=$trtm"
             fi
             #declare $tv=$tr
-            echo "export $tvtm=$trtm" >> /var/local/srvctl/modules.conf
+            echo "export $tvtm=$trtm" >> "$conf"
         done
         
     fi
+    
+    if [[ -f /var/local/srvctl/modules.conf ]]
+    then
+        source /var/local/srvctl/modules.conf
+    fi
+    
+    if [[ -f $conf ]]
+    then
+        source $conf
+    fi
+    
 }
 
 function set_permissions() {
