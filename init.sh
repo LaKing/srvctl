@@ -4,9 +4,10 @@
 
 [[ -f /etc/srvctl/debug.conf ]] && source /etc/srvctl/debug.conf
 
-if [[ ! -d /etc/srvctl ]]
+if [[ $USER == root ]]
 then
     mkdir -p /etc/srvctl
+    mkdir -p /var/local/srvctl
 fi
 
 ## create startup symlinks for sc and srvctl commands if installed on the standard path
@@ -37,8 +38,6 @@ SC_LOG_DIR=~
 # shellcheck disable=SC2034
 SC_LOG=~/.srvctl.log
 
-mkdir -p /var/local/srvctl
-
 if [[ $CMD == update-install ]]
 then
     rm -fr /var/local/srvctl/modules.conf
@@ -68,7 +67,11 @@ fi
 
 
 test_srvctl_modules
-source /var/local/srvctl/modules.conf
+
+if [[ -f /var/local/srvctl/modules.conf ]]
+then
+    source /var/local/srvctl/modules.conf
+fi
 
 for sourcefile in /etc/srvctl/*.conf
 do
