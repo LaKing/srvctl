@@ -64,9 +64,16 @@ fi
 
 ## LOAD CONFIGs
 ## source custom configurations
+for sourcefile in /etc/srvctl/*.conf
+do
+    debug "@conf $sourcefile"
+    [[ -f $sourcefile ]] && source "$sourcefile"
+    
+done
 
 source /etc/os-release
 
+[[ $SC_ROOT_USERNAME ]] || SC_ROOT_USERNAME='root'
 
 if [[ $USER == root ]] && [[ -z $SUDO_USER ]]
 then
@@ -98,14 +105,6 @@ readonly DEBUG
 export SC_USER
 export SC_ROOT
 export SRVCTL
-
-for sourcefile in /etc/srvctl/*.conf
-do
-    debug "@conf $sourcefile"
-    [[ -f $sourcefile ]] && source "$sourcefile"
-    
-done
-
 
 ## load root and user modules
 test_srvctl_modules

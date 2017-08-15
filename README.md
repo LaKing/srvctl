@@ -1,4 +1,4 @@
-## Srvctl v3 (3.1.3.9)
+## Srvctl v3 (3.1.4.3)
 Under construction, - srvctl is a containerfarm-manager for microsite hosting webservers with fedora as the host operating system. It will help to set up, maintain, and to let a couple of servers work together in order to have a solid web-serving service.
 Version 3 is remake for 2016 mostly using systemd tools, thus using systemd-nspawn as the containerfarm manager. The core is written in bash and javascript, and a modular design allows to extend it with programs. Basically it is a collection of scripts.
 
@@ -107,11 +107,10 @@ There are several options for users to access their VE.
 
 
 ```
-# 23 @conf /etc/srvctl/debug.conf 
-# 27 @conf /etc/srvctl/modules.conf 
+# 21 @conf /etc/srvctl/debug.conf 
+# 23 @conf /etc/srvctl/modules.conf 
 # 32 init@run_hook pre-init 
-# 38 @hook srvctl pre-init 
-# 41 @hook ve pre-init 
+# 36 @hook ve pre-init 
 
 srvctl COMMAND [arguments]              
 
@@ -121,8 +120,8 @@ COMMAND
 
 COMMAND - from root                     
 
-   /root/srvctl-includes/custom-command.sh      
-   custom-command                        A Custom command from root 2017.01.07-12:23:11 
+   /root/srvctl-includes/test.sh                
+   test                                  A Custom command from root 2017.08.15-17:05:03 
     
      This command does something custom, like running a bash script.
      It might be customized further, depending on the author.
@@ -130,6 +129,12 @@ COMMAND - from root
 
 COMMAND - from srvctl                   
 
+   /srv/codepad-project/modules/backup/commands/backup.sh
+   backup                                Run backup scripts                             
+    
+     Run backup scripts
+    
+    
    /srv/codepad-project/modules/containers/commands/add-ve.sh
    add-ve                                Add a fedora container.                        
     
@@ -221,5 +226,5 @@ COMMAND - from srvctl
    status                                List container status parameters               
     
     
-# 158 srvctl-3.1.3.9 
+# 163 srvctl-3.1.4.3 
 ```
