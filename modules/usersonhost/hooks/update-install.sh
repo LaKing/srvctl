@@ -11,21 +11,25 @@ msg "installing User tools"
 sc_install dnf-plugin-system-upgrade
 
 ## vncserver
-sc_install tigervnc-server
+[[ ! -f /usr/bin/vncserver ]] && sc_install tigervnc-server
 
 ## hg
-sc_install hg
+[[ ! -f /usr/bin/hg ]] && sc_install hg
 
 ## fdupes
-sc_install fdupes
+[[ ! -f /usr/bin/fdupes ]] && sc_install fdupes
 
 ## mail
-sc_install mailx
+[[ ! -f /usr/bin/mailx ]] && sc_install mailx
 
 ## ratposion
-sc_install ratpoison
+[[ ! -f /usr/bin/ratpoison ]] && sc_install ratpoison
 
 ## firefox
-sc_install firefox
+[[ ! -f /usr/bin/firefox ]] && sc_install firefox
 
-sc_install ShellCheck
+[[ ! -f /usr/bin/shellcheck ]] && sc_install ShellCheck
+
+[[ ! -f /usr/bin/7z ]] && sc_install p7zip-plugins
+
+## [[ ! -f ]] && sc_install

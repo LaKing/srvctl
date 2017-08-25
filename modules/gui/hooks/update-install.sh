@@ -15,23 +15,23 @@ Group=root
 WantedBy=multi-user.target
 EOF
 
-systemctl daemon-reload
+run systemctl daemon-reload
 
-dnf -y install gcc-c++
+run dnf -y install gcc-c++
 
 cd "$SC_INSTALL_DIR/modules/gui/"
 
 #npm install
 
-npm install -g pty.js
-npm install -g express
-npm install -g socket.io
-npm install -g ssh2
+run npm install -g pty.js
+run npm install -g express
+run npm install -g socket.io
+run npm install -g ssh2
 
-npm install -g angular
-npm install -g bootstrap
-npm install -g angular-ui-bootstrap
-npm install -g angular-sanitize
+run npm install -g angular
+run npm install -g bootstrap
+run npm install -g angular-ui-bootstrap
+run npm install -g angular-sanitize
 
 run systemctl enable srvctl-gui.service
 run systemctl start srvctl-gui.service

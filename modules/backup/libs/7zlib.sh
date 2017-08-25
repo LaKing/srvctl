@@ -11,7 +11,7 @@ fi
 [[ $BACKUP_PATH ]] || BACKUP_PATH="/mnt/backup"
 
 ## backup
-function run_local_container_7z_backup {
+function local_container_7z_backup {
     
     
     local C to
@@ -32,7 +32,7 @@ function run_local_container_7z_backup {
         
         if [[ -f "/srv/$C/rootfs/var/log/dnf.log" ]]
         then
-            run ssh $C "dnf list installed" > "$to/packagelist"
+            run ssh "$C" "dnf list installed" > "$to/packagelist"
         fi
     else
         err "Container is not running."
@@ -40,9 +40,9 @@ function run_local_container_7z_backup {
     
     run find "/srv/$C" -ls > "$to/filelist"
     
-    if [ ! -f $to/creation-date ]
+    if [ ! -f "$to/creation-date" ]
     then
-        echo "Container created: $(cat /srv/$C/creation-date 2> /dev/null)" > "$to/creation-date"
+        echo "Container created: $(cat "/srv/$C/creation-date" 2> /dev/null)" > "$to/creation-date"
         echo "Backup created: $NOW" >> "$to/creation-date"
     else
         echo "Backup updated: $NOW" >> "$to/creation-date"
@@ -53,7 +53,7 @@ function run_local_container_7z_backup {
     run 7z u -uq0 "$to/cert.7z" "/srv/$C/cert"
     
     ntc /srv
-    if [[ ! -z "$(ls /srv/$C/rootfs/srv 2> /dev/null)" ]]
+    if [[ ! -z "$(ls "/srv/$C/rootfs/srv" 2> /dev/null)" ]]
     then
         run 7z u -uq0 "$to/srv.7z" "/srv/$C/rootfs/srv"
     fi
@@ -61,7 +61,7 @@ function run_local_container_7z_backup {
     ## TODO store an incremental backup of mysql
     
     ntc /home
-    if [[ ! -z "$(ls /srv/$C/rootfs/home 2> /dev/null)" ]]
+    if [[ ! -z "$(ls "/srv/$C/rootfs/home" 2> /dev/null)" ]]
     then
         run 7z u -uq0 "$to/home.7z" "/srv/$C/rootfs/home"
     fi
@@ -77,7 +77,7 @@ function run_local_container_7z_backup {
     
     
     ntc /var/lib/mysql
-    if [[ ! -z "$(ls /srv/$C/rootfs/var/lib/mysql 2> /dev/null )" ]]
+    if [[ ! -z "$(ls "/srv/$C/rootfs/var/lib/mysql" 2> /dev/null )" ]]
     then
         run 7z u -uq0 "$to/var-lib-mysql.7z" "/srv/$C/rootfs/var/lib/mysql"
     fi

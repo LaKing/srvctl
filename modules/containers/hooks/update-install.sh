@@ -21,3 +21,11 @@ run systemctl enable machines.target
 
 mkdir -p /var/srvctl3/share/containers
 mkdir -p /var/srvctl3/share/common
+
+{
+    echo "#!/bin/bash"
+    echo ''
+    echo "/bin/bash /usr/local/share/srvctl/srvctl.sh regenerate '#cron.hourly'"
+} > /etc/cron.hourly/srvctl-regenerate.sh
+
+chmod +x /etc/cron.hourly/srvctl-regenerate.sh

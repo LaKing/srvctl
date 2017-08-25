@@ -10,7 +10,7 @@ reseller_only
 sudomize
 argument username
 
-local username password reseller
+local username reseller
 username="${ARG,,}"
 
 if ! [[ "$username" =~ ([a-z_][a-z0-9_]{2,30}) ]]

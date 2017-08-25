@@ -34,8 +34,6 @@ readonly NOW=$(date +%Y.%m.%d-%H:%M:%S)
 export NOW
 
 # shellcheck disable=SC2034
-SC_LOG_DIR=~
-# shellcheck disable=SC2034
 SC_LOG=~/.srvctl/srvctl.log
 mkdir -p ~/.srvctl
 
@@ -47,17 +45,16 @@ then
     do
         [[ -f $sourcefile ]] && cat "$sourcefile" > /etc/srvctl/"${sourcefile:17}" && debug "@init data -> /etc/srvctl/${sourcefile:17}"
     done
-fi
-
-if [[ $CMD == update-install ]] && [[ ! -f /etc/srvctl/hosts.json ]]
-then
+    
     ## this is included inline
     if [[ -f /etc/srvctl/data/clusters.json ]] && [[ -f /bin/node ]] && [[ -f $SC_INSTALL_DIR/modules/containers/host-conf.js ]]
     then
-        debug "@init data -> /etc/srvctl/host.conf"
+        debug "@init data -> /etc/srvctl/host.conf /etc/srvctl/hosts.json"
         /bin/node "$SC_INSTALL_DIR/modules/containers/host-conf.js"
         exif
         source /etc/srvctl/host.conf
+        chmod 644 /etc/srvctl/host.conf
+        chmod 644 /etc/srvctl/hosts.json
     fi
     
 fi
@@ -73,12 +70,10 @@ done
 
 source /etc/os-release
 
-[[ $SC_ROOT_USERNAME ]] || SC_ROOT_USERNAME='root'
-
 if [[ $USER == root ]] && [[ -z $SUDO_USER ]]
 then
     readonly SC_ROOT=true
-    readonly SC_USER="$SC_ROOT_USERNAME"
+    readonly SC_USER=root
 else
     if [[ -z $SUDO_USER ]]
     then
@@ -91,9 +86,13 @@ fi
 
 readonly SC_HOME="$(getent passwd "$SC_USER" | cut -f6 -d:)"
 export SC_HOME
-# shellcheck disable=SC2034
-[[ ! $SC_ROOT == true ]] && SC_LOG_DIR=$SC_HOME/.srvctl/log
 
+
+## log root privileged commands
+if [[ $USER == root ]]
+then
+    echo "$NOW [$SC_USER@$HOSTNAME $(pwd)]# srvctl $SC_COMMAND_ARGUMENTS" >> /var/log/srvctl-root.log
+fi
 
 readonly CMD
 readonly ARG

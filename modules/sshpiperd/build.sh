@@ -28,7 +28,8 @@ cat workingdir.go > /root/go/src/github.com/tg123/sshpiper/sshpiperd/workingdir.
 sed -i -- "s|@SRVCTL_VERSION|$ver|g" /root/go/src/github.com/tg123/sshpiper/sshpiperd/workingdir.go
 sed -i -- "s|@SRVCTL_INSTALL_DIR|/usr/local/share/srvctl|g" /root/go/src/github.com/tg123/sshpiper/sshpiperd/workingdir.go
 
-$(cd /root/go/src/github.com/tg123/sshpiper/sshpiperd && go build -o "$wd/sshpiperd")
+run cd /root/go/src/github.com/tg123/sshpiper/sshpiperd
+run go build -o "$wd/sshpiperd"
 
 if [[ ! -f "$wd/sshpiperd" ]]
 then
@@ -38,7 +39,8 @@ else
     sshpiperd --version
     
     ## this is really just for me - the author
-    rsync -avze ssh "$wd/sshpiperd" root@r2.d250.hu:/srv/srvctl-devel/rootfs/srv/codepad-project/modules/sshpiperd
+    # rsync -avze ssh "$wd/sshpiperd" root@r2.d250.hu:/srv/srvctl-devel/rootfs/srv/codepad-project/modules/sshpiperd
+    
     sc sshpiperd !
     journalctl -u sshpiperd
 fi

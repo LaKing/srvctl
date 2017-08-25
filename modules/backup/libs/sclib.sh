@@ -2,13 +2,18 @@
 
 [[ $SC_BACKUP_PATH ]] || SC_BACKUP_PATH="/backup"
 
+function display_backup_geometry() {
+    msg "$1:$2 #size $3/$5 #files $7/$8"
+    echo "$NOW $1:$2 #size $3/$5 #files $7/$8" >> "$SC_HOME/.srvctl/backup.log"
+}
 
 ## local backup from a local folder
 function local_backup { ## directories
     
     local dirs target source_size destination_size source_count destination_count
     
-    args="${@:1}"
+    #args="${@:1}"
+    args="${*:1}"
     target="$SC_BACKUP_PATH/$HOSTNAME"
     
     for i in $args
@@ -26,7 +31,7 @@ function local_backup { ## directories
         mkdir -p "$target/$(dirname "$i")"
         
         ## mae sure there is no other process doing the same
-        if [[ "$(systemctl status | grep rsync | grep "$target" | grep "$i" | wc -l)" != "0" ]]
+        if [[ "$(systemctl status | grep rsync | grep "$target" | grep -c "$i")" != "0" ]]
         then
             err "There is a process already running for this backup task."
             systemctl status | grep rsync | grep "$target" | grep "$i"
@@ -41,10 +46,11 @@ function local_backup { ## directories
         destination_count=0
         
         ## populate comparison variables
-        source_size="$(du -hs --apparent-size "$i" | awk '{print $1}')"
+        source_size="$(du -hs --apparent-size "$i")"
+        
         if [[ -d "$target/$i" ]]
         then
-            destination_size="$(du -hs --apparent-size "$target/$i" | awk '{print $1}')"
+            destination_size="$(du -hs --apparent-size "$target/$i")"
         fi
         
         source_count="$(find "$i" | wc -l)"
@@ -54,13 +60,13 @@ function local_backup { ## directories
         fi
         
         ## display comparison variables
-        msg "local-backup: $i #size: $source_size/$destination_size files: $source_count/$destination_count"
+        display_backup_geometry "$HOSTNAME" "$i" "$source_size" "$destination_size" "$source_count" "$destination_count"
         
         ## perform the task
         if run rsync --delete -a "$i" "$target/$(dirname "$i")"
         then
             msg "OK backup done $HOSTNAME:$i"
-            echo "$NOW local-backup OK: $i #size: $source_size/$destination_size files: $source_count/$destination_count" >> "$SC_HOME/.srvctl/backup.log"
+            echo "$NOW OK local-backup $i #size: $source_size/$destination_size files: $source_count/$destination_count" >> "$SC_HOME/.srvctl/backup.log"
         else
             echo "$NOW !!! ERROR $? !! local-backup-failure: $i #size: $source_size/$destination_size files: $source_count/$destination_count" >> "$SC_HOME/.srvctl/backup.log"
             err "backup error $HOSTNAME:$i"
@@ -90,13 +96,16 @@ function server_backup { #datahost #directories
         return
     fi
     
-    dirs="${@:2}"
+    #dirs="${@:2}"
+    dirs="${*:2}"
+    
     target="$SC_BACKUP_PATH/$hostname"
     
     
     for i in $dirs
     do
-        ## check oif have a real source
+        ## check if have a real source
+        # shellcheck disable=SC2029
         if ssh -n -o BatchMode=yes "$host" "[[ -d $i ]]"
         then
             echo "$NOW backup $host $i" >> "$SC_HOME/.srvctl/backup.log"
@@ -107,7 +116,7 @@ function server_backup { #datahost #directories
         
         mkdir -p "$target/$(dirname "$i")"
         
-        if [ "$(systemctl status | grep rsync | grep "$target" | grep "$i" | wc -l)" != "0" ]
+        if [ "$(systemctl status | grep rsync | grep "$target" | grep -c "$i")" != "0" ]
         then
             err "There is a process already running for this backup task."
             systemctl status | grep rsync | grep "$target" | grep "$i"
@@ -122,12 +131,14 @@ function server_backup { #datahost #directories
         destination_count=0
         
         ## populate comparison variables
-        source_size="$(ssh -n -o BatchMode=yes "$host" "du -hs --apparent-size $i | awk '{print $1}'")"
+        # shellcheck disable=SC2029
+        source_size="$(ssh -n -o BatchMode=yes "$host" "du -hs --apparent-size $i")"
         if [[ -d "$target/$i" ]]
         then
-            destination_size="$(du -hs --apparent-size "$target/$i" | awk '{print $1}')"
+            destination_size="$(du -hs --apparent-size "$target/$i")"
         fi
         
+        # shellcheck disable=SC2029
         source_count="$(ssh -n -o BatchMode=yes "$host" "find $i | wc -l")"
         if [[ -d "$target/$i" ]]
         then
@@ -135,13 +146,13 @@ function server_backup { #datahost #directories
         fi
         
         ## display comparison variables
-        msg "$host backup: $i #size: $source_size/$destination_size files: $source_count/$destination_count"
+        display_backup_geometry "$host" "$i" "$source_size" "$destination_size" "$source_count" "$destination_count"
         
         ## perform the task
         if run rsync --delete -aze ssh "$host:$i" "$target/$(dirname "$i")"
         then
             msg "OK backup done $host:$i"
-            echo "$NOW local-backup OK: $i #size: $source_size/$destination_size files: $source_count/$destination_count" >> "$SC_HOME/.srvctl/backup.log"
+            echo "$NOW OK $host $i #size: $source_size/$destination_size files: $source_count/$destination_count" >> "$SC_HOME/.srvctl/backup.log"
         else
             echo "$NOW !!! ERROR $? !! local-backup-failure: $i #size: $source_size/$destination_size files: $source_count/$destination_count" >> "$SC_HOME/.srvctl/backup.log"
             err "backup error $host:$i"
@@ -163,6 +174,8 @@ function remote_backup { #proxyhost #datahost #directories
     host="$2"
     
     msg "Connecting to $host via $proxy"
+    
+    # shellcheck disable=SC2029
     if hostname="$(ssh -n -o BatchMode=yes "$proxy" "ssh -n -o BatchMode=yes $host hostname")"
     then
         msg "Connected to $hostname"
@@ -171,12 +184,14 @@ function remote_backup { #proxyhost #datahost #directories
         return
     fi
     
-    dirs="${@:3}"
+    #dirs="${@:3}"
+    dirs="${*:3}"
     target=$SC_BACKUP_PATH/$hostname
     
     for i in $dirs
     do
         ## check oif have a real source
+        # shellcheck disable=SC2029
         if ssh -n -o BatchMode=yes "$proxy" "ssh -n -o BatchMode=yes $host [[ -d $i ]]"
         then
             echo "$NOW backup $proxy -> $host $i" >> "$SC_HOME/.srvctl/backup.log"
@@ -187,7 +202,7 @@ function remote_backup { #proxyhost #datahost #directories
         
         mkdir -p "$target/$(dirname "$i")"
         
-        if [ "$(systemctl status | grep rsync | grep "$target" | grep "$i" | wc -l)" != "0" ]
+        if [ "$(systemctl status | grep rsync | grep "$target" | grep -c "$i")" != "0" ]
         then
             err "There is a process already running for this backup task."
             systemctl status | grep rsync | grep "$target" | grep "$i"
@@ -203,12 +218,13 @@ function remote_backup { #proxyhost #datahost #directories
         destination_count=0
         
         ## populate comparison variables
-        source_size="$(ssh -n -o BatchMode=yes "$proxy" ssh -n -o BatchMode=yes "$host" "du -hs --apparent-size $i | awk '{print $1}'")"
+        # shellcheck disable=SC2029
+        source_size="$(ssh -n -o BatchMode=yes "$proxy" ssh -n -o BatchMode=yes "$host" "du -hs --apparent-size $i")"
         if [[ -d "$target/$i" ]]
         then
-            destination_size="$(du -hs --apparent-size "$target/$i" | awk '{print $1}')"
+            destination_size="$(du -hs --apparent-size "$target/$i")"
         fi
-        
+        # shellcheck disable=SC2029
         source_count="$(ssh -n -o BatchMode=yes "$proxy" ssh -n -o BatchMode=yes "$host" "find $i | wc -l")"
         if [[ -d "$target/$i" ]]
         then
@@ -216,13 +232,13 @@ function remote_backup { #proxyhost #datahost #directories
         fi
         
         ## display comparison variables
-        msg "$proxy $host backup: $i #size: $source_size/$destination_size files: $source_count/$destination_count"
+        display_backup_geometry "$host" "$i" "$source_size" "$destination_size" "$source_count" "$destination_count"
         
         ## perform the task
-        if rrsync --delete -avz -e "ssh -A $proxy ssh" "$host:$i" "$target/$(dirname "$i")"
+        if rsync --delete -avz -e "ssh -A $proxy ssh" "$host:$i" "$target/$(dirname "$i")"
         then
             msg "OK backup done $host:$i"
-            echo "$NOW local-backup OK: $i #size: $source_size/$destination_size files: $source_count/$destination_count" >> "$SC_HOME/.srvctl/backup.log"
+            echo "$NOW OK $host $i #size: $source_size/$destination_size files: $source_count/$destination_count" >> "$SC_HOME/.srvctl/backup.log"
         else
             echo "$NOW !!! ERROR $? !! local-backup-failure: $i #size: $source_size/$destination_size files: $source_count/$destination_count" >> "$SC_HOME/.srvctl/backup.log"
             err "backup error $host:$i"

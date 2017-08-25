@@ -165,9 +165,8 @@ function create_user_client_cert(user) {
     //if (SC_ROOTCA_HOST !== HOSTNAME) {
     //   run("timeout 1 ssh " + SC_ROOTCA_HOST + " srvctl exec-function create_ca_certificate client usernet " + user);
     //}
-    
-    if (!fs.existsSync(SC_DATASTORE_DIR + "/users/" +user +"/" + user + "@" + SC_COMPANY_DOMAIN + ".p12")) {
-        err("no client cert for " + user);
+    var p12 = SC_DATASTORE_DIR + "/users/" +user +"/" + user + "@" + SC_COMPANY_DOMAIN + ".p12";
+    if (!fs.existsSync(p12)) {
         return;
     }
     

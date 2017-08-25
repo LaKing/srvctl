@@ -20,14 +20,14 @@ Group=root
 WantedBy=multi-user.target
 EOF
 
-systemctl daemon-reload
+run systemctl daemon-reload
 
 cd "$SC_INSTALL_DIR/modules/static/"
 
 #npm install
 
-npm install -g finalhandler
-npm install -g serve-static
+run npm install -g finalhandler
+run npm install -g serve-static
 
 mkdir -p /var/srvctl3/storage/static
 

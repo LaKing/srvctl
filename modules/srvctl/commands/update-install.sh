@@ -63,7 +63,10 @@ fi
 msg "Calling update-install hooks."
 run_hooks update-install
 
-make_commands_spec
+if $SC_USE_GUI
+then
+    make_commands_spec
+fi
 
 set_permissions
 msg "update-install complete"

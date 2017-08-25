@@ -96,7 +96,7 @@ console.log("PING ms  " + "VE".tab(32) + ' ' + "IP".tab(12) + ' ' + "TYPE".tab(1
 
 Object.keys(containers).forEach(function(c) {
     if (SC_USER !== root && containers[c].user !== SC_USER && datastore.container_reseller_user(containers[c]) !== SC_USER) return;
-    var cmd = "timeout 0.2 ping -c 1 " + c + " | grep rtt";
+    var cmd = "timeout 0.2 ping -c 1 " + containers[c].ip + " | grep rtt";
     ping = $RED + "failure ";
     try {
         ping = $GREEN + execSync(cmd).toString().split('/')[5] + 'ms ';

@@ -224,8 +224,7 @@ function hint_commands {
     
     if [ -d /root/srvctl-includes ]
     then
-        [[ $SC_ROOT_USERNAME != root ]] && title "COMMAND - from $SC_ROOT_USERNAME"
-        [[ $SC_ROOT_USERNAME == root ]] && title "COMMAND - from root"
+        title "COMMAND - from root"
         for sourcefile in /root/srvctl-includes/*.sh
         do
             hint_on_file "$sourcefile"
@@ -305,8 +304,7 @@ function help_commands {
         
         if [[ -d /root/srvctl-includes ]]
         then
-            [[ $SC_ROOT_USERNAME != root ]] && title "COMMAND - from $SC_ROOT_USERNAME"
-            [[ $SC_ROOT_USERNAME == root ]] && title "COMMAND - from root"
+            title "COMMAND - from root"
             for sourcefile in /root/srvctl-includes/*.sh
             do
                 help_on_file "$sourcefile"
@@ -399,16 +397,17 @@ function test_srvctl_modules() {
             #declare $tv=$tr
             echo "export $tvtm=$trtm" >> "$conf"
         done
-        
     fi
     
     if [[ -f /var/local/srvctl/modules.conf ]]
     then
+        debug "@source /var/local/srvctl/modules.conf"
         source /var/local/srvctl/modules.conf
     fi
     
     if [[ -f $conf ]]
     then
+        debug "@source $conf"
         source "$conf"
     fi
     

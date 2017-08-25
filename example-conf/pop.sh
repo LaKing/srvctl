@@ -13,3 +13,4 @@ then
     sudo rsync --delete -avze ssh root@r2.d250.hu:/srv/srvctl-devel/rootfs/srv/codepad-project/example-conf/data /etc/srvctl
 fi
 
+#  bash /usr/local/share/srvctl/srvctl.sh

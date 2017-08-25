@@ -1,0 +1,20 @@
+html, body{
+	
+margin:0;
+color:#eee;
+
+font:600 16px/18px 'Open Sans',sans-serif;
+height: 100%;
+
+  background: #102;
+  background: -webkit-linear-gradient(#102, #001);
+  background:    -moz-linear-gradient(#102, #001);
+  background:         linear-gradient(#102, #001);
+
+}
+
+#navbar {
+    position: fixed;
+    top: 0px;
+    width: 100%;
+}​

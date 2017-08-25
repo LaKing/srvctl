@@ -46,7 +46,7 @@ else
     err "Openvpn configuration: SC_HOSTNET undefined"
 fi
 
-local hostlist ip hs b
+local hostlist
 hostlist="$(cfg cluster host_list)"
 
 for host in $hostlist

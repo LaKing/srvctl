@@ -23,15 +23,15 @@ function gluster_install {
     
     sc_install glusterfs-server
     
+    ln -sf /etc/ssl/gluster-ca.crt.pem /etc/ssl/glusterfs.ca
+    ln -sf /etc/ssl/gluster-server.crt.pem /etc/ssl/glusterfs.pem
+    ln -sf /etc/ssl/gluster-server.key.pem /etc/ssl/glusterfs.key
+    touch /var/lib/glusterd/secure-access
     firewalld_add_service glusterfs
     
     run systemctl enable glusterd
     run systemctl start glusterd
     run systemctl status glusterd --no-pager
-    
-    ln -sf /etc/ssl/gluster-ca.crt.pem /etc/ssl/glusterfs.ca
-    ln -sf /etc/ssl/gluster-server.crt.pem /etc/ssl/glusterfs.pem
-    ln -sf /etc/ssl/gluster-server.key.pem /etc/ssl/glusterfs.key
     
     run gluster peer status
 }
@@ -135,10 +135,26 @@ function gluster_mount_data() { ## datadir mountdir
     datadir="$1"
     mountdir="$2" ## SC_DATASTORE_RW_DIR
     
-    ## first of all make sur ethere is a brick
+    ## first of all make sure there is a brick
     if [[ ! -d "/glu/$datadir/brick" ]]
     then
         err "There is no brick for $datadir"
+        return
+    fi
+    
+    if [[ ! -s /etc/ssl/glusterfs.ca ]]
+    then
+        err "Missing /etc/ssl/glusterfs.ca"
+        return
+    fi
+    if [[ ! -s /etc/ssl/glusterfs.pem ]]
+    then
+        err "Missing /etc/ssl/glusterfs.pem"
+        return
+    fi
+    if [[ ! -s /etc/ssl/glusterfs.key ]]
+    then
+        err "Missing /etc/ssl/glusterfs.key"
         return
     fi
     
