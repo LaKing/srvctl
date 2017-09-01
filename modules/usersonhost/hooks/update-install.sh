@@ -8,10 +8,10 @@ echo "ALL ALL=(ALL) NOPASSWD: $SC_INSTALL_DIR/srvctl.sh *" >> /etc/sudoers.d/srv
 msg "installing User tools"
 
 ## maintenance system tools
-sc_install dnf-plugin-system-upgrade
+#sc_install dnf-plugin-system-upgrade
 
 ## vncserver
-[[ ! -f /usr/bin/vncserver ]] && sc_install tigervnc-server
+[[ ! -f /usr/bin/vncserver ]] && sc_installl tigervnc-server
 
 ## hg
 [[ ! -f /usr/bin/hg ]] && sc_install hg
@@ -33,3 +33,5 @@ sc_install dnf-plugin-system-upgrade
 [[ ! -f /usr/bin/7z ]] && sc_install p7zip-plugins
 
 ## [[ ! -f ]] && sc_install
+
+return 0

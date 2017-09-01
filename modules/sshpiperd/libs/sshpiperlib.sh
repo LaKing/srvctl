@@ -6,7 +6,8 @@ function mount_sshpiper() {
     then
         debug "/var/sshpiper is mounted"
     else
-        run bindfs -r -p +X --map=root/sshpiper "/var/srvctl3/gluster/srvctl-data/users" /var/sshpiper
+        #run bindfs -r -p +X --map=root/sshpiper "/var/srvctl3/gluster/srvctl-data/users" /var/sshpiper
+        run bindfs -r -p +X --map=root/sshpiper "/var/srvctl3/datastore/users" /var/sshpiper
     fi
     
 }

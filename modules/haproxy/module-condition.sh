@@ -1,6 +1,6 @@
 #! /bin/bash
 
-if [[ $SC_REVERSE_PROXY == 'pound' ]]
+if [[ $SC_REVERSE_PROXY == 'haproxy' ]]
 then
     echo true
     return
