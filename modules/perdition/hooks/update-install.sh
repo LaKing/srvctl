@@ -38,12 +38,15 @@ perditioncfg
 
 ## install services
 
-cat "$SC_INSTALL_DIR/modules/perdition/services/imap4s.service" > /usr/lib/systemd/system/imap4s.service
-cat "$SC_INSTALL_DIR/modules/perdition/services/imap4.service" > /usr/lib/systemd/system/imap4.service
-cat "$SC_INSTALL_DIR/modules/perdition/services/pop3s.service" > /usr/lib/systemd/system/pop3s.service
+rm -fr /usr/lib/systemd/system/imap4s.service /usr/lib/systemd/system/imap4.service /usr/lib/systemd/system/pop3s.service
+
+cat "$SC_INSTALL_DIR/modules/perdition/services/imap4s.service" > /etc/systemd/system/imap4s.service
+cat "$SC_INSTALL_DIR/modules/perdition/services/imap4.service" > /etc/systemd/system/imap4.service
+cat "$SC_INSTALL_DIR/modules/perdition/services/pop3s.service" > /etc/systemd/system/pop3s.service
+
+systemctl daemon-reload
 
 add_service imap4
 add_service imap4s
 add_service pop3s
 
-systemctl daemon-reload

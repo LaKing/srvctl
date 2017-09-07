@@ -2,7 +2,11 @@
 
 
 function create_srvctl_nspawn_service {
-cat > "/usr/lib/systemd/system/srvctl-nspawn@.service" << EOF
+    
+    ## TODO remove
+    rm -fr /usr/lib/systemd/system/srvctl-nspawn@.service
+    
+cat > "/etc/systemd/system/srvctl-nspawn@.service" << EOF
 # container: $C bridge: $bridge host: $HOSTNAME date: $NOW user: $SC_USER
 [Unit]
 Description=srvctl - container %i

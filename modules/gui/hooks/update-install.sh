@@ -1,6 +1,9 @@
 #!/bin/bash
 
-cat > /usr/lib/systemd/system/srvctl-gui.service << EOF
+## TODO this is just temporary for upgrading from srvctl2
+rm -fr /usr/lib/systemd/system/srvctl-gui.service
+
+cat > /etc/systemd/system/srvctl-gui.service << EOF
 [Unit]
 Description=srvctl-gui server.
 After=syslog.target network.target

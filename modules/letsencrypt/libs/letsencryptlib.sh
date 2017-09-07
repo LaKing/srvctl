@@ -8,7 +8,7 @@ function install_acme {
     sc_install letsencrypt
     mkdir -p /etc/letsencrypt
     
-    echo "## srvctl generated
+    echo "## $SRVCTL generated
 email = webmaster@$SC_COMPANY_DOMAIN
 text = True
 authenticator = webroot
@@ -19,20 +19,23 @@ webroot-path = /var/acme
     useradd -r -u 528 -c "Letsencrypt-acme-server" acme
     chown acme:acme /var/acme
     
-    echo "## srvctl generated
+    echo "## $SRVCTL generated
 [Unit]
 Description=Letsencrypt server.
 After=syslog.target network.target
 
 [Service]
 Type=simple
-ExecStart=/bin/node $SC_INSTALL_DIR/modules/certificates/acme-server.js
+ExecStart=/bin/node $SC_INSTALL_DIR/modules/letsencrypt/apps/acme-server.js
 User=acme
 Group=acme
 
 [Install]
 WantedBy=multi-user.target
-    " > /lib/systemd/system/acme-server.service
+    " > /etc/systemd/system/acme-server.service
+    
+    ## TODO remove
+    rm -fr /lib/systemd/system/acme-server.service
     
     cat "$SC_INSTALL_DIR/modules/letsencrypt/letsencrypt-ca.pem" > /etc/letsencrypt/ca.pem
     

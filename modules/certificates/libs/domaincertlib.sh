@@ -120,7 +120,7 @@ function create_selfsigned_domain_certificate { ## for domain on path
     mkdir -p "$cert_path"
     
         cat > "$ssl_config" << EOF
-        ## srvctl generated config file
+        ## $SRVCTL generated config file
 
         RANDFILE               = $ssl_random
 

@@ -5,7 +5,10 @@ then
     gluster_configure srvctl-storage /var/srvctl3/storage
 fi
 
-cat > /usr/lib/systemd/system/static-server.service << EOF
+## TODO remove after upgrade
+rm -fr /usr/lib/systemd/system/static-server.service
+
+cat > /etc/systemd/system/static-server.service << EOF
 [Unit]
 Description=srvctl static server
 After=syslog.target network.target

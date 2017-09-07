@@ -7,16 +7,19 @@ var http_server = http.createServer(function(req, res) {
     res.writeHead(200, {
         "Content-Type": "text/plain"
     });
-    if (req.url.substring(0, 28) == "/.well-known/acme-challenge/" && req.url.length > 28) {
+    if (req.url === "/.well-known/srvctl/datastore/containers.json") {
 
         var ch = req.url.substring(28);
-        var file = '/var/acme/.well-known/acme-challenge/' + ch;
+        var file = '/var/srvctl3/datastore/containers.json';
 
         fs.access(file, fs.R_OK, function(err) {
             if (!err) {
-                var content = fs.readFileSync(file).toString();
-                console.log("CONTENT: " + content);
-                res.end(content);
+                fs.readFile(file, function(err, data) {
+                    if (err) return res.end("INVALID DATA");
+                    var content = data.toString();
+                    console.log("CONTENT: " + content);
+                    res.end(content);
+                });
             } else {
                 console.log("CANNOT READ: " + ch);
                 res.end("CANNOT READ: " + ch);
@@ -30,5 +33,5 @@ var http_server = http.createServer(function(req, res) {
     }
 });
 
-http_server.listen(528);
-console.log('Started acme-server.js');
+http_server.listen(1028);
+console.log('Started datastore-server.js');

@@ -196,7 +196,7 @@ function check_host_keys(data, i) {
 }
 
 function make_host_keys(){
-    var keys ='## srvctl generated' +br;
+    var keys ='## ' + SRVCTL + ' generated' +br;
     
     Object.keys(hosts).forEach(function(i) {
         if (hosts[i].host_key !== undefined)

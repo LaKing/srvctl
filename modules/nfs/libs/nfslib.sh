@@ -3,7 +3,7 @@
 function nfs_generate_exports { # for host
     
 cat > /etc/exports << EOF
-## srvctl generated
+## $SRVCTL generated
 /srv 10.15.0.0/255.255.0.0(rw,no_root_squash)
 EOF
     

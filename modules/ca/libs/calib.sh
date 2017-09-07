@@ -97,7 +97,7 @@ function create_ca_certificate { ## type net name
         _ext="-extfile $SC_INSTALL_DIR/modules/certificates/openssl-server-ext.cnf -extensions server"
     fi
     
-    # msg "CA-lib create_ca_certificate $_e $_net $_u"
+    msg "CA-lib create_ca_certificate $_e $_net $_u"
     
     ## Check if certificate is invalid or expired and remove if so
     if  [[ -f "$SC_ROOTCA_DIR/$_net/$_file.key.pem" ]] && [[ -f "$SC_ROOTCA_DIR/$_net/$_file.crt.pem" ]]

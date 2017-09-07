@@ -69,8 +69,8 @@ function write_popmap_cfg() {
     // 
      Object.keys(containers).forEach(function(i) {
         var mx = "mail." + i;
-        if (i.substring(0,5) === "mail") mx = i;
-        str += "(.*)@" + i + ": " + mx;
+        if (i.substring(0,5) === "mail.") mx = i;
+        str += "(.*)@" + i + ": " + mx + br;
     });
 
     fs.writeFile('/var/perdition/popmap.re', str, function(err) {

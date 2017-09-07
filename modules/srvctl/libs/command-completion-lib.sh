@@ -42,7 +42,7 @@ then
         local compreply='$(compgen -W "'"$SC_COMMAND_LIST"'" -- $curr_arg )'
         
 cat > $SC_COMMAND_COMPLETION_DEFINITIONS << EOF
-## fedora-srvctl generated files for bash autocomplete
+## fedora $SRVCTL generated files for bash autocomplete
 
 _fedora_srvctl_options() {
     local curr_arg;

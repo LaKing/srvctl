@@ -3,7 +3,11 @@
 function procedure_write_dyndns_server_service {
     local crt
     crt="/etc/srvctl/cert/$CDN/$CDN"
-cat > /lib/systemd/system/dyndns-server.service << EOF
+    
+    ## TODO remove after update
+    rm -fr /usr/lib/systemd/system/dyndns-server.service
+    
+cat > /etc/systemd/system/dyndns-server.service << EOF
 ## $SRVCTL generated
 [Unit]
 Description=Dyndns server.

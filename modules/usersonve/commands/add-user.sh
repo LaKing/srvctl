@@ -29,4 +29,6 @@ else
     echo "$password" | passwd "$username" --stdin 2> /dev/null 1> /dev/null
     echo -e "$password" > "$(getent passwd "$username" | cut -f6 -d:)/.password"
     
+    echo "This is the mailing system at $HOSTNAME, your account has been created." | mail -s "Welcome" "$username"
+    
 fi

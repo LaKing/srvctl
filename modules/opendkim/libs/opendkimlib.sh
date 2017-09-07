@@ -16,8 +16,11 @@ function regenerate_opendkim {
         rm -fr /var/opendkim
         cp -R "$SC_DATASTORE_DIR/opendkim" /var
         chown -R opendkim:opendkim /var/opendkim
-        chmod -R 640 /var/opendkim
-        chmod 750 /var/opendkim
+        chmod -R 750 /var/opendkim
+        chmod 640 /var/opendkim/*/*
+        chmod 640 /var/opendkim/KeyTable
+        chmod 640 /var/opendkim/SigningTable
+        chmod 640 /var/opendkim/TrustedHosts
         
         restart_opendkim
     else

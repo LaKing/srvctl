@@ -25,7 +25,7 @@ fi
 
 
 ## special services
-if [[ $service == containers ]] && [[ ! -z "$op" ]] && [[ -f "/usr/lib/systemd/system/srvctl-nspawn@.service" ]] && $IS_ROOT
+if [[ $service == containers ]] && [[ ! -z "$op" ]] && [[ -f "/etc/systemd/system/srvctl-nspawn@.service" ]] && $IS_ROOT
 then
     
     ## must have conf

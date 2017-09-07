@@ -156,7 +156,7 @@ function create_user_client_cert(user) {
         
     if (fs.existsSync(certfile)) return;
     
-    msg("create_user_client_cert for " + user);
+    msg("## create_user_client_cert for " + user);
     
     if (SC_ROOTCA_HOST === HOSTNAME) {
         exec_function("create_ca_certificate client usernet " +user);

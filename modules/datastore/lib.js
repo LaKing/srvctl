@@ -383,7 +383,7 @@ exports.new_container = function(C, T) {
 
 function cluster_etc_hosts() {
     var str = '';
-    str += "## srvctl generated" + br;
+    str += "## $SRVCTL generated" + br;
     str += "127.0.0.1    localhost.localdomain localhost" + br;
     str += "::1    localhost6.localdomain6 localhost6" + br;
     str += "## hosts" + br;
@@ -411,6 +411,9 @@ exports.cluster_etc_hosts = function() {
 function cluster_postfix_relaydomains() {
     var str = '';
     Object.keys(hosts).forEach(function(i) {
+        str += i + ' #' + br;
+    });
+    Object.keys(containers).forEach(function(i) {
         str += i + ' #' + br;
     });
     fs.writeFile('/etc/postfix/relaydomains', str, function(err) {

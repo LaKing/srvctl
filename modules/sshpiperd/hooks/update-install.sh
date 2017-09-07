@@ -20,7 +20,10 @@ fi
 
 run chown -R sshpiper:root /etc/sshpiper
 
-run cat "$SC_INSTALL_DIR/modules/sshpiperd/services/sshpiperd.service" > /usr/lib/systemd/system/sshpiperd.service
+## TODO remove after upgrade
+rm -fr /usr/lib/systemd/system/sshpiperd.service
+
+run cat "$SC_INSTALL_DIR/modules/sshpiperd/services/sshpiperd.service" > /etc/systemd/system/sshpiperd.service
 run systemctl daemon-reload
 
 firewalld_add_service sshpiperd tcp 2222

@@ -45,6 +45,7 @@ readonly SC_COMMAND_ARGUMENTS="$*"
 ## should be /usr/local/share/srvctl
 export SC_INSTALL_DIR
 
+
 ## command arguments saved into variables
 # shellcheck disable=SC2034
 CMD="$1"
@@ -76,7 +77,7 @@ readonly SRVCTL
 
 
 source "$SC_INSTALL_DIR/init.sh" || echo "Init could not be loaded!" 1>&2
-
+debug " => $1 $2 $3"
 debug " == run_command srvctl $CMD $ARG == "
 run_command
 
