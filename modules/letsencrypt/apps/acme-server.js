@@ -14,9 +14,12 @@ var http_server = http.createServer(function(req, res) {
 
         fs.access(file, fs.R_OK, function(err) {
             if (!err) {
-                var content = fs.readFileSync(file).toString();
-                console.log("CONTENT: " + content);
-                res.end(content);
+                fs.readFile(file, function(err, data) {
+                    if (err) return res.end("INVALID DATA");
+                    var content = data.toString();
+                    console.log("CONTENT: " + content);
+                    res.end(content);
+                });
             } else {
                 console.log("CANNOT READ: " + ch);
                 res.end("CANNOT READ: " + ch);

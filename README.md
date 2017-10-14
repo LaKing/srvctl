@@ -1,4 +1,4 @@
-## Srvctl v3 (3.1.5.3)
+## Srvctl v3 (3.1.5.8)
 Under construction, - srvctl is a containerfarm-manager for microsite hosting webservers with fedora as the host operating system. It will help to set up, maintain, and to let a couple of servers work together in order to have a solid web-serving service.
 Version 3 is remake for 2016 mostly using systemd tools, thus using systemd-nspawn as the containerfarm manager. The core is written in bash and javascript, and a modular design allows to extend it with programs. Basically it is a collection of scripts.
 
@@ -107,12 +107,12 @@ There are several options for users to access their VE.
 
 
 ```
-# 18 @conf /etc/srvctl/debug.conf 
-# 21 @conf /etc/srvctl/modules.conf 
-# 29 @source /var/local/srvctl/modules.conf 
-# 31 @source /var/local/srvctl/modules.conf 
-# 36 init@run_hook pre-init 
-# 42 @hook ve pre-init 
+# 24 @conf /etc/srvctl/debug.conf 
+# 26 @conf /etc/srvctl/modules.conf 
+# 36 @source /var/local/srvctl/modules.conf 
+# 40 @source /var/local/srvctl/modules.conf 
+# 46 init@run_hook pre-init 
+# 54 @hook ve pre-init 
 
 srvctl COMMAND [arguments]              
 
@@ -222,5 +222,5 @@ COMMAND - from srvctl
    status                                List container status parameters               
     
     
-# 165 srvctl-3.1.5.3 
+# 252 srvctl-3.1.5.8 
 ```

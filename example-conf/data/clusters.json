@@ -9,7 +9,7 @@
             "dns2": "8.8.8.8",
             "hostnet": 78,
             "dns_server": "master",
-            "reverse_proxy": "pound"
+            "reverse_proxy": "haproxy"
         },
         "t2.test.vm": {
             "mac_address": "080027000002",
@@ -20,7 +20,7 @@
             "dns2": "8.8.8.8",
             "hostnet": 79,
             "dns_server": "slave",
-            "reverse_proxy": "pound"
+            "reverse_proxy": "haproxy"
         }
     },
     "Private_cluster": {

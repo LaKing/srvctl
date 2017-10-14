@@ -5,7 +5,7 @@ var fs = require('fs');
 // Configure our HTTP server to respond with a file-read to all requests on the acme URL.
 var http_server = http.createServer(function(req, res) {
     res.writeHead(200, {
-        "Content-Type": "text/plain"
+        "Content-Type": "application/json"
     });
     if (req.url === "/.well-known/srvctl/datastore/containers.json") {
 
@@ -33,5 +33,5 @@ var http_server = http.createServer(function(req, res) {
     }
 });
 
-http_server.listen(1028);
+http_server.listen(1030);
 console.log('Started datastore-server.js');

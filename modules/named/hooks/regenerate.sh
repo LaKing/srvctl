@@ -1,5 +1,7 @@
 #!/bin/bash
 
-regenerate_named_conf
+msg "Regenerate bind/named DNS server configuration"
+
+namedcfg
 
 restart_named
