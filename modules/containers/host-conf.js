@@ -29,11 +29,12 @@ try {
     return_error('READFILE ' + SC_CLUSTERS_DATA_FILE + ' ' + err);
 }
 
-var hosts;
+var hosts = {};
 Object.keys(clusters).forEach(function(i) {
     Object.keys(clusters[i]).forEach(function(j) {
-        if (j === HOSTNAME) out += "SC_CLUSTERNAME=" + i + br;
-        hosts = clusters[i];
+        if (j === HOSTNAME) { out += "SC_CLUSTERNAME=" + i + br;
+            hosts = clusters[i];
+        }
     });
 });
 
