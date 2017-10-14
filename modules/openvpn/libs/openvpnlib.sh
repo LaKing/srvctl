@@ -1,5 +1,16 @@
 #!/bin/bash
 
+function create_ca_certificates() {
+    local S
+    S="$1"
+    msg "create_ca_certificates $S"
+    
+    create_ca_certificate server usernet "$S"
+    create_ca_certificate server hostnet "$S"
+    
+    create_ca_certificate client usernet "$S"
+    create_ca_certificate client hostnet "$S"
+}
 
 function init_openvpn_rootca_certificates() {
     
@@ -19,13 +30,7 @@ function init_openvpn_rootca_certificates() {
     
     for S in $(cfg cluster host_list)
     do
-        msg "init_openvpn_rootca_certificate $S"
-        ## openvpn client certificate
-        create_ca_certificate server usernet "$S"
-        create_ca_certificate server hostnet "$S"
-        
-        create_ca_certificate client usernet "$S"
-        create_ca_certificate client hostnet "$S"
+        create_ca_certificates "$S"
     done
     
     cat /etc/srvctl/CA/ca/usernet.crt.pem > /etc/openvpn/usernet-ca.crt.pem
@@ -47,15 +52,7 @@ function init_openvpn_rootca_certificates() {
     
 }
 
-function remote_create_rootca_certificates() {
-    local S
-    S=$1
-    ssh -n -o ConnectTimeout=1 "$SC_ROOTCA_HOST" create_ca_certificate server usernet "$S"
-    ssh -n -o ConnectTimeout=1 "$SC_ROOTCA_HOST" create_ca_certificate server hostnet "$S"
-    
-    ssh -n -o ConnectTimeout=1 "$SC_ROOTCA_HOST" create_ca_certificate client usernet "$S"
-    ssh -n -o ConnectTimeout=1 "$SC_ROOTCA_HOST" create_ca_certificate client hostnet "$S"
-}
+
 
 function grab_openvpn_rootca_certificates() {
     
@@ -66,7 +63,7 @@ function grab_openvpn_rootca_certificates() {
         local H options
         H="$HOSTNAME"
         
-        remote_create_rootca_certificates $HOSTNAME
+        ssh -n -o ConnectTimeout=1 "$SC_ROOTCA_HOST" "/bin/srvctl create_ca_certificates $HOSTNAME"
         
         options="--no-R --no-implied-dirs -avze ssh"
         
