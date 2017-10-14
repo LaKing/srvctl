@@ -17,11 +17,16 @@ function init_openvpn_rootca_certificates() {
     create_ca_certificate client usernet root
     create_ca_certificate client hostnet root
     
-    create_ca_certificate server usernet "$HOSTNAME"
-    create_ca_certificate server hostnet "$HOSTNAME"
-    
-    create_ca_certificate client usernet "$HOSTNAME"
-    create_ca_certificate client hostnet "$HOSTNAME"
+    for S in $(cfg cluster host_list)
+    do
+        msg "init_openvpn_rootca_certificate $S"
+        ## openvpn client certificate
+        create_ca_certificate server usernet "$S"
+        create_ca_certificate server hostnet "$S"
+        
+        create_ca_certificate client usernet "$S"
+        create_ca_certificate client hostnet "$S"
+    done
     
     cat /etc/srvctl/CA/ca/usernet.crt.pem > /etc/openvpn/usernet-ca.crt.pem
     cat /etc/srvctl/CA/ca/hostnet.crt.pem > /etc/openvpn/hostnet-ca.crt.pem
@@ -38,16 +43,18 @@ function init_openvpn_rootca_certificates() {
     cat /etc/srvctl/CA/hostnet/client-"$HOSTNAME".key.pem > /etc/openvpn/hostnet-client.key.pem
     cat /etc/srvctl/CA/hostnet/client-"$HOSTNAME".crt.pem > /etc/openvpn/hostnet-client.crt.pem
     
-    for S in $(cfg cluster host_list)
-    do
-        ## openvpn client certificate
-        create_ca_certificate server usernet "$S"
-        create_ca_certificate server hostnet "$S"
-        
-        create_ca_certificate client usernet "$S"
-        create_ca_certificate client hostnet "$S"
-    done
     
+    
+}
+
+function remote_create_rootca_certificates() {
+    local S
+    S=$1
+    ssh -n -o ConnectTimeout=1 "$SC_ROOTCA_HOST" create_ca_certificate server usernet "$S"
+    ssh -n -o ConnectTimeout=1 "$SC_ROOTCA_HOST" create_ca_certificate server hostnet "$S"
+    
+    ssh -n -o ConnectTimeout=1 "$SC_ROOTCA_HOST" create_ca_certificate client usernet "$S"
+    ssh -n -o ConnectTimeout=1 "$SC_ROOTCA_HOST" create_ca_certificate client hostnet "$S"
 }
 
 function grab_openvpn_rootca_certificates() {
@@ -58,6 +65,8 @@ function grab_openvpn_rootca_certificates() {
         msg "regenerate openvpn certificate config - CA is $SC_ROOTCA_HOST"
         local H options
         H="$HOSTNAME"
+        
+        remote_create_rootca_certificates $HOSTNAME
         
         options="--no-R --no-implied-dirs -avze ssh"
         
