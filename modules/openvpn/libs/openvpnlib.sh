@@ -9,6 +9,8 @@ function init_openvpn_rootca_certificates() {
         return
     fi
     
+    msg "init_openvpn_rootca_certificates"
+    
     root_CA_init hostnet
     root_CA_init usernet
     
