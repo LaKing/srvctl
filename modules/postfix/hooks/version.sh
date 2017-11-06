@@ -1,3 +1,3 @@
 #!/bin/bash
 
-msg_version_installed Pound
+msg_version_installed postfix

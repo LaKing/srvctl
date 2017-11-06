@@ -8,93 +8,55 @@ function regenerate_etc_postfix_relaydomains() {
     fi
 }
 
-function write_ve_postfix_main {
-    
-    local container to cf isMX hasMX
-    
+function write_ve_postfix_conf { #container
+    local container
     container="$1"
-    to=/dev/null
-    cf=/dev/null
-    isMX=false
-    hasMX=false
     
-    
-    if [[ $SC_VIRT == systemd-nspawn ]] || [[ $SC_VIRT == lxc ]]
+    if [[ "${container:0:5}" == "mail." ]]
     then
-        to="/etc/postfix/srvctl.main.cf"
-        cf="/etc/postfix/main.cf"
+        write_ve_postfix_main "${container:5}"
+        write_ve_postfix_main "$container"
     else
-        to="/srv/$container/rootfs/etc/postfix/srvctl.main.cf"
-        cf="/srv/$container/rootfs/etc/postfix/main.cf"
+        write_ve_postfix_main "$container"
+        write_ve_postfix_main "mail.$container"
     fi
+}
+
+
+function write_ve_postfix_main { #container
+    local domain container
+    container="$1"
+    domain="$1"
     
-    if [ "${container:0:5}" == "mail." ]
+    if get container "$container" exist
     then
-        isMX=true
-        hasMX=true
-    fi
-    
-    if [ -d "/srv/mail.$container/rootfs" ]
-    then
-        hasMX=true
-    fi
-    
-    ## TODO test.$myhostname, dev.$myhostname, sys.$myhostname, www.$myhostname, log, .. etc
-    {
-        echo "#srvctl $SRVCTL"
-        cat "$SC_INSTALL_DIR/modules/postfix/conf/ve-main.cf"
+        msg "Writing postfic configuration for $container"
         
-        echo "# INTERNET OR INTRANET"
-        echo "relayhost = 10.$((SC_HOSTNET * 16)).0.1"
-        
-    } >> "$to"
-    
-    if $hasMX
-    then
-        
-        if $isMX
+        if [[ "${container:0:5}" == "mail." ]]
         then
-            ## this is mail.
-            {
-                echo "## we need to change myhostname"
-                echo "myorigin = ${container:5}"
-                
-                echo '## set localhost.localdomain in mydestination to enable local mail delivery'
-                # shellcheck disable=SC2016
-                echo 'mydestination = $myhostname, '"${container:5}"', localhost, localhost.localdomain'
-            } >> "$to"
-            
+            domain="${container:5}"
+        fi
+        
+        conf="/srv/$container/rootfs/etc/postfix/main.cf"
+        
+        cat "$conf" >> "/srv/$container/rootfs/etc/postfix/main.cf-$NOW.bak"
+        
+        cat "$SC_INSTALL_DIR/modules/postfix/conf/ve-main.cf" > "$conf"
+        
+        ## relayhost - host on the bridge
+        echo "relayhost = $(get container "$container" br_host_ip)" >> "$conf"
+        
+        if get container "$container" mx
+        then
+            ## mydestination - localhost, localhost.localdomain, - WITH or WITHOUT - $myhostname, container-domain
+            echo "mydestination = localhost, localhost.localdomain, $domain, mail.$domain" >> "$conf"
         else
-            ## this is not the mail
-            {
-                echo '## set localhost.localdomain in mydestination to enable local mail delivery'
-                echo 'mydestination = localhost, localhost.localdomain'
-                
-            } >> "$to"
+            ## mydestination - localhost, localhost.localdomain, - WITH or WITHOUT - $myhostname, container-domain
+            echo "mydestination = localhost, localhost.localdomain" >> "$conf"
         fi
         
-    else
-        
-        ## no seperate mail.
-        {
-            echo '## set localhost.localdomain in mydestination to enable local mail delivery'
-            # shellcheck disable=SC2016
-            echo 'mydestination = $myhostname, mail.$myhostname, localhost, localhost.localdomain'
-        } >> "$to"
+        ## myorigin - the domain name or the subdomain
+        echo "myorigin = $domain" >> "$conf"
         
     fi
-    
-    if [[ -f "$cf" ]]
-    then
-        if ! cmp "$to" "$cf" >/dev/null 2>&1
-        then
-            ntc "Postfix configuration update on $container"
-            cat "$cf" > "$cf.$NOW.bak"
-            cat "$to" > "$cf"
-        fi
-    else
-        cat "$to" > "$cf"
-    fi
-    
-    #rm -rf $to
 }

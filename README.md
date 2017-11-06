@@ -1,15 +1,15 @@
-## Srvctl v3 (3.1.7.1)
-Under construction, - srvctl is a containerfarm-manager for microsite hosting webservers with fedora as the host operating system. It will help to set up, maintain, and to let a couple of servers work together in order to have a solid web-serving service.
-Version 3 is remake for 2016 mostly using systemd tools, thus using systemd-nspawn as the containerfarm manager. The core is written in bash and javascript, and a modular design allows to extend it with programs. Basically it is a collection of scripts.
+## Srvctl v3 (3.1.7.3)
+Under construction, - srvctl is a containerfarm-manager for microsite hosting webservers with fedora as the host operating system. It will help to set up, maintain, and to let a couple of servers work together in order to have solid web-serving services.
+Version 3 is remake in core mostly using systemd tools, thus using systemd-nspawn as the containerfarm manager. Written in the mix of bash and javascript, a modular design allows to extend it with programs. Basically it is a collection of scripts, and fast scripts.
 
 How it works:
 After installation there should be a main-command available called srvctl or in short sc. This will trigger srvctl scripts, and process srvctl-commands, with their arguments. Goal is to make easy to use, and easy to remember human-friendly command sets for daily usage. Primary goal is managment of a web-hosting server and containerfarm that hosts microsites. 
 
 Installation:
 Srvctl 3 is designed for a standard fedora server edition. It may work on similar distros. Containers may use other distributions. 
-A srvctl host should have glusterfs for data storage. While installing your operating system, create:
-- 2GB XFS partition mounted on /glu/srvctl-data, that will store certificates, passwords, and other sensitive data. 
-- BIG XFS partition mounted on /glu/srvtl-storage, preferably on a seperate drive for data storage, such as static file service or ftp.
+A srvctl host as part of a cluster should have glusterfs for data storage. While installing your operating system, create:
+- 2GiB XFS partition mounted on /glu/srvctl-data, that will store certificates, passwords, and other sensitive data. 
+- 500GiB XFS partition mounted on /glu/srvtl-storage, preferably on a seperate drive for data storage, such as static file service or ftp.
 - /var/log 
 - /home, separate partitions for directories so that the primary root partition wont get full at any time. 
 - /srv, this will be our main directory for containers, therefore it should be a big and fast SSD.
@@ -35,45 +35,14 @@ The datastore module saves configuration informations, and gluster can be used t
 Servers can interact with each other over VPN, and containers are on an internal network:
 
 In srvctl3 we use a single class A network 10.x.x.x for communication of containers and hosts.
-This network is devided to 16 subnets. netmask: 255.240.0.0 or /12
-
 Each server has to have a unique HOSTNET id between 16..255 for the server cluster.
 By convention, each host should be prefixed with a two digit host identifier in your company domain hostname.
 
 10.0.0.0 - 10.14.255.255 - reserved for external networks and openvpn connections outside of srvctl
-10.15.x.y - reserved for openvpn hostnet-network - connections from host to host. Openvpn connections created from every server to every server, thus x is the server hostnet y the client hostnet on a particlar host. On the server-side interfaces x and y is always equal to the HOSTNET value. 
+10.15.x.y - reserved for openvpn hostnet-network - connections from host to host. Openvpn connections created from every server to every server, thus x is the server hostnet y the client hostnet on a particlar host. 
 
-Container networks:
+We can divide users and assign them to resellers, so we should.
 
-10.16.0.0 - 10.31.255.255 - HOSTNET 1
-10.32.0.0 - 10.47.255.255 - HOSTNET 2
-...
-10.240.0.0 - 10.255.255.255 - HOSTNET 15
-
-Bridges use a 10.b.b.x/24 (255.255.255.0) address space. That means 4080 bridges per hostnet. 
-
-We divide users and assign them to 16 resellers.
-That means we can have up to 15 servers in a cluster, each hosting users and containers for 16 resellers.
-Resellers can have ~250 users, they will have the same users on each server. Each user can have ~250 containers on each server.
-
-Therfore IP 10.a.b.c can be calculated as, 
-a = HOSTNET * 16 + RESELLER_ID
-b = RESELLERS-USER
-c = CONTAINER 20..200
-
-Container netblock IP's are assigned as follows:
-
-0: network address
-1: host-bridge ip
-...
-2..252: containers
-...
-253 .. 254: user vpn-client
-255: broadcast address
-
-[...]
-
-A single user might have less containers, and more vpn clients.
 
 Using srvctl
 
@@ -81,7 +50,7 @@ Some applications controlled by srvctl need to use certificates in order to comm
 
 The update_install process can be, and eventually has to be run over and over. The srvctl scripts generate configuration files.
 
-Experts may run certain functions in context of srvctl, that means with internal variables and settings
+Experts may run certain functions in the context of srvctl, that means with internal variables and settings
     srvctl exec-function SRVCTL_FUNCTION
 
 The main datastore functions may be accessed directly, so instead of writing 
@@ -95,7 +64,6 @@ Srvctl maintains configuration data in json files. These files may reside at the
 /etc/srvctl/data - static configuration files
 /var/srvctl3/datastore - readwrite gluster data volume (/var/srvctl3/gluster/srvctl-data as readonly fallback)
 
-
 Accessing the VE
 
 There are several options for users to access their VE.
@@ -103,16 +71,17 @@ There are several options for users to access their VE.
 - ssh to the host and use a container share point
 - ssh directly to the VE, for example "ssh charlie_charlie-one.ve_root@192.168.88.13 -p 2222" Note the USER_VE_VEUSER syntax.
 
+Mailing is enabled by default, but mailing should be seperated to containers, thus create containers with the mail. subdomain-prefix to have a dedicated MX.
 
 
 
 ```
-# 38 @conf /etc/srvctl/debug.conf 
-# 45 @conf /etc/srvctl/modules.conf 
-# 60 @source /var/local/srvctl/modules.conf 
-# 67 @source /var/local/srvctl/modules.conf 
-# 77 init@run_hook pre-init 
-# 85 @hook ve pre-init 
+# 51 @conf /etc/srvctl/debug.conf 
+# 58 @conf /etc/srvctl/modules.conf 
+# 80 @source /var/local/srvctl/modules.conf 
+# 88 @source /var/local/srvctl/modules.conf 
+# 100 init@run_hook pre-init 
+# 110 @hook ve pre-init 
 
 srvctl COMMAND [arguments]              
 
@@ -240,5 +209,5 @@ COMMAND - from srvctl
      Install the wordpress dependencies.
     
     
-# 493 srvctl-3.1.7.1 
+# 611 srvctl-3.1.7.3 
 ```

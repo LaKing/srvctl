@@ -57,6 +57,9 @@ ln -s "/srv/$C/rootfs/usr/lib/systemd/system/httpd.service" "/srv/$C/rootfs/etc/
 run systemctl start "srvctl-nspawn@$C" --no-pager
 run systemctl status "srvctl-nspawn@$C" --no-pager
 
+write_ve_postfix_conf "$C"
+
+run_hook add-ve
 run_hook regenerate
 
 

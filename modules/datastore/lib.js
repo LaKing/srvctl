@@ -237,6 +237,17 @@ exports.container_https_port = function(container) {
     return container_https_port(container);
 };
 
+function container_mx(C) {
+    if (containers[C].use_gsuite) return false;
+    if (C.substring(0, 5) === 'mail.') return true;
+    if (containers[C].mx !== undefined) return containers[C].mx;
+    if (containers['mail.' + C] !== undefined) return false;
+    return true;
+}
+
+exports.container_mx = function(container) {
+    return container_mx(container);
+};
 
 function find_next_cip_for_container_on_network(network) {
     var nipa = network.split(dot);

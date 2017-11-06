@@ -128,6 +128,8 @@ if (DAT === 'container') {
                 else
                 if (OPA === 'uid') return_value(datastore.container_uid(container));
                 else
+                if (OPA === 'mx') return_value(datastore.container_mx(ARG));
+                else
                     return_value(container[OPA]);
             }
 
