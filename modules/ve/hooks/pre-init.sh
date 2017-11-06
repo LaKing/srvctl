@@ -6,7 +6,7 @@ readonly SC_VIRT=$(systemd-detect-virt -c)
 ## containers dir is /srv - fixed
 
 # shellcheck disable=SC2034
-[[ $ROOTFS_DIR ]] || ROOTFS_DIR=/var/srvctl3/rootfs
+[[ $SC_ROOTFS_DIR ]] || SC_ROOTFS_DIR=/var/srvctl3/rootfs
 
 # shellcheck disable=SC2034
-[[ $MOUNTS_DIR ]] || MOUNTS_DIR=/var/srvctl3/mounts
+[[ $SC_MOUNTS_DIR ]] || SC_MOUNTS_DIR=/var/srvctl3/mounts

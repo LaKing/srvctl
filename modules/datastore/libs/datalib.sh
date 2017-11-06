@@ -111,7 +111,7 @@ function init_datastore() {
     if $SC_DATASTORE_RO_USE
     then
         SC_DATASTORE_DIR="$SC_DATASTORE_RO_DIR"
-        msg "Readonly datastore"
+        msg "Readonly datastore $SC_DATASTORE_RO_DIR"
     else
         SC_DATASTORE_DIR="$SC_DATASTORE_RW_DIR"
     fi

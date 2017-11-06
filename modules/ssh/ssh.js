@@ -71,7 +71,9 @@ TrustedHosts += '10.0.0.0/8' + br;
 
 function copy_user_key(c,u) {
     if (u === 'root') return;
- 
+    
+    var i;
+
     var dir = '/var/srvctl3/share/containers/' + c;
     if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir);
@@ -92,27 +94,28 @@ function copy_user_key(c,u) {
     }
 
     var files = fs.readdirSync(SC_DATASTORE_DIR + "/users/" + u);
-    
+ 
     var pub;
     for (i = 0; i < files.length; i++) { 
-        if (files[i].split('.')[1] === 'pub') {
+        if (files[i].split('.')[1] === 'pub' || files[i].split('.')[1] === 'hash') {
             pub = fs.readFileSync(SC_DATASTORE_DIR + "/users/" + u + "/" + files[i]);
             fs.writeFileSync(dir + '/' + u + '-' + files[i], pub);
         }
     }
-    
-    //#var key =  fs.readFileSync(SC_DATASTORE_DIR + "/users/" + u + "/authorized_keys");
-    //#fs.writeFileSync(dir + '/authorized_keys', key);
-
 }
 
 function remake_ssh_keys(c) {
-    
     if (containers[c].user === undefined) return;
-    
     
     // primary user
     copy_user_key(c,containers[c].user);
+    
+    // other users (developers, guests, people that are allowed to have root access)
+    if (containers[c].users !== undefined) {   
+        for (var i = 0; i < containers[c].users.length; i++) { 
+            copy_user_key(c,containers[c].users[i]);
+        }
+    }
     
     // reseller
     if (users[containers[c].user] === undefined) return;
@@ -122,8 +125,8 @@ function remake_ssh_keys(c) {
 }
 
 function user_keys() {
-    Object.keys(containers).forEach(function(i) {
-            remake_ssh_keys(i);
+    Object.keys(containers).forEach(function(c) {
+            remake_ssh_keys(c);
     });
 }
 
@@ -244,7 +247,7 @@ user_keys();
 process.exitCode = 0;
 
 process.on('exit', function() {
-
+    console.log('[ OK ] ssh configuration done');
 });
 
 exit();

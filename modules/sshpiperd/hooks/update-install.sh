@@ -23,6 +23,8 @@ run chown -R sshpiper:root /etc/sshpiper
 ## TODO remove after upgrade
 rm -fr /usr/lib/systemd/system/sshpiperd.service
 
+cp -a "$SC_INSTALL_DIR/modules/sshpiperd/sshpiperd" /bin/sshpiperd
+
 run cat "$SC_INSTALL_DIR/modules/sshpiperd/services/sshpiperd.service" > /etc/systemd/system/sshpiperd.service
 run systemctl daemon-reload
 

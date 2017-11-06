@@ -15,11 +15,21 @@ if [[ -f /usr/local/share/srvctl/srvctl.sh ]]
 then
     if [[ ! -e /bin/sc ]]
     then
-        sudo ln -s /usr/local/share/srvctl/srvctl.sh /bin/sc
+        if [[ -f /usr/bin/sudo ]]
+        then
+            sudo ln -s /usr/local/share/srvctl/srvctl.sh /bin/sc
+        else
+            ln -s /usr/local/share/srvctl/srvctl.sh /bin/sc
+        fi
     fi
     if [[ ! -e /bin/srvctl ]]
     then
-        sudo ln -s /usr/local/share/srvctl/srvctl.sh /bin/srvctl
+        if [[ -f /usr/bin/sudo ]]
+        then
+            sudo ln -s /usr/local/share/srvctl/srvctl.sh /bin/srvctl
+        else
+            ln -s /usr/local/share/srvctl/srvctl.sh /bin/srvctl
+        fi
     fi
 fi
 

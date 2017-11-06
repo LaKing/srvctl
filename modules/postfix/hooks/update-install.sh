@@ -5,6 +5,7 @@
 msg "Installing postfix."
 
 sc_install postfix
+sc install amavisd-new
 
 ## deal with certificates
 ## TODO add wildcard certificate for CDN
@@ -29,5 +30,8 @@ echo "smtpd_sasl_local_domain = $SC_COMPANY_DOMAIN" >> /etc/postfix/main.cf
 cat "$SC_INSTALL_DIR/modules/postfix/conf/hs-master.cf" > /etc/postfix/master.cf
 
 add_service postfix
+add_service amavisd
 
 make_aliases_db ''
+
+firewalld_add_service smtp

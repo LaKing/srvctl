@@ -133,7 +133,7 @@ function run_command {
             if [[ -f $dir/commands/$CMD.sh ]]
             then
                 source "$dir/commands/$CMD.sh"
-                exif "'$CMD' failed"
+                exif "'$CMD' failed ($dir)"
                 return
             fi
         fi

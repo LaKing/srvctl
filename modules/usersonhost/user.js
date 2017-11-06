@@ -48,6 +48,6 @@ Object.keys(users[SC_USER]).forEach(function(j) {
 try {
     fs.writeFileSync(SC_USER_CONF, out);
 } catch (err) {
-        return_error('WRITEFILEFILE ' + SC_USER_CONF + ' ' + err);
+        return_error('WRITEFILEFILE ' + SC_USER_CONF + ' ' + err + ' (usersonhost)');
 }
 

@@ -37,9 +37,9 @@ function add_service {
         mkdir -p /etc/srvctl/system
         ln -s "/usr/lib/systemd/system/$1.service" "/etc/srvctl/system/$1.service" 2> /dev/null
         
-        systemctl "enable $1.service"
-        systemctl "restart $1.service"
-        systemctl "status $1.service" --no-pager
+        systemctl enable "$1.service"
+        systemctl restart "$1.service"
+        systemctl status "$1.service" --no-pager
         
         return 0
     fi
@@ -51,9 +51,9 @@ function add_service {
         mkdir -p /etc/srvctl/system
         ln -s "/etc/systemd/system/$1.service" "/etc/srvctl/system/$1.service" 2> /dev/null
         
-        systemctl "enable $1.service"
-        systemctl "restart $1.service"
-        systemctl "status $1.service" --no-pager
+        systemctl enable "$1.service"
+        systemctl restart "$1.service"
+        systemctl status "$1.service" --no-pager
         
         return 0
     fi
@@ -70,8 +70,8 @@ function rm_service {
         
         rm -rf "/etc/srvctl/system/$1.service" 2> /dev/null
         
-        systemctl "disable $1.service"
-        systemctl "stop $1.service"
+        systemctl disable "$1.service"
+        systemctl stop "$1.service"
         
         return 0
     fi

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-## @@@ add-ve NAME
+## @@@ add-fedora  NAME
 ## @en Add a fedora container.
 ## &en Generic container for customization.
 ## &en Contains basic packages.

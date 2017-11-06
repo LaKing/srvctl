@@ -16,17 +16,19 @@ function nfs_mount() {
     local hs
     for host in $(cfg cluster host_list)
     do
-        if run showmount -e "$host"
+        msg "openvpn connection check to $host ($hs)"
+        hs="$(get host "$host" hostnet)"
+        if run timeout 1 ping -c 1 -W 1 "10.15.$hs.1"
         then
-            run timeout 1 mkdir -p "/var/srvctl3/nfs/$host/srv"
-            hs="$(get host "$host" hostnet)"
-            msg "openvpn connection check to $host ($hs)"
-            if run timeout 1 ping -c 1 -W 1 "10.15.$hs.1"
+            if run showmount -e "$host"
             then
+                run timeout 1 mkdir -p "/var/srvctl3/nfs/$host/srv"
                 run "mount 10.15.$hs.1:/srv /var/srvctl3/nfs/$host/srv"
             else
-                err "Could not ping 10.15.$hs.1"
+                err "Could mount $host 10.15.$hs.1"
             fi
+        else
+            err "Could not ping $host on 10.15.$hs.1"
         fi
     done
 }

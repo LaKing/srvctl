@@ -236,18 +236,24 @@ write_var_haproxy_https_cfg();
 function acl(p, h) {
     // proto host
     var str = '';
-    str += br + '    acl ' + p + ':' + h + ' hdr(host) -i ' + h;
-    //str += br + '    redirect prefix ' + p + '://' + h + ' code 301 if { hdr(host) -i www.' + h + ' }';
-    str += br + '    use_backend ' + p + ':' + h + ' if ' + p + ':' + h;
+    //str += br + '    acl ' + p + ':' + h + ' hdr(host) -i ' + h;
+    
+    ////str += br + '    redirect prefix ' + p + '://' + h + ' code 301 if { hdr(host) -i www.' + h + ' }';
+    
+    //str += br + '    use_backend ' + p + ':' + h + ' if ' + p + ':' + h;
+      
+    str += br + '    use_backend ' + p + ':' + h + ' if { hdr_dom(host) -i ' + h + ' }' ;
+    str += br + '    use_backend ' + p + ':' + h + ' if { hdr_dom(host) -i ' + ddn(h) + ' }' ;
+    
     return str;
 }
 
 function redirect(p, h, d) {
     // proto host dest
     var str = '';
-    str += br + '    redirect prefix ' + p + '://' + h + ' code 301 if { hdr(host) -i ' + d + ' }';
+    str += br + '    redirect prefix ' + p + '://' + h + ' code 301 if { hdr_dom(host) -i ' + d + ' }';
     if (d.substring(0,4) !== 'www.')
-    str += br + '    redirect prefix ' + p + '://' + h + ' code 301 if { hdr(host) -i www.' + d + ' }';
+    str += br + '    redirect prefix ' + p + '://' + h + ' code 301 if { hdr_dom(host) -i www.' + d + ' }';
     return str;
 }
 
@@ -312,16 +318,7 @@ function get_frontend_http() {
     var str = '';
     str += br + 'frontend http';
     str += br + '    bind *:80';
-    
-    str += br + '    acl letsencrypt-acl path_beg /.well-known/acme-challenge/';
-    str += br + '    use_backend letsencrypt-backend if letsencrypt-acl' + br;
-    
-    str += br + '    acl thunderbird-acl path_beg /.well-known/autoconfig/mail/';
-    str += br + '    use_backend thunderbird-backend if thunderbird-acl' + br;
-
-    str += br + '    acl srvctl3data-acl path_beg /.well-known/srvctl/datastore/';
-    str += br + '    use_backend srvctl3data-backend if srvctl3data-acl' + br;
-    
+    str += br;
     // REDIRECT RULEs          
     Object.keys(containers).forEach(function(i) {
         str += br + redirect('http', i, 'www.' + i);
@@ -333,6 +330,18 @@ function get_frontend_http() {
         }
 
     });
+    str += br;
+    
+    str += br + '    acl letsencrypt-acl path_beg /.well-known/acme-challenge/';
+    str += br + '    use_backend letsencrypt-backend if letsencrypt-acl' + br;
+    
+    str += br + '    acl thunderbird-acl path_beg /.well-known/autoconfig/mail/';
+    str += br + '    use_backend thunderbird-backend if thunderbird-acl' + br;
+
+    str += br + '    acl srvctl3data-acl path_beg /.well-known/srvctl/datastore/';
+    str += br + '    use_backend srvctl3data-backend if srvctl3data-acl' + br;
+    
+
     str += br;
     // USE BACKENDs        
     Object.keys(containers).forEach(function(i) {
@@ -380,13 +389,38 @@ function get_frontend_https() {
     return str;
 }
 
+function get_frontend_port(n, ssl) {
+    var str = '';
+    str += br + 'frontend port' + n;
+    str += br + '    bind *:' + n;
+    if (ssl) str += ' ssl crt /var/haproxy';
+    
+    str += br;
+
+    // USE BACKEND (no redirects)
+    Object.keys(containers).forEach(function(i) {
+        
+        // srvctl-releated port permissions based on configurations
+        if (n === 9001 && containers[i].type !== 'codepad') return;
+        
+        str += acl('port'+n, i);
+    });
+    
+    // certfiles are in:
+    // /etc/srvctl/cert
+    // /var/haproxy/cert
+    //str += br + '    default_backend static';
+
+    str += br;
+    return str;
+}
+
+
 function get_backends_for_http() {
     var str = '';
     Object.keys(containers).forEach(function(i) {
         var c = containers[i];
         str += br + 'backend http:' + i;
-        // for https only
-        //str += br + '    redirect scheme https if !{ ssl_fc }';
         str += br + '    server http:' + i + ' ' + i + ':' + datastore.container_http_port(c);
         str += br + '';
     });
@@ -416,13 +450,41 @@ function get_backends_for_https() {
     return str;
 }
 
+
+function get_backends_for_port(n, ssl) {
+    var str = '';
+    Object.keys(containers).forEach(function(i) {
+        
+        // srvctl-releated port permissions based on configurations
+        if (n === 9001 && containers[i].type !== 'codepad') return;
+        
+        var c = containers[i];
+        str += br + 'backend port' + n +':' + i;
+        // for https only
+        //str += br + '    redirect scheme https if !{ ssl_fc }';
+        str += br + '    server port' + n + ':' + i + ' ' + i + ':' + n;
+        if (ssl) str += ' ssl';
+        str += br + '';
+    });
+    return str;
+}
+
+
 var cfg = '';
 cfg += get_global();
 cfg += get_frontend_http();
 cfg += get_frontend_https();
 
+cfg += get_frontend_port(9001, true);
+cfg += get_frontend_port(8080, false);
+cfg += get_frontend_port(8443, true);
+
 cfg += get_backends_for_http();
 cfg += get_backends_for_https();
+
+cfg += get_backends_for_port(9001, false);
+cfg += get_backends_for_port(8080, false);
+cfg += get_backends_for_port(8443, true);
 
 cfg += br + 'backend static';
 cfg += br + '    server static-server localhost:1280'; 

@@ -75,31 +75,38 @@ var container = '';
 //if (DAT === 'container') container = ARG;
 //if (DAT === 'user') user = ARG;
 
-/*
 
-
-console.log("usershares");
-
-/*
 // a js based implementation
 function crate_user_password(user) {
     
     var userdata = SC_DATASTORE_DIR + "/users/" + user;
     var passfile = userdata + "/.password";
+    var userpass = "/home/" + user + "/.password";
+    
     var password;
+    var passwork;
     if (fs.existsSync(passfile)) password = fs.readFileSync(passfile, 'utf8').trim();
+    if (fs.existsSync(userpass)) passwork = fs.readFileSync(userpass, 'utf8').trim();
+    
     if (password === undefined) password = password_lib.get_password();
-    if (password.length < 10) password = password_lib.get_password();
     
+    if (password !== passwork) {
+        if (passwork === undefined) passwork = password;
+        msg("Password-update for user: " + user + " password: " + password);
+        run("echo " + password + " | passwd " + user + " --stdin 2> /dev/null 1> /dev/null");
         
-    fs.writeFileSync(passfile, password);
+        //if (!fs.existsSync(passfile)) 
+        fs.writeFileSync(passfile, password);    
+        //if (!fs.existsSync(userpass)) 
+        fs.writeFileSync(userpass, password);  
+        
+        if (! fs.existsSync( userdata + "/.hash")) run("echo -n $(echo -n " + password + " | openssl dgst -sha512 | cut -d ' ' -f 2) > " + userdata + "/.hash");
+ 
+    }    
     
-    msg("Password-update for user: " + user + " password: " + password);
-    run("echo " + password + " | passwd " + user + " --stdin 2> /dev/null 1> /dev/null");
-    run("echo " + password + " > $(getent passwd " + user + " | cut -f6 -d:)/.password");
+    //run("echo " + password + " > $(getent passwd " + user + " | cut -f6 -d:)/.password");
    
 }
-*/
 
 function create_user_ssh(user){
   // user is the username here
@@ -213,7 +220,7 @@ Object.keys(users).forEach(function(u) {
         create_user_ssh(u);
         //exec_function("create_user_client_cert " + u);
         create_user_client_cert(u);
-    
+        crate_user_password(u);
 
 });
 
@@ -221,6 +228,10 @@ msg("users share's");
 Object.keys(containers).forEach(function(c) {
     if (containers[c].user === root) return;
     make_share(containers[c].user, c);
+    if (containers[c].users !== undefined)
+    for (i = 0; i < containers[c].users.length; i++) { 
+        make_share(containers[c].users[i], c);
+    }
 });
         msg("SC_ROOTCA_HOST:" + SC_ROOTCA_HOST);
 

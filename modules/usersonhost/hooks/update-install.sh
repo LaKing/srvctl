@@ -11,7 +11,7 @@ msg "installing User tools"
 #sc_install dnf-plugin-system-upgrade
 
 ## vncserver
-[[ ! -f /usr/bin/vncserver ]] && sc_installl tigervnc-server
+[[ ! -f /usr/bin/vncserver ]] && sc_install tigervnc-server
 
 ## hg
 [[ ! -f /usr/bin/hg ]] && sc_install hg

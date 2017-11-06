@@ -1,4 +1,4 @@
-## Srvctl v3 (3.1.6.5)
+## Srvctl v3 (3.1.7.1)
 Under construction, - srvctl is a containerfarm-manager for microsite hosting webservers with fedora as the host operating system. It will help to set up, maintain, and to let a couple of servers work together in order to have a solid web-serving service.
 Version 3 is remake for 2016 mostly using systemd tools, thus using systemd-nspawn as the containerfarm manager. The core is written in bash and javascript, and a modular design allows to extend it with programs. Basically it is a collection of scripts.
 
@@ -107,12 +107,12 @@ There are several options for users to access their VE.
 
 
 ```
-# 18 @conf /etc/srvctl/debug.conf 
-# 21 @conf /etc/srvctl/modules.conf 
-# 35 @source /var/local/srvctl/modules.conf 
-# 38 @source /var/local/srvctl/modules.conf 
-# 42 init@run_hook pre-init 
-# 48 @hook ve pre-init 
+# 38 @conf /etc/srvctl/debug.conf 
+# 45 @conf /etc/srvctl/modules.conf 
+# 60 @source /var/local/srvctl/modules.conf 
+# 67 @source /var/local/srvctl/modules.conf 
+# 77 init@run_hook pre-init 
+# 85 @hook ve pre-init 
 
 srvctl COMMAND [arguments]              
 
@@ -131,8 +131,14 @@ COMMAND - from root
 
 COMMAND - from srvctl                   
 
-   /srv/codepad-project/modules/containers/commands/add-ve.sh
-   add-ve                                Add a fedora container.                        
+   /srv/codepad-project/modules/codepad/commands/add-codepad.sh
+   add-codepad                           Add a codepad fedora container.                
+    
+     Generic container for software developmen.
+     Contains all packages for collaborative software development.
+    
+   /srv/codepad-project/modules/containers/commands/add-fedora.sh
+   add-fedora                            Add a fedora container.                        
     
      Generic container for customization.
      Contains basic packages.
@@ -200,6 +206,12 @@ COMMAND - from srvctl
      Contact the package manager, and query important packages
     
     
+   /srv/codepad-project/modules/usersonhost/commands/add-publickey.sh
+   add-publickey                         Add an ssh publickey to the current cluster    
+    
+     Create the file as user defined publickey in the current cluster datastore and save it on the system.
+     Without argiument, the command will open the mcedit program, so the key can be pasted inside.
+    
    /srv/codepad-project/modules/usersonhost/commands/add-reseller.sh
    add-reseller                          Add user as reseller to the host cluster       
     
@@ -222,5 +234,11 @@ COMMAND - from srvctl
    status                                List container status parameters               
     
     
-# 234 srvctl-3.1.6.5 
+   /srv/codepad-project/modules/wordpress/commands/wp-install.sh
+   wp-install                            Run scripts that install wordpress and it's basic dependencies.
+    
+     Install the wordpress dependencies.
+    
+    
+# 493 srvctl-3.1.7.1 
 ```

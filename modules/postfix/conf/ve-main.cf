@@ -76,3 +76,6 @@ shlib_directory = /usr/lib64/postfix
 ## Max 25MB mail size
 message_size_limit=26214400
 
+## relayhost
+## myorigin
+## mydestination

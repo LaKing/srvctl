@@ -1,7 +1,7 @@
 #!/bin/bash
 
 ## @@@ SERVICE OP | OP SERVICE
-## @en status / start|stop|kill|restart(enable|remove) or ? / +|-|!
+## @en OP is one of status|start|stop|kill|restart|enable|remove, SERVICE is a systemd service
 
 ## &en This is a shorthand syntax for frequent operations on systemd.
 ## &en the following are equivalent:

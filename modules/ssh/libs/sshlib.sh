@@ -57,3 +57,7 @@ function update_install_ssh_config() {
     
 }
 
+function update_container_sshd_config() { ## rootfs
+    cat "$SC_INSTALL_DIR/modules/ssh/sshd_config" > "$1"/etc/ssh/sshd_config
+}
+
