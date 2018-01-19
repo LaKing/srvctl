@@ -24,7 +24,7 @@ cat > /etc/httpd/conf.d/wp-permalink.conf << EOF
 EOF
 
 
-cat /etc/httpd/conf.d/logging-behind-reverse-proxy.conf << EOF
+cat > /etc/httpd/conf.d/logging-behind-reverse-proxy.conf << EOF
 ## srvctl generated
         <IfModule log_config_module>
 
@@ -36,3 +36,11 @@ cat /etc/httpd/conf.d/logging-behind-reverse-proxy.conf << EOF
 
         </IfModule>
 EOF
+
+run systemctl enable mariadb
+run systemctl restart mariadb
+run systemctl status mariadb --no-pager
+
+run systemctl enable httpd
+run systemctl restart httpd
+run systemctl status httpd --no-pager

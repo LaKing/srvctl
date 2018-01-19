@@ -156,7 +156,7 @@ function run_command {
     fi
     
     ## call a srvctl data function
-    if [[ $SC_USER == root ]] && [[ $OPAS ]] && [[ $CMD == 'new' ]] ||  [[ $CMD == 'get' ]] ||  [[ $CMD == 'put' ]] ||  [[ $CMD == 'out' ]] ||  [[ $CMD == 'cfg' ]] ||  [[ $CMD == 'del' ]]
+    if [[ $SC_USER == root ]] && [[ $OPAS ]] && [[ $CMD == 'new' ]] ||  [[ $CMD == 'get' ]] ||  [[ $CMD == 'put' ]] ||  [[ $CMD == 'out' ]] ||  [[ $CMD == 'cfg' ]] ||  [[ $CMD == 'del' ]]  ||  [[ $CMD == 'fix' ]]
     then
         # shellcheck disable=SC2086
         $CMD $OPAS
@@ -190,11 +190,13 @@ function run_command {
 function hint_on_file {
     
     [[ -f $1 ]] || return 132
-    
     ## root_only: if not root, and file marked as root_only skip this item
     ! $SC_ROOT && head "$1" | grep -q 'root_only' && return 133
+    ## if not on a containerfarm host
     ! [[ $SC_HOSTNET ]] && head "$1" | grep -q 'hs_only' && return 134
-    ! [[ $SC_USER_RESELLER_ID ]] && head "$1" | grep -q 'reseller_only' && return 134
+    ## is user is not a reseller
+    ! $SC_ROOT && ! [[ "${#SC_USER}" == 1 ]] && head "$1" | grep -q 'reseller_only' && return 134
+    
     #! $SC_ON_VE && head "$1" | grep -q 've_only' && return 135
     
     local hintstr command hintcmd
@@ -426,6 +428,7 @@ function set_permissions() {
     chmod -R 600 /etc/srvctl
     chmod 755 /etc/srvctl
     chmod 644 /etc/srvctl/*.conf
+    chmod 644 /etc/srvctl/*.json
     
     chmod -R 600 "$SC_DATASTORE_RW_DIR"
     

@@ -160,23 +160,25 @@ function create_ca_certificate { ## type net name
         
         if [[ ! -f "$SC_ROOTCA_DIR/$_net/$_file.p12" ]]
         then
-            local _passphrase
+            #local _passphrase
             ##_passphrase="$(cat "/var/srvctl-users/$_u/.password")"
-            _passphrase="$(new_password)"
-            if [[ ! -z "$_passphrase" ]]
-            then
-                
-                ntc "create $_file p12"
-                
-                run openssl pkcs12 -export \
-                -passout pass:"$_passphrase" \
-                -in "$SC_ROOTCA_DIR/$_net/$_file.crt.pem" \
-                -inkey "$SC_ROOTCA_DIR/$_net/$_file.key.pem" \
-                -out "$SC_ROOTCA_DIR/$_net/$_file.p12"
-                
-                echo "$_passphrase ($NOW)" > "$SC_ROOTCA_DIR/$_net/$_file.pass"
-                
-            fi
+            #_passphrase="$(new_password)"
+            #if [[ ! -z "$_passphrase" ]]
+            #then
+            
+            ntc "create $_file p12"
+            
+            run openssl pkcs12 -export \
+            -in "$SC_ROOTCA_DIR/$_net/$_file.crt.pem" \
+            -inkey "$SC_ROOTCA_DIR/$_net/$_file.key.pem" \
+            -out "$SC_ROOTCA_DIR/$_net/$_file.p12" \
+            -passout pass:
+            
+            #-passout pass:"$_passphrase" \
+            ## we use empty password for now
+            ## echo "$_passphrase ($NOW)" > "$SC_ROOTCA_DIR/$_net/$_file.pass"
+            
+            #fi
             
             #if [[ ! -f "/home/$_u/$SC_COMPANY_DOMAIN-$_file.p12" ]]
             #then
@@ -185,12 +187,12 @@ function create_ca_certificate { ## type net name
             #    chmod 400 "/home/$_u/$SC_COMPANY_DOMAIN-$_file.p12"
             #fi
             
-            if [[ -f "$SC_ROOTCA_DIR/$_net/$_file.p12" ]]
-            then
-                mkdir -p "$SC_DATASTORE_DIR/users"
-                cat "$SC_ROOTCA_DIR/$_net/$_file.p12" > "$SC_DATASTORE_DIR/users/$_u/$_u@$SC_COMPANY_DOMAIN.p12"
-                cat "$SC_ROOTCA_DIR/$_net/$_file.pass" > "$SC_DATASTORE_DIR/users/$_u/$_u@$SC_COMPANY_DOMAIN.pass"
-            fi
+            #if [[ -f "$SC_ROOTCA_DIR/$_net/$_file.p12" ]]
+            #then
+            #    mkdir -p "$SC_DATASTORE_DIR/users"
+            #    cat "$SC_ROOTCA_DIR/$_net/$_file.p12" > "$SC_DATASTORE_DIR/users/$_u/$_u@$SC_COMPANY_DOMAIN.p12"
+            #    cat "$SC_ROOTCA_DIR/$_net/$_file.pass" > "$SC_DATASTORE_DIR/users/$_u/$_u@$SC_COMPANY_DOMAIN.pass"
+            #fi
             
         fi
     fi

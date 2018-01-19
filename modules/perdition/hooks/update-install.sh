@@ -6,25 +6,17 @@ msg "Installing perdition. Custom service files are: imap4.service, imap4s.servi
 
 sc_install perdition
 
-## deal with certificates
-create_selfsigned_domain_certificate "$HOSTNAME" "/etc/srvctl/cert/$HOSTNAME"
-
 ## TODO add wildcard certificate for CDN
 
-cat "/etc/srvctl/cert/$HOSTNAME/$HOSTNAME.pem" > /etc/perdition/crt.pem
-cat "/etc/srvctl/cert/$HOSTNAME/$HOSTNAME.key" > /etc/perdition/key.pem
-
-chmod 400 /etc/perdition/crt.pem
-chmod 400 /etc/perdition/key.pem
-
+install_service_hostcertificate /etc/perdition
 
 cat "$SC_INSTALL_DIR/modules/perdition/conf/perdition.conf" > /etc/perdition/perdition.conf
 
-if [ -f /etc/srvctl/cert/ca-bundle.pem ]
-then
-    cat /etc/srvctl/cert/ca-bundle.pem > /etc/perdition/ca-bundle.pem
-    echo "ssl_ca_chain_file = /etc/perdition/ca-bundle.pem" >> /etc/perdition/perdition.conf
-fi
+## in seems to be unnecessery
+# if [ -f /etc/perdition/ca-bundle.pem ]
+# then
+#     echo "ssl_ca_chain_file = /etc/perdition/ca-bundle.pem" >> /etc/perdition/perdition.conf
+# fi
 
 
 echo "#### srvctl tuned popmap.re" > /etc/perdition/popmap.re
@@ -49,4 +41,7 @@ systemctl daemon-reload
 add_service imap4
 add_service imap4s
 add_service pop3s
+
+firewalld_add_service imaps
+firewalld_add_service pop3s
 

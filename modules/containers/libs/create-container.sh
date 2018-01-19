@@ -49,27 +49,11 @@ function create_nspawn_container_network() { ## C T
     msg "ip: $ip / br: $br"
     
     
-    if [[ -z $ip ]] || [[ -z $br ]]
-    then
-        err "Zero-ip/br"
-        exit 35
-    fi
-    
-    ## -a ?
-    
     local rootfs
     rootfs="/srv/$C/rootfs"
     mkdir -p "$rootfs"
     
-    #printf "%s" "$ip" > "/srv/$C/ipv4-address"
-    #printf "%s" "$br" > "/srv/$C/bridge"
-    
-    mkdir -p "$SC_MOUNTS_DIR/$C/etc/network"
-    
-    create_networkd_bridge "$br"
-    #create_nspawn_container_service "$C" "$br"
-    create_nspawn_container_host0 "$C" "$br" "$ip"
-    create_nspawn_container_settings "$C" "$br"
+    create_container_config "$C"
     
     run systemctl enable "srvctl-nspawn@$C"
     

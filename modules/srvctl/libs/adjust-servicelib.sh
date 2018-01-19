@@ -5,7 +5,7 @@ function service_action {
     local op="$2"
     if [[ $op == "status" ]]
     then
-        run systemctl status "$service"  --no-pager
+        run systemctl status "$service"  --no-pager -n 30
         return 0
     else
         
@@ -17,7 +17,8 @@ function service_action {
             then
                 run systemctl enable  "$service"
                 run systemctl restart "$service"
-                run systemctl status "$service"  --no-pager
+                sleep 1
+                run systemctl status "$service"  --no-pager -n 30
                 return 0
             fi
             
@@ -27,7 +28,7 @@ function service_action {
                 [[ $op == "disable" ]] && run systemctl disable "$service"
                 run systemctl stop "$service"
                 [[ $op == "kill" ]] && run systemctl kill "$service"  --no-pager
-                run systemctl status "$service"  --no-pager
+                run systemctl status "$service"  --no-pager -n 30
                 return 0
             fi
             

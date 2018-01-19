@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+    <title>Angular 2 Demo</title>
+
+    <!-- Load depedencies  
+  <script src="https://npmcdn.com/angular2@2.0.0-beta.0/bundles/angular2-polyfills.js"></script>
+  <script src="https://npmcdn.com/typescript@1.7.5/lib/typescript.js"></script>
+  <script src="https://npmcdn.com/systemjs@0.19.8/dist/system.src.js"></script>
+  <script src="https://npmcdn.com/rxjs@5.0.0-beta.0/bundles/Rx.js"></script>
+  <script src="https://npmcdn.com/angular2@2.0.0-beta.0/bundles/angular2.dev.js"></script>
+  -->
+    <script src="/static/ng2/angular2-polyfills.js"></script>
+    <script src="/static/ng2/typescript.js"></script>
+    <script src="/static/ng2/system.src.js"></script>
+    <script src="/static/ng2/Rx.js"></script>
+    <script src="/static/ng2/angular2.dev.js"></script>
+    <script src="/static/js/socket.io.min.js"></script>
+
+    <script>
+        /*
+                        Config the transpiler to be typescript. 
+                    */
+        System.config({
+            transpiler: 'typescript'
+        });
+
+        //load our hello-world component
+        System.import('hello-world.ts');
+    </script>
+</head>
+
+<body>
+    <!-- User defined component  -->
+    <hello-world>please wait</hello-world>
+</body>
+
+</html>

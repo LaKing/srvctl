@@ -92,7 +92,7 @@ Object.prototype.length = function() {
     return Object.keys(this).length;
 };
     
-console.log("PING ms  " + "VE".tab(32) + ' ' + "IP".tab(12) + ' ' + "TYPE".tab(12) + ' ' + "USER".tab(12) + ' ' + "RESELLER".tab(12));
+console.log("PING ms  " + "VE".tab(36) + ' ' + "IP".tab(12) + ' ' + "TYPE".tab(12) + ' ' + "USER".tab(16) + ' ' + "RESELLER".tab(16));
 
 Object.keys(containers).forEach(function(c) {
     if (SC_USER !== root && containers[c].user !== SC_USER && datastore.container_reseller_user(containers[c]) !== SC_USER) return;
@@ -107,14 +107,16 @@ Object.keys(containers).forEach(function(c) {
     if (datastore.container_host(containers[c]) !== HOSTNAME) ping += $YELLOW;
     else ping += $CLEAR;
     
-    if (containers[c].dns_scan.NS.length === 0) ext += ' NS?';
-    if (containers[c].dns_scan.MX.length === 0) ext += ' MX?';
-    if (Object.keys(containers[c].dns_scan.A).length === 0) ext += ' A?';
-    if (Object.keys(containers[c].dns_scan.AAAA).length === 0) ext += ' AAAA?';
+    if (containers[c].dns_scan) {
+        if (containers[c].dns_scan.NS.length === 0) ext += ' NS?';
+        if (containers[c].dns_scan.MX.length === 0) ext += ' MX?';
+        if (Object.keys(containers[c].dns_scan.A).length === 0) ext += ' A?';
+        if (Object.keys(containers[c].dns_scan.AAAA).length === 0) ext += ' AAAA?';
+    }
     var reseller = containers[c].user;
     if (users[containers[c].user].reseller !== undefined) reseller = users[containers[c].user].reseller;
     
-    console.log(ping + ' ' + c.tab(32) + ' ' + containers[c].ip.tab(12) + ' ' + containers[c].type.tab(12) + ' ' + containers[c].user.tab(12) + ' ' + reseller.tab(12) + ' ' + $RED + ext);
+    console.log(ping + ' ' + c.tab(36) + ' ' + containers[c].ip.tab(12) + ' ' + containers[c].type.tab(12) + ' ' + containers[c].user.tab(16) + ' ' + reseller.tab(16) + ' ' + $RED + ext);
 });
 
 exit();

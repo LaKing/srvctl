@@ -21,7 +21,7 @@ function firewalld_add_service() { ## name proto port
     then
         run firewall-cmd  --zone="$zone" --permanent --add-service="$name"
     else
-        
+        msg "Creating /etc/firewalld/services/$name.xml"
 cat > "/etc/firewalld/services/$name.xml" << EOF
 <?xml version="1.0" encoding="utf-8"?>
 <service>

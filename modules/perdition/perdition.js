@@ -2,6 +2,14 @@
 
 /*jshint esnext: true */
 
+const lablib = '../../lablib.js';
+const msg = require(lablib).msg;
+const ntc = require(lablib).ntc;
+const err = require(lablib).err;
+const get = require(lablib).get;
+const run = require(lablib).run;
+const rok = require(lablib).rok;
+
 function out(msg) {
     console.log(msg);
 }
@@ -67,16 +75,21 @@ function write_popmap_cfg() {
     var str = '';
     
     // 
-     Object.keys(containers).forEach(function(i) {
+    Object.keys(containers).forEach(function(i) {
+        var dom = i;
+        if (i.substring(0,5) === "mail.") dom  = i.substring(5);
+        
         var mx = "mail." + i;
         if (i.substring(0,5) === "mail.") mx = i;
-        str += "(.*)@" + i + ": " + mx + br;
+        
+        
+        str += "(.*)@" + dom + ": " + mx + br;
     });
-
+    
     fs.writeFile('/var/perdition/popmap.re', str, function(err) {
         if (err) return_error('WRITEFILE ' + err);
         else {
-            console.log('[ OK ] perdition popmap.re');
+            msg('datastore -> perdition popmap.re');
             exit();
         }
     });

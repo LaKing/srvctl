@@ -39,6 +39,7 @@ Object.keys(clusters).forEach(function(i) {
     });
 });
 
+if (hosts[HOSTNAME])
 Object.keys(hosts[HOSTNAME]).forEach(function(j) {
     if (typeof hosts[HOSTNAME][j] === 'string' || typeof hosts[HOSTNAME][j] === 'number' || typeof hosts[HOSTNAME][j] === 'boolean')
         out += 'SC_' + j.toUpperCase() + '=' + hosts[HOSTNAME][j] + br;

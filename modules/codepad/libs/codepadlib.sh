@@ -8,7 +8,7 @@ function mkrootfs_fedora_install_codepad {
     ## run dnf -y install gcc-c++
     
     ## function from containers module
-    mkrootfs_fedora_base codepad "mc httpd mod_ssl openssl postfix mailx sendmail unzip rsync dovecot gzip git-core curl python openssl-devel postgresql-devel wget mariadb-server ShellCheck nodejs"
+    mkrootfs_fedora_base codepad "gzip git-core curl python openssl-devel postgresql-devel mariadb-server ShellCheck"
     
     msg "mkrootfs_fedora_install_codepad"
     
@@ -132,7 +132,7 @@ cat > "$install_root"/etc/codepad/settings.json << EOF
     "password": "",
     "database": "codepad"
   },
-  "defaultPadText" : "// codepad",
+  "defaultPadText" : "/*jshint esnext: true */",
   "requireSession" : false,
   "editOnly" : false,
   "minify" : true,
@@ -164,7 +164,6 @@ EOF
     run chmod 744 "$install_root"/etc/codepad/push.sh
     
     run mkdir -p "$install_root"/etc/systemd/system/multi-user.target.wants/
-    run ln -s /usr/lib/systemd/system/postfix.service "$install_root"/etc/systemd/system/multi-user.target.wants/postfix.service
     run ln -s /usr/lib/systemd/system/mariadb.service "$install_root"/etc/systemd/system/multi-user.target.wants/mariadb.service
     run ln -s /usr/lib/systemd/system/codepad.service "$install_root"/etc/systemd/system/multi-user.target.wants/codepad.service
     
@@ -190,6 +189,11 @@ function init_codepad_project { ## Container
     if [[ ! -z $1 ]]
     then
         rootfs="/srv/$1/rootfs"
+    fi
+    
+    if [[ ! -d "$rootfs"/etc/codepad/ ]]
+    then
+        return 0
     fi
     
     msg "Create sessionkey and apikey"
@@ -280,7 +284,7 @@ cat > "$rootfs"/etc/codepad/settings.json << EOF
 
 EOF
     
-    run ln -s "$rootfs"/var/srvctl3/share/containers/"$1"/users "$rootfs"/var/codepad/users
+    run ln -s /var/srvctl3/share/containers/"$1"/users "$rootfs"/var/codepad/users
     
     msg "init codepad instance complete"
 }

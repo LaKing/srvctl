@@ -14,11 +14,26 @@ var server = http.createServer(function onRequest(req, res) {
     console.log(req.headers.host, req.url, req.headers['user-agent'], req.headers['x-forwarded-for']);
 
     var host = req.headers.host;
+    if (host === undefined) {
+        console.log("undefined host in req.headers:", req.headers);
+        host = "d250.hu";
+    }
     if (host.substring(0, 4) === 'www.') host = req.headers.host.substring(4);
     if (host.substring(0, 7) === 'static.') host = req.headers.host.substring(7);
-    
+
     // handling the request
-    var done = finalhandler(req, res);
+    //var done = finalhandler(req, res);
+
+    var done = finalhandler(req, res, {
+        onerror: function(err, req, res) {
+            if (err) {
+                console.log(err.toString());
+                res.send('error', err.statusCode);
+            }
+            res.send('error', "undefined");
+        }
+    });
+
     var serve = serveStatic('/var/srvctl3/storage/static/' + host + '/html');
     serve(req, res, done);
 

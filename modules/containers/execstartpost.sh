@@ -4,5 +4,5 @@
 # shellcheck disable=SC2034
 C="$1"
 
-
+#/usr/bin/srvctl put container "$C" started true
 

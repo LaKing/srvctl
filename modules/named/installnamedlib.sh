@@ -2,7 +2,7 @@
 
 function procedure_write_dyndns_server_service {
     local crt
-    crt="/etc/srvctl/cert/$CDN/$CDN"
+    crt="/etc/srvctl/cert/$SC_COMPANY_DOMAIN/$SC_COMPANY_DOMAIN"
     
     ## TODO remove after update
     rm -fr /usr/lib/systemd/system/dyndns-server.service

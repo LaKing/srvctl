@@ -66,51 +66,54 @@ const dns = require('dns');
 function scan_domain(domain) {
     
     if (containers[domain].dns_scan === undefined) containers[domain].dns_scan = {};
-    var cdds = containers[domain].dns_scan;
-    cdds.A={};
+
+    containers[domain].dns_scan.A=[];
     dns.resolve4(domain, function(err, addresses) {
-        if (err) return console.log(err.code, err.hostname);
-            if (addresses !== undefined)
-            addresses.forEach((a) => {
-                dns.reverse(a, (err, hostnames) => {
-                if (err) return console.log(err.code, err.hostname);
-                console.log(domain, 'IN A',hostnames[0], '(', a, ')');
-                    cdds.A[a] = hostnames[0];
-                });
-            });
+        //if (err) return console.log('ERR1resolvev4', err.code, err.hostname);
+        if (addresses !== undefined) containers[domain].dns_scan.A = addresses;
     });
-    cdds.AAAA={};
+    
+    containers[domain].dns_scan.AAAA=[];
     dns.resolve6(domain, function(err, addresses) {
-        if (err) return console.log(err.code, err.hostname);
-            if (addresses !== undefined)
-            addresses.forEach((a) => {
-                dns.reverse(a, (err, hostnames) => {
-                if (err) return console.log(err.code, err.hostname);
-                console.log(domain, 'AAAA',hostnames[0], '(', a, ')');
-                    cdds.AAAA[a] = hostnames[0];
-                });
-            });
+        //if (err) return console.log('err1resolvev6', err.code, err.hostname);
+        if (addresses !== undefined) containers[domain].dns_scan.AAAA = addresses;
     });
-    cdds.MX='';
+    
+    containers[domain].dns_scan.MX=[];
     dns.resolveMx(domain, function(err, addresses) {
-        if (err) return console.log(err.code, err.hostname);
-         if (addresses !== undefined)
-            addresses.forEach((a) => {
-                if (err) return console.log(err.code, err.hostname);
-                console.log(domain, 'MX',a.priority, a.exchange);
-                cdds.MX[a.priority] = a.exchange;
-            });
+        //if (err) return console.log('err1resolveMx', err.code, err.hostname);
+        if (addresses !== undefined) containers[domain].dns_scan.MX = addresses;
     });
-    cdds.NS=[];
+    
+    containers[domain].dns_scan.NS=[];
     dns.resolveNs(domain, function(err, addresses) {
-        if (err) return console.log(err.code, err.hostname);
-            if (addresses !== undefined) {
-                 cdds.NS = addresses; 
-                    addresses.forEach((a) => {
-                    if (err) return console.log(err.code, err.hostname);
-                    console.log(domain, 'NS', a);
-                 });
-            }
+        //if (err) return console.log('err1resolveNs', err.code, err.hostname);
+        if (addresses !== undefined) containers[domain].dns_scan.NS = addresses; 
+    });
+    
+    if (containers[domain].www_scan === undefined) containers[domain].www_scan = {};
+    containers[domain].www_scan.A=[];
+    dns.resolve4("www." + domain, function(err, addresses) {
+        //if (err) return console.log('ERR1resolvev4', err.code, err.hostname);
+        if (addresses !== undefined) containers[domain].www_scan.A = addresses;
+    });
+    
+    containers[domain].www_scan.AAAA=[];
+    dns.resolve6("www." + domain, function(err, addresses) {
+        //if (err) return console.log('err1resolvev6', err.code, err.hostname);
+        if (addresses !== undefined) containers[domain].www_scan.AAAA = addresses;
+    });
+    
+    containers[domain].www_scan.MX=[];
+    dns.resolveMx("www." + domain, function(err, addresses) {
+        //if (err) return console.log('err1resolveMx', err.code, err.hostname);
+        if (addresses !== undefined) containers[domain].www_scan.MX = addresses;
+    });
+    
+    containers[domain].www_scan.NS=[];
+    dns.resolveNs("www." + domain, function(err, addresses) {
+        //if (err) return console.log('err1resolveNs', err.code, err.hostname);
+        if (addresses !== undefined) containers[domain].www_scan.NS = addresses; 
     });
 }
 

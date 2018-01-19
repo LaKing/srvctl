@@ -3,14 +3,18 @@
 [[ $SC_BACKUP_PATH ]] || SC_BACKUP_PATH="/backup"
 
 function display_backup_geometry() {
-    msg "$1:$2 #size $3/$5 #files $7/$8"
-    echo "$NOW $1:$2 #size $3/$5 #files $7/$8" >> "$SC_HOME/.srvctl/backup.log"
+    msg "$1:$2 #source-size $3 #destination-size $4 #source-files $5 #destination-files $6"
+    echo "$NOW $1:$2 #source-size $3 #destination-size $4 #source-files $5 #destination-files $6" >> "$SC_HOME/.srvctl/backup.log"
 }
+
+RSYNC_PROGRESS="--info=progress2"
 
 ## local backup from a local folder
 function local_backup { ## directories
     
     local dirs target source_size destination_size source_count destination_count
+    
+    msg "Local backup"
     
     #args="${@:1}"
     args="${*:1}"
@@ -63,7 +67,7 @@ function local_backup { ## directories
         display_backup_geometry "$HOSTNAME" "$i" "$source_size" "$destination_size" "$source_count" "$destination_count"
         
         ## perform the task
-        if run rsync --delete -a "$i" "$target/$(dirname "$i")"
+        if run rsync "$RSYNC_PROGRESS" --delete -a "$i" "$target/$(dirname "$i")"
         then
             msg "OK backup done $HOSTNAME:$i"
             echo "$NOW OK local-backup $i #size: $source_size/$destination_size files: $source_count/$destination_count" >> "$SC_HOME/.srvctl/backup.log"
@@ -149,7 +153,7 @@ function server_backup { #datahost #directories
         display_backup_geometry "$host" "$i" "$source_size" "$destination_size" "$source_count" "$destination_count"
         
         ## perform the task
-        if run rsync --delete -aze ssh "$host:$i" "$target/$(dirname "$i")"
+        if run rsync "$RSYNC_PROGRESS" --delete -aze ssh "$host:$i" "$target/$(dirname "$i")"
         then
             msg "OK backup done $host:$i"
             echo "$NOW OK $host $i #size: $source_size/$destination_size files: $source_count/$destination_count" >> "$SC_HOME/.srvctl/backup.log"
@@ -235,7 +239,7 @@ function remote_backup { #proxyhost #datahost #directories
         display_backup_geometry "$host" "$i" "$source_size" "$destination_size" "$source_count" "$destination_count"
         
         ## perform the task
-        if rsync --delete -avz -e "ssh -A $proxy ssh" "$host:$i" "$target/$(dirname "$i")"
+        if rsync "$RSYNC_PROGRESS" --delete -avz -e "ssh -A $proxy ssh" "$host:$i" "$target/$(dirname "$i")"
         then
             msg "OK backup done $host:$i"
             echo "$NOW OK $host $i #size: $source_size/$destination_size files: $source_count/$destination_count" >> "$SC_HOME/.srvctl/backup.log"

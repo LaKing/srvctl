@@ -3,6 +3,10 @@
 ## TODO this is just temporary for upgrading from srvctl2
 rm -fr /usr/lib/systemd/system/srvctl-gui.service
 
+mkdir -p /etc/srvctl-gui
+install_service_hostcertificate /etc/srvctl-gui
+
+
 cat > /etc/systemd/system/srvctl-gui.service << EOF
 [Unit]
 Description=srvctl-gui server.
@@ -26,7 +30,7 @@ cd "$SC_INSTALL_DIR/modules/gui/"
 
 #npm install
 
-run npm install -g pty.js
+run npm install -g pty.js --unsafe-perm
 run npm install -g express
 run npm install -g socket.io
 run npm install -g ssh2

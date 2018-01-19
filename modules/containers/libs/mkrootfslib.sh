@@ -3,10 +3,10 @@
 #[[ $SRVCTL ]] || exit
 #[[ $SC_ROOTFS_DIR ]] || exit
 
-function mkrootfs_fedora_base { ## N name
+function mkrootfs_fedora_base { ## name packagelist
     
     ## this is my own version for rootfs creation
-    local rootfs_name srvctl_pkg_list install_root
+    local rootfs_name srvctl_pkg_list install_root plus_pkg_list
     
     rootfs_name="$1"
     srvctl_pkg_list="$2"
@@ -25,8 +25,8 @@ function mkrootfs_fedora_base { ## N name
     release="$VERSION_ID"
     
     base_pkg_list="dnf initscripts passwd rsyslog vim-minimal openssh-server openssh-clients dhclient chkconfig rootfiles policycoreutils fedora-repos fedora-release"
-    
-    run dnf --releasever="$release" --installroot "$install_root" -y --nogpgcheck install "$base_pkg_list" "$srvctl_pkg_list"
+    plus_pkg_list="nodejs gcc-c++ mc httpd mod_ssl openssl postfix mailx sendmail unzip rsync wget"
+    run dnf --releasever="$release" --installroot "$install_root" -y --nogpgcheck install "$base_pkg_list" "$plus_pkg_list" "$srvctl_pkg_list"
     exif "failed to build rootfs"
     
     ## srvctl addition
@@ -58,6 +58,21 @@ function mkrootfs_fedora_base { ## N name
     chroot "$install_root" groupadd -r -g 104 codepad
     chroot "$install_root" useradd -r -u 104 -g 104 -s /sbin/nologin -d /srv/codepad codepad
     
+    run mkdir -p "$install_root"/etc/systemd/system/multi-user.target.wants/
+    run mkdir -p "$install_root"/rootfs/etc/postfix
+    
+    run ln -s /usr/lib/systemd/system/postfix.service "$install_root"/etc/systemd/system/multi-user.target.wants/postfix.service
+    cat "$SC_INSTALL_DIR/modules/postfix/conf/ve-main.cf" > "$install_root"/rootfs/etc/postfix/main.cf
+    
+    sed -i -e 's/info/#info/g' "$install_root"/etc/aliases
+    rm -fr "$install_root"/aliases.db
+    chroot "$install_root" newaliases
+    
+    if [[ $rootfs_name == mail ]]
+    then
+        cat "$SC_INSTALL_DIR/modules/postfix/conf/ve-mail.cf" > "$install_root"/rootfs/etc/postfix/main.cf
+        run ln -s /usr/lib/systemd/system/dovecot.service "$install_root"/etc/systemd/system/multi-user.target.wants/dovecot.service
+    fi
     
     msg "Make fedora-based rootfs for $rootfs_name complete"
     return

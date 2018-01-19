@@ -77,5 +77,10 @@ shlib_directory = /usr/lib64/postfix
 message_size_limit=26214400
 
 ## relayhost
+relayhost = srvctl-gateway
+lmtp_host_lookup = native
+smtp_host_lookup = native
 ## myorigin
+myorigin = $myhostname
 ## mydestination
+mydestination = localhost, localhost.localdomain

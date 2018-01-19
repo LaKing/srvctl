@@ -81,26 +81,31 @@ if [[ $cop == shell ]]
 then
     if [[ -f /srv/$C/rootfs/usr/sbin/$ARG ]]
     then
-        run machinectl shell "$C" "/usr/sbin/$ARG $OPAS3"
+        run machinectl -q --no-pager shell "$C" "/usr/sbin/$ARG $OPAS3"
         exif
         exit 0
     fi
     
     if [[ -f /srv/$C/rootfs/usr/bin/$ARG ]]
     then
-        run machinectl shell "$C" "/usr/bin/$ARG $OPAS3"
+        run machinectl -q --no-pager shell "$C" "/usr/bin/$ARG $OPAS3"
         exif
         exit 0
     fi
     
     if [[ -z "$ARG" ]]
     then
-        run machinectl shell "$C" /bin/bash && exit
+        run machinectl -q --no-pager shell "$C" /bin/bash && exit
         exif
         exit 0
     fi
+    say machinectl -q --no-pager shell "$C" "/bin/bash/ -c '$ARG $OPAS3'"
+    local temp_file
+    temp_file=$(mktemp)
+    echo "machinectl -q --no-pager shell $C /bin/bash/ -c '$ARG $OPAS3'" > "$temp_file"
+    /bin/bash "$temp_file"
+    rm -fr "$temp_file"
     
-    run machinectl shell "$SC_COMMAND_ARGUMENTS"
     exif
     exit 0
 else

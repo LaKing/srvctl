@@ -10,32 +10,48 @@ hs_only
 [[ $SRVCTL ]] || exit 4
 
 argument container
-authorize
-sudomize
+#authorize
+container_user="$(get container "$ARG" user)"
+container_reseller="$(get container "$ARG" reseller)"
 
-local C
-C="$ARG"
-if [[ -f /etc/srvctl/containers/$C.service ]]
+msg "Container $ARG - $container_user ($container_reseller)"
+
+if [[ $SC_USER == $container_user ]] || [[ $SC_USER == $container_reseller ]]
 then
-    run systemctl stop "$C"
-    run systemctl disable "$C"
-    run rm -fr "/etc/srvctl/containers/$C.service"
-    msg "$C service removed."
+    sudomize
 fi
 
-cd /srv
-
-if [[ "$(get container "$C" exist)" == true ]]
+if [[ $USER == root ]]
 then
+    
+    local C
+    C="$ARG"
+    if [[ -f /etc/srvctl/containers/$C.service ]]
+    then
+        systemctl stop "$C"
+        systemctl disable "$C"
+    fi
+    
+    if [[ -d /srv/$C ]]
+    then
+        rm -fr "/srv/$C"
+    fi
+    
     del container "$C"
-    exif
-    msg "$C is removed from the datastore."
+    
+    rm -fr /var/srvctl3/storage/static/"$C"
+    
+    run umount /home/*/"$C"/bindfs
+    run rmdir /home/*/"$C"/bindfs
+    run rmdir /home/*/"$C"
+    
+    run sleep 3
+    run machinectl terminate "$C"
+    
+    msg "$C destroyed."
+    
+    
+else
+    err "$SC_USER has no access to $ARG"
+    exit
 fi
-
-if [[ -d /srv/$C ]]
-then
-    run rm -fr "/srv/$C"
-    msg "$C files removed."
-fi
-
-msg "$C is destroyed."

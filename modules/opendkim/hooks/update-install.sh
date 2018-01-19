@@ -40,6 +40,6 @@ InternalHosts        refile:/var/opendkim/TrustedHosts
 
 EOF
 
-regenerate_opendkim
+#regenerate_opendkim
 
 add_service opendkim

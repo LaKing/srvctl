@@ -85,7 +85,7 @@ do
         shellcheck "$file" >> $log
         shellcheck "$file"
         #echo /bin/python /srv/beautify_bash.py "$file"
-        /bin/python /srv/beautify_bash.py "$file"
+        /bin/python /usr/local/share/srvctl/modules/srvctl/apps/beautify_bash.py "$file"
         rm -fr "$file~"
     fi
 done < /tmp/srvctl-bash-beautify

@@ -16,17 +16,17 @@ function all_containers() { ## op
         then
             if [[ $cop == start ]]
             then
-                run "systemctl start srvctl-nspawn@$C --no-pager"
+                run "systemctl --no-pager start srvctl-nspawn@$C"
             else
-                run "machinectl $cop $C --no-pager"
+                run "machinectl --no-pager $cop $C"
             fi
         else
-            host="$(get container alpha-one.ve host)"
+            host="$(get container "$C" host)"
             if [[ $cop == start ]]
             then
-                run "ssh $host systemctl start srvctl-nspawn@$C --no-pager"
+                run "ssh $host systemctl start srvctl-nspawn@$C"
             else
-                run "ssh $host machinectl $cop $C --no-pager"
+                run "ssh $host machinectl --no-pager $cop $C"
             fi
             
         fi

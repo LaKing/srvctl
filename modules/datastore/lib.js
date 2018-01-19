@@ -2,6 +2,14 @@
 
 /*jshint esnext: true */
 
+const lablib = '../../lablib.js';
+const msg = require(lablib).msg;
+const ntc = require(lablib).ntc;
+const err = require(lablib).err;
+const get = require(lablib).get;
+const run = require(lablib).run;
+const rok = require(lablib).rok;
+
 const SC_HOSTS_DATA_FILE = process.env.SC_DATASTORE_DIR + '/hosts.json';
 const SC_USERS_DATA_FILE = process.env.SC_DATASTORE_DIR + '/users.json';
 const SC_CONTAINERS_DATA_FILE = process.env.SC_DATASTORE_DIR + '/containers.json';
@@ -23,7 +31,7 @@ const SC_ON_HS = ON_HS;
 
 const SRVCTL = process.env.SRVCTL;
 const SC_ROOT = process.env.SC_ROOT;
-const os =  require('os');
+const os = require('os');
 const HOSTNAME = os.hostname();
 const SC_HOSTNET = Number(process.env.SC_HOSTNET);
 const SC_CLUSTERNAME = process.env.SC_CLUSTERNAME;
@@ -33,7 +41,7 @@ const SC_CLUSTERNAME = process.env.SC_CLUSTERNAME;
 var fs = require('fs');
 
 function return_error(msg) {
-    console.error('DATA-ERROR:', msg);
+    console.error('DATA-ERROR (lib):', msg);
     process.exitCode = 111;
     process.exit(111);
 }
@@ -83,7 +91,7 @@ function load_resellers() {
         if (users[i].reseller_id !== undefined)
             resellers[i] = users[i];
     });
-    return resellers;    
+    return resellers;
 }
 
 var resellers = load_resellers();
@@ -106,16 +114,15 @@ function write_users() {
         try {
             fs.writeFile(SC_USERS_DATA_FILE, JSON.stringify(users, null, 2), function(err) {
                 if (err) return_error('WRITEFILE ' + err);
-                else console.log('[ OK ] users.json');
+                else msg('wrote users.json');
             });
         } catch (err) {
             return_error('WRITEFILE ' + SC_USERS_DATA_FILE + ' ' + err);
         }
 }
 
-exports.write_users = function() {
-    write_users();
-};
+exports.write_users = write_users;
+
 
 function write_containers() {
     if (SC_DATASTORE_RO) return_error("Readonly datastore.");
@@ -123,51 +130,57 @@ function write_containers() {
         try {
             fs.writeFile(SC_CONTAINERS_DATA_FILE, JSON.stringify(containers, null, 2), function(err) {
                 if (err) return_error('WRITEFILE ' + err);
-                else console.log('[ OK ] containers.json');
+                else msg('wrote containers.json');
             });
         } catch (err) {
             return_error('WRITEFILE ' + SC_CONTAINERS_DATA_FILE + ' ' + err);
         }
 }
 
-exports.write_containers = function() {
-    write_containers();
-};
+exports.write_containers = write_containers;
 
 function container_uid(container) {
     var cipa = container.ip.split(dot);
     return 65536 * ((Number(cipa[2]) * 255) + Number(cipa[3]));
 }
 
-exports.container_uid = function(container) {
-    return container_uid(container);
-};
+exports.container_uid = container_uid;
 
 function container_bridge_address(container) {
     var cipa = container.ip.split(dot);
     return '10' + dot + Number(cipa[1]) + dot + Number(cipa[2]) + dot + 'x';
 }
 
-exports.container_bridge_address = function(container) {
-    return container_bridge_address(container);
-};
+exports.container_bridge_address = container_bridge_address;
 
 function container_bridge_host_ip(container) {
     var cipa = container.ip.split(dot);
     return '10' + dot + Number(cipa[1]) + dot + Number(cipa[2]) + dot + '1';
 }
 
-exports.container_bridge_host_ip = function(container) {
-    return container_bridge_host_ip(container);
-};
+exports.container_bridge_host_ip = container_bridge_host_ip;
+
+function container_user_id(container) {
+    var cipa = container.ip.split(dot);
+    return Number(cipa[2]);
+}
+
+exports.container_user_id = container_user_id;
+
+function container_check_user_ip_match(container) {
+    var cipa = container.ip.split(dot);
+    if (users[container.user].user_id === Number(cipa[2])) return true;
+    return false;
+}
+
+exports.container_check_user_ip_match = container_check_user_ip_match;
+
 
 function container_hostnet(container) {
     return container.ip.split(dot)[1];
 }
 
-exports.container_hostnet = function(container) {
-    return container_hostnet(container);
-};
+exports.container_hostnet = container_hostnet;
 
 
 function container_host(container) {
@@ -180,9 +193,7 @@ function container_host(container) {
     return ret;
 }
 
-exports.container_host = function(container) {
-    return container_host(container);
-};
+exports.container_host = container_host;
 
 function container_host_ip(container) {
     var hostnet = container_hostnet(container);
@@ -194,18 +205,15 @@ function container_host_ip(container) {
     return ret;
 }
 
-exports.container_host_ip = function(container) {
-    return container_host_ip(container);
-};
+exports.container_host_ip = container_host_ip;
 
 function container_reseller_user(container) {
-
-    return container;
+    if (users[container.user].reseller_id !== undefined) return container.user;
+    if (users[container.user].reseller !== undefined) return users[container.user].reseller;
+    return "root";
 }
 
-exports.container_reseller_user = function(container) {
-    return container_reseller_user(container);
-};
+exports.container_reseller_user = container_reseller_user;
 
 function container_user(container) {
     var cipa = container.ip.split(dot);
@@ -223,9 +231,7 @@ function container_http_port(container) {
     else return 80;
 }
 
-exports.container_http_port = function(container) {
-    return container_http_port(container);
-};
+exports.container_http_port = container_http_port;
 
 
 function container_https_port(container) {
@@ -233,9 +239,7 @@ function container_https_port(container) {
     else return 443;
 }
 
-exports.container_https_port = function(container) {
-    return container_https_port(container);
-};
+exports.container_https_port = container_https_port;
 
 function container_mx(C) {
     if (containers[C].use_gsuite) return false;
@@ -245,9 +249,7 @@ function container_mx(C) {
     return true;
 }
 
-exports.container_mx = function(container) {
-    return container_mx(container);
-};
+exports.container_mx = container_mx;
 
 function find_next_cip_for_container_on_network(network) {
     var nipa = network.split(dot);
@@ -296,16 +298,14 @@ function get_user_uid(u) {
     Object.keys(users).forEach(function(i) {
         if (Number(users[i].uid) >= ret) ret = Number(users[i].uid) + 1;
     });
-    
+
     if (ret > 65530) return_error("Could not find a valid user uid, out of range. " + user);
     users[u].uid = ret;
     write_users();
     return ret;
 }
 
-exports.get_user_uid = function(u) {
-    return get_user_uid(u);
-};
+exports.get_user_uid = get_user_uid;
 
 // users uid is between 1000 and 10000
 function get_next_user_id() {
@@ -332,7 +332,7 @@ function new_user(username) {
     user.added_by_username = SC_USER;
     user.added_on_datestamp = NOW;
 
-    
+
     if (users[SC_USER].reseller_id === undefined) return_error('MISSING RESELLER_ID');
 
     user.reseller = SC_USER;
@@ -342,31 +342,27 @@ function new_user(username) {
     get_user_uid(username);
 }
 
-exports.new_user = function(username) {
-    new_user(username);
-};
+exports.new_user = new_user;
 
 function new_reseller(username) {
     if (users[username] !== undefined) return_error('USER EXISTS');
     var user = {};
     user.added_by_username = SC_USER;
     user.added_on_datestamp = NOW;
-    
+
     user.reseller = username;
     var rid = 1;
     Object.keys(users).forEach(function(i) {
         if (users[i].reseller_id >= rid) rid = users[i].reseller_id + 1;
     });
     user.reseller_id = rid;
-    
+
     users[username] = user;
 
     get_user_uid(username);
 }
 
-exports.new_reseller = function(username) {
-    new_reseller(username);
-};
+exports.new_reseller = new_reseller;
 
 function new_container(C, T) {
 
@@ -388,9 +384,23 @@ function new_container(C, T) {
     write_containers();
 }
 
-exports.new_container = function(C, T) {
-    new_container(C, T);
-};
+exports.new_container = new_container;
+
+function update_container_ip(C) {
+
+    var a = SC_HOSTNET;
+    var b = Number(users[containers[C].user].user_id);
+    var c = find_next_cip_for_container_on_network('10.' + a + dot + b + dot + 'x');
+
+    containers[C].ip = '10.' + a + dot + b + dot + c;
+    write_containers();
+    msg("Update container " + C + ' ip ' + containers[C].ip);
+
+    return;
+}
+
+exports.update_container_ip = update_container_ip;
+
 
 function cluster_etc_hosts() {
     var str = '';
@@ -400,7 +410,7 @@ function cluster_etc_hosts() {
     str += "## hosts" + br;
     Object.keys(hosts).forEach(function(i) {
         if (hosts[i].host_ip) str += hosts[i].host_ip + '    ' + i + br;
-        if (hosts[i].hostnet) str += '10.15.'+hosts[i].hostnet+'.0    ' + i.split('.')[0] + br;
+        if (hosts[i].hostnet) str += '10.15.' + hosts[i].hostnet + '.0    ' + i.split('.')[0] + br;
     });
     str += "## containers" + br;
     Object.keys(containers).forEach(function(i) {
@@ -411,31 +421,30 @@ function cluster_etc_hosts() {
     });
     fs.writeFile('/etc/hosts', str, function(err) {
         if (err) return_error('WRITEFILE ' + err);
-        else console.log('[ OK ] etc-hosts');
+        else msg('wrote /etc/hosts');
     });
 }
 
-exports.cluster_etc_hosts = function() {
-    cluster_etc_hosts();
-};
+exports.cluster_etc_hosts = cluster_etc_hosts;
 
 function cluster_postfix_relaydomains() {
     var str = '';
+    var count = 0;
     Object.keys(hosts).forEach(function(i) {
         str += i + ' #' + br;
     });
     Object.keys(containers).forEach(function(i) {
-        str += i + ' #' + br;
+        if (i.substring(0, 5) === 'mail.') str += i.substring(5) + ' #' + br;
+        else str += i + ' #' + br;
+        count++;
     });
     fs.writeFile('/etc/postfix/relaydomains', str, function(err) {
         if (err) return_error('WRITEFILE ' + err);
-        else console.log('[ OK ] postfix relaydomains');
+        else msg('datastore -> postfix relaydomains #' + count);
     });
 }
 
-exports.cluster_postfix_relaydomains = function() {
-    cluster_postfix_relaydomains();
-};
+exports.cluster_postfix_relaydomains = cluster_postfix_relaydomains;
 
 
 function cluster_host_keys() {
@@ -456,9 +465,7 @@ function cluster_host_keys() {
     });
 }
 
-exports.cluster_host_keys = function() {
-    cluster_host_keys();
-};
+exports.cluster_host_keys = cluster_host_keys;
 
 function cluster_user_list() {
     var str = '';
@@ -468,9 +475,7 @@ function cluster_user_list() {
     return str;
 }
 
-exports.cluster_user_list = function() {
-    return cluster_user_list();
-};
+exports.cluster_user_list = cluster_user_list;
 
 
 function cluster_container_list() {
@@ -481,9 +486,7 @@ function cluster_container_list() {
     return str;
 }
 
-exports.cluster_container_list = function() {
-    return cluster_container_list();
-};
+exports.cluster_container_list = cluster_container_list;
 
 function user_container_list() {
     var str = '';
@@ -494,9 +497,7 @@ function user_container_list() {
     return str;
 }
 
-exports.user_container_list = function() {
-    return user_container_list();
-};
+exports.user_container_list = user_container_list;
 
 function cluster_host_list() {
     var str = '';
@@ -506,9 +507,7 @@ function cluster_host_list() {
     return str;
 }
 
-exports.cluster_host_list = function() {
-    return cluster_host_list();
-};
+exports.cluster_host_list = cluster_host_list;
 
 function cluster_host_ip_list() {
     var str = '';
@@ -518,9 +517,7 @@ function cluster_host_ip_list() {
     return str;
 }
 
-exports.cluster_host_ip_list = function() {
-    return cluster_host_ip_list();
-};
+exports.cluster_host_ip_list = cluster_host_ip_list;
 
 
 /*

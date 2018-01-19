@@ -6,6 +6,14 @@ function out(msg) {
     console.log(msg);
 }
 
+const lablib = '../../lablib.js';
+const msg = require(lablib).msg;
+const ntc = require(lablib).ntc;
+const err = require(lablib).err;
+const get = require(lablib).get;
+const run = require(lablib).run;
+const rok = require(lablib).rok;
+
 // includes
 var fs = require('fs');
 var datastore = require('../datastore/lib.js');
@@ -139,7 +147,7 @@ user_access();
 process.exitCode = 0;
 
 process.on('exit', function() {
-    console.log('[ OK ] user and users access keys configured');
+    msg('codepad: user and users access keys configured');
 });
 
 exit();

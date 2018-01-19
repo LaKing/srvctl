@@ -14,9 +14,11 @@ function write_ve_postfix_conf { #container
     
     if [[ "${container:0:5}" == "mail." ]]
     then
+        msg "write postfix for mail container"
         write_ve_postfix_main "${container:5}"
         write_ve_postfix_main "$container"
     else
+        msg "write postfix for container"
         write_ve_postfix_main "$container"
         write_ve_postfix_main "mail.$container"
     fi
@@ -24,39 +26,61 @@ function write_ve_postfix_conf { #container
 
 
 function write_ve_postfix_main { #container
-    local domain container
+    local container conf
     container="$1"
-    domain="$1"
     
-    if get container "$container" exist
+    if [[ ! -d /srv/$container ]]
     then
-        msg "Writing postfic configuration for $container"
-        
-        if [[ "${container:0:5}" == "mail." ]]
-        then
-            domain="${container:5}"
-        fi
+        return 0
+    fi
+    
+    
+    if [[ $(get container "$container" exist) == true ]]
+    then
+        msg "Writing postfix configuration for $container"
         
         conf="/srv/$container/rootfs/etc/postfix/main.cf"
         
-        cat "$conf" >> "/srv/$container/rootfs/etc/postfix/main.cf-$NOW.bak"
-        
-        cat "$SC_INSTALL_DIR/modules/postfix/conf/ve-main.cf" > "$conf"
-        
-        ## relayhost - host on the bridge
-        echo "relayhost = $(get container "$container" br_host_ip)" >> "$conf"
-        
-        if get container "$container" mx
+        if [[ ! -f $conf ]]
         then
-            ## mydestination - localhost, localhost.localdomain, - WITH or WITHOUT - $myhostname, container-domain
-            echo "mydestination = localhost, localhost.localdomain, $domain, mail.$domain" >> "$conf"
+            err "$conf does not exist"
         else
-            ## mydestination - localhost, localhost.localdomain, - WITH or WITHOUT - $myhostname, container-domain
-            echo "mydestination = localhost, localhost.localdomain" >> "$conf"
+            cat "$conf" >> "/srv/$container/rootfs/etc/postfix/main.cf-$NOW.bak"
         fi
         
-        ## myorigin - the domain name or the subdomain
-        echo "myorigin = $domain" >> "$conf"
-        
+        if [[ "${container:0:5}" == "mail." ]]
+        then
+            cat "$SC_INSTALL_DIR/modules/postfix/conf/ve-mail.cf" > "$conf"
+        else
+            cat "$SC_INSTALL_DIR/modules/postfix/conf/ve-main.cf" > "$conf"
+        fi
+    else
+        err "$container dont exists"
     fi
+}
+
+## to be used inside containers
+function write_postfix_main {
+    local container conf
+    
+    container="$HOSTNAME"
+    conf="/etc/postfix/main.cf"
+    
+    msg "Writing posfix configuration in $container "
+    
+    if [[ ! -f $conf ]]
+    then
+        err "$conf does not exist"
+    else
+        cat "$conf" >> "/etc/postfix/main.cf-$NOW.bak"
+    fi
+    
+    if [[ "${container:0:5}" == "mail." ]]
+    then
+        cat "$SC_INSTALL_DIR/modules/postfix/conf/ve-mail.cf" > "$conf"
+    else
+        cat "$SC_INSTALL_DIR/modules/postfix/conf/ve-main.cf" > "$conf"
+    fi
+    
+    run systemctl restart postfix
 }

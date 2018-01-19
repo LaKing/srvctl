@@ -9,7 +9,7 @@ const port = 250;
 
 //const SC_DATASTORE_DIR = process.env.SC_DATASTORE_DIR;
 // okay, this is not visible here .. TODO, make it so, ...
-const SC_DATASTORE_DIR = '/var/srvctl3/gluster/srvctl-data';
+const SC_DATASTORE_DIR = '/var/srvctl3/datastore';
 const SC_INSTALL_DIR = '/usr/local/share/srvctl';
 
 const https = require('https');
@@ -26,8 +26,8 @@ const pty = require(global_install_prefix + 'pty.js');
 const HOSTNAME = os.hostname();
 
 const options = {
-    cert: fs.readFileSync('/etc/srvctl/cert/' + HOSTNAME + '/' + HOSTNAME + '.pem'),
-    key: fs.readFileSync('/etc/srvctl/cert/' + HOSTNAME + '/' + HOSTNAME + '.key'),
+    cert: fs.readFileSync('/etc/srvctl-gui/crt.pem'),
+    key: fs.readFileSync('/etc/srvctl-gui/key.pem'),
     ca: [fs.readFileSync('/etc/srvctl/CA/ca/usernet.crt.pem')],
     requestCert: true,
     rejectUnauthorized: true,

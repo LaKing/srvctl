@@ -83,7 +83,8 @@ source /etc/os-release
 if [[ $USER == root ]] && [[ -z $SUDO_USER ]]
 then
     readonly SC_ROOT=true
-    readonly SC_USER=root
+    #readonly
+    SC_USER=root
 else
     if [[ -z $SUDO_USER ]]
     then

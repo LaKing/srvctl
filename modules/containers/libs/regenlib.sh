@@ -29,6 +29,11 @@ function check_container_directories() {
     msg "Checking for containers in directories"
     for D in /srv/*
     do
+        if [[ $D == /srv/TEMP ]]
+        then
+            continue
+        fi
+        
         if [[ -d $D ]]
         then
             local C
@@ -64,9 +69,15 @@ function check_container_directories() {
                 fi
             fi
             
-            if [[ ! -f "/srv/$C/$C.nspawn" ]]
+            if [[ -f /srv/$C/hosts ]] && [[ -f /srv/$C/network/80-container-host0.network ]] && [[ -f /srv/$C/$C.nspawn ]]
             then
-                create_nspawn_container_settings "$C"
+                continue
+            else
+                msg "Updating container configuration for $C"
+                
+                fix container "$C" update_container_ip
+                create_container_config "$C"
+                
             fi
         fi
     done
@@ -93,3 +104,27 @@ function check_container_database() {
         fi
     done
 }
+
+function check_container_ownership() {
+    msg "Checking for container owners in the database"
+    local container_list h u v w
+    container_list="$(cfg cluster container_list)"
+    for C in $container_list
+    do
+        if "$(get container "$C" user_ip_match)"
+        then
+            continue
+        else
+            msg "Re-setting internal IP of $C due to false user_ip_match"
+            
+            fix container "$C" update_container_ip
+            run systemctl stop srvctl-nspawn@"$C"
+            
+            create_container_config "$C"
+            
+            run systemctl start srvctl-nspawn@"$C" --no-pager -n 30
+            run systemctl status srvctl-nspawn@"$C" --no-pager -n 30
+        fi
+    done
+}
+

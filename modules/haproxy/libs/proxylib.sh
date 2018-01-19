@@ -6,9 +6,12 @@ function regenerate_haproxy_conf {
     
     run mkdir -p "$SC_DATASTORE_DIR/cert"
     msg "Regenerate haproxy configs."
-    mkdir -p /var/haproxy/cert
+    mkdir -p /var/haproxy
     mkdir -p /etc/srvctl/cert
-    run rsync -a "$SC_DATASTORE_RO_DIR/cert" /var/haproxy
+    
+    cp -u /var/srvctl3/datastore/cert/* /var/haproxy/
+    #run rsync -a "$SC_DATASTORE_RO_DIR/cert" /var/haproxy
+    
     haproxycfg
     restart_haproxy
     

@@ -1,4 +1,4 @@
-## Srvctl v3 (3.1.7.3)
+## Srvctl v3 (3.1.9.9)
 Under construction, - srvctl is a containerfarm-manager for microsite hosting webservers with fedora as the host operating system. It will help to set up, maintain, and to let a couple of servers work together in order to have solid web-serving services.
 Version 3 is remake in core mostly using systemd tools, thus using systemd-nspawn as the containerfarm manager. Written in the mix of bash and javascript, a modular design allows to extend it with programs. Basically it is a collection of scripts, and fast scripts.
 
@@ -76,48 +76,47 @@ Mailing is enabled by default, but mailing should be seperated to containers, th
 
 
 ```
-# 51 @conf /etc/srvctl/debug.conf 
-# 58 @conf /etc/srvctl/modules.conf 
-# 80 @source /var/local/srvctl/modules.conf 
-# 88 @source /var/local/srvctl/modules.conf 
-# 100 init@run_hook pre-init 
-# 110 @hook ve pre-init 
 
 srvctl COMMAND [arguments]              
 
 
 COMMAND                                 
 
-
-COMMAND - from root                     
-
-   /root/srvctl-includes/test.sh                
-   test                                  A Custom command from root 2017.08.15-17:05:03 
-    
-     This command does something custom, like running a bash script.
-     It might be customized further, depending on the author.
-    
-
-COMMAND - from srvctl                   
-
-   /srv/codepad-project/modules/codepad/commands/add-codepad.sh
    add-codepad                           Add a codepad fedora container.                
     
      Generic container for software developmen.
      Contains all packages for collaborative software development.
     
-   /srv/codepad-project/modules/containers/commands/add-fedora.sh
    add-fedora                            Add a fedora container.                        
     
      Generic container for customization.
      Contains basic packages.
     
-   /srv/codepad-project/modules/containers/commands/destroy-ve.sh
+   add-mail                              Add a mailing container.                       
+    
+     Mail container for pop3/imap6smtp access.
+     Contains dovecot, postfix.
+    
    destroy-ve                            Delete container with all its files            
     
      Delete all files and all records regarding the VE.
     
-   /srv/codepad-project/modules/containers/commands/regenerate.sh
+   exec-all                              Execute a command on all running containers.   
+    
+     In some cases it might come handy to run a single command on all containers.
+    
+   http-redirect                         Redirect traffic of a given VE to a given URL or protocol
+    
+     Place a redirect rule on the VE within the proxy configuration.
+     The URL should contain the protocol and/or the domain name.
+     If neither a keyword, nor an URL are given the redirect is removed.
+    
+   https-redirect                        Redirect traffic of a given VE to a given URL or protocoll
+    
+     Place a redirect rule on the VE within the proxy configuration.
+     The URL should contain the protocol and/or the domain name.
+     If neither a keyword, nor an URL are given the redirect is removed.
+    
    regenerate                            Update configuration settings.                 
     
      Get all modules to write and overwrite config files with the actual configurations.
@@ -125,11 +124,9 @@ COMMAND - from srvctl
      The regenerate rootfs command rebuilds the container base images.
     
     
-   /srv/codepad-project/modules/containers/commands/status.sh
    status                                List container statuses                        
     
     
-   /srv/codepad-project/modules/srvctl/commands/customize.sh
    customize                             Create/edit a custom command.                  
     
      It is possible to create a custom command in ~/srvctl-includes
@@ -137,7 +134,6 @@ COMMAND - from srvctl
      This command does something custom, like running a bash script.
      It might be customized further, depending on the author.
     
-   /srv/codepad-project/modules/srvctl/commands/diagnose.sh
    diagnose                              First-aid diagnoistic command.                 
     
      Set of troubleshooting commands, that include information about:
@@ -157,57 +153,52 @@ COMMAND - from srvctl
          To flush the mail que, use: postqueue -f
          To remove all mail from the mail que use: postsuper -d ALL
     
-   /srv/codepad-project/modules/srvctl/commands/ls.sh
    ls                                    List all files recursive, sorted by last modified date
     
      List all files recursive, sorted by last modified date
     
     
-   /srv/codepad-project/modules/srvctl/commands/update-install.sh
    update-install                        Run the installation/update script.            
     
      Update/Install all components
      On host systems install the containerfarm
     
-   /srv/codepad-project/modules/srvctl/commands/version.sh
    version                               List software versions installed.              
     
      Contact the package manager, and query important packages
     
     
-   /srv/codepad-project/modules/usersonhost/commands/add-publickey.sh
    add-publickey                         Add an ssh publickey to the current cluster    
     
      Create the file as user defined publickey in the current cluster datastore and save it on the system.
      Without argiument, the command will open the mcedit program, so the key can be pasted inside.
     
-   /srv/codepad-project/modules/usersonhost/commands/add-reseller.sh
    add-reseller                          Add user as reseller to the host cluster       
     
      Add user to the current cluster datastore and create it on the system.
      users will have default passwords, certificates, etc, ..
     
-   /srv/codepad-project/modules/usersonhost/commands/add-user.sh
    add-user                              Add user to the current cluster                
     
      Create the user in the current cluster datastore and create it on the system.
      users will have default passwords, certificates, etc, ..
     
-   /srv/codepad-project/modules/usersonve/commands/add-user.sh
+   change-user                           Move container to a different user             
+    
+     Move container to be owned by a different user. This invoves a change in the IP adress, thus requres a restart of the container.
+    
    add-user                              Add user to the container                      
     
      Add user to the container, so that they have their own files, email accouns, and so on.
      users will have a default password, and a directory structure in the container home.
     
-   /srv/codepad-project/modules/ve/commands/status.sh
    status                                List container status parameters               
     
     
-   /srv/codepad-project/modules/wordpress/commands/wp-install.sh
    wp-install                            Run scripts that install wordpress and it's basic dependencies.
     
      Install the wordpress dependencies.
     
     
-# 611 srvctl-3.1.7.3 
+[ srvctl-devel ] ## srvctl-3.1.9.9
 ```

@@ -7,9 +7,18 @@ function out(msg) {
 }
 
 // includes
-var fs = require('fs');
-var datastore = require('../datastore/lib.js');
+const fs = require('fs');
+const datastore = require('../datastore/lib.js');
 const execSync = require('child_process').execSync;
+
+const lablib = '../../lablib.js';
+const msg = require(lablib).msg;
+const ntc = require(lablib).ntc;
+const err = require(lablib).err;
+const get = require(lablib).get;
+const run = require(lablib).run;
+const rok = require(lablib).rok;
+const exec_function = require(lablib).exec_function;
 
 const os =  require('os');
 const HOSTNAME = os.hostname();
@@ -155,7 +164,7 @@ function ssh_config() {
     });
     fs.writeFile('/etc/ssh/ssh_config.d/srvctl-chosts.conf', str, function(err) {
         if (err) return_error('WRITEFILE ' + err);
-        else console.log('[ OK ] ssh srvctl-hosts.conf');
+        else msg('ssh srvctl-hosts.conf');
     });
     
     str = '';
@@ -170,7 +179,7 @@ function ssh_config() {
     });
     fs.writeFile('/etc/ssh/ssh_config.d/srvctl-containers.conf', str, function(err) {
         if (err) return_error('WRITEFILE ' + err);
-        else console.log('[ OK ] ssh srvctl-containers.conf');
+        else msg('ssh srvctl-containers.conf');
     });
 }
 
@@ -221,7 +230,7 @@ function make_host_keys(){
     
     fs.writeFile('/var/srvctl3/share/common/known_hosts', keys, function(err) {
         if (err) return_error('WRITEFILE ' + err);
-        else console.log('[ OK ] ssh share/common/known_hosts');
+        else msg('ssh share/common/known_hosts');
     });
     
     // in addition, localhost
@@ -233,7 +242,7 @@ function make_host_keys(){
     
     fs.writeFile('/var/srvctl3/ssh/known_hosts', keys, function(err) {
         if (err) return_error('WRITEFILE ' + err);
-        else console.log('[ OK ] ssh ssh/known_hosts');
+        else msg('ssh ssh/known_hosts');
     });
 }
 
@@ -247,7 +256,7 @@ user_keys();
 process.exitCode = 0;
 
 process.on('exit', function() {
-    console.log('[ OK ] ssh configuration done');
+    msg('ssh configuration done');
 });
 
 exit();

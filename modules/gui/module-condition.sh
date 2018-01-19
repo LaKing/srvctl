@@ -1,3 +1,13 @@
 #! /bin/bash
 
-source "$SC_INSTALL_DIR/modules/ca/module-condition.sh"
+SC_VIRT=$(systemd-detect-virt -c)
+
+## lxc is deprecated, but we can consider it a container ofc.
+if [[ $SC_VIRT == systemd-nspawn ]] || [[ $SC_VIRT == lxc ]]
+then
+    echo false
+    return
+fi
+
+echo true
+

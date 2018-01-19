@@ -50,14 +50,6 @@ WantedBy=multi-user.target
 
 function regenerate_letsencrypt {
     
-    if [ "$(systemctl is-active pound.service)" != "active" ]
-    then
-        err "Pound is not running!"
-        systemctl status pound.service --no-pager
-        
-        exit 99
-    fi
-    
     if [ "$(systemctl is-active acme-server.service)" != "active" ]
     then
         err "Acme server is not running!"

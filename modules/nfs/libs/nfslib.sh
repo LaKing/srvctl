@@ -16,8 +16,8 @@ function nfs_mount() {
     local hs
     for host in $(cfg cluster host_list)
     do
-        msg "openvpn connection check to $host ($hs)"
         hs="$(get host "$host" hostnet)"
+        msg "openvpn connection check to $host ($hs)"
         if run timeout 1 ping -c 1 -W 1 "10.15.$hs.1"
         then
             if run showmount -e "$host"

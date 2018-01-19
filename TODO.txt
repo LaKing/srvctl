@@ -1,0 +1,15 @@
+// codepad
+
+BUG pthread_create: Resource temporarily unavailable
+
+https://unix.stackexchange.com/questions/253903/creating-threads-fails-with-resource-temporarily-unavailable-with-4-3-kernel
+
+BUG network unreachable
+
+restart systemd-networkd on the host, .. and on the containers
+
+BUG container restarts fail
+
+remove --kep-unit
+
+https://github.com/systemd/systemd/issues/2809

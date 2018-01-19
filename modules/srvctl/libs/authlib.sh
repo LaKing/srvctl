@@ -11,7 +11,7 @@ function root_only {
 }
 
 function reseller_only {
-    if get user "$SC_USER" reseller_id
+    if [[ "${#SC_USER}" == 1 ]] || $SC_ROOT
     then
         return 0
     else

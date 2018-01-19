@@ -31,13 +31,11 @@ const OUT = 'out';
 const CFG = 'cfg';
 const DEL = 'del';
 const NEW = 'new';
+const FIX = 'fix';
 const dot = '.';
 const root = 'root';
 // netblock size
 const NBC = 16;
-
-
-
 
 process.exitCode = 99;
 
@@ -54,7 +52,7 @@ function return_value(msg) {
 }
 
 function return_error(msg) {
-    console.error('DATA-ERROR:', msg);
+    console.error('DATA-ERROR:', msg, process.argv);
     process.exitCode = 111;
     process.exit(111);
 }
@@ -65,14 +63,14 @@ function output(variable, value) {
 }
 
 // get or put
-if (CMD === undefined) return_error("MISSING CMD ARGUMENT: get | put | out | cfg | del | new");
+if (CMD === undefined) return_error("MISSING CMD ARGUMENT: get | put | out | cfg | del | new | fix");
 // users or containers
 if (DAT === undefined) return_error("MISSING DAT ARGUMENT: cluster | user | reseller | container | host");
 // field
 if (ARG === undefined) return_error("MISSING ARG ARGUMENT: containername / username / hostname / query");
 // OPA is optional
 
-if (CMD !== GET && CMD !== PUT && CMD !== OUT && CMD !== CFG && CMD !== DEL && CMD !== NEW) return_error("INVALID CMD ARGUMENT: " + CMD);
+if (CMD !== GET && CMD !== PUT && CMD !== OUT && CMD !== CFG && CMD !== DEL && CMD !== NEW && CMD !== FIX) return_error("INVALID CMD ARGUMENT: " + CMD);
 if (DAT !== 'cluster' && DAT !== 'user' && DAT != 'container' && DAT != 'host' && DAT != 'reseller') return_error("INVALID DAT ARGUMENT: " + DAT);
 
 // variables
@@ -99,13 +97,16 @@ if (DAT === 'container') {
         else return_value("false");
     } else {
 
-        if (containers[ARG] === undefined) return_error('CONTAINER DONT EXISTS');
+        if (containers[ARG] === undefined) return_error('CONTAINER ' + ARG + ' DONT EXISTS');
         else {
             // container must exist
             var container = containers[ARG];
+            const C = ARG;
 
             if (CMD === PUT) {
-                if (VAL === undefined) containers[ARG][OPA] = true;
+                if (VAL === undefined) delete containers[ARG][OPA];
+                else if (VAL === 'true') containers[ARG][OPA] = true;
+                else if (VAL === 'false') containers[ARG][OPA] = false;
                 else containers[ARG][OPA] = VAL;
                 datastore.write_containers();
                 exit();
@@ -128,9 +129,21 @@ if (DAT === 'container') {
                 else
                 if (OPA === 'uid') return_value(datastore.container_uid(container));
                 else
-                if (OPA === 'mx') return_value(datastore.container_mx(ARG));
+                if (OPA === 'user_id') return_value(datastore.container_user_id(container));
+                else
+                if (OPA === 'user_ip_match') return_value(datastore.container_check_user_ip_match(container));
+                else
+                if (OPA === 'mx') return_value(datastore.container_mx(C));
                 else
                     return_value(container[OPA]);
+            }
+
+            if (CMD === FIX) {
+
+                if (OPA === 'update_container_ip') return_value(datastore.update_container_ip(C));
+                else return_error('INTERNAL FUNCTION DONT EXISTS');
+
+                exit();
             }
 
             if (CMD == OUT) {
@@ -141,7 +154,7 @@ if (DAT === 'container') {
                 exit();
             }
 
-            if (CMD === DEL) { 
+            if (CMD === DEL) {
                 delete containers[ARG];
                 datastore.write_containers();
                 exit();
@@ -156,11 +169,11 @@ if (DAT === 'user') {
         datastore.new_user(ARG);
         exit();
     } else
-    
+
     if (CMD === CFG) {
-        if (ARG === 'container_list') return_value(datastore.user_container_list());    
+        if (ARG === 'container_list') return_value(datastore.user_container_list());
     } else
-    
+
     if (CMD === GET && OPA === 'exist') {
         if (users[ARG] !== undefined) return_value("true");
         else return_value("false");
@@ -169,18 +182,20 @@ if (DAT === 'user') {
         if (users[ARG] === undefined) return_error('USER DONT EXISTS');
         else {
 
-            
-            
+
+
 
             if (CMD === PUT) {
-                if (VAL === undefined) users[ARG][OPA] = true;
-                else users[ARG][OPA] = VAL;
+                if (VAL === undefined) delete containers[ARG][OPA];
+                else if (VAL === 'true') containers[ARG][OPA] = true;
+                else if (VAL === 'false') containers[ARG][OPA] = false;
+                else containers[ARG][OPA] = VAL;
                 datastore.write_users();
                 exit();
             }
 
             if (CMD === GET) {
-                //if (OPA === 'uid') return_value(datastore.get_user_uid(user));
+                if (OPA === 'br_host_ip') return_value(datastore.get_user_uid(user));
                 //else
                 return_value(users[ARG][OPA]);
             }
@@ -199,10 +214,10 @@ if (DAT === 'user') {
                 datastore.write_users();
                 exit();
             }
-            
+
         }
     }
-    
+
 }
 
 if (DAT === 'reseller') {
@@ -215,7 +230,7 @@ if (DAT === 'reseller') {
 
 if (DAT === 'host') {
 
-    if (hosts[ARG] === undefined) return_error('HOST '+ ARG +' DONT EXISTS '+JSON.stringify(hosts));
+    if (hosts[ARG] === undefined) return_error('HOST ' + ARG + ' DONT EXISTS ' + JSON.stringify(hosts));
     else {
         var host = hosts[ARG];
 
