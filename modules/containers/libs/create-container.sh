@@ -1,10 +1,10 @@
 #!/bin/bash
 
-function create_nspawn_container_filesystem() { ## C T
+function create_nspawn_container_filesystem() { ## T C
     
-    local C T
-    C="$1"
-    T="$2"
+    local T C
+    T="$1"
+    C="$2"
     
     ## this check is a redundant one...
     if [[ ! -d $SC_ROOTFS_DIR/$T ]]
@@ -35,11 +35,11 @@ function create_nspawn_container_filesystem() { ## C T
     ## end of function
 }
 
-function create_nspawn_container_network() { ## C T
+function create_nspawn_container_network() { ## T C
     
-    local C T
-    C="$1"
-    T="$2"
+    local T C
+    T="$1"
+    C="$2"
     
     local ip br
     ip="$(get container "$C" ip)" || exit

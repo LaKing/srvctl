@@ -195,14 +195,21 @@ var mounts = get("mount");
 function make_share(u, c) {
     msg("Match " + c + " to " + u);
     var getent = get("getent passwd " + u);
-    //if (getent === undefined) return;
+    if (getent === undefined) return err("getent passwd " + u + " #returned undefined, skipping");
     var dir = getent.split(':')[5] + '/' + c;
     var ve_root_uid = datastore.container_uid(containers[c]);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir);
     var host = datastore.container_host(containers[c]);
     var source_path = "/var/srvctl3/nfs/" + host + "/srv/" + c + "/rootfs";
     if (!fs.existsSync(source_path)) return console.log(source_path + " not mounted. Check OpenVPN.");
-    if (!fs.existsSync(dir + '/bindfs')) fs.mkdirSync(dir + '/bindfs');
+    if (!fs.existsSync(dir + '/bindfs')) {
+        // TODO handle case of stale file handle with umount -f 
+        try {
+            fs.mkdirSync(dir + '/bindfs');
+        } catch (error) {
+            err(error);
+        }
+    }
     if (mounts.indexOf(source_path + " on " + dir + "/bindfs type fuse") !== -1) return;
     run("bindfs --mirror=" + u + " --create-for-user=" + ve_root_uid + " --create-for-group=" + ve_root_uid + " " + source_path + " " + dir + "/bindfs");
 }

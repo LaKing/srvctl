@@ -58,23 +58,11 @@ function output(variable, value) {
     process.exitCode = 0;
 }
 
-// We check for validity, and assume it is a wildcard certificate.            
-/*
-var dont_check_company_domains = false;
-var cert_file = "/etc/srvctl/cert/" + SC_COMPANY_DOMAIN + "/" + SC_COMPANY_DOMAIN + ".pem";
-if (fs.existsSync(cert_file)) {
-    if (execSync('openssl x509 -checkend 604800 -noout -in ' + cert_file)) {
-        dont_check_company_domains = true;
-        ntc("Letsencrypt: dont check *." + SC_COMPANY_DOMAIN);
-    }
-}
-*/
 
 function is_wildcard_certificate(domain) {
     var cert_file = "/etc/srvctl/cert/" + domain + "/" + domain + ".pem";
     if (fs.existsSync(cert_file)) {
         if (execSync('openssl x509 -noout -subject -in ' + cert_file).indexOf('*') > -1) {
-            ntc("Letsencrypt: found wildcard certificate *." + domain);
             return true;
         }
     }
@@ -83,7 +71,7 @@ function is_wildcard_certificate(domain) {
 
 function has_wildcard_certificate(domain) {
     if (is_wildcard_certificate(domain)) return true;
-    if (is_wildcard_certificate(domain.substring(domain.indexOf('.')))) return true;
+    if (is_wildcard_certificate(domain.substring(1 + domain.indexOf('.')))) return true;
     return false;
 }
 
@@ -107,8 +95,8 @@ function get_le_dir(domain) {
     return le_dir;
 }
 
-function deploy(le_dir, domain) {
-
+function letsencrypt_deploy(domain) {
+    var le_dir = get_le_dir(domain);
     var cert_pem = "/etc/letsencrypt/live/" + le_dir + "/cert.pem";
     var fullchain_pem = "/etc/letsencrypt/live/" + le_dir + "/fullchain.pem";
     var privkey_pem = "/etc/letsencrypt/live/" + le_dir + "/privkey.pem";
@@ -128,38 +116,44 @@ function deploy(le_dir, domain) {
     msg(domain + " letsencrypt certificate deployed");
 }
 
+function check_checkend(cert_file) {
+
+    if (!fs.existsSync(cert_file)) return false;
+    var returnState = false;
+
+    try {
+        //run('openssl x509 -checkend 604800 -noout -in ' + cert_file);
+        execSync('openssl x509 -checkend 604800 -noout -in ' + cert_file);
+        returnState = true;
+    } catch (error) {
+        ntc('CATCH Certificate will expire! ' + cert_file);
+    } finally {
+        return returnState;
+    }
+}
+
 function check_domain(domain) {
 
-    if (has_wildcard_certificate(domain)) return console.log("wildcard certificate found for", domain);
-
-    //if (dont_check_company_domains) {
-    //    if (domain.substr(domain.length - SC_COMPANY_DOMAIN.length - 1) === '.' + SC_COMPANY_DOMAIN) return; // console.log(domain, "is part of", SC_COMPANY_DOMAIN, "therefore it should have a wildcard certificate");
-    //}
+    if (has_wildcard_certificate(domain)) return; //msg("Using wildcard certificate for " + domain);
 
     var cert_file = SC_CONTAINERS_CERT_DIR + "/" + domain + ".pem";
-    if (fs.existsSync(cert_file)) {
-        if (execSync('openssl x509 -checkend 604800 -noout -in ' + cert_file)) return; // console.log(domain, "has a valid certificate.");
-    }
+
+    if (check_checkend(cert_file)) return;
+
 
     var le_dir = get_le_dir(domain);
     var cert_pem = "/etc/letsencrypt/live/" + le_dir + "/cert.pem";
 
-    if (fs.existsSync(cert_pem)) {
-        msg("Certificate check for " + domain);
-        try {
-            execSync('openssl x509 -checkend 604800 -noout -in ' + cert_pem);
-            deploy(le_dir, domain);
-        } catch (err) {
-            if (err) containers[domain].dns_scan.A.forEach(function(e) {
-                if (e === hosts[HOSTNAME].host_ip) run_on_domain(domain);
-            });
-        }
-    } else {
-        msg("New certificate needed for " + domain);
-        containers[domain].dns_scan.A.forEach(function(e) {
-            if (e === hosts[HOSTNAME].host_ip) run_on_domain(domain);
-        });
-    }
+    if (check_checkend(cert_pem)) return letsencrypt_deploy(domain);
+
+    var hasA = false;
+    containers[domain].dns_scan.A.forEach(function(e) {
+        if (e === hosts[HOSTNAME].host_ip) hasA = true; //return run_on_domain(domain);
+        //else ntc(domain + ' ' + e);
+    });
+
+    if (hasA) run_on_domain(domain);
+    else ntc("Letsencrypt no A record for " + domain);
 
 }
 
@@ -186,8 +180,7 @@ function run_on_domain(domain) {
         if (err) return console.log("Letsencypt certonly failure for ", domain, err);
         else msg("Letsencrypt certonly success for " + domain);
     } finally {
-        le_dir = get_le_dir(domain);
-        deploy(le_dir, domain);
+        letsencrypt_deploy(domain);
     }
 }
 
@@ -207,4 +200,3 @@ process.exitCode = 0;
 //echo });
 
 exit();
-

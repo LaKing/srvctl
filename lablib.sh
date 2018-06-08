@@ -6,6 +6,7 @@ readonly GREEN='\e[32m'
 readonly YELLOW='\e[33m'
 readonly BLUE='\e[34m'
 readonly GRAY='\e[37m'
+readonly CLEAR='\e[0m'
 
 ## Lablib functions
 

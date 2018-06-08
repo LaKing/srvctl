@@ -9,7 +9,6 @@ function regenerate_opendkim {
     mkdir -p /var/opendkim
     
     opendkim_main
-    
     if ! diff -rq /var/opendkim "$SC_DATASTORE_DIR/opendkim" > /dev/null
     then
         msg "Updating $HOSTNAME opendkim runtime configuration"
@@ -24,16 +23,16 @@ function regenerate_opendkim {
         
         restart_opendkim
     else
-        
-        if [ "$(systemctl is-active opendkim.service)" != "active" ]
+        #if [ "$(systemctl is-active opendkim.service)" == "active" ]
+        if systemctl is-active opendkim.service > /dev/null
         then
+            msg "Configuration for opendkim is up-to-date, opendkim.service running"
+        else
             msg "Configuration for opendkim is up-to-date."
             err "opendkim.service is not running!"
             run systemctl start opendkim
             run systemctl enable opendkim
             run systemctl status opendkim --no-pager
-        else
-            msg "Configuration for opendkim is up-to-date, opendkim.service running"
         fi
     fi
 }

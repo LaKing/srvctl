@@ -429,18 +429,23 @@ exports.cluster_etc_hosts = cluster_etc_hosts;
 
 function cluster_postfix_relaydomains() {
     var str = '';
-    var count = 0;
+    var rd = [];
     Object.keys(hosts).forEach(function(i) {
-        str += i + ' #' + br;
+       rd.push(i);
     });
     Object.keys(containers).forEach(function(i) {
-        if (i.substring(0, 5) === 'mail.') str += i.substring(5) + ' #' + br;
-        else str += i + ' #' + br;
-        count++;
+        if (i.substring(0, 5) === 'mail.') rd.push(i.substring(5));
+        else rd.push(i);
     });
+        
+    // create string
+    [...new Set(rd)].forEach(function(i) {
+        str += i + ' #' + br;
+    });
+
     fs.writeFile('/etc/postfix/relaydomains', str, function(err) {
         if (err) return_error('WRITEFILE ' + err);
-        else msg('datastore -> postfix relaydomains #' + count);
+        else msg('datastore -> postfix relaydomains');
     });
 }
 

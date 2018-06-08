@@ -2,6 +2,16 @@
 
 /*jshint esnext: true */
 
+// The DNS modules take effect on all hosts as it is based mainly on clusters!
+
+const lablib = '../../lablib.js';
+const msg = require(lablib).msg;
+const ntc = require(lablib).ntc;
+const err = require(lablib).err;
+const get = require(lablib).get;
+const run = require(lablib).run;
+const rok = require(lablib).rok;
+
 function out(msg) {
     console.log(msg);
 }
@@ -10,6 +20,7 @@ function out(msg) {
 const fs = require('fs');
 const os = require('os');
 const http = require('http');
+const https = require('https');
 
 const CMD = process.argv[2];
 // constatnts
@@ -53,32 +64,54 @@ function output(variable, value) {
     process.exitCode = 0;
 }
 
-
+// if the default 
+var is_master = false;
+if (datastore.hosts[HOSTNAME].dns_server === 'master') is_master = true;
+if (is_master) msg("bind DNS master");
+else msg("bind DNS slave");
 
 // variables
-var hosts = datastore.hosts;
-var users = datastore.users;
-var resellers = datastore.resellers;
-var containers = datastore.containers;
+//var hosts = datastore.hosts;
+//var users = datastore.users;
+//var resellers = datastore.resellers;
+//var containers = datastore.containers;
 var clusters;
+
+// read clusters
 try {
     clusters = JSON.parse(fs.readFileSync(SC_CLUSTERS_DATA_FILE));
 } catch (err) {
     return_error('READFILE ' + SC_CLUSTERS_DATA_FILE + ' ' + err);
 }
 
-function get_container_zone(i) {
-    var container = containers[i];
-    var zone = '';
-    var ip = datastore.container_host_ip(container);
+var master_servers = '';
+
+Object.keys(clusters).forEach(function(i) {
+    Object.keys(clusters[i]).forEach(function(j) {
+        if (clusters[i][j].dns_server === 'master') {
+            master_servers += clusters[i][j].host_ip + ';';
+        }
+    });
+});
+
+if (master_servers === '') {
+    return_error("could not locate master servers in the cluster configuration");
+} else msg('master servers: ' + master_servers);
+
+
+function get_container_zone(cluster, host, hostdata, containers, name, alias) {
+    var container = containers[name];
+    var zone = ';;' + cluster + ' ' + host + ' ' + name + br + br;
+    if (alias) zone = ';;' + cluster + ' ' + host + ' ' + name + ' ' + alias + br + br;
+    var ip = hostdata.host_ip;
     var spf_string = "v=spf1";
 
     var serial = Math.floor(new Date().getTime() / 1000);
 
-    Object.keys(hosts).forEach(function(i) {
-        if (hosts[i].host_ip !== undefined) spf_string += " ip4:" + hosts[i].host_ip;
-        if (hosts[i].host_ipv6 !== undefined) spf_string += " ip6:" + hosts[i].host_ipv6;
-    });
+    //Object.keys(hosts).forEach(function(i) {
+    if (hostdata.host_ip !== undefined) spf_string += " ip4:" + hostdata.host_ip;
+    if (hostdata.host_ipv6 !== undefined) spf_string += " ip6:" + hostdata.host_ipv6;
+    //});
 
     spf_string += " a mx";
 
@@ -101,11 +134,11 @@ function get_container_zone(i) {
 
     if (container.use_gsuite) {
         zone += "; nameservers for google apps" + br;
-        zone += "@    IN    MX    1    ASPMX.L.GOOGLE.COM" + br;
-        zone += "@    IN    MX    5    ALT1.ASPMX.L.GOOGLE.COM" + br;
-        zone += "@    IN    MX    5    ALT2.ASPMX.L.GOOGLE.COM" + br;
-        zone += "@    IN    MX    10    ALT3.ASPMX.L.GOOGLE.COM" + br;
-        zone += "@    IN    MX    10    ALT4.ASPMX.L.GOOGLE.COM" + br;
+        zone += "@    IN    MX    1    ASPMX.L.GOOGLE.COM." + br;
+        zone += "@    IN    MX    5    ALT1.ASPMX.L.GOOGLE.COM." + br;
+        zone += "@    IN    MX    5    ALT2.ASPMX.L.GOOGLE.COM." + br;
+        zone += "@    IN    MX    10    ALT3.ASPMX.L.GOOGLE.COM." + br;
+        zone += "@    IN    MX    10    ALT4.ASPMX.L.GOOGLE.COM." + br;
     } else zone += "@        IN        MX        10        mail" + br;
 
     zone += '@        IN        TXT        "' + spf_string + '"' + br;
@@ -113,44 +146,76 @@ function get_container_zone(i) {
     if (container["dkim-default-domainkey"] !== undefined) zone += 'default._domainkey       IN        TXT       ( "v=DKIM1; k=rsa; " "' + container["dkim-default-domainkey"] + '" )' + br;
     if (container["dkim-mail-domainkey"] !== undefined) zone += 'mail._domainkey       IN        TXT       ( "v=DKIM1; k=rsa; " "' + container["dkim-mail-domainkey"] + '" )' + br;
 
-    if (containers["mail." + i] !== undefined) {
-        if (containers["mail." + i]["dkim-mail-domainkey"] !== undefined) zone += 'mail._domainkey       IN        TXT       ( "v=DKIM1; k=rsa; " "' + containers["mail." + i]["dkim-mail-domainkey"] + '" )' + br;
+    if (containers["mail." + name] !== undefined) {
+        if (containers["mail." + name]["dkim-mail-domainkey"] !== undefined) zone += 'mail._domainkey       IN        TXT       ( "v=DKIM1; k=rsa; " "' + containers["mail." + name]["dkim-mail-domainkey"] + '" )' + br;
     }
     return zone;
 }
 
-// each cluster may have one master server, but can can have any number of slaves.
+function get_conf(cluster, host) {
+    var conf = '## ' + host + br + br;
+    var containers = {};
+    var file = "/var/srvctl3/named/" + host + ".json";
+    if (host === HOSTNAME) file = '/var/srvctl3/datastore/containers.json';
 
-var master_server_ip = '';
+    var hostdata = clusters[cluster][host];
 
-Object.keys(hosts).forEach(function(i) {
-    if (hosts[i].dns_server === 'master') master_server_ip = hosts[i].host_ip;
-});
+    try {
+        containers = JSON.parse(fs.readFileSync(file));
+    } catch (error) {
+        err('READFILE for ' + host + ' ' + error);
+        return;
+    }
 
-var zones = '## ' + SC_CLUSTERNAME + br + br;
-
-if (hosts[HOSTNAME].dns_server === 'master') {
-    Object.keys(containers).forEach(function(i) {
-        zones += 'zone "' + i + '" {type master; file "/var/named/srvctl/' + i + '.zone";};' + br;
-        fs.writeFile("/var/named/srvctl/" + i + ".zone", get_container_zone(i), function(err) {
-            if (err) return_error('WRITEFILE zone ' + err);
+    if (is_master)
+        Object.keys(containers).forEach(function(i) {
+            if (i == CDN) return;
+            conf += 'zone "' + i + '" {type master; file "/var/named/srvctl/' + i + '.zone";};' + br;
+            fs.writeFileSync("/var/named/srvctl/" + i + ".zone", get_container_zone(cluster, host, hostdata, containers, i));
+            if (containers[i].aliases)
+                containers[i].aliases.forEach(function(j) {
+                    conf += 'zone "' + j + '" {type master; file "/var/named/srvctl/' + i + '.zone";};' + br;
+                });
         });
-    });
-} else {
-    Object.keys(containers).forEach(function(i) {
-        zones += 'zone "' + i + '" {type slave; masters {' + master_server_ip + ';}; file "/var/named/srvctl/' + i + '.slave.zone";};' + br;
-    });
+
+    if (!is_master)
+        Object.keys(containers).forEach(function(i) {
+            if (i == CDN) return;
+            conf += 'zone "' + i + '" {type slave; masters {' + master_servers + '}; file "/var/named/srvctl/' + i + '.slave.zone";};' + br;
+            if (containers[i].aliases)
+                containers[i].aliases.forEach(function(j) {
+                    conf += 'zone "' + j + '" {type slave; masters {' + master_servers + '}; file "/var/named/srvctl/' + j + '.slave.zone";};' + br;
+                });
+        });
+
+    return conf + br + br;
 }
 
-zones += br + br + "## Other clusters" + br + br;
+function make_conf() {
+    var conf = '## BIND-CONFIG ' + br + br;
 
-// xhosts are the hosts from all other clusters
-var xhosts = {};
+    Object.keys(clusters).forEach(function(i) {
+        Object.keys(clusters[i]).forEach(function(j) {
+            conf += get_conf(i, j);
+        });
+    });
+
+    return conf;
+}
 
 // ---------
-function get_host_containers(ip) {
-
-    http.get('http://' + ip + '/.well-known/srvctl/datastore/containers.json', function(res) {
+function get_host_containers(cluster, host) {
+    //var ip = clusters[cluster][host].host_ip;
+    var req = {
+        host: host,
+        port: 443,
+        path: '/.well-known/srvctl/datastore/containers.json',
+        method: 'GET',
+        rejectUnauthorized: false,
+        requestCert: true,
+        agent: false
+    };
+    https.get(req, function(res) {
         const {
             statusCode
         } = res;
@@ -179,8 +244,8 @@ function get_host_containers(ip) {
         res.on('end', () => {
             try {
                 const parsedData = JSON.parse(rawData);
-                xhosts[ip] = parsedData;
-                fs.writeFile("/var/local/srvctl/" + ip + ".json", rawData, function(err) {
+                //xhosts[ip] = parsedData;
+                fs.writeFile("/var/srvctl3/named/" + host + ".json", rawData, function(err) {
                     if (err) return_error('WRITEFILE zone ' + err);
                 });
             } catch (e) {
@@ -188,73 +253,34 @@ function get_host_containers(ip) {
             }
         });
     }).on('error', (e) => {
-        console.error(`Got error: ${e.message}`);
-        try {
-            xhosts[ip] = JSON.parse(fs.readFileSync("/var/local/srvctl/" + ip + ".json"));
-        } catch (err) {
-            return_error('READFILE ' + ip + '.json ' + err);
-        }
-
+        console.error('GET https://' + host + '/.well-known/srvctl/datastore/containers.json', e);
     });
-
 }
 
 //---------
 // A little trick here. As there is no real sync version of http.get, we will process the data when the event loop completes - on exit
 
 Object.keys(clusters).forEach(function(i) {
-    if (i !== SC_CLUSTERNAME)
-        Object.keys(clusters[i]).forEach(function(j) {
-            if (clusters[i][j].host_ip !== undefined)
-                get_host_containers(clusters[i][j].host_ip);
-            //console.log(clusters[i][j].host_ip);
-        });
+    //if (i !== SC_CLUSTERNAME)
+    Object.keys(clusters[i]).forEach(function(j) {
+        if (clusters[i][j].host_ip !== undefined)
+            get_host_containers(i, j);
+        //console.log(clusters[i][j].host_ip);
+    });
 });
-
-function make_xslaves(xhosts) {
-    var xc = {};
-    Object.keys(xhosts).forEach(function(i) {
-        Object.keys(xhosts[i]).forEach(function(j) {
-            xc[j] = i;
-            if (xhosts[i][j].aliases !== undefined)
-                for (k = 0; k < xhosts[i][j].aliases.length; k++) {
-                    xc[xhosts[i][j].aliases[k]] = i;
-                }
-        });
-    });
-
-    var xslaves = "";
-    Object.keys(xc).forEach(function(l) {
-        xslaves += 'zone "' + l + '" {type slave; masters {' + xc[l] + ';}; file "/var/named/srvctl/' + l + '.slave.zone";};' + br;
-    });
-    return xslaves;
-}
-
 
 
 process.on('exit', function() {
 
+    var conf = make_conf();
+    //console.log(conf);
+
     try {
-        fs.writeFileSync("/var/named/srvctl.conf", zones + make_xslaves(xhosts));
-        console.log('[ OK ] named srvctl conf');
+        fs.writeFileSync("/var/named/srvctl.conf", conf);
+        msg('wrote named conf');
     } catch (err) {
-        return_error('WRITEFILE named srvctl conf' + err);
+        return_error('ERROR WRITEFILE named srvctl conf' + err);
     }
 
     exit();
 });
-
-/*
-try {
-    fs.writeFileSync(SC_HOST_CONF, out);
-} catch (err) {
-    return_error('WRITEFILEFILE ' + SC_HOST_CONF + ' ' + err);
-}
-
-try {
-    fs.writeFileSync(SC_HOSTS_DATA_FILE, JSON.stringify(hosts, null, 2));
-} catch (err) {
-    return_error('WRITEFILEFILE ' + SC_HOSTS_DATA_FILE + ' ' + err);
-}
-
-*/

@@ -6,13 +6,13 @@
 function sc_install {
     # shellcheck disable=SC2048
     # shellcheck disable=SC2086
-    run dnf -y -q install $*
+    run dnf -y -q --releasever "$VERSION_ID" install $*
 }
 
 function sc_update {
     # shellcheck disable=SC2048
     # shellcheck disable=SC2086
-    run dnf -y update $*
+    run dnf -y --releasever "$VERSION_ID" update $*
 }
 
 function msg_version_installed {

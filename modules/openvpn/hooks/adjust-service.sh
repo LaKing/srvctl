@@ -26,14 +26,25 @@ if [[ -f "/usr/lib/systemd/system/openvpn-client@.service" ]] && [[ -f "/usr/lib
 then
     if [[ $service == openvpn ]] && [[ ! -z "$op" ]] && $SC_ROOT
     then
-        msg "openvpn $op"
+        msg "openvpn/server's $op"
         ## must have conf
-        for c in /etc/openvpn/*.conf
+        for c in /etc/openvpn/server/*.conf
         do
-            local s="${c:13: -5}"
+            local s="${c:20: -5}"
             msg "$s"
-            service_action "openvpn${s:7:7}@$s" "$op"
+            #service_action "openvpn${s:7:7}@$s" "$op"
+            service_action "openvpn-server@$s" "$op"
         done
+        
+        msg "openvpn/client's $op"
+        ## must have conf
+        for c in /etc/openvpn/client/*.conf
+        do
+            local s="${c:20: -5}"
+            msg "$s"
+            service_action "openvpn-client@$s" "$op"
+        done
+        
         return 0
     fi
 fi

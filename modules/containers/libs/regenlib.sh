@@ -64,7 +64,7 @@ function check_container_directories() {
                         put container "$C" ip "$(cat "/srv/$C/ipv4-address")"
                         put container "$C" br "$(cat "/srv/$C/bridge-address")"
                     else
-                        create_nspawn_container_network "$C" "$T"
+                        create_nspawn_container_network "$T" "$C"
                     fi
                 fi
             fi
@@ -98,8 +98,8 @@ function check_container_database() {
                 msg "Create local container"
                 local T
                 T="$(get container "$C" type)"
-                create_nspawn_container_filesystem "$C" "$T"
-                create_nspawn_container_network "$C" "$T"
+                create_nspawn_container_filesystem "$T" "$C"
+                create_nspawn_container_network "$T" "$C"
             fi
         fi
     done

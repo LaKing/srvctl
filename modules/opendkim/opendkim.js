@@ -2,6 +2,14 @@
 
 /*jshint esnext: true */
 
+const lablib = '../../lablib.js';
+const msg = require(lablib).msg;
+const ntc = require(lablib).ntc;
+const err = require(lablib).err;
+const get = require(lablib).get;
+const run = require(lablib).run;
+const rok = require(lablib).rok;
+
 function out(msg) {
     console.log(msg);
 }
@@ -118,6 +126,7 @@ process.on('exit', function() {
     fs.writeFileSync(SC_OPENDKIM_FOLDER + '/KeyTable', KeyTable);
     fs.writeFileSync(SC_OPENDKIM_FOLDER + '/SigningTable', SigningTable);
     fs.writeFileSync(SC_CONTAINERS_DATA_FILE, JSON.stringify(containers, null, 2));
+    msg('Wrote OpenDKIM TrustedHosts, KeyTable, SigningTable, containers.json');
 });
 
 exit();

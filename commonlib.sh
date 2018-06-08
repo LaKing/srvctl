@@ -11,7 +11,7 @@ readonly HINT='## @en'
 readonly HELP='## &en'
 
 # No Color
-readonly CLEAR='\e[0m'
+#readonly CLEAR='\e[0m'
 ## functions common to all areas of srvctl
 function hint {
     local cmd hint file
@@ -399,6 +399,12 @@ function test_srvctl_modules() {
             #declare $tv=$tr
             echo "export $tvtm=$trtm" >> "$conf"
         done
+        
+        if [[ $CMD == 'test-modules' ]]
+        then
+            msg "srvctl modules selected"
+            exit 0
+        fi
     fi
     
     if [[ -f /var/local/srvctl/modules.conf ]]

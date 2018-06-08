@@ -24,8 +24,12 @@ function mkrootfs_fedora_base { ## name packagelist
     ## we create local variables from the srvctl system variables to have an easy life with templates.
     release="$VERSION_ID"
     
+    
     base_pkg_list="dnf initscripts passwd rsyslog vim-minimal openssh-server openssh-clients dhclient chkconfig rootfiles policycoreutils fedora-repos fedora-release"
-    plus_pkg_list="nodejs gcc-c++ mc httpd mod_ssl openssl postfix mailx sendmail unzip rsync wget"
+    
+    ## added systemd-container for docker support
+    plus_pkg_list="nodejs gcc-c++ mc openssl postfix mailx sendmail unzip rsync wget firewalld"
+    
     run dnf --releasever="$release" --installroot "$install_root" -y --nogpgcheck install "$base_pkg_list" "$plus_pkg_list" "$srvctl_pkg_list"
     exif "failed to build rootfs"
     
@@ -73,6 +77,10 @@ function mkrootfs_fedora_base { ## name packagelist
         cat "$SC_INSTALL_DIR/modules/postfix/conf/ve-mail.cf" > "$install_root"/rootfs/etc/postfix/main.cf
         run ln -s /usr/lib/systemd/system/dovecot.service "$install_root"/etc/systemd/system/multi-user.target.wants/dovecot.service
     fi
+    
+    hook_rootfs="$install_root"
+    hook_rootfs_name="$rootfs_name"
+    run_hooks mkrootfs_fedora
     
     msg "Make fedora-based rootfs for $rootfs_name complete"
     return

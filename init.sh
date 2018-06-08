@@ -47,7 +47,7 @@ export NOW
 SC_LOG=~/.srvctl/srvctl.log
 mkdir -p ~/.srvctl
 
-if [[ $CMD == update-install ]]
+if [[ $CMD == update-install ]] || [[ $CMD == 'test-modules' ]]
 then
     rm -fr /var/local/srvctl/modules.conf
     
@@ -66,7 +66,6 @@ then
         chmod 644 /etc/srvctl/host.conf
         chmod 644 /etc/srvctl/hosts.json
     fi
-    
 fi
 
 ## LOAD CONFIGs

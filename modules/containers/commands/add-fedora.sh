@@ -9,7 +9,15 @@ argument container-name
 authorize
 sudomize
 
-add_ve fedora "$ARG"
+
+if [[ "${ARG:0:5}" == "mail." ]]
+then
+    msg "Adding mail container."
+    C="$ARG"
+    add_ve fedora "$C"
+else
+    add_ve fedora "$ARG"
+fi
 
 run_hook add-ve
 run_hook regenerate

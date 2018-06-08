@@ -16,8 +16,7 @@ function install_named {
     ## configure DNS server
     ## no recursion to prevent DNS amplifiaction attacks
     
-    #if ! grep -q "$SRVCTL" /etc/named.conf
-    #then
+    mkdir -p /var/srvctl3/named
     
     msg "Configure BIND"
     ## DNS needs NTPD enabled and running, otherwise queries may get no response.
@@ -38,10 +37,6 @@ function install_named {
     
     add_service named
     firewalld_add_service dns
-    
-    #else
-    #    msg "Bind - DNS server already configured for $SRVCTL"
-    #fi
     
     
 }

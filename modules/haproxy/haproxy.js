@@ -60,10 +60,28 @@ function output(variable, value) {
 var hosts = datastore.hosts;
 var users = datastore.users;
 var resellers = datastore.resellers;
-var containers = datastore.containers;
-var user = '';
-var container = '';
+var containers = {};
+//var user = '';
+//var container = '';
 
+// create an array of arrays based on the dots
+var aa = [];
+Object.keys(datastore.containers).forEach(function(i) {
+    if (i.split('.')[0] === 'mail') return;
+    var l = i.split('.').length;
+    if (!aa[l]) aa[l] = [];
+    aa[l].push(i);
+});
+
+// create the sorted version of the containers object
+for (var j = aa.length - 1; j > 0; j--) {
+    if (aa[j])
+        for (var k = 0; k < aa[j].length; k++)
+            containers[aa[j][k]] = datastore.containers[aa[j][k]];
+}
+
+
+//containers = datastore.containers;
 
 //if (DAT === 'container') container = ARG;
 //if (DAT === 'user') user = ARG;
@@ -80,17 +98,32 @@ function ddn(d) {
 
 // str += br + '';
 
-function acl(p, h) {
-    // proto host
+function acl(p, h, n) {
+    // proto host port
     var str = '';
-    //str += br + '    acl ' + p + ':' + h + ' hdr(host) -i ' + h;
 
-    ////str += br + '    redirect prefix ' + p + '://' + h + ' code 301 if { hdr(host) -i www.' + h + ' }';
+    if (n === 80 || n === 443) {
+        str += br + '    use_backend ' + p + ':' + h + ' if { hdr(host) -i ' + h + ' }';
+        str += br + '    use_backend ' + p + ':' + h + ' if { hdr(host) -i ' + ddn(h) + ' }';
+    }
 
-    //str += br + '    use_backend ' + p + ':' + h + ' if ' + p + ':' + h;
+    str += br + '    use_backend ' + p + ':' + h + ' if { hdr(host) -i ' + h + ':' + n + ' }';
+    str += br + '    use_backend ' + p + ':' + h + ' if { hdr(host) -i ' + ddn(h) + ':' + n + ' }';
 
-    str += br + '    use_backend ' + p + ':' + h + ' if { hdr_dom(host) -i ' + h + ' }';
-    str += br + '    use_backend ' + p + ':' + h + ' if { hdr_dom(host) -i ' + ddn(h) + ' }';
+    return str;
+}
+
+function aacl(p, h, a, n) {
+    // proto host altname port
+    var str = '';
+
+    if (n === 80 || n === 443) {
+        str += br + '    use_backend ' + p + ':' + h + ' if { hdr(host) -i ' + a + ' }';
+        str += br + '    use_backend ' + p + ':' + h + ' if { hdr(host) -i ' + ddn(a) + ' }';
+    }
+
+    str += br + '    use_backend ' + p + ':' + h + ' if { hdr(host) -i ' + a + ':' + n + ' }';
+    str += br + '    use_backend ' + p + ':' + h + ' if { hdr(host) -i ' + ddn(a) + ':' + n + ' }';
 
     return str;
 }
@@ -98,9 +131,9 @@ function acl(p, h) {
 function redirect(p, h, d) {
     // proto host dest
     var str = '';
-    str += br + '    redirect prefix ' + p + '://' + h + ' code 301 if { hdr_dom(host) -i ' + d + ' }';
+    str += br + '    redirect prefix ' + p + '://' + h + ' code 301 if { hdr(host) -i ' + d + ' }';
     if (d.substring(0, 4) !== 'www.')
-        str += br + '    redirect prefix ' + p + '://' + h + ' code 301 if { hdr_dom(host) -i www.' + d + ' }';
+        str += br + '    redirect prefix ' + p + '://' + h + ' code 301 if { hdr(host) -i www.' + d + ' }';
     return str;
 }
 
@@ -140,7 +173,7 @@ function get_global() {
     str += br + '        timeout queue           1m';
     str += br + '        timeout connect         1s';
     str += br + '        timeout client          1m';
-    str += br + '        timeout server          1m';
+    str += br + '        timeout server          3m'; /// 1m is the default!
     str += br + '        timeout http-keep-alive 10s';
     str += br + '        timeout check           10s';
     str += br + '        maxconn                 3000';
@@ -181,7 +214,7 @@ function get_well_known() {
     str += br + '    use_backend thunderbird-backend if thunderbird-acl' + br;
 
     str += br + '    acl srvctl3data-acl path_beg /.well-known/srvctl/datastore/';
-    str += br + '    use_backend srvctl3data-backend if srvctl3data-acl' + br;       
+    str += br + '    use_backend srvctl3data-backend if srvctl3data-acl' + br;
     return br + str;
 }
 
@@ -190,7 +223,7 @@ function get_frontend_http() {
     str += br + 'frontend http';
     str += br + '    bind *:80';
     str += br;
-        
+
     // REDIRECT RULEs          
     Object.keys(containers).forEach(function(i) {
         str += br + redirect('http', i, 'www.' + i);
@@ -201,26 +234,31 @@ function get_frontend_http() {
             }
         }
 
-        if (containers[i]['http-redirect'] !== undefined) {
-            if (containers[i]['http-redirect'] === "https") str += br + '    redirect prefix https://' + i + ' code 301 if { hdr_dom(host) -i ' + i + ' }';
-            else str += br + '    redirect prefix ' + containers[i]['http-redirect'] + ' code 301 if { hdr_dom(host) -i ' + i + ' }';
+        if (containers[i]['http-redirect'] !== undefined && containers[i]['http-redirect'] !== 'none') {
+            if (containers[i]['http-redirect'] === "https") str += br + '    redirect prefix https://' + i + ' code 301 if { hdr(host) -i ' + i + ' }';
+            else str += br + '    redirect prefix ' + containers[i]['http-redirect'] + ' code 301 if { hdr(host) -i ' + i + ' }';
         }
 
     });
     str += br;
 
-    str += get_well_known();  
+    str += get_well_known();
 
     str += br;
     // USE BACKENDs        
     Object.keys(containers).forEach(function(i) {
-
         // the standard container is started, use it, otherwise it will fallback to the default
-        if (containers[i].static) msg("Using only static config for " + i );
-        else str += acl('http', i);
+        if (containers[i].static) msg("Using only static config for " + i);
+        else str += acl('http', i, 80);
+        
+        if (containers[i].altnames){
+            for (j = 0; j < containers[i].altnames.length; j++) {
+                str += aacl('http', i, containers[i].altnames[j], 80);
+            }
+        }
     });
 
-    str += br + '    default_backend static';
+    str += br + '    default_backend default';
 
     str += br;
     return str;
@@ -228,11 +266,11 @@ function get_frontend_http() {
 
 function get_frontend_https() {
     var str = '';
-    
+
     str += br + 'frontend https';
     str += br + '    bind *:443 ssl crt /var/haproxy';
     str += br;
-        
+
     // REDIRECT
     Object.keys(containers).forEach(function(i) {
         str += br + redirect('https', i, 'www.' + i);
@@ -243,28 +281,31 @@ function get_frontend_https() {
             }
         }
 
-        if (containers[i]['https-redirect'] !== undefined) {
-            if (containers[i]['https-redirect'] === "http") str += br + '    redirect prefix http://' + i + ' code 301 if { hdr_dom(host) -i ' + i + ' }';
-            else str += br + '    redirect prefix ' + containers[i]['https-redirect'] + ' code 301 if { hdr_dom(host) -i ' + i + ' }';
+        if (containers[i]['https-redirect'] !== undefined && containers[i]['https-redirect'] !== 'none') {
+            if (containers[i]['https-redirect'] === "http") str += br + '    redirect prefix http://' + i + ' code 301 if { hdr(host) -i ' + i + ' }';
+            else str += br + '    redirect prefix ' + containers[i]['https-redirect'] + ' code 301 if { hdr(host) -i ' + i + ' }';
         }
 
     });
     str += br;
-    str += get_well_known();    
+    str += get_well_known();
     str += br;
 
     // USE BACKEND
     Object.keys(containers).forEach(function(i) {
-
         // the standard container
         if (containers[i].static) msg("Using only static config for " + i);
-        else str += acl('https', i);
+        else str += acl('https', i, 443);
+        
+        if (containers[i].altnames){
+            for (j = 0; j < containers[i].altnames.length; j++) {
+                str += aacl('https', i, containers[i].altnames[j], 443);
+            }
+        }
+        
     });
 
-    // certfiles are in:
-    // /etc/srvctl/cert
-    // /var/haproxy/cert
-    str += br + '    default_backend static';
+    str += br + '    default_backend default';
 
     str += br;
     return str;
@@ -284,13 +325,14 @@ function get_frontend_port(n, ssl) {
         // srvctl-releated port permissions based on configurations
         if (n === 9001 && containers[i].type !== 'codepad') return;
 
-        str += acl('port' + n, i);
+        str += acl('port' + n, i, n);
     });
 
     // certfiles are in:
     // /etc/srvctl/cert
     // /var/haproxy/cert
-    //str += br + '    default_backend static';
+
+    str += br + '    default_backend default';
 
     str += br;
     return str;
@@ -368,17 +410,15 @@ cfg += get_backends_for_http();
 cfg += get_backends_for_https();
 
 // codepad
-cfg += get_backends_for_port(9001, false);
+cfg += get_backends_for_port(9001, true);
 // elasticsearch
 cfg += get_backends_for_port(9200, false);
 
 cfg += get_backends_for_port(8080, false);
 cfg += get_backends_for_port(8443, true);
 
-cfg += br + 'backend static';
-
-// különleges kivétel
-cfg += br + '    server static-server localhost:1280';
+cfg += br + 'backend default';
+cfg += br + '    server default-server localhost:1282';
 
 cfg += br + '';
 

@@ -18,9 +18,10 @@ function nfs_mount() {
     do
         hs="$(get host "$host" hostnet)"
         msg "openvpn connection check to $host ($hs)"
-        if run timeout 1 ping -c 1 -W 1 "10.15.$hs.1"
+        if run timeout 1 ping -c 1 -W 1 "10.15.$hs.1" > /dev/null
         then
-            if run showmount -e "$host"
+            msg "mount check on  $host ($hs)"
+            if run showmount -e "$host" > /dev/null
             then
                 run timeout 1 mkdir -p "/var/srvctl3/nfs/$host/srv"
                 run "mount 10.15.$hs.1:/srv /var/srvctl3/nfs/$host/srv"

@@ -53,28 +53,49 @@ then
     
     [[ $DEBUG == true ]] && ntc "@srvctl-command"
     
+    ntc "SERVICE: $service OP: $op"
+    
     if [[ ! -z "$service" ]] && [[ ! -z "$op" ]]
     then
+        local ok ck xswitch
         
-        if [[ "$(systemctl is-active "$service")" != unknown ]]
+        #if [[ "$(systemctl is-active "$service")" != unknown ]]
+        if systemctl is-active "$service" > /dev/null
         then
-            local ok=true
+            ok=true
         else
-            local ok=false
-            local ck=''
-            for i in /usr/lib/systemd/system/* /etc/systemd/system/* /run/systemd/system/* ~/.config/systemd/user/* /etc/systemd/user/* $XDG_RUNTIME_DIR/systemd/user/* /run/systemd/user/* ~/.local/share/systemd/user/* /usr/lib/systemd/user/*
+            ok=false
+            ck=''
+            xswitch=""
+            for i in /usr/lib/systemd/system/* /etc/systemd/system/* /etc/systemd/system/*/* /run/systemd/system/*
             do
                 [[ -f "$i" ]] || continue
-                [[ $DEBUG == true ]] && ntc "@ $i"
+                #[[ $DEBUG == true ]] && ntc "@ $i"
                 ck="$(basename "$i")"
                 ## service.service, socket.socket, device.device, mount.mount, automount.automount, swap.swap, target.target, path.path, timer.timer, slice.slice, scope.scope
                 if [[ "$ck" == "$i" ]] || [[ "$ck" == "$service.service" ]] || [[ "$ck" == "$service.socket" ]] || [[ "$ck" == "$service.device" ]] || [[ "$ck" == "$service.mount" ]] || [[ "$ck" == "$service.automount" ]] \
                 || [[ "$ck" == "$service.swap" ]] || [[ "$ck" == "$service.target" ]] || [[ "$ck" == "$service.path" ]] || [[ "$ck" == "$service.timer" ]] || [[ "$ck" == "$service.slice" ]] || [[ "$ck" == "$service.scope" ]]
                 then
-                    
                     service="$ck"
                     ok=true
-                    ntc "ASSUME: $service"
+                    ntc "ASSUME system-service: $service"
+                    break
+                fi
+            done
+            
+            for i in ~/.config/systemd/user/* /etc/systemd/user/* $XDG_RUNTIME_DIR/systemd/user/* /run/systemd/user/* ~/.local/share/systemd/user/* /usr/lib/systemd/user/*
+            do
+                [[ -f "$i" ]] || continue
+                #[[ $DEBUG == true ]] && ntc "@ $i"
+                ck="$(basename "$i")"
+                ## service.service, socket.socket, device.device, mount.mount, automount.automount, swap.swap, target.target, path.path, timer.timer, slice.slice, scope.scope
+                if [[ "$ck" == "$i" ]] || [[ "$ck" == "$service.service" ]] || [[ "$ck" == "$service.socket" ]] || [[ "$ck" == "$service.device" ]] || [[ "$ck" == "$service.mount" ]] || [[ "$ck" == "$service.automount" ]] \
+                || [[ "$ck" == "$service.swap" ]] || [[ "$ck" == "$service.target" ]] || [[ "$ck" == "$service.path" ]] || [[ "$ck" == "$service.timer" ]] || [[ "$ck" == "$service.slice" ]] || [[ "$ck" == "$service.scope" ]]
+                then
+                    xswitch="--user"
+                    service="$ck"
+                    ok=true
+                    ntc "ASSUME user-service: $service"
                     break
                 fi
             done
@@ -87,7 +108,7 @@ then
             return 78
         fi
         
-        service_action "$service" "$op"
+        service_action "$service" "$op" "$xswitch"
         exit_0
     fi
     return 0

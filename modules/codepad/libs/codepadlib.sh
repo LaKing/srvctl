@@ -8,7 +8,7 @@ function mkrootfs_fedora_install_codepad {
     ## run dnf -y install gcc-c++
     
     ## function from containers module
-    mkrootfs_fedora_base codepad "gzip git-core curl python openssl-devel postgresql-devel mariadb-server ShellCheck"
+    mkrootfs_fedora_base codepad "systemd-container httpd mod_ssl gzip git-core curl python openssl-devel postgresql-devel mariadb-server ShellCheck"
     
     msg "mkrootfs_fedora_install_codepad"
     
@@ -24,8 +24,11 @@ function mkrootfs_fedora_install_codepad {
         exit
     fi
     
+    firewalld_offline_add_service https9001 tcp 9001
+    
     dir="$install_root"/usr/share/etherpad-lite
     
+    run mkdir -p "$dir"
     run git clone git://github.com/ether/etherpad-lite.git "$dir"
     run mkdir -p "$dir/node_modules"
     run ln -s ../src "$dir/node_modules/ep_etherpad-lite"
@@ -95,6 +98,29 @@ EOF
     run mkdir -p "$install_root"/var/codepad
     
     msg "Add gitconfig"
+    
+    
+    run mkdir -p "$install_root"/var/git
+    run cd "$install_root"/var/git
+    run git init --bare -q
+    run git clone "$install_root"/var/git "$install_root"/srv/codepad-project -q
+    #&> /dev/null
+    
+cat > "$install_root"/srv/codepad-project/.git/config << EOF
+[core]
+        repositoryformatversion = 0
+        filemode = true
+        bare = false
+        logallrefupdates = true
+[remote "origin"]
+        url = /var/git
+        fetch = +refs/heads/*:refs/remotes/origin/*
+[branch "master"]
+        remote = origin
+        merge = refs/heads/master
+EOF
+    
+    
 cat > "$install_root"/var/codepad/.gitconfig << EOF
 [user]
         email = codepad@$CDN
@@ -119,7 +145,8 @@ cat > "$install_root"/etc/codepad/settings.json << EOF
     "theme": "Cobalt",
     "project_path": "/srv/codepad-project",
     "log_path": "/var/codepad/project.log",
-    "push_action": "/bin/bash /etc/codepad/push.sh"
+    "push_action": "/bin/bash /srv/codepad-project/push.sh",
+    "play_url": "https://localhost"
   },
   "title": "codepad",
   "favicon": "favicon.ico",
@@ -183,6 +210,9 @@ EOF
 
 function init_codepad_project { ## Container
     
+    msg "init codepad project"
+    ## the boilerplate - if exists on the system - is already added via hooks.
+    
     local rootfs
     rootfs=''
     
@@ -200,41 +230,6 @@ function init_codepad_project { ## Container
     date +%s | sha256sum | base64 | head -c 64 > "$rootfs"/etc/codepad/SESSIONKEY.txt
     date +%s | sha256sum | base64 | head -c 64 > "$rootfs"/etc/codepad/APIKEY.txt
     
-    msg "Create git repo"
-    run mkdir -p "$rootfs"/var/git
-    run cd "$rootfs"/var/git
-    run git init --bare -q
-    run git clone "$rootfs"/var/git "$rootfs"/srv/codepad-project -q
-    #&> /dev/null
-    
-cat > "$rootfs"/srv/codepad-project/.git/config << EOF
-[core]
-        repositoryformatversion = 0
-        filemode = true
-        bare = false
-        logallrefupdates = true
-[remote "origin"]
-        url = /var/git
-        fetch = +refs/heads/*:refs/remotes/origin/*
-[branch "master"]
-        remote = origin
-        merge = refs/heads/master
-EOF
-    
-cat > "$rootfs"/var/codepad/.gitconfig << EOF
-[user]
-        email = codepad@$HOSTNAME
-        name = codepad
-[push]
-        default = simple
-EOF
-    
-    run rsync -a "$SC_INSTALL_DIR"/modules/codepad/codepad-project "$rootfs"/srv
-    
-    msg "npm install"
-    # shellcheck disable=SC2091
-    $(cd "$rootfs"/srv/codepad-project && npm install >> /dev/null)
-    
     cat "$rootfs"/etc/pki/tls/certs/localhost.crt > "$rootfs"/var/codepad/localhost.crt
     cat "$rootfs"/etc/pki/tls/private/localhost.key > "$rootfs"/var/codepad/localhost.key
     
@@ -244,7 +239,8 @@ cat > "$rootfs"/etc/codepad/settings.json << EOF
     "theme": "Cobalt",
     "project_path": "/srv/codepad-project",
     "log_path": "/var/codepad/project.log",
-    "push_action": "/bin/bash /etc/codepad/push.sh"
+    "push_action": "/bin/bash /srv/codepad-project/push.sh",
+    "play_url": "https://$1"
   },
   "title": "codepad",
   "favicon": "favicon.ico",
@@ -281,10 +277,29 @@ cat > "$rootfs"/etc/codepad/settings.json << EOF
     }
   }
 }
-
 EOF
     
-    run ln -s /var/srvctl3/share/containers/"$1"/users "$rootfs"/var/codepad/users
+    run ssh "$C" srvctl restart codepad
+    
+    ## TODO@LAB .. this fails?
+    run ln -s /var/srvctl3/share/containers/"$C"/users "$rootfs"/var/codepad/users
     
     msg "init codepad instance complete"
+    
+    ## continue adding a default project
+    ## if ... there is a boilerplate
+    
+    if [[ ! -d /srv/boilerplate.d250.hu/rootfs/srv/codepad-project/boilerplate ]]
+    then
+        return
+    fi
+    
+    msg "running the default project, the ßoilerplate MEAN stack installers"
+    
+    run ssh $C 'cd /srv/codepad-project/boilerplate/project_scripts && bash install_project_scripts.sh'
+    run ssh $C 'cd /srv/codepad-project && bash install.sh'
+    
+    msg "Codepad is available at https://$C:9001"
+    msg "It's project running on https://$C"
+    
 }

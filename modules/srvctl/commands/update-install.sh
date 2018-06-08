@@ -1,19 +1,30 @@
 #!/bin/bash
 
-## @@@ update-install [HOSTNAME]
+## @@@ update-install
 ## @en Run the installation/update script.
-## &en Update/Install all components
-## &en On host systems install the containerfarm
+## &en Update/Install all components.
+## &en On host systems install the containerfarm. and additionally use [HOSTNAME] as additional argument to select a host from a cluster.
 
 root_only
+
+sc_update
+
+if ! $SC_USE_CONTAINERS
+then
+    ## this will be executed on containers
+    run_hooks update-install-ve
+    
+    msg "$HOSTNAME update-install complete"
+    exit 0
+fi
+
+## continue if on the host
 
 if [[ ! -f /etc/srvctl/debug.conf ]]
 then
     echo "DEBUG=true" > /etc/srvctl/debug.conf
     msg "Debugging turned on - /etc/srvctl/debug.conf"
 fi
-
-sc_update
 
 ## disable selinux
 msg 'disabling SELinux'
@@ -61,7 +72,7 @@ then
 fi
 
 msg "Calling update-install hooks."
-run_hooks update-install
+run_hooks update-install-host
 
 if $SC_USE_GUI
 then

@@ -28,19 +28,19 @@ const $GREEN='\x1b[32m';
 const $YELLOW='\x1b[33m';
 const $BLUE='\x1b[34m';
 const $GRAY='\x1b[37m';
-const $CLEAR='\x1b[37m';
+const $CLEAR='\x1b[0m';
 const $TAG = $BLUE + '[ ' + HOSTNAME.split('.')[0] + ' ]';
 const SC_INSTALL_DIR = process.env.SC_INSTALL_DIR;
 
-exports.msg = function msg(str) {
-     console.log($TAG + $GREEN, str, $CLEAR);   
+exports.msg = function msg() {
+     console.log($TAG + $GREEN, ...arguments, $CLEAR);   
 };
 
-exports.ntc = function ntc(str) {
-     console.log($YELLOW, str, $CLEAR);   
+exports.ntc = function ntc() {
+     console.log($YELLOW, ...arguments, $CLEAR);   
 };
-exports.err = function err(str) {
-     console.log($RED +'JS-ERROR', str, $CLEAR);   
+exports.err = function err() {
+     console.log($RED +'JS-ERROR',...arguments, $CLEAR);   
 };
 
 exports.get = function get(cmd) {

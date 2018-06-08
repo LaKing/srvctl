@@ -26,27 +26,38 @@ then
     
     local C
     C="$ARG"
+    
+    rm -fr /etc/systemd/system/machines.target.wants/srvctl-nspawn@"$C".service
+    
     if [[ -f /etc/srvctl/containers/$C.service ]]
     then
         systemctl stop "$C"
         systemctl disable "$C"
     fi
     
-    if [[ -d /srv/$C ]]
-    then
-        rm -fr "/srv/$C"
-    fi
-    
     del container "$C"
     
     rm -fr /var/srvctl3/storage/static/"$C"
     
-    run umount /home/*/"$C"/bindfs
-    run rmdir /home/*/"$C"/bindfs
-    run rmdir /home/*/"$C"
+    ## https://www.cyberciti.biz/tips/nfs-stale-file-handle-error-and-solution.html
+    
+    for u in $(ls /home)
+    do
+        if [[ -d /home/"$u"/"$C" ]]
+        then
+            run umount -f /home/"$u"/"$C"/bindfs
+            run rm -fr /home/"$u"/"$C"/bindfs
+            run rm -fr /home/"$u"/"$C"
+        fi
+    done
     
     run sleep 3
     run machinectl terminate "$C"
+    
+    if [[ -d /srv/$C ]]
+    then
+        rm -fr "/srv/$C"
+    fi
     
     msg "$C destroyed."
     

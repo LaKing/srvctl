@@ -10,7 +10,6 @@ msg "Firewall $(firewall-cmd --state) - default zone: $zone"
 echo "$services"
 echo ''
 
-echo Interfaces:
 interfaces=$(firewall-cmd --list-interfaces)
 
 for i in $interfaces

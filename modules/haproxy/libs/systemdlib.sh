@@ -16,4 +16,7 @@ function restart_haproxy {
         err "HAproxy restart FAILED!"
         systemctl status haproxy.service --no-pager
     fi
+    
+    ## haproxy needs a second to start serving, and we have named asking for data from haproxy ...
+    run 'sleep 1'
 }

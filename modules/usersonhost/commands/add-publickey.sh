@@ -16,24 +16,27 @@ sudomize
 
 msg "Adding $SC_USER-$NOW.pub"
 
+pub="$SC_DATASTORE_DIR/users/$SC_USER/$SC_USER-$NOW.pub"
 
 if [[ -z $ARG ]] && [[ ! -f $ARG ]]
 then
-    mcedit "$SC_DATASTORE_DIR/users/$SC_USER/$SC_USER-$NOW.pub"
-    msg "edited file $SC_DATASTORE_DIR/users/$SC_USER/$SC_USER-$NOW.pub"
+    mcedit "$pub"
+    msg "edited file $pub"
     return
 else
     if [[ ! -f $ARG ]]
     then
-        echo "$ARG" >> "$SC_DATASTORE_DIR/users/$SC_USER/$SC_USER-$NOW.pub"
+        echo "$OPAS" >> "$pub"
     else
-        cat "$ARG" >> "$SC_DATASTORE_DIR/users/$SC_USER/$SC_USER-$NOW.pub"
+        cat "$ARG" >> "$pub"
     fi
 fi
 
-if [[ -z "$(cat "$SC_DATASTORE_DIR/users/$SC_USER/$SC_USER-$NOW.pub")" ]]
+if [[ -z "$(cat "$pub")" ]]
 then
-    rm -fr "$SC_DATASTORE_DIR/users/$SC_USER/$SC_USER-$NOW.pub"
+    rm -fr "$pub"
 fi
+
+cat "$pub"
 
 msg "OK"

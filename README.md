@@ -1,4 +1,4 @@
-## Srvctl v3 (3.1.9.9)
+## Srvctl v3 (3.1.12.3)
 Under construction, - srvctl is a containerfarm-manager for microsite hosting webservers with fedora as the host operating system. It will help to set up, maintain, and to let a couple of servers work together in order to have solid web-serving services.
 Version 3 is remake in core mostly using systemd tools, thus using systemd-nspawn as the containerfarm manager. Written in the mix of bash and javascript, a modular design allows to extend it with programs. Basically it is a collection of scripts, and fast scripts.
 
@@ -105,18 +105,6 @@ COMMAND
     
      In some cases it might come handy to run a single command on all containers.
     
-   http-redirect                         Redirect traffic of a given VE to a given URL or protocol
-    
-     Place a redirect rule on the VE within the proxy configuration.
-     The URL should contain the protocol and/or the domain name.
-     If neither a keyword, nor an URL are given the redirect is removed.
-    
-   https-redirect                        Redirect traffic of a given VE to a given URL or protocoll
-    
-     Place a redirect rule on the VE within the proxy configuration.
-     The URL should contain the protocol and/or the domain name.
-     If neither a keyword, nor an URL are given the redirect is removed.
-    
    regenerate                            Update configuration settings.                 
     
      Get all modules to write and overwrite config files with the actual configurations.
@@ -126,6 +114,20 @@ COMMAND
     
    status                                List container statuses                        
     
+    
+   http-redirect                         Redirect http traffic of a given VE to a given URL or protocol
+    
+     Place a redirect rule on the VE within the proxy configuration. IPv4 only, on the default port.
+     The URL should contain the protocol and/or the domain name.
+     If neither a keyword nor an URL is given the redirect is removed.
+     If the keyword is 'none' the redirect is removed as well.
+    
+   https-redirect                        Redirect https traffic of a given VE to a given URL or protocol
+    
+     Place a redirect rule on the VE within the proxy configuration. IPv4 only, on the default port.
+     The URL should contain the protocol and/or the domain name.
+     If neither a keyword nor an URL is given the redirect is removed.
+     If the keyword is 'none' the redirect is removed as well.
     
    customize                             Create/edit a custom command.                  
     
@@ -160,8 +162,8 @@ COMMAND
     
    update-install                        Run the installation/update script.            
     
-     Update/Install all components
-     On host systems install the containerfarm
+     Update/Install all components.
+     On host systems install the containerfarm. and additionally use [HOSTNAME] as additional argument to select a host from a cluster.
     
    version                               List software versions installed.              
     
@@ -192,13 +194,13 @@ COMMAND
      Add user to the container, so that they have their own files, email accouns, and so on.
      users will have a default password, and a directory structure in the container home.
     
-   status                                List container status parameters               
-    
-    
-   wp-install                            Run scripts that install wordpress and it's basic dependencies.
+   install-wordpress                     Run scripts that install wordpress and it's basic dependencies.
     
      Install the wordpress dependencies.
     
     
-[ srvctl-devel ] ## srvctl-3.1.9.9
+   status                                List container status parameters               
+    
+    
+[ srvctl-devel ] ## srvctl-3.1.12.3
 ```

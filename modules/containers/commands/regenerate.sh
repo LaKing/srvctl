@@ -15,6 +15,8 @@ hs_only
 
 if [[ $ARG == rootfs ]]
 then
+    run cd /root
+    
     msg "Create base images"
     
     run_hook regenerate_rootfs

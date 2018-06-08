@@ -35,15 +35,18 @@ function add_ve() { ## type name
     
     msg "$T container $C added to datastore."
     
+    run_hooks add_ve_create_nspawn_container "$T" "$C"
+    
     ## make local container
-    create_nspawn_container_filesystem "$C" "$T"
-    create_nspawn_container_network "$C" "$T"
+    create_nspawn_container_filesystem "$T" "$C"
+    create_nspawn_container_network "$T" "$C"
     
     create_selfsigned_domain_certificate "$C" "/srv/$C/cert"
     cat "/srv/$C/cert/$C.crt" > "/srv/$C/rootfs/etc/pki/tls/certs/localhost.crt"
     cat "/srv/$C/cert/$C.key" > "/srv/$C/rootfs/etc/pki/tls/private/localhost.key"
     
     setup_index_html "$C" "/srv/$C/rootfs/var/www/html"
+    write_ve_postfix_conf "$C"
     
     ln -s "/srv/$C/rootfs/usr/lib/systemd/system/httpd.service" "/srv/$C/rootfs/etc/systemd/system/multi-user.target.wants/httpd.service"
     run systemctl start "srvctl-nspawn@$C" --no-pager
