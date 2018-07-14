@@ -43,17 +43,10 @@ then
         service=$ARG
     fi
     
-    if [[ -z $service ]] && [[ $op == 'restart' ]]
-    then
-        source "$SC_INSTALL_DIR/modules/containers/commands/regenerate.sh"
-        exit_0
-    fi
-    
     run_hook adjust-service
     
-    [[ $DEBUG == true ]] && ntc "@srvctl-command"
-    
-    ntc "SERVICE: $service OP: $op"
+    #[[ $DEBUG == true ]] && ntc "@srvctl-command"
+    #ntc "SERVICE: $service OP: $op"
     
     if [[ ! -z "$service" ]] && [[ ! -z "$op" ]]
     then

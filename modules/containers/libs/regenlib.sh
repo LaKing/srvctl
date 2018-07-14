@@ -69,15 +69,17 @@ function check_container_directories() {
                 fi
             fi
             
-            if [[ -f /srv/$C/hosts ]] && [[ -f /srv/$C/network/80-container-host0.network ]] && [[ -f /srv/$C/$C.nspawn ]]
+            if [[ -d /srv/$C/rootfs/etc ]]
             then
-                continue
-            else
-                msg "Updating container configuration for $C"
-                
-                fix container "$C" update_container_ip
-                create_container_config "$C"
-                
+                if [[ -f /srv/$C/hosts ]] && [[ -f /srv/$C/network/80-container-host0.network ]] && [[ -f /srv/$C/$C.nspawn ]]
+                then
+                    continue
+                else
+                    msg "Updating container configuration for $C"
+                    
+                    fix container "$C" update_container_ip
+                    create_container_config "$C"
+                fi
             fi
         fi
     done

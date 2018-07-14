@@ -15,7 +15,6 @@ chown -R codepad:codepad $wd
 chmod -R +X $wd
 NOW=$(date +%Y.%m.%d-%H:%M:%S)
 
-
 ## enforce codepad user
 if [ "$USER" != codepad ]
 then

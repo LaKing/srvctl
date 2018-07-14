@@ -1,11 +1,11 @@
 #!/bin/bash
 
 function root_only {
-    if $SC_ROOT
+    if [[ $SC_USER == root ]]
     then
         return 0
     else
-        err "Authorization failure"
+        err "Authorization failure. (root_only)"
         exit 44
     fi
 }
@@ -33,20 +33,25 @@ function authorize {
     then
         return
     else
+        ## there should be several levels of users
+        ## root - allowed everything for everyone
+        ## reseller - allowed for his users
+        ## user - allowed for himself
+        ## guest - limited.
         err "DEV (Authorization implementation not complete.)"
     fi
 }
 
 function sudomize {
-    if [[ $USER != root ]]
+    if ! $SC_ROOT
     then
         debug "@sudomize"
-        if ! run sudo "$SC_INSTALL_DIR/srvctl.sh" "$SC_COMMAND_ARGUMENTS"
+        if run sudo "$SC_INSTALL_DIR/srvctl.sh" "$SC_COMMAND_ARGUMENTS"
         then
-            debug "Error $? in srvctl-sudo"
-            exit 10
+            exit
         else
-            exit 0
+            debug "Error $? in srvctl-sudo"
+            exit $?
         fi
     fi
 }

@@ -4,6 +4,7 @@ function service_action {
     
     local service="$1"
     local op="$2"
+    # extra switches for the commands
     local xswitch=''
     
     if [[ ! -z "$3" ]]
@@ -17,7 +18,8 @@ function service_action {
         return 0
     else
         
-        if $SC_ROOT || [[ ! -z "$3" ]]
+        # if root privilegs given at start - or --user switch used, or user is in wheel
+        if $SC_ROOT || [[ ! -z "$xswitch" ]] || groups | grep wheel > /dev/null
         then
             
             ## yea, in sc we use simplified operations, use systemd for speceific ops
@@ -44,7 +46,7 @@ function service_action {
             return 223
             
         else
-            err "AUTH start|stop|kill|restart(enable|remove) service operations need root privileges."
+            err "All service operations except status need root privileges."
             return 66
         fi
         

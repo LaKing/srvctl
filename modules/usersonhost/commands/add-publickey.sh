@@ -38,5 +38,12 @@ then
 fi
 
 cat "$pub"
+echo ''
 
-msg "OK"
+if run ssh-keygen -l -f "$pub"
+then
+    msg "OK"
+else
+    err "Could not verify the publikkey, removing."
+    rm -fr "$pub"
+fi

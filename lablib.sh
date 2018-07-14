@@ -40,7 +40,7 @@ function log {
 ## silent log
 function logs {
     ## create a log entry
-    echo "$NOW: $*" >> "$SC_LOG"
+    echo "$NOW [ $SC_USER@${HOSTNAME%%.*} ]: $*" >> "$SC_LOG"
 }
 
 ## silent log a file content

@@ -3,6 +3,9 @@
 ## special services
 # shellcheck disable=SC2154
 
+## TODO check if user is reseller or user of service
+
+
 #if [[ $op == "enable" ]] && [[ -f "/etc/srvctl/containers/$service.service" ]] && $IS_ROOT
 #then
 #    run systemctl enable "/etc/srvctl/containers/$service.service"
@@ -10,12 +13,31 @@
 #    exit 0
 #fi
 
-if [[ -d /srv/$service ]]
+if [[ -z "$service" ]] && [[ $op == 'restart' ]]
 then
+    source "$SC_INSTALL_DIR/modules/containers/commands/regenerate.sh"
+    exit_0
+fi
+
+if [[ -d /srv/$service/rootfs ]]
+then
+    if $SC_ROOT
+    then
+        if [[ $SC_USER == $(get container "$service" user) ]] || [[ $SC_USER == $(get container "$service" reseller) ]]
+        then
+            msg "AUTH-OK $SC_USER has acceess to $service"
+        else
+            err "AUTH-ERROR $SC_USER has no access to $service"
+            exit 142
+        fi
+    else
+        sudomize
+    fi
     ## this is the service name actually for a container
     service="srvctl-nspawn@$service"
     
     ## containers cant be restarted, they need to be stopped and started then
+    ## https://github.com/systemd/systemd/issues/2809
     if [[ $op == restart ]]
     then
         run systemctl stop "$service"
@@ -24,14 +46,13 @@ then
 fi
 
 
-## special services
-if [[ $service == containers ]] && [[ ! -z "$op" ]] && [[ -f "/etc/systemd/system/srvctl-nspawn@.service" ]] && $IS_ROOT
+## all-containers
+if [[ $service == all-containers ]] && [[ ! -z "$op" ]] && [[ -f "/etc/systemd/system/srvctl-nspawn@.service" ]]
 then
+    sudomize
     
-    ## must have conf
-    for c in /srv/*/rootfs
+    for C in $(cfg user container_list)
     do
-        local C="${c:5: -7}"
         msg "$C"
         if [[ $op == restart ]]
         then
@@ -40,5 +61,5 @@ then
         fi
         service_action "srvctl-nspawn@$C" "$op"
     done
-    return 0
+    exit_0
 fi

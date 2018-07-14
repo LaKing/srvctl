@@ -126,7 +126,7 @@ function check_checkend(cert_file) {
         execSync('openssl x509 -checkend 604800 -noout -in ' + cert_file);
         returnState = true;
     } catch (error) {
-        ntc('CATCH Certificate will expire! ' + cert_file);
+        //ntc('CATCH Certificate will expire! ' + cert_file);
     } finally {
         return returnState;
     }
@@ -134,7 +134,7 @@ function check_checkend(cert_file) {
 
 function check_domain(domain) {
 
-    if (has_wildcard_certificate(domain)) return; //msg("Using wildcard certificate for " + domain);
+    if (has_wildcard_certificate(domain)) return; // msg("Using wildcard certificate for " + domain);
 
     var cert_file = SC_CONTAINERS_CERT_DIR + "/" + domain + ".pem";
 
@@ -153,7 +153,7 @@ function check_domain(domain) {
     });
 
     if (hasA) run_on_domain(domain);
-    else ntc("Letsencrypt no A record for " + domain);
+    else ntc("Letsencrypt: no A record for " + domain + " Namesevers are " + containers[domain].dns_scan.NS[0] || "" + " " + containers[domain].dns_scan.NS[1] || '');
 
 }
 
@@ -186,8 +186,12 @@ function run_on_domain(domain) {
 
 function main() {
     Object.keys(containers).forEach(function(i) {
-        if ((i.substr(i.length - 6) !== '.devel') && (i.substr(i.length - 6) !== '-devel') && (i.substr(i.length - 6) !== '.local') && (i.substr(i.length - 6) !== '-local') && (i.substring(0, 5) !== 'mail.'))
+        if ((i.substr(i.length - 6) !== '.devel') && (i.substr(i.length - 6) !== '-devel') && (i.substr(i.length - 6) !== '.local') && (i.substr(i.length - 6) !== '-local') && (i.substring(0, 5) !== 'mail.')) {
             check_domain(i);
+            //if (containers[i].aliases) containers[i].aliases.forEach(function(j) {
+            //    check_domain(j);
+            //});
+        }
     });
 }
 

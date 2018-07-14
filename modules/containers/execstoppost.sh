@@ -7,3 +7,4 @@ C="$1"
 #/usr/bin/srvctl put container "$C" started false
 
 machinectl terminate "$C"
+echo "machinectl terminate exit-code: $?"

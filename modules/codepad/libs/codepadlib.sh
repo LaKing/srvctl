@@ -3,17 +3,90 @@
 #[[ $SRVCTL ]] || exit
 #[[ $SC_ROOTFS_DIR ]] || exit
 
+function create_codepad_certificate() { #install_root
+    
+    local install_root
+    install_root="$1"
+    
+    ## Create a certificate
+    ssl_password="no_password"
+    ssl_days=365
+    ssl_key="$install_root"/var/codepad/localhost.key
+    ssl_csr="$install_root"/var/codepad/localhost.csr
+    ssl_org="$install_root"/var/codepad/localhost.org.pem
+    ssl_crt="$install_root"/var/codepad/localhost.crt
+    ssl_config="$install_root"/var/codepad/localhost-cert-config.txt
+    
+    if [[ ! -f "$ssl_key" ]] || [[ ! -f "$ssl_crt" ]]
+    then
+        
+cat  <<EOF>> "$ssl_config"
+
+        RANDFILE               = /tmp/ssl_random
+
+        [ req ]
+        prompt                 = no
+        string_mask            = utf8only
+        default_bits           = 2048
+        default_keyfile        = keyfile.pem
+        distinguished_name     = req_distinguished_name
+
+        req_extensions         = v3_req
+
+        output_password        = no_password
+
+        [ req_distinguished_name ]
+        CN                     = $HOSTNAME
+        emailAddress           = webmaster@$HOSTNAME
+
+        [ v3_req ]
+        basicConstraints = critical,CA:FALSE
+        keyUsage = keyEncipherment, dataEncipherment
+        extendedKeyUsage = serverAuth
+        subjectAltName = @alt_names
+        [alt_names]
+        DNS.1 = $HOSTNAME
+        DNS.2 = *.$HOSTNAME
+
+EOF
+        
+        
+        
+        ## Generate a Private Key
+        openssl genrsa -des3 -passout "pass:$ssl_password" -out "$ssl_key" 2048 #2> /dev/null
+        
+        ## Generate a CSR (Certificate Signing Request)
+        openssl req -new -passin "pass:$ssl_password" -passout "pass:$ssl_password" -key "$ssl_key" -out "$ssl_csr" -days "$ssl_days" -config "$ssl_config" #2> /dev/null
+        
+        ## Remove Passphrase from Key
+        cp "$ssl_key" "$ssl_org"
+        openssl rsa -passin "pass:$ssl_password" -in "$ssl_org" -out "$ssl_key" #2> /dev/null
+        
+        ## Self-Sign Certificate
+        openssl x509 -req -days "$ssl_days" -passin "pass:$ssl_password" -extensions v3_req -in "$ssl_csr" -signkey "$ssl_key" -out "$ssl_crt" #2> /dev/null
+        
+        chmod 600 "$ssl_key"
+        chmod 644 "$ssl_crt"
+        
+        msg "Created certificate $ssl_key $ssl_cert"
+        
+    fi
+    
+}
+
 function mkrootfs_fedora_install_codepad {
     
     ## run dnf -y install gcc-c++
     
-    ## function from containers module
-    mkrootfs_fedora_base codepad "systemd-container httpd mod_ssl gzip git-core curl python openssl-devel postgresql-devel mariadb-server ShellCheck"
-    
     msg "mkrootfs_fedora_install_codepad"
     
+    ## function from containers module
+    mkrootfs_fedora_base codepad "systemd-container httpd mod_ssl gzip git-core curl python openssl-devel postgresql-devel mariadb-server ShellCheck mongodb mongodb-server"
+    
+    msg "mkrootfs_fedora_install_codepad - complete"
+    
     ## this is my own version for rootfs creation
-    local install_root
+    local install_root home
     
     #rootfs_name=codepad
     install_root="$SC_ROOTFS_DIR/codepad"
@@ -24,81 +97,23 @@ function mkrootfs_fedora_install_codepad {
         exit
     fi
     
-    firewalld_offline_add_service https9001 tcp 9001
+    msg "create directories"
     
-    dir="$install_root"/usr/share/etherpad-lite
-    
-    run mkdir -p "$dir"
-    run git clone git://github.com/ether/etherpad-lite.git "$dir"
-    run mkdir -p "$dir/node_modules"
-    run ln -s ../src "$dir/node_modules/ep_etherpad-lite"
-    run npm install --prefix "$dir/node_modules/ep_etherpad-lite" --loglevel warn
-    
-    run git clone git://github.com/spcsser/ep_adminpads "$dir/node_modules/ep_adminpads"
-    run npm install --prefix "$dir/node_modules/ep_adminpads" --loglevel warn
-    
-    run git clone git://github.com/LaKing/ep_codepad "$dir/node_modules/ep_codepad"
-    run npm install --prefix "$dir/node_modules/ep_codepad" --loglevel warn
-    
-    msg "Configuring codepad"
-    
-    ### increase import filesize limitation
-    sed_file "$dir/src/node/db/PadManager.js" '    if(text.length > 100000)' '    if(text.length > 1000000) /* srvctl customization for file import via webAPI*/'
-    
-    ### The line containing:  return /^(g.[a-zA-Z0-9]{16}\$)?[^$]{1,50}$/.test(padId); .. but mysql is limited to 100 chars, so patch it.
-    sed_file "$dir/src/node/db/PadManager.js" '{1,50}$/.test(padId);' '{1,100}$/.test(padId); /* srvctl customization for file import via webAPI*/'
-    
-    cp "$dir/src/static/custom/js.template" "$dir/src/static/custom/index.js"
-    cp "$dir/src/static/custom/css.template" "$dir/src/static/custom/index.css"
-    cp "$dir/src/static/custom/js.template" "$dir/src/static/custom/pad.js"
-    cp "$dir/src/static/custom/css.template" "$dir/src/static/custom/pad.css"
-    cp "$dir/src/static/custom/js.template" "$dir/src/static/custom/timeslider.js"
-    cp "$dir/src/static/custom/css.template" "$dir/src/static/custom/timeslider.css"
-    
-    msg "Create codepad.service"
-    
-    mkdir -p "$install_root"/lib/systemd/system
-    cat > "$install_root/lib/systemd/system/codepad.service" << EOF
-## srvctl generated
-[Unit]
-Description=Codepad, the etherpad-lite based collaborative code editor.
-After=syslog.target network.target
-After=mariadb.service
-
-[Service]
-Type=simple
-ExecStartPre=/bin/mysql -u root -e "CREATE DATABASE IF NOT EXISTS codepad"
-WorkingDirectory=/usr/share/etherpad-lite
-ExecStart=/bin/node /usr/share/etherpad-lite/node_modules/ep_etherpad-lite/node/server.js --settings /etc/codepad/settings.json
-User=codepad
-Group=codepad
-
-[Install]
-WantedBy=multi-user.target
-
-EOF
-    
-    
-    run mkdir -p "$install_root"/var/etherpad-lite
-    run rm -rf "$install_root"/usr/share/etherpad-lite/var
-    run ln -s /var/etherpad-lite "$install_root"/usr/share/etherpad-lite/var
-    run chmod 774 "$install_root"/var/etherpad-lite
-    run chroot "$install_root" chown codepad:codepad /var/etherpad-lite
-    
-    run mkdir -p "$install_root"/var/codepad
+    run mkdir -p "$install_root"/var/codepad/.ssh
     run mkdir -p "$install_root"/etc/codepad
     run mkdir -p "$install_root"/srv/codepad-project
-    run chroot "$install_root" chown codepad:codepad /srv/codepad-project
+    run chroot "$install_root" chown codepad:codepad "$install_root"/srv/codepad-project
     
-    #mkdir -p "$install_root"/var/lib/mysql
-    #chroot "$install_root" chown -R mysql:mysql /var/lib/mysql
-    #mkdir -p "$install_root"/var/log/mysql
-    #chroot "$install_root" chown -R mysql:mysql /var/log/mysql
+    echo '' > "$install_root"/var/codepad/project.log
     
-    run mkdir -p "$install_root"/var/codepad
+    firewalld_offline_add_service https9001 tcp 9001
     
-    msg "Add gitconfig"
+    run mkdir -p "$install_root"/etc/systemd/system/multi-user.target.wants/
+    run ln -s /usr/lib/systemd/system/mongod.service "$install_root"/etc/systemd/system/multi-user.target.wants/mongod.service
     
+    create_codepad_certificate "$install_root"
+    
+    msg "init git configs"
     
     run mkdir -p "$install_root"/var/git
     run cd "$install_root"/var/git
@@ -106,22 +121,7 @@ EOF
     run git clone "$install_root"/var/git "$install_root"/srv/codepad-project -q
     #&> /dev/null
     
-cat > "$install_root"/srv/codepad-project/.git/config << EOF
-[core]
-        repositoryformatversion = 0
-        filemode = true
-        bare = false
-        logallrefupdates = true
-[remote "origin"]
-        url = /var/git
-        fetch = +refs/heads/*:refs/remotes/origin/*
-[branch "master"]
-        remote = origin
-        merge = refs/heads/master
-EOF
-    
-    
-cat > "$install_root"/var/codepad/.gitconfig << EOF
+	cat > "$install_root"/var/codepad/.gitconfig << EOF
 [user]
         email = codepad@$CDN
         name = codepad
@@ -129,177 +129,57 @@ cat > "$install_root"/var/codepad/.gitconfig << EOF
         default = simple
 EOF
     
-    run chroot "$install_root" chown -R codepad:codepad /var/codepad
+    msg "Create default key"
+    ## create an access key, however, this should propably differ for each container
+    ssh-keygen -b 4096 -f "$install_root"/var/codepad/.ssh/id_rsa -N '' -C "codepad"
+    cat "$install_root"/var/codepad/.ssh/id_rsa.pub > "$install_root"/var/codepad/.ssh/authorized_keys
     
-    echo 'done' > "$dir/node_modules/ep_adminpads/.ep_initialized"
-    echo 'done' > "$dir/node_modules/ep_codepad/.ep_initialized"
-    echo 'done' > "$dir/node_modules/ep_etherpad-lite/.ep_initialized"
+    echo "cd /srv/codepad-project" > "$install_root"/var/codepad/.profile
+    echo "mc" >> "$install_root"/var/codepad/.profile
     
-    run chroot "$install_root" chown -R codepad:codepad /etc/codepad
+    msg "Create codepad service"
     
-    msg "create default settings.json"
-    
-cat > "$install_root"/etc/codepad/settings.json << EOF
-{
-  "ep_codepad": {
-    "theme": "Cobalt",
-    "project_path": "/srv/codepad-project",
-    "log_path": "/var/codepad/project.log",
-    "push_action": "/bin/bash /srv/codepad-project/push.sh",
-    "play_url": "https://localhost"
-  },
-  "title": "codepad",
-  "favicon": "favicon.ico",
-  "ip": "0.0.0.0",
-  "port" : 9001,
-  "dbType" : "mysql",
-  "dbSettings" : {
-    "user"    : "root",
-    "host"    : "localhost",
-    "password": "",
-    "database": "codepad"
-  },
-  "defaultPadText" : "/*jshint esnext: true */",
-  "requireSession" : false,
-  "editOnly" : false,
-  "minify" : true,
-  "maxAge" : 21600,
-  "abiword" : null,
-  "requireAuthentication": true,
-  "requireAuthorization": false,
-  "trustProxy": false,
-  "disableIPlogging": true,
-  "socketTransportProtocols" : ["xhr-polling", "jsonp-polling", "htmlfile"],
-  "loglevel": "INFO",
-  "logconfig" :
-    { "appenders": [
-        { "type": "console"}
-      ]
-    },
-   "users": {
-    "admin": {
-      "password": "$(new_password)",
-      "is_admin": true
-    }
-  }
-}
-
+cat > "$install_root/etc/systemd/system/codepad.service" << EOF
+## srvctl generated
+[Unit]
+Description=Codepad, the collaborative code editor
+After=syslog.target network.target
+[Service]
+PermissionsStartOnly=true
+Type=simple
+WorkingDirectory=/var/codepad
+#ExecStartPre=/usr/sbin/setcap cap_net_bind_service=+ep /usr/bin/node
+ExecStart=/bin/node /var/codepad/server.js
+User=codepad
+Group=codepad
+Restart=always
+[Install]
+WantedBy=multi-user.target
 EOF
     
-    msg "Create push.sh"
-    cat "$SC_INSTALL_DIR/modules/codepad/codepad-project/push.sh" > "$install_root"/etc/codepad/push.sh
-    run chmod 744 "$install_root"/etc/codepad/push.sh
+    run ln -s /etc/systemd/system/codepad.service "$install_root"/etc/systemd/system/multi-user.target.wants/codepad.service
     
-    run mkdir -p "$install_root"/etc/systemd/system/multi-user.target.wants/
-    run ln -s /usr/lib/systemd/system/mariadb.service "$install_root"/etc/systemd/system/multi-user.target.wants/mariadb.service
-    run ln -s /usr/lib/systemd/system/codepad.service "$install_root"/etc/systemd/system/multi-user.target.wants/codepad.service
+    cat /var/codepad/boilerplate/scripts/server.js > "$install_root"/var/codepad/server.js
     
-    msg "Create sessionkey and apikey"
-    date +%s | sha256sum | base64 | head -c 64 > "$install_root"/etc/codepad/SESSIONKEY.txt
-    date +%s | sha256sum | base64 | head -c 64 > "$install_root"/etc/codepad/APIKEY.txt
     
-    run ln -s /etc/codepad/settings.json "$dir/settings.json"
-    run ln -s /etc/codepad/SESSIONKEY.txt "$dir/SESSIONKEY.txt"
-    run ln -s /etc/codepad/APIKEY.txt "$dir/APIKEY.txt"
-    
-    run chroot "$install_root" chmod 666 /usr/share/etherpad-lite/SESSIONKEY.txt
-    
-    #make /var/codepad/users
-    
+    run chroot "$install_root" chown -R codepad:codepad /etc/codepad
+    run chroot "$install_root" chown -R codepad:codepad /var/codepad
 }
+
 
 function init_codepad_project { ## Container
     
-    msg "init codepad project"
-    ## the boilerplate - if exists on the system - is already added via hooks.
+    local C
+    C="$1"
     
-    local rootfs
-    rootfs=''
+    msg "init_codepad_project $C"
     
-    if [[ ! -z $1 ]]
-    then
-        rootfs="/srv/$1/rootfs"
-    fi
+    rm -fr /srv/"$C"/rootfs/var/codepad/.ssh/*
+    ssh-keygen -b 4096 -f /srv/"$C"/rootfs/var/codepad/.ssh/id_rsa -N '' -C "codepad@$C $NOW"
+    cat /srv/"$C"/rootfs/var/codepad/.ssh/id_rsa.pub > /srv/"$C"/rootfs/var/codepad/.ssh/authorized_keys
+    run chown -R 104:104 /srv/"$C"/rootfs/var/codepad
     
-    if [[ ! -d "$rootfs"/etc/codepad/ ]]
-    then
-        return 0
-    fi
+    run ln -s /var/srvctl3/share/containers/"$C"/users /srv/"$C"/rootfs/var/codepad/users
     
-    msg "Create sessionkey and apikey"
-    date +%s | sha256sum | base64 | head -c 64 > "$rootfs"/etc/codepad/SESSIONKEY.txt
-    date +%s | sha256sum | base64 | head -c 64 > "$rootfs"/etc/codepad/APIKEY.txt
-    
-    cat "$rootfs"/etc/pki/tls/certs/localhost.crt > "$rootfs"/var/codepad/localhost.crt
-    cat "$rootfs"/etc/pki/tls/private/localhost.key > "$rootfs"/var/codepad/localhost.key
-    
-cat > "$rootfs"/etc/codepad/settings.json << EOF
-{
-  "ep_codepad": {
-    "theme": "Cobalt",
-    "project_path": "/srv/codepad-project",
-    "log_path": "/var/codepad/project.log",
-    "push_action": "/bin/bash /srv/codepad-project/push.sh",
-    "play_url": "https://$1"
-  },
-  "title": "codepad",
-  "favicon": "favicon.ico",
-  "ip": "0.0.0.0",
-  "port" : 9001,
-  "dbType" : "mysql",
-  "dbSettings" : {
-    "user"    : "root",
-    "host"    : "localhost",
-    "password": "",
-    "database": "codepad"
-  },
-  "defaultPadText" : "// codepad",
-  "requireSession" : false,
-  "editOnly" : false,
-  "minify" : true,
-  "maxAge" : 21600,
-  "abiword" : null,
-  "requireAuthentication": true,
-  "requireAuthorization": false,
-  "trustProxy": false,
-  "disableIPlogging": true,
-  "socketTransportProtocols" : ["xhr-polling", "jsonp-polling", "htmlfile"],
-  "loglevel": "INFO",
-  "logconfig" :
-    { "appenders": [
-        { "type": "console"}
-      ]
-    },
-   "users": {
-    "admin": {
-      "password": "$(new_password)",
-      "is_admin": true
-    }
-  }
-}
-EOF
-    
-    run ssh "$C" srvctl restart codepad
-    
-    ## TODO@LAB .. this fails?
-    run ln -s /var/srvctl3/share/containers/"$C"/users "$rootfs"/var/codepad/users
-    
-    msg "init codepad instance complete"
-    
-    ## continue adding a default project
-    ## if ... there is a boilerplate
-    
-    if [[ ! -d /srv/boilerplate.d250.hu/rootfs/srv/codepad-project/boilerplate ]]
-    then
-        return
-    fi
-    
-    msg "running the default project, the ßoilerplate MEAN stack installers"
-    
-    run ssh $C 'cd /srv/codepad-project/boilerplate/project_scripts && bash install_project_scripts.sh'
-    run ssh $C 'cd /srv/codepad-project && bash install.sh'
-    
-    msg "Codepad is available at https://$C:9001"
-    msg "It's project running on https://$C"
-    
+    msg "Codepad @ https://$C:9001"
 }

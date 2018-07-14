@@ -33,6 +33,10 @@ then
     fi
 fi
 
+# shellcheck disable=SC2034
+SC_LOG=~/.srvctl/srvctl.log
+mkdir -p ~/.srvctl
+
 ## lablib is mainly for colorization
 source "$SC_INSTALL_DIR/lablib.sh" || echo "lablib could not be loaded!" 1>&2
 
@@ -42,10 +46,6 @@ source "$SC_INSTALL_DIR/commonlib.sh" || echo "commonlib could not be loaded!" 1
 ## logging related
 readonly NOW=$(date +%Y.%m.%d-%H:%M:%S)
 export NOW
-
-# shellcheck disable=SC2034
-SC_LOG=~/.srvctl/srvctl.log
-mkdir -p ~/.srvctl
 
 if [[ $CMD == update-install ]] || [[ $CMD == 'test-modules' ]]
 then
@@ -79,24 +79,26 @@ done
 
 source /etc/os-release
 
-if [[ $USER == root ]] && [[ -z $SUDO_USER ]]
+if [[ -z $SUDO_USER ]]
+then
+    readonly SC_USER="$USER"
+else
+    readonly SC_USER="$SUDO_USER"
+fi
+
+if [[ $UID == 0 ]]
 then
     readonly SC_ROOT=true
-    #readonly
-    SC_USER=root
 else
-    if [[ -z $SUDO_USER ]]
-    then
-        readonly SC_USER="$USER"
-    else
-        readonly SC_USER="$SUDO_USER"
-    fi
     readonly SC_ROOT=false
 fi
 
 readonly SC_HOME="$(getent passwd "$SC_USER" | cut -f6 -d:)"
 export SC_HOME
 
+#echo "UID: $UID USER: $USER SUDO_USER $SUDO_USER SC_USER: $SC_USER SC_ROOT $SC_ROOT"
+
+logs "srvctl $SC_COMMAND_ARGUMENTS"
 
 ## log root privileged commands
 if [[ $USER == root ]]

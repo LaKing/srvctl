@@ -10,10 +10,12 @@ function regenerate_haproxy_conf {
     mkdir -p /etc/srvctl/cert
     
     cp -u /var/srvctl3/datastore/cert/* /var/haproxy/
+    cp -u /etc/srvctl/cert/*/*.pem /var/haproxy/
     #run rsync -a "$SC_DATASTORE_RO_DIR/cert" /var/haproxy
     
     haproxycfg
-    restart_haproxy
-    
+    #restart_haproxy
+    ## better reload
+    reload_haproxy
 }
 

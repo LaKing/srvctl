@@ -60,7 +60,7 @@ function mkrootfs_fedora_base { ## name packagelist
     chroot "$install_root" useradd -r -u 103 -g 103 -s /sbin/nologin -d /srv node
     
     chroot "$install_root" groupadd -r -g 104 codepad
-    chroot "$install_root" useradd -r -u 104 -g 104 -s /sbin/nologin -d /srv/codepad codepad
+    chroot "$install_root" useradd -r -u 104 -g 104 -s /bin/bash -d /var/codepad codepad
     
     run mkdir -p "$install_root"/etc/systemd/system/multi-user.target.wants/
     run mkdir -p "$install_root"/rootfs/etc/postfix

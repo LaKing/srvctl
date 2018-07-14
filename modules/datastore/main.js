@@ -62,13 +62,13 @@ function output(variable, value) {
     process.exitCode = 0;
 }
 
-// get or put
+// 1. get or put
 if (CMD === undefined) return_error("MISSING CMD ARGUMENT: get | put | out | cfg | del | new | fix");
-// users or containers
+// 2. users or containers
 if (DAT === undefined) return_error("MISSING DAT ARGUMENT: cluster | user | reseller | container | host");
-// field
+// 3. field
 if (ARG === undefined) return_error("MISSING ARG ARGUMENT: containername / username / hostname / query");
-// OPA is optional
+// 4. OPA is optional
 
 if (CMD !== GET && CMD !== PUT && CMD !== OUT && CMD !== CFG && CMD !== DEL && CMD !== NEW && CMD !== FIX) return_error("INVALID CMD ARGUMENT: " + CMD);
 if (DAT !== 'cluster' && DAT !== 'user' && DAT != 'container' && DAT != 'host' && DAT != 'reseller') return_error("INVALID DAT ARGUMENT: " + DAT);

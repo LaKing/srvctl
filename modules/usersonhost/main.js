@@ -193,7 +193,7 @@ function create_user_client_cert(user) {
 var mounts = get("mount");
 
 function make_share(u, c) {
-    msg("Match " + c + " to " + u);
+    // msg("Match domain-user " + c + " to " + u);
     var getent = get("getent passwd " + u);
     if (getent === undefined) return err("getent passwd " + u + " #returned undefined, skipping");
     var dir = getent.split(':')[5] + '/' + c;

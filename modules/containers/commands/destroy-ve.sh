@@ -54,10 +54,16 @@ then
     run sleep 3
     run machinectl terminate "$C"
     
-    if [[ -d /srv/$C ]]
-    then
+    
+    while [[ -d /srv/$C ]]
+    do
         rm -fr "/srv/$C"
-    fi
+        if [[ -d /srv/$C ]]
+        then
+            ntc "$C has still a folder ..."
+            sleep 3
+        fi
+    done
     
     msg "$C destroyed."
     

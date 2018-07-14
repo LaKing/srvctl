@@ -36,17 +36,17 @@ BindReadOnly=/var/srvctl3/share/lock:/run/systemd/network
 BindReadOnly=/srv/$C/hosts:/etc/hosts
 
 EOF
-
-if [[ -d /var/codepad/boilerplate ]]
-then
-    echo 'BindReadOnly=/var/codepad/boilerplate' >> "/srv/$C/$C.nspawn"
-fi
-
-if [[ ! -z $(ls /srv/"$C" | grep '.binds') ]]
-then
-    msg "Adding extra binds to nspawn"
-    cat /srv/$C/*.binds >> "/srv/$C/$C.nspawn"
-fi
+    
+    if [[ -d /var/codepad/boilerplate ]]
+    then
+        echo 'BindReadOnly=/var/codepad/boilerplate' >> "/srv/$C/$C.nspawn"
+    fi
+    
+    if [[ ! -z $(ls /srv/"$C" | grep '.binds') ]]
+    then
+        msg "Adding extra binds to nspawn"
+        cat /srv/$C/*.binds >> "/srv/$C/$C.nspawn"
+    fi
     
 }
 
