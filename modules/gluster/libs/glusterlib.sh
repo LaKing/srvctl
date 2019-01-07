@@ -81,7 +81,7 @@ function gluster_configure { ## datadir mountdir
                 list="$list $host:/glu/$datadir/brick"
             fi
         done
-        
+        # shellcheck disable=SC2206
         lista=( $list )
         
         if ! run gluster volume status "$datadir"

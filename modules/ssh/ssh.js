@@ -234,6 +234,7 @@ function make_host_keys(){
     });
     
     // in addition, localhost
+    if (hosts[HOSTNAME])
     if (hosts[HOSTNAME].host_key !== undefined)
     { 
         keys += "localhost ssh-rsa " + hosts[HOSTNAME].host_key + br;

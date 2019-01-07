@@ -31,6 +31,9 @@ module(load="imjournal"             # provides access to the systemd journal
 
 # Provides UDP syslog reception
 # for parameters see http://www.rsyslog.com/doc/imudp.html
+
+## srvctl modification $SRVCTL
+
 module(load="imudp") # needs to be done just once
 input(type="imudp" port="514")
 
@@ -48,7 +51,7 @@ global(workDirectory="/var/lib/rsyslog")
 module(load="builtin:omfile" Template="RSYSLOG_TraditionalFileFormat")
 
 # Include all config files in /etc/rsyslog.d/
-$IncludeConfig /etc/rsyslog.d/*.conf
+include(file="/etc/rsyslog.d/*.conf" mode="optional")
 
 #### RULES ####
 

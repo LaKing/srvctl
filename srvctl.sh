@@ -20,7 +20,7 @@ then
     ## in terminal
     TTY=true
 else
-    ## in srvctl-gui
+    ## in srvctl-gui, or in program
     TTY=false
 fi
 
@@ -37,9 +37,9 @@ DEBUG=false
 #[[ -f /bin/pop ]] && DEBUG=true
 
 readonly SC_STARTTIME="$(date +%s%3N)"
-
-readonly SC_INSTALL_BIN=$(realpath "$BASH_SOURCE")
-readonly SC_INSTALL_DIR=${SC_INSTALL_BIN:0:-10}
+# shellcheck disable=SC2128
+readonly SC_INSTALL_BIN="$(realpath "$BASH_SOURCE")"
+readonly SC_INSTALL_DIR="${SC_INSTALL_BIN:0:-10}"
 readonly SC_COMMAND_ARGUMENTS="$*"
 
 ## should be /usr/local/share/srvctl
@@ -75,13 +75,12 @@ OPAS="${@:2}"
 SRVCTL="srvctl-$(cat "$SC_INSTALL_DIR/version")"
 readonly SRVCTL
 
-
+# shellcheck source=/usr/local/share/srvctl/init.sh
 source "$SC_INSTALL_DIR/init.sh" || echo "Init could not be loaded!" 1>&2
 debug " => $1 $2 $3"
 debug " == run_command srvctl $CMD $ARG == "
-run_command
 
-if [[ $? == 0 ]]
+if run_command
 then
     exit_0
 fi
@@ -94,6 +93,12 @@ then
     err "Invalid command."
 else
     err "No-command."
+fi
+
+if [[ $CMD == 'exec-function' ]]
+then
+    echo "SC_USER: $SC_USER, UID: $UID, TTY: $TTY, CMD: $CMD, OPAS: $OPAS, DEBUG: $DEBUG"
+    exit 1
 fi
 
 hint_commands

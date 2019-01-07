@@ -58,6 +58,7 @@ function dbg {
     ## short debug message if debugging is on
     if $DEBUG && $TTY
     then
+        # shellcheck disable=SC2128
         echo -e "${YELLOW}DEBUG #$dbgc ${BASH_SOURCE[1]}#$BASH_LINENO ${FUNCNAME[1]} ${GREEN} $* ${CLEAR}"
     fi
 }
@@ -73,12 +74,14 @@ function debug {
 
 function trace {
     ## tracing debug message
+    # shellcheck disable=SC2128
     echo -e "${YELLOW} DEBUG ${BASH_SOURCE[1]}#$BASH_LINENO ${FUNCNAME[1]} ${RED} $*${CLEAR}"
     set -o posix;
     set | grep BASH_LINENO=
     set | grep BASH_SOURCE=
     set | grep FUNCNAME=
     set | grep SC_
+    # shellcheck disable=SC2128
     echo -e "${YELLOW} DEBUG ${BASH_SOURCE[1]}#$BASH_LINENO ${FUNCNAME[1]} ${RED} $*${CLEAR}"
 }
 function err {
@@ -132,6 +135,7 @@ function exif {
         if $DEBUG
         then
             ## the first in stack is what we are looking for. (0th is this function itself)
+            # shellcheck disable=SC2128
             err "ERROR $exif_code @ ${BASH_SOURCE[1]}#$BASH_LINENO ${FUNCNAME[1]} :: $*"
         else
             err "$*"
@@ -147,6 +151,7 @@ function eyif {
     then
         if $DEBUG
         then
+            # shellcheck disable=SC2128
             err "ERROR $eyif_code @ ${BASH_SOURCE[1]}#$BASH_LINENO ${FUNCNAME[1]} :: $*"
         else
             err "$*" "$eyif_code"
@@ -156,7 +161,7 @@ function eyif {
 }
 
 function exit_0() {
-    
+    ## exit normally, without error
     if $DEBUG && $TTY
     then
         debug "$SRVCTL"

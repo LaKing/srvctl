@@ -18,6 +18,7 @@ Type=simple
 ExecStart=/bin/node $SC_INSTALL_DIR/modules/static/server.js
 User=root
 Group=root
+Restart=always
 
 [Install]
 WantedBy=multi-user.target
@@ -25,7 +26,7 @@ EOF
 
 run systemctl daemon-reload
 
-cd "$SC_INSTALL_DIR/modules/static/"
+cd "$SC_INSTALL_DIR/modules/static/" || return
 
 #npm install
 

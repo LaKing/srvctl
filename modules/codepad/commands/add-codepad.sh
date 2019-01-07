@@ -16,11 +16,11 @@ argument container-name
 authorize
 sudomize
 
-run_hook add_codepad
-
 add_ve codepad "$ARG"
 
 run_hook add-ve
 run_hook regenerate
 
 init_codepad_project "$ARG"
+
+run_hook add_codepad_project

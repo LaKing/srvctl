@@ -2,14 +2,16 @@
 
 ## @@@ change-user VE USERNAME
 ## @en Move container to a different user
-## &en Move container to be owned by a different user. This invoves a change in the IP adress, thus requres a restart of the container.
+## &en Move container to be owned by a different user. This invoves a change in the IP adress, thus requires a restart of the container.
 
 reseller_only
 
 sudomize
 argument container
 
-local C username reseller
+#local C username reseller
+# shellcheck disable=SC2034
+
 C="$ARG"
 username="$OPA"
 
@@ -33,3 +35,5 @@ then
 fi
 ntc "Reseller for $username is: $reseller"
 
+#TODO implement it
+err "DEV (not implemented - yet.)"

@@ -10,18 +10,25 @@ function install_service_hostcertificate() { ## path
     
     if [[ -f $path/crt.pem ]] && [[ -f $path/key.pem ]]
     then
-        return
+        msg "Host has certificates in $path"
+    else
+        msg "Host has NO certificate in $path"
     fi
     
     found=false
     
-    
-    msg "Host has no certificates in $path"
-    if [[ -z "$(ls /etc/srvctl/cert)" ]]
+    if ! $found
     then
-        msg "There are no host-service certificates. Use a CA signed certificate in production!"
-        create_selfsigned_domain_certificate "$HOSTNAME" "/etc/srvctl/cert/$HOSTNAME"
+        ## check SC_COMPANY_DOMAIN first
+        src="/etc/srvctl/cert/$SC_COMPANY_DOMAIN"
+        dom="$SC_COMPANY_DOMAIN"
+        
+        if [[ -f "$src/$dom.pem" ]] && [[ -f "$src/$dom.key" ]]
+        then
+            found=true
+        fi
     fi
+    
     
     if ! $found
     then
@@ -38,7 +45,7 @@ function install_service_hostcertificate() { ## path
     if ! $found
     then
         
-        ## we may one referring to the HOSTNAME directly
+        ## we may have one referring to the HOSTNAME directly
         src="/etc/srvctl/cert/$HOSTNAME"
         dom="$HOSTNAME"
         
@@ -48,23 +55,39 @@ function install_service_hostcertificate() { ## path
         fi
     fi
     
-    for dir in /etc/srvctl/cert/*
-    do
-        
-        d="${dir:17}"
-        
-        if ! $found
-        then
-            src="$dir"
-            dom="$d"
-            if [[ -f "$src/$dom.pem" ]] && [[ -f "$src/$dom.key" ]]
+    if ! $found
+    then
+        ## get any certificate from cert dir
+        for dir in /etc/srvctl/cert/*
+        do
+            if [[ -d $dir ]]
             then
-                found=true
+                d="${dir:17}"
+                
+                if ! $found
+                then
+                    src="$dir"
+                    dom="$d"
+                    if [[ -f "$src/$dom.pem" ]] && [[ -f "$src/$dom.key" ]]
+                    then
+                        found=true
+                    fi
+                fi
             fi
-        fi
-        
-    done
+        done
+    fi
     
+    if ! $found
+    then
+        msg "Could not find certificates for $HOSTNAME. Use a CA signed certificate in production!"
+        create_selfsigned_domain_certificate "$HOSTNAME" "/etc/srvctl/cert/$HOSTNAME"
+        src="/etc/srvctl/cert/$HOSTNAME"
+        dom="$HOSTNAME"
+        if [[ -f "$src/$dom.pem" ]] && [[ -f "$src/$dom.key" ]]
+        then
+            found=true
+        fi
+    fi
     
     if $found
     then
@@ -76,11 +99,15 @@ function install_service_hostcertificate() { ## path
         fi
         msg "Imported $dom certificate for $path"
     else
-        err "ERROR Could not locate certificate for $path"
+        err "ERROR Could not locate a certificate for $path"
+        exit
     fi
     
-    
-    chmod 400 /etc/perdition/crt.pem
-    chmod 400 /etc/perdition/key.pem
+    if [[ -f $path/ca-bundle.pem ]]
+    then
+        chmod 400 "$path/ca-bundle.pem"
+    fi
+    chmod 400 "$path/crt.pem"
+    chmod 400 "$path/key.pem"
     
 }

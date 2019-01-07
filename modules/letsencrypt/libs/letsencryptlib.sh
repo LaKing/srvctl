@@ -30,6 +30,9 @@ ExecStart=/bin/node $SC_INSTALL_DIR/modules/letsencrypt/apps/acme-server.js
 User=acme
 Group=acme
 
+Restart=always
+RestartSec=3
+
 [Install]
 WantedBy=multi-user.target
     " > /etc/systemd/system/acme-server.service
@@ -52,16 +55,23 @@ function regenerate_letsencrypt {
     
     if [ "$(systemctl is-active acme-server.service)" != "active" ]
     then
-        err "Acme server is not running!"
-        systemctl status acme-server.service --no-pager
-        
-        exit 98
+        run systemctl enable acme-server.service
+        run systemctl start acme-server.service
+        run systemctl status acme-server.service --no-pager
     fi
     
-    mkdir -p "$SC_DATASTORE_DIR/cert"
-    mkdir -p /etc/letsencrypt/live
-    
-    msg "Regenerate letsencrypt certificates"
-    letsencrypt_main
-    
+    if [ "$(systemctl is-active acme-server.service)" == "active" ]
+    then
+        
+        mkdir -p "$SC_DATASTORE_DIR/cert"
+        mkdir -p /etc/letsencrypt/live
+        
+        msg "Regenerate letsencrypt certificates"
+        letsencrypt_main
+    else
+        
+        err "Acme server is not running! "
+        systemctl status acme-server.service --no-pager
+        
+    fi
 }

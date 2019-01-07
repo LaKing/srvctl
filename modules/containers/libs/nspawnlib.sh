@@ -7,7 +7,9 @@ function create_nspawn_container_settings { ## container ## bridge
     br="$2"
     if [[ -z $br ]]
     then
-        br="$(get container "$C" br)" || exit
+        br="$(get container "$C" br)"
+        ## TODO ensure bridge is created and exists
+        
     fi
     uid="$(get container "$C" uid)"
     
@@ -19,6 +21,7 @@ function create_nspawn_container_settings { ## container ## bridge
 cat > "/srv/$C/$C.nspawn" << EOF
 [Network]
 Bridge=$br
+$(cfg container "$C" mapped_ports)
 
 [Exec]
 #PrivateUsers=$uid
@@ -37,16 +40,32 @@ BindReadOnly=/srv/$C/hosts:/etc/hosts
 
 EOF
     
-    if [[ -d /var/codepad/boilerplate ]]
+    ## add codepad
+    if [[ -d /usr/local/share/boilerplate ]]
     then
-        echo 'BindReadOnly=/var/codepad/boilerplate' >> "/srv/$C/$C.nspawn"
+        echo 'BindReadOnly=/usr/local/share/boilerplate' >> "/srv/$C/$C.nspawn"
     fi
     
-    if [[ ! -z $(ls /srv/"$C" | grep '.binds') ]]
-    then
-        msg "Adding extra binds to nspawn"
-        cat /srv/$C/*.binds >> "/srv/$C/$C.nspawn"
-    fi
+    
+    ## add codepad - legacy at th emoment
+    #if [[ -d /var/codepad/boilerplate ]]
+    #then
+    #    echo 'BindReadOnly=/var/codepad/boilerplate' >> "/srv/$C/$C.nspawn"
+    #fi
+    
+    for f in /srv/$C/*.binds
+    do
+        if [[ -f $f ]]
+        then
+            msg "Adding extra bind to nspawn ($f)"
+            cat "$f" >> "/srv/$C/$C.nspawn"
+        fi
+    done
+    
+    
+    cfg container "$C" container_firewall_commands > /srv/"$C"/firewall_cmd.sh
+    # shellcheck disable=SC1090
+    source /srv/"$C"/firewall_cmd.sh
     
 }
 
@@ -58,14 +77,14 @@ function update_nspawn_container { ## container
     
     run ssh "$C" "dnf -y install kernel kernel-modules kernel-core kernel-headers dnf-plugin-system-upgrade"
     run ssh "$C" "dnf -y upgrade --refresh"
-    run ssh "$C" "dnf -y system-upgrade download --refresh --releasever=27"
+    run ssh "$C" "dnf -y system-upgrade download --refresh --releasever=28"
     #exif
     run ssh "$C" "dnf -y system-upgrade reboot"
     sleep 3
     run systemctl status srvctl-nspawn@"$C" --no-pager
-    run systemctl is-active srvctl-nspawn@$C
+    run systemctl is-active srvctl-nspawn@"$C"
     sleep 3
-    if [[ "$(systemctl is-active srvctl-nspawn@$C)" != active ]]
+    if [[ "$(systemctl is-active srvctl-nspawn@"$C")" != active ]]
     then
         ntc "$C inactive"
         run systemctl stop srvctl-nspawn@"$C" --no-pager

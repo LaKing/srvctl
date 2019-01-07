@@ -12,8 +12,12 @@ After=syslog.target network.target
 [Service]
 Type=simple
 ExecStart=/bin/node $SC_INSTALL_DIR/modules/datastore/apps/datastore-server.js
+
 User=root
 Group=root
+
+Restart=always
+RestartSec=3
 
 [Install]
 WantedBy=multi-user.target

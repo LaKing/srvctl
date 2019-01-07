@@ -16,7 +16,7 @@ container_reseller="$(get container "$ARG" reseller)"
 
 msg "Container $ARG - $container_user ($container_reseller)"
 
-if [[ $SC_USER == $container_user ]] || [[ $SC_USER == $container_reseller ]]
+if [[ $SC_USER == "$container_user" ]] || [[ $SC_USER == "$container_reseller" ]]
 then
     sudomize
 fi
@@ -24,7 +24,6 @@ fi
 if [[ $USER == root ]]
 then
     
-    local C
     C="$ARG"
     
     rm -fr /etc/systemd/system/machines.target.wants/srvctl-nspawn@"$C".service
@@ -41,13 +40,13 @@ then
     
     ## https://www.cyberciti.biz/tips/nfs-stale-file-handle-error-and-solution.html
     
-    for u in $(ls /home)
+    for uh in /home/*
     do
-        if [[ -d /home/"$u"/"$C" ]]
+        if [[ -d "$uh"/"$C" ]]
         then
-            run umount -f /home/"$u"/"$C"/bindfs
-            run rm -fr /home/"$u"/"$C"/bindfs
-            run rm -fr /home/"$u"/"$C"
+            run umount -f "$uh"/"$C"/bindfs
+            run rm -fr "$uh"/"$C"/bindfs
+            run rm -fr "$uh"/"$C"
         fi
     done
     

@@ -15,7 +15,7 @@ fi
 
 mkdir -p "$SC_HOME/srvctl-includes"
 
-local arg file
+#local arg file
 arg="${ARG,,}"
 file="$SC_HOME/srvctl-includes/$arg.sh"
 
@@ -59,5 +59,5 @@ run mcedit "$file"
 
 [[ -f /bin/python ]] && /bin/python "$SC_INSTALL_DIR/modules/srvctl/apps/beautify_bash.py" "$file"
 [[ -f /usr/bin/shellcheck ]] && shellcheck "$file"
-
+(generate_completion &>/dev/null &)
 msg "$CMD done .."

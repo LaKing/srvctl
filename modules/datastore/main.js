@@ -133,9 +133,16 @@ if (DAT === 'container') {
                 else
                 if (OPA === 'user_ip_match') return_value(datastore.container_check_user_ip_match(container));
                 else
-                if (OPA === 'mx') return_value(datastore.container_mx(C));
+                if (OPA === 'mx') return_value(datastore.container_mx(C));             
                 else
                     return_value(container[OPA]);
+            }
+          
+          	if (CMD === CFG) {
+            	if (OPA === 'mapped_ports') return_value(datastore.container_mapped_ports(container));
+                else
+                if (OPA === 'container_firewall_commands') return_value(datastore.container_firewall_commands(container));
+                else return_value(JSON.stringify(container, null, 4));
             }
 
             if (CMD === FIX) {

@@ -11,17 +11,20 @@ function create_container_config() { ## Container
     create_networkd_bridge "$br"
     create_nspawn_container_host0 "$C" "$br" "$ip"
     create_nspawn_container_hostsfile "$C" "$br" "$ip"
+    create_nspawn_container_resolvconf "$C" "$br"
     create_nspawn_container_settings "$C" "$br"
     
 }
 
 function create_srvctl_nspawn_service {
     
-    ## TODO remove
+    ## TODO remove, this is just temporary
     rm -fr /usr/lib/systemd/system/srvctl-nspawn@.service
     
+    msg "Create srvctl-nspawn@.service"
+    
 cat > "/etc/systemd/system/srvctl-nspawn@.service" << EOF
-# container: $C bridge: $bridge host: $HOSTNAME date: $NOW user: $SC_USER
+# $SRVCTL $NOW
 [Unit]
 Description=srvctl - container %i
 Documentation=man:systemd-nspawn(1)
@@ -143,3 +146,15 @@ EOF
     
 }
 
+function create_nspawn_container_resolvconf {
+    local C gw ip br
+    C="$1"
+    br="$2"
+    gw="${br::-1}1"
+    
+    
+cat > "/srv/$C/rootfs/etc/resolv.conf" << EOF
+nameserver $gw
+EOF
+    
+}

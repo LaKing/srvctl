@@ -41,7 +41,7 @@ else
     then
         
         msg "regenerate gluster certificate config - CA is $SC_ROOTCA_HOST"
-        local H options
+        #local H options
         H="$HOSTNAME"
         
         options="--no-R --no-implied-dirs -avze ssh"

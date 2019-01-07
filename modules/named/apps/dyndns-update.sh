@@ -1,7 +1,7 @@
 #!/bin/bash
 
 ## argument host
-local D IP
+#local D IP
 
 D="$1"
 IP=$(cat "/var/dyndns/$D.ip")
@@ -19,7 +19,7 @@ fi
 if [[ ${IP:0:7} == '::ffff:' ]]
 then
     
-    local ip update
+    #local ip update
     
     ip=${IP:7}
     update="/var/dyndns/$D.updt"

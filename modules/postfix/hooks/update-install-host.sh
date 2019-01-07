@@ -8,7 +8,7 @@ sc_install postfix
 sc_install amavisd-new
 
 ## deal with certificates
-install_service_hostcertificate /etc/perdition
+install_service_hostcertificate /etc/postfix
 
 cat "$SC_INSTALL_DIR/modules/postfix/conf/hs-main.cf" > /etc/postfix/main.cf
 

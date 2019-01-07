@@ -1,7 +1,7 @@
 #!/bin/bash
 
 function regenerate_all_hosts() {
-    
+    msg "Regenerate hosts in cluster $SC_CLUSTERNAME"
     for host in $(cfg cluster host_list)
     do
         msg "regenerate $host"
@@ -53,6 +53,7 @@ function check_container_directories() {
                     then
                         T="$(cat "/srv/$C/ctype")"
                     else
+                        # shellcheck disable=SC1090
                         T="$(source "$D/rootfs/etc/os-release" && echo "$ID")"
                     fi
                     
@@ -71,6 +72,11 @@ function check_container_directories() {
             
             if [[ -d /srv/$C/rootfs/etc ]]
             then
+                if [[ ! -e "/etc/systemd/system/machines.target.wants/srvctl-nspawn@$C.service" ]]
+                then
+                    run systemctl enable "srvctl-nspawn@$C"
+                fi
+                
                 if [[ -f /srv/$C/hosts ]] && [[ -f /srv/$C/network/80-container-host0.network ]] && [[ -f /srv/$C/$C.nspawn ]]
                 then
                     continue
@@ -109,11 +115,11 @@ function check_container_database() {
 
 function check_container_ownership() {
     msg "Checking for container owners in the database"
-    local container_list h u v w
+    local container_list
     container_list="$(cfg cluster container_list)"
     for C in $container_list
     do
-        if "$(get container "$C" user_ip_match)"
+        if [[ $(get container "$C" user_ip_match) ]]
         then
             continue
         else

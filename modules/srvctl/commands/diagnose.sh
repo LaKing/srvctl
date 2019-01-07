@@ -31,7 +31,7 @@ run uname -a
 run sestatus
 
 msg "-- Memory --"
-run free -m
+run free -g
 run vmstat -s
 
 msg "-- Disks --"
@@ -61,13 +61,15 @@ do
     fi
 done
 
+systemctl list-units --state=failed
+
 msg "-- mail que --"
 run journalctl -u postfix --since yesterday | grep fatal
 run postqueue -p
 
 if [[ -f /usr/sbin/firewalld ]]
 then
-    local zone
+    ##local zone
     zone=$(firewall-cmd --get-default-zone)
     msg "-- Firewall $(firewall-cmd --state) - default zone: $zone"
     run firewall-cmd --zone="$zone" --list-services

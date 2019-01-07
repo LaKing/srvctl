@@ -12,11 +12,11 @@ install_service_hostcertificate /etc/perdition
 
 cat "$SC_INSTALL_DIR/modules/perdition/conf/perdition.conf" > /etc/perdition/perdition.conf
 
-## in seems to be unnecessery
-# if [ -f /etc/perdition/ca-bundle.pem ]
-# then
-#     echo "ssl_ca_chain_file = /etc/perdition/ca-bundle.pem" >> /etc/perdition/perdition.conf
-# fi
+## it seems to be unnecessery
+if [ -f /etc/perdition/ca-bundle.pem ]
+then
+    echo "#ssl_ca_chain_file = /etc/perdition/ca-bundle.pem" >> /etc/perdition/perdition.conf
+fi
 
 
 echo "#### srvctl tuned popmap.re" > /etc/perdition/popmap.re

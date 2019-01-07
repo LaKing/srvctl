@@ -48,7 +48,7 @@ exports.get = function get(cmd) {
         var result = execSync(cmd,{shell: "/bin/bash"}).toString();
         if (result.length > 0) return result;
     } catch (e) {
-        console.log($RED +'JS-ERROR', e.stderr.toString(), $CLEAR);
+        console.log($RED +'JS-ERROR in get: ', e.stderr.toString(), $CLEAR);
     }
 };
 
@@ -61,7 +61,7 @@ exports.run = function run(cmd) {
     } catch (e) {
         var stderr = '';
         if (e.stderr !== undefined ) stderr =  e.stderr.toString();
-        console.log($RED +'JS-ERROR lablib.js run ' + cmd, stderr, $CLEAR);
+        console.log($RED +'JS-ERROR in run: ' + cmd, stderr, $CLEAR);
     }
 };
 

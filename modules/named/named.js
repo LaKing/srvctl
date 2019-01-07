@@ -34,7 +34,7 @@ var datastore = require('../datastore/lib.js');
 const HOSTNAME = os.hostname();
 const br = '\n';
 const SC_CLUSTERNAME = process.env.SC_CLUSTERNAME;
-const SC_CLUSTERS_DATA_FILE = "/etc/srvctl/data/clusters.json";
+const SC_CLUSTERS_DATA_FILE = "/etc/srvctl/clusters.json";
 const SRVCTL = process.env.SRVCTL;
 const SC_ROOT = process.env.SC_ROOT;
 const localhost = 'localhost';
@@ -66,6 +66,7 @@ function output(variable, value) {
 
 // if the default 
 var is_master = false;
+if (datastore.hosts[HOSTNAME])
 if (datastore.hosts[HOSTNAME].dns_server === 'master') is_master = true;
 if (is_master) msg("bind DNS master");
 else msg("bind DNS slave");
@@ -98,6 +99,16 @@ if (master_servers === '') {
     return_error("could not locate master servers in the cluster configuration");
 } else msg('master servers: ' + master_servers);
 
+
+function splitstring(s) {
+    const re = new RegExp('.{1,33}', 'g');
+    r = br;
+	var a =	s.match(re);
+    for (var i in a) {
+    	r += '    "' + a[i] + '"' + br;
+    }  
+    return r;
+}
 
 function get_container_zone(cluster, host, hostdata, containers, name, alias) {
     var container = containers[name];
@@ -141,14 +152,30 @@ function get_container_zone(cluster, host, hostdata, containers, name, alias) {
         zone += "@    IN    MX    10    ALT4.ASPMX.L.GOOGLE.COM." + br;
     } else zone += "@        IN        MX        10        mail" + br;
 
+    zone += ";; SPF" + br;
     zone += '@        IN        TXT        "' + spf_string + '"' + br;
+    zone += ";; dkim-default" + br;
+    if (container["dkim-default-domainkey"] !== undefined) zone += 'default._domainkey       IN        TXT       ( "v=DKIM1; k=rsa;"' + splitstring(container["dkim-default-domainkey"]) + ' )' + br;
 
-    if (container["dkim-default-domainkey"] !== undefined) zone += 'default._domainkey       IN        TXT       ( "v=DKIM1; k=rsa; " "' + container["dkim-default-domainkey"] + '" )' + br;
-    if (container["dkim-mail-domainkey"] !== undefined) zone += 'mail._domainkey       IN        TXT       ( "v=DKIM1; k=rsa; " "' + container["dkim-mail-domainkey"] + '" )' + br;
+    zone += ";; dkim-mail" + br;
+    if (container["dkim-mail-domainkey"] !== undefined) zone += 'mail._domainkey       IN        TXT       ( "v=DKIM1; k=rsa;"' + splitstring(container["dkim-mail-domainkey"]) + ' )' + br;
 
+    zone += ";; dkim-google" + br;
+    if (container["dkim-google-domainkey"] !== undefined) zone += 'google._domainkey       IN        TXT       ( "v=DKIM1; k=rsa;"' + splitstring(container["dkim-google-domainkey"]) + ' )' + br;
+
+    zone += ";; dkim-mailcontainer" + br;
     if (containers["mail." + name] !== undefined) {
-        if (containers["mail." + name]["dkim-mail-domainkey"] !== undefined) zone += 'mail._domainkey       IN        TXT       ( "v=DKIM1; k=rsa; " "' + containers["mail." + name]["dkim-mail-domainkey"] + '" )' + br;
+        if (containers["mail." + name]["dkim-mail-domainkey"] !== undefined) zone += 'mail._domainkey       IN        TXT       ( "v=DKIM1; k=rsa;"' + splitstring(containers["mail." + name]["dkim-mail-domainkey"]) + ' )' + br;
     }
+
+
+  // temporary
+  //if (container.use_gsuite) return zone;
+  
+    zone += ";; DMARC" + br;
+    if (container.use_gsuite && container["dkim-google-domainkey"] === undefined) err("Missing DKIM google-domainkey in datastore for domain " + name);
+    else zone += '_dmarc   TXT ( "v=DMARC1;p=reject;sp=reject;pct=100;adkim=r;aspf=r;fo=1;ri=86400;rua=mailto:webmaster@' + name + '")' + br;
+
     return zone;
 }
 
@@ -164,7 +191,7 @@ function get_conf(cluster, host) {
         containers = JSON.parse(fs.readFileSync(file));
     } catch (error) {
         err('READFILE for ' + host + ' ' + error);
-        return;
+        return conf + br + br;
     }
 
     if (is_master)
@@ -249,7 +276,7 @@ function get_host_containers(cluster, host) {
                     if (err) return_error('WRITEFILE zone ' + err);
                 });
             } catch (e) {
-                console.error(e.message);
+                console.error(e.message, rawData);
             }
         });
     }).on('error', (e) => {

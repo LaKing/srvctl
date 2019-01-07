@@ -1,6 +1,6 @@
 #!/bin/bash
 
-if [[ ! /usr/sbin/firewalld ]]
+if [[ ! -f /usr/sbin/firewalld ]]
 then
     sc_install firewalld
 fi

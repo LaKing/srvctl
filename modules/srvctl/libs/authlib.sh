@@ -1,7 +1,7 @@
 #!/bin/bash
 
 function root_only {
-    if [[ $SC_USER == root ]]
+    if $SC_ROOT
     then
         return 0
     else

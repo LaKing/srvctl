@@ -7,7 +7,7 @@
 
 argument username
 
-local username password home
+## local username password home
 username="${ARG,,}"
 
 if ! [[ "$username" =~ ([a-z_][a-z0-9_]{2,30}) ]]
@@ -42,4 +42,4 @@ echo -e "$password" > "$home/.password"
 
 echo "This is the mailing system at $HOSTNAME, your account has been created/updated." | mail -s "Welcome to $HOSTNAME" "$username@$HOSTNAME"
 
-run chown -R "$username:$username" $home
+run chown -R "$username:$username" "$home"

@@ -18,6 +18,8 @@ Type=simple
 ExecStart=/bin/node "$SC_INSTALL_DIR"/modules/named/hs-apps/dyndns-server.js "$crt.key" "$crt.crt"
 User=root
 Group=root
+Restart=always
+RestartSec=3
 
 [Install]
 WantedBy=multi-user.target

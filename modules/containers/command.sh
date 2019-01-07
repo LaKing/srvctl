@@ -15,6 +15,7 @@
 ## this is a special command, as it has several ways to be invoked
 ## we assume this as default command.
 
+# shellcheck source=/usr/local/share/srvctl/modules/srvctl/command.sh
 source "$SC_INSTALL_DIR/modules/srvctl/command.sh"
 
 C='?'
@@ -100,7 +101,6 @@ then
         exit 0
     fi
     say machinectl -q --no-pager shell "$C" "/bin/bash/ -c '$ARG $OPAS3'"
-    local temp_file
     temp_file=$(mktemp)
     echo "machinectl -q --no-pager shell $C /bin/bash/ -c '$ARG $OPAS3'" > "$temp_file"
     /bin/bash "$temp_file"

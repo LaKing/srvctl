@@ -53,12 +53,12 @@ then
     fi
     
     firewalld_add_service openvpn-hostnet udp 1101
+    ##firewalld_add_service openvpn-usernet tcp 1100
     
 else
     err "Openvpn configuration: SC_HOSTNET undefined"
 fi
 
-local hostlist
 hostlist="$(cfg cluster host_list)"
 
 for host in $hostlist

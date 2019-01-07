@@ -3,19 +3,19 @@
 #[[ $SRVCTL ]] || exit
 #[[ $SC_ROOTFS_DIR ]] || exit
 
-function create_codepad_certificate() { #install_root
+function create_codepad_certificate() { #rootfs
     
-    local install_root
-    install_root="$1"
+    local rootfs
+    rootfs="$1"
     
     ## Create a certificate
     ssl_password="no_password"
     ssl_days=365
-    ssl_key="$install_root"/var/codepad/localhost.key
-    ssl_csr="$install_root"/var/codepad/localhost.csr
-    ssl_org="$install_root"/var/codepad/localhost.org.pem
-    ssl_crt="$install_root"/var/codepad/localhost.crt
-    ssl_config="$install_root"/var/codepad/localhost-cert-config.txt
+    ssl_key="$rootfs"/var/codepad/localhost.key
+    ssl_csr="$rootfs"/var/codepad/localhost.csr
+    ssl_org="$rootfs"/var/codepad/localhost.org.pem
+    ssl_crt="$rootfs"/var/codepad/localhost.crt
+    ssl_config="$rootfs"/var/codepad/localhost-cert-config.txt
     
     if [[ ! -f "$ssl_key" ]] || [[ ! -f "$ssl_crt" ]]
     then
@@ -68,7 +68,7 @@ EOF
         chmod 600 "$ssl_key"
         chmod 644 "$ssl_crt"
         
-        msg "Created certificate $ssl_key $ssl_cert"
+        msg "Created certificate $ssl_key $ssl_crt"
         
     fi
     
@@ -86,42 +86,42 @@ function mkrootfs_fedora_install_codepad {
     msg "mkrootfs_fedora_install_codepad - complete"
     
     ## this is my own version for rootfs creation
-    local install_root home
+    local rootfs
     
     #rootfs_name=codepad
-    install_root="$SC_ROOTFS_DIR/codepad"
+    rootfs="$SC_ROOTFS_DIR/codepad"
     
-    if [[ ! -d $install_root ]]
+    if [[ ! -d $rootfs ]]
     then
-        err "Missing directory: $install_root"
+        err "Missing directory: $rootfs"
         exit
     fi
     
     msg "create directories"
     
-    run mkdir -p "$install_root"/var/codepad/.ssh
-    run mkdir -p "$install_root"/etc/codepad
-    run mkdir -p "$install_root"/srv/codepad-project
-    run chroot "$install_root" chown codepad:codepad "$install_root"/srv/codepad-project
+    run mkdir -p "$rootfs"/var/codepad/.ssh
+    #run mkdir -p "$rootfs"/etc/codepad
+    run mkdir -p "$rootfs"/srv/codepad-project
+    run chroot "$rootfs" chown codepad:codepad "$rootfs"/srv/codepad-project
     
-    echo '' > "$install_root"/var/codepad/project.log
+    echo '' > "$rootfs"/var/codepad/project.log
     
-    firewalld_offline_add_service https9001 tcp 9001
     
-    run mkdir -p "$install_root"/etc/systemd/system/multi-user.target.wants/
-    run ln -s /usr/lib/systemd/system/mongod.service "$install_root"/etc/systemd/system/multi-user.target.wants/mongod.service
     
-    create_codepad_certificate "$install_root"
+    run mkdir -p "$rootfs"/etc/systemd/system/multi-user.target.wants/
+    run ln -s /usr/lib/systemd/system/mongod.service "$rootfs"/etc/systemd/system/multi-user.target.wants/mongod.service
+    
+    create_codepad_certificate "$rootfs"
     
     msg "init git configs"
     
-    run mkdir -p "$install_root"/var/git
-    run cd "$install_root"/var/git
+    run mkdir -p "$rootfs"/var/git
+    run cd "$rootfs"/var/git
     run git init --bare -q
-    run git clone "$install_root"/var/git "$install_root"/srv/codepad-project -q
+    run git clone "$rootfs"/var/git "$rootfs"/srv/codepad-project -q
     #&> /dev/null
     
-	cat > "$install_root"/var/codepad/.gitconfig << EOF
+	cat > "$rootfs"/var/codepad/.gitconfig << EOF
 [user]
         email = codepad@$CDN
         name = codepad
@@ -131,15 +131,15 @@ EOF
     
     msg "Create default key"
     ## create an access key, however, this should propably differ for each container
-    ssh-keygen -b 4096 -f "$install_root"/var/codepad/.ssh/id_rsa -N '' -C "codepad"
-    cat "$install_root"/var/codepad/.ssh/id_rsa.pub > "$install_root"/var/codepad/.ssh/authorized_keys
+    ssh-keygen -b 4096 -f "$rootfs"/var/codepad/.ssh/id_rsa -N '' -C "codepad"
+    cat "$rootfs"/var/codepad/.ssh/id_rsa.pub > "$rootfs"/var/codepad/.ssh/authorized_keys
     
-    echo "cd /srv/codepad-project" > "$install_root"/var/codepad/.profile
-    echo "mc" >> "$install_root"/var/codepad/.profile
+    echo "cd /srv/codepad-project" > "$rootfs"/var/codepad/.profile
+    echo "mc" >> "$rootfs"/var/codepad/.profile
     
     msg "Create codepad service"
     
-cat > "$install_root/etc/systemd/system/codepad.service" << EOF
+cat > "$rootfs"/etc/systemd/system/codepad.service << EOF
 ## srvctl generated
 [Unit]
 Description=Codepad, the collaborative code editor
@@ -153,17 +153,45 @@ ExecStart=/bin/node /var/codepad/server.js
 User=codepad
 Group=codepad
 Restart=always
+# Environment variables:
+Environment=NODE_ENV=production
 [Install]
 WantedBy=multi-user.target
 EOF
     
-    run ln -s /etc/systemd/system/codepad.service "$install_root"/etc/systemd/system/multi-user.target.wants/codepad.service
+    run ln -s /etc/systemd/system/codepad.service "$rootfs"/etc/systemd/system/multi-user.target.wants/codepad.service
     
-    cat /var/codepad/boilerplate/scripts/server.js > "$install_root"/var/codepad/server.js
+cat > "$rootfs"/var/codepad/server.js << EOF
+#!/bin/node
+
+// to configure our server, we create the ß object now.
+if (!global.ß) global.ß = {};
+
+// @DOC To enter debug mode, pass debug as argument to server.js, then ß.DEBUG will be true.
+// or uncomment this line
+// ß.DEBUG = true;
+
+ß.theme = "cobalt";
+
+require("./boilerplate");
+
+/*
+THEMES:
+
+3024-day    ambiance-mobile  blackboard  dracula        elegant       icecoder     liquibyte  mdn-like  neo           paraiso-dark    rubyblue   ssms                     ttcn         xq-light
+3024-night  base16-dark      cobalt      duotone-dark   erlang-dark   idea         lucario    midnight  night         paraiso-light   seti       the-matrix               twilight     yeti
+abcdef      base16-light     colorforth  duotone-light  gruvbox-dark  isotope      material   monokai   oceanic-next  pastel-on-dark  shadowfox  tomorrow-night-bright    vibrant-ink  zenburn
+ambiance    bespin           darcula     eclipse        hopscotch     lesser-dark  mbo        neat      panda-syntax  railscasts      solarized  tomorrow-night-eighties  xq-dark
+
+*/
+
+EOF
     
+    run ln -s /usr/local/share/boilerplate/@codepad-modules "$rootfs"/var/codepad/@codepad-modules
+    run ln -s /usr/local/share/boilerplate/boilerplate "$rootfs"/var/codepad/boilerplate
     
-    run chroot "$install_root" chown -R codepad:codepad /etc/codepad
-    run chroot "$install_root" chown -R codepad:codepad /var/codepad
+    #run chroot "$rootfs" chown -R codepad:codepad /etc/codepad
+    run chroot "$rootfs" chown -R codepad:codepad /var/codepad
 }
 
 

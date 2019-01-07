@@ -4,8 +4,12 @@ function write_openvpn_server_config() {
     
     msg "Writing openvpn hostnet-server config"
     
+    ## fedora 27
     mkdir -p /etc/openvpn/hostnet-ccd
+    echo "iroute 10.15.$SC_HOSTNET.0 255.255.255.0" >  /etc/openvpn/hostnet-ccd/DEFAULT
     
+    ## fedora 28
+    mkdir -p /etc/openvpn/server/hostnet-ccd
     echo "iroute 10.15.$SC_HOSTNET.0 255.255.255.0" >  /etc/openvpn/hostnet-ccd/DEFAULT
     
 cat > "/etc/openvpn/hostnet-server.conf" << EOF
@@ -46,6 +50,10 @@ echo "start hostnet-server"
 EOF
     
     chmod +x /etc/openvpn/hostnet-server.sh
+    
+    ## TODO openvpn-usernet tcp 1100
+    ##
+    ##
     
 }
 

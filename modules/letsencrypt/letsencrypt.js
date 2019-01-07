@@ -147,6 +147,7 @@ function check_domain(domain) {
     if (check_checkend(cert_pem)) return letsencrypt_deploy(domain);
 
     var hasA = false;
+    if (hosts[HOSTNAME])
     containers[domain].dns_scan.A.forEach(function(e) {
         if (e === hosts[HOSTNAME].host_ip) hasA = true; //return run_on_domain(domain);
         //else ntc(domain + ' ' + e);
@@ -163,6 +164,7 @@ function run_on_domain(domain) {
     // we can check against HOSTNAME if a reverse address is set, but since it is not mandatory ...
     //if (containers[domain].dns_scan.A[hosts[HOSTNAME].host_ip] === undefined) return; 
     var has_www = false;
+    if (hosts[HOSTNAME])
     containers[domain].www_scan.A.forEach(function(e) {
         if (e === hosts[HOSTNAME].host_ip) has_www = true;
     });

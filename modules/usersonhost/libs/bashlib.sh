@@ -16,6 +16,7 @@ function usercfg {
     /bin/node "$SC_INSTALL_DIR/modules/usersonhost/user.js" $*
     exif "ERROR USERSONHOST-USERCFG user.js $?"
     
+    # shellcheck disable=SC1090
     source "$SC_HOME/.srvctl/user.conf"
     exif "ERROR USERSONHOST-USERCFG source user $?"
 }

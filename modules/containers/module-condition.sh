@@ -25,5 +25,10 @@ then
     fi
 fi
 
+if [[ $CMD == update-install ]] && [[ $ARG ]]
+then
+    echo true
+    return
+fi
 
 echo false

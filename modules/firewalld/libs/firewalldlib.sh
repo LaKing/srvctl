@@ -46,7 +46,9 @@ function firewalld_offline_add_service() { ## name proto port ## must be called 
     
     local zone rootfs name proto port
     
-    rootfs="$hook_rootfs"
+    ## rootfs_base comes from parent containers mkrootfslib: mkrootfs_fedora_base
+    # shellcheck disable=SC2154
+    rootfs="$rootfs_base"
     name="$1"
     proto="$2"
     port="$3"

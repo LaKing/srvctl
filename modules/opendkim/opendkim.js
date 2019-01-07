@@ -81,6 +81,7 @@ function run_domain(domain) {
     var txt_file = "/srv/" + domain + "/opendkim/" + selector + ".txt";
 
     // we could check if container os in this host also via IP, we just check for the folder now.
+    // make sure container has opendkim folder
     if (fs.existsSync("/srv/"+domain))
     if (!fs.existsSync(private_file)) {
         var opendkim_folder = '/srv/' + domain + '/opendkim';
@@ -89,7 +90,8 @@ function run_domain(domain) {
         var code = execSync('opendkim-genkey -D "' + opendkim_folder + '" -d "' + domain + '" -s "' + selector + '"');
         console.log(code.toString('utf8'));
     }
-
+    
+    // sync it to the datastore
     if (fs.existsSync(private_file)) {
         var private = fs.readFileSync(private_file, 'UTF8');
         var target_folder = SC_OPENDKIM_FOLDER + '/' + domain;
@@ -126,7 +128,7 @@ process.on('exit', function() {
     fs.writeFileSync(SC_OPENDKIM_FOLDER + '/KeyTable', KeyTable);
     fs.writeFileSync(SC_OPENDKIM_FOLDER + '/SigningTable', SigningTable);
     fs.writeFileSync(SC_CONTAINERS_DATA_FILE, JSON.stringify(containers, null, 2));
-    msg('Wrote OpenDKIM TrustedHosts, KeyTable, SigningTable, containers.json');
+    msg('Wrote OpenDKIM TrustedHosts, KeyTable, SigningTable to ' + SC_OPENDKIM_FOLDER);
 });
 
 exit();

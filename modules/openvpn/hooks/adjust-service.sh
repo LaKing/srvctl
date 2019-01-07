@@ -14,7 +14,7 @@ then
         ## must have conf
         for c in /etc/openvpn/*.conf
         do
-            local s="${c:13: -5}"
+            s="${c:13: -5}"
             msg "$s"
             service_action "openvpn@$s" "$op"
         done
@@ -30,7 +30,7 @@ then
         ## must have conf
         for c in /etc/openvpn/server/*.conf
         do
-            local s="${c:20: -5}"
+            s="${c:20: -5}"
             msg "$s"
             #service_action "openvpn${s:7:7}@$s" "$op"
             service_action "openvpn-server@$s" "$op"
@@ -40,7 +40,7 @@ then
         ## must have conf
         for c in /etc/openvpn/client/*.conf
         do
-            local s="${c:20: -5}"
+            s="${c:20: -5}"
             msg "$s"
             service_action "openvpn-client@$s" "$op"
         done

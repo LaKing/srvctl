@@ -43,7 +43,7 @@ then
 fi
 
 dir=/var/www/html
-dbd=$(echo "$HOSTNAME" | cut -f1 -d"." )'_wp'
+db_name=$(echo "$HOSTNAME" | cut -f1 -d"." )'_wp'
 
 
 wd=/root
@@ -56,12 +56,12 @@ run rm -rf "$wd"/unzip.log
 run chown -R apache:apache /var/www/html
 
 setup_mariadb
-add_mariadb_db
+add_mariadb_db "$db_name"
 
-msg "Wordpress using Mariadb DB_NAME $db_name DB_USER $db_usr DB_PASSWORD $db_pwd"
+msg "Wordpress using Mariadb DB_NAME $db_name"
 
 function  get_randomstr {
-    randomstr=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 32 | head -n 1)
+    randomstr=$( < /dev/urandom  tr -dc 'a-zA-Z0-9' | fold -w 32 | head -n 1)
 }
 
 
@@ -69,7 +69,11 @@ function  get_randomstr {
     echo "<?php"
     echo "// srvctl wordpress wp-config"
     echo "define('DB_NAME', '$db_name');"
+    ## from add_mariadb_db
+    # shellcheck disable=SC2154
     echo "define('DB_USER', '$db_usr');"
+    ## from add_mariadb_db
+    # shellcheck disable=SC2154
     echo "define('DB_PASSWORD', '$db_pwd');"
     echo "define('DB_HOST', 'localhost');"
     echo "define('DB_CHARSET', 'utf8');"
@@ -113,20 +117,19 @@ function  get_randomstr {
 } > /var/www/html/wp-config.php
 
 ## create an installer to install without web dialog
-f="$dir"/wp-install.php
 password="$(get_password)"
 
 {
     echo "<?php"
     echo "// srvctl wordpress wp-install"
-    echo "define('WP_SITEURL', 'http://"$HOSTNAME"/"$URI"');"
+    echo "define('WP_SITEURL', 'http://$HOSTNAME/$URI');"
     echo "define('WP_INSTALLING',true);"
     #echo "define('ABSPATH','/var/www/html/"$URI"/');"
     echo "require_once('$dir/wp-config.php');"
     echo "require_once('$dir/wp-settings.php');"
     echo "require_once('$dir/wp-admin/includes/upgrade.php');"
     echo "require_once('$dir/wp-includes/wp-db.php');"
-    echo "wp_install('"$HOSTNAME"','admin','root@localhost',1,'','"$password"');"
+    echo "wp_install('$HOSTNAME','admin','root@localhost',1,'','$password');"
     
 } > "$dir"/wp-install.php
 
@@ -137,7 +140,7 @@ chmod 000 "$dir/.admin"
 
 rm -fr "$dir"/index.html
 
-msg "Wordpress instance installed. https://"$HOSTNAME"/wp-admin admin:$password"
+msg "Wordpress instance installed. https://$HOSTNAME/wp-admin admin:$password"
 
 
 add_service httpd

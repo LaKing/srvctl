@@ -6,7 +6,7 @@ function all_containers_execute() { ## cmd
     
     msg "Command is: $cmd"
     
-    if [[ $SC_USER == root ]]
+    if $SC_ROOT
     then
         list="$(cfg cluster container_list)" || exit 15
     else
@@ -52,7 +52,7 @@ function all_containers_pingback() { ## cmd
     
     msg "Checking all container's pingback to $SC_DNS1"
     
-    if [[ $SC_USER == root ]]
+    if $SC_ROOT
     then
         list="$(cfg cluster container_list)" || exit 15
     else

@@ -50,7 +50,7 @@ then
     
     if [[ ! -z "$service" ]] && [[ ! -z "$op" ]]
     then
-        local ok ck xswitch
+        #local ok ck xswitch
         
         #if [[ "$(systemctl is-active "$service")" != unknown ]]
         if systemctl is-active "$service" > /dev/null

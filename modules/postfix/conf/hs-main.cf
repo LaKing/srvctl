@@ -83,3 +83,10 @@ smtpd_milters           = inet:127.0.0.1:8891
 non_smtpd_milters       = $smtpd_milters
 milter_default_action   = accept
 
+## Server to server encryption
+smtp_tls_cert_file = /etc/postfix/crt.pem                            
+smtp_tls_key_file =  /etc/postfix/key.pem
+smtp_tls_security_level = may
+
+## ipv4 appears to be safer, ..
+smtp_address_preference = ipv4

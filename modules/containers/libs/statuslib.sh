@@ -3,7 +3,7 @@
 function all_containers() { ## op
     local list cop host
     cop="$1"
-    if [[ $SC_USER == root ]]
+    if $SC_ROOT
     then
         list="$(cfg cluster container_list)" || exit 15
     else
@@ -14,6 +14,12 @@ function all_containers() { ## op
     do
         if [[ -d /srv/$C ]]
         then
+            if [[ $cop == restart ]]
+            then
+                run "systemctl --no-pager stop srvctl-nspawn@$C"
+                run sleep 1
+            fi
+            
             if [[ $cop == start ]]
             then
                 run "systemctl --no-pager start srvctl-nspawn@$C"
@@ -22,9 +28,16 @@ function all_containers() { ## op
             fi
         else
             host="$(get container "$C" host)"
+            
+            if [[ $cop == restart ]]
+            then
+                run "ssh $host systemctl --no-pager stop srvctl-nspawn@$C"
+                run sleep 1
+            fi
+            
             if [[ $cop == start ]]
             then
-                run "ssh $host systemctl start srvctl-nspawn@$C"
+                run "ssh $host systemctl --no-pager start srvctl-nspawn@$C"
             else
                 run "ssh $host machinectl --no-pager $cop $C"
             fi
@@ -72,7 +85,7 @@ function bash_container_status() {
 function bash_containers_status() {
     
     local list
-    if [[ $SC_USER == root ]]
+    if $SC_ROOT
     then
         list="$(cfg cluster container_list)" || exit 15
     else

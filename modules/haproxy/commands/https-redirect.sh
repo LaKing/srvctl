@@ -20,7 +20,7 @@ container_reseller="$(get container "$ARG" reseller)"
 exif
 msg "Container $ARG - $container_user ($container_reseller) - $OPA"
 
-if [[ $SC_USER == $container_user ]] || [[ $SC_USER == $container_reseller ]]
+if [[ $SC_USER == "$container_user" ]] || [[ $SC_USER == "$container_reseller" ]]
 then
     sudomize
 fi

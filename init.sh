@@ -1,7 +1,8 @@
 #!/bin/bash
 
 # shellcheck disable=SC2034
-
+## dynamic source
+# shellcheck disable=SC1091
 [[ -f /etc/srvctl/debug.conf ]] && source /etc/srvctl/debug.conf
 
 if [[ $USER == root ]]
@@ -31,6 +32,16 @@ then
             ln -s /usr/local/share/srvctl/srvctl.sh /bin/srvctl
         fi
     fi
+    ## command completion
+    if [[ ! -e /etc/bash_completion.d/srvctl-completion ]]
+    then
+        if [[ -f /usr/bin/sudo ]]
+        then
+            sudo ln -s /usr/local/share/srvctl/modules/srvctl/completion.sh /etc/bash_completion.d/srvctl-completion
+        else
+            ln -s /usr/local/share/srvctl/modules/srvctl/completion.sh /etc/bash_completion.d/srvctl-completion
+        fi
+    fi
 fi
 
 # shellcheck disable=SC2034
@@ -38,9 +49,11 @@ SC_LOG=~/.srvctl/srvctl.log
 mkdir -p ~/.srvctl
 
 ## lablib is mainly for colorization
+# shellcheck source=/usr/local/share/srvctl/lablib.sh
 source "$SC_INSTALL_DIR/lablib.sh" || echo "lablib could not be loaded!" 1>&2
 
 ## init main lib
+# shellcheck source=/usr/local/share/srvctl//lablib.sh
 source "$SC_INSTALL_DIR/commonlib.sh" || echo "commonlib could not be loaded!" 1>&2
 
 ## logging related
@@ -49,19 +62,35 @@ export NOW
 
 if [[ $CMD == update-install ]] || [[ $CMD == 'test-modules' ]]
 then
+    msg "srvctl test-modules"
     rm -fr /var/local/srvctl/modules.conf
     
     for sourcefile in /etc/srvctl/data/*.conf
     do
         [[ -f $sourcefile ]] && cat "$sourcefile" > /etc/srvctl/"${sourcefile:17}" && debug "@init data -> /etc/srvctl/${sourcefile:17}"
     done
+fi
+
+
+if [[ $CMD == update-install ]]
+then
+    if [[ -f /bin/node ]]
+    then
+        debug "Node.JS version $(node --version)"
+    else
+        dnf -y install nodejs
+    fi
     
     ## this is included inline
-    if [[ -f /etc/srvctl/data/clusters.json ]] && [[ -f /bin/node ]] && [[ -f $SC_INSTALL_DIR/modules/containers/host-conf.js ]]
+    if [[ -f /etc/srvctl/data/clusters.json ]] && [[ -f $SC_INSTALL_DIR/modules/containers/host-conf.js ]]
     then
+        msg "Configuring host and clusters based on /etc/srvctl/data"
         debug "@init data -> /etc/srvctl/host.conf /etc/srvctl/hosts.json"
+        cat /etc/srvctl/data/clusters.json > /etc/srvctl/clusters.json
         /bin/node "$SC_INSTALL_DIR/modules/containers/host-conf.js"
+        # shellcheck disable=SC2119
         exif
+        # shellcheck disable=SC1091
         source /etc/srvctl/host.conf
         chmod 644 /etc/srvctl/host.conf
         chmod 644 /etc/srvctl/hosts.json
@@ -73,6 +102,7 @@ fi
 for sourcefile in /etc/srvctl/*.conf
 do
     debug "@conf $sourcefile"
+    # shellcheck disable=SC1090
     [[ -f $sourcefile ]] && source "$sourcefile"
     
 done
@@ -96,7 +126,7 @@ fi
 readonly SC_HOME="$(getent passwd "$SC_USER" | cut -f6 -d:)"
 export SC_HOME
 
-#echo "UID: $UID USER: $USER SUDO_USER $SUDO_USER SC_USER: $SC_USER SC_ROOT $SC_ROOT"
+debug "UID: $UID USER: $USER SUDO_USER $SUDO_USER SC_USER: $SC_USER SC_ROOT $SC_ROOT"
 
 logs "srvctl $SC_COMMAND_ARGUMENTS"
 
@@ -132,6 +162,8 @@ then
 fi
 
 
+
+
 ## load libs for running commands
 debug "init@Load libs"
 load_libs
@@ -144,3 +176,9 @@ debug "init@run_hook post-init"
 run_hook post-init
 run_hook "post-init-$CMD"
 
+if [[ $CMD == "complicate" ]]
+then
+    generate_completion
+    msg "srvctl command-completion has been updated for $SC_USER@$HOSTNAME"
+    exit_0
+fi

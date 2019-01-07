@@ -58,7 +58,7 @@ function networkd_configure_interface {
     interface="$1"
     
     f="/etc/systemd/network/$interface.network"
-    msg "interface $interface"
+    msg "Configure interface $interface"
     host_ip="$(get host "$HOSTNAME" host_ip)"
     gateway="$(get host "$HOSTNAME" gateway)"
     prefix="$(get host "$HOSTNAME" prefix)"
@@ -93,25 +93,24 @@ EOF
 
 function networkd_configuration {
     
-    local interfaces interfa
+    local interfaces interface
     ## first, guess the primary network interface - which is the first .)
     
     interfaces=$(firewall-cmd --list-interfaces)
-    interfa=( $interfaces )
+    interface="$(get host "$HOSTNAME" interface)"
     
-    if [[ ${#interfa[@]} == 1 ]]
-    then
-        for i in $interfaces
-        do
+    msg "Network intefaces: $interfaces"
+    
+    for i in $interfaces
+    do
+        if [[ $interface == "$i" ]]
+        then
+            msg "Configure $i"
             networkd_configure_interface "$i"
-        done
-    else
-        ntc "You appear to have several network interfaces: $interfaces"
-        ntc "It is recommended to create systemd-networkd configurations for ethernet cards."
-        networkctl | grep 'en' | grep ether | grep routable | grep unmanaged
-        ntc "/bin/srvctl exec-function networkd_configure_interface <interface>"
-        ntc "would configure the interface based on srvctl-data"
-    fi
+        else
+            ntc "$i is a secondary interface"
+        fi
+    done
     
     
     

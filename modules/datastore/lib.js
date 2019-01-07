@@ -241,6 +241,37 @@ function container_https_port(container) {
 
 exports.container_https_port = container_https_port;
 
+function container_mapped_ports(container) {
+    if (container.mapped_ports) {
+      var str = '';
+      for (let i in container.mapped_ports) {
+      	let p = container.mapped_ports[i];
+      	str += "## " + p.comment + "\n";
+        str += "Port=" + p.proto + ":" + p.host_port + ":" + p.container_port + "\n";
+      }
+      return str;
+    }
+    else return '## no mapped ports';
+}
+
+exports.container_mapped_ports = container_mapped_ports;
+
+function container_firewall_commands(container) {
+    if (container.mapped_ports) {
+      var str = '';
+      for (let i in container.mapped_ports) {
+      	let p = container.mapped_ports[i];
+      	//str += "## " + p.comment + "\n";
+        //if (str.length > 0) str += " && "; 
+        str += "firewalld_add_service port-" + p.host_port +" " + p.proto + " " + p.host_port + " \ \n";
+      }
+      return str;
+    }
+    else return '## no mapped ports';
+}
+
+exports.container_firewall_commands = container_firewall_commands;
+
 function container_mx(C) {
     if (containers[C].use_gsuite) return false;
     if (C.substring(0, 5) === 'mail.') return true;
@@ -261,6 +292,7 @@ function find_next_cip_for_container_on_network(network) {
             if (cc >= c) c = cc + 1;
         }
     });
+    // TODO reuse existing holes in case it has run out.
     if (c > 250) return_error("out of range in find_next_cip_for_container_on_network " + network);
     return c;
 }
@@ -431,13 +463,13 @@ function cluster_postfix_relaydomains() {
     var str = '';
     var rd = [];
     Object.keys(hosts).forEach(function(i) {
-       rd.push(i);
+        rd.push(i);
     });
     Object.keys(containers).forEach(function(i) {
         if (i.substring(0, 5) === 'mail.') rd.push(i.substring(5));
         else rd.push(i);
     });
-        
+
     // create string
     [...new Set(rd)].forEach(function(i) {
         str += i + ' #' + br;

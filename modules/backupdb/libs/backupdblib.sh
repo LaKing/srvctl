@@ -5,7 +5,8 @@ function backupdb() {
     if [[ -d /var/lib/mysql ]] && [[ -f /usr/bin/mysql ]]
     then
         ntc "mariadb @ $HOSTNAME"
-        source $SC_INSTALL_DIR/modules/mariadb/libs/mariadblib.sh
+        # shellcheck source=/usr/local/share/srvctl/modules/mariadb/libs/mariadblib.sh
+        source "$SC_INSTALL_DIR"/modules/mariadb/libs/mariadblib.sh
         backup_mariadb
     fi
     
@@ -26,7 +27,7 @@ function backupdb() {
         rm -fr /root/mongodb-dump/*
         out_path="/root/mongodb-dump/$(date +%Y_%m_%d__%H_%M_%S)"
         mkdir -p "$out_path"
-        $SC_INSTALL_DIR/modules/backupdb/bin/mongodump --out "$out_path"
+        "$SC_INSTALL_DIR"/modules/backupdb/bin/mongodump --out "$out_path"
         
     fi
     

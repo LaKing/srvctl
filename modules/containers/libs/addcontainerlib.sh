@@ -1,3 +1,5 @@
+#!/bin/bash
+
 function add_ve() { ## type name
     
     local T C

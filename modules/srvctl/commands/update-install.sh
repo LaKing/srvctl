@@ -9,6 +9,12 @@ root_only
 
 sc_update
 
+if [[ $ARG ]]
+then
+    msg "Argument $ARG"
+fi
+
+
 if ! $SC_USE_CONTAINERS
 then
     ## this will be executed on containers
@@ -78,6 +84,10 @@ if $SC_USE_GUI
 then
     make_commands_spec
 fi
+
+## for command completion
+cat "$SC_INSTALL_DIR"/modules/srvctl/completion.sh > /etc/bash_completion.d/srvctl-completion
+
 
 set_permissions
 msg "update-install complete"

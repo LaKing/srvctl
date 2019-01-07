@@ -11,7 +11,7 @@ const HOSTNAME = os.hostname();
 const br = '\n';
 
 const SC_HOSTS_DATA_FILE = "/etc/srvctl/hosts.json";
-const SC_CLUSTERS_DATA_FILE = "/etc/srvctl/data/clusters.json";
+const SC_CLUSTERS_DATA_FILE = "/etc/srvctl/clusters.json";
 const SC_HOST_CONF = "/etc/srvctl/host.conf";
 
 function return_error(msg) {
@@ -48,11 +48,11 @@ Object.keys(hosts[HOSTNAME]).forEach(function(j) {
 try {
     fs.writeFileSync(SC_HOST_CONF, out);
 } catch (err) {
-    return_error('WRITEFILEFILE ' + SC_HOST_CONF + ' ' + err);
+    return_error('WRITEFILE ' + SC_HOST_CONF + ' ' + err);
 }
 
 try {
     fs.writeFileSync(SC_HOSTS_DATA_FILE, JSON.stringify(hosts, null, 2));
 } catch (err) {
-    return_error('WRITEFILEFILE ' + SC_HOSTS_DATA_FILE + ' ' + err);
+    return_error('WRITEFILE ' + SC_HOSTS_DATA_FILE + ' ' + err);
 }

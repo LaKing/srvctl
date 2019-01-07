@@ -1,7 +1,6 @@
 #!/bin/bash
 
-
-local zone services
+#local zone services
 
 zone=$(firewall-cmd --get-default-zone)
 services="services: $(firewall-cmd --zone="$zone" --list-services) ."

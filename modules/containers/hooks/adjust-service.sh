@@ -15,6 +15,7 @@
 
 if [[ -z "$service" ]] && [[ $op == 'restart' ]]
 then
+    # shellcheck source=/usr/local/share/srvctl/modules/containers/commands/regenerate.sh
     source "$SC_INSTALL_DIR/modules/containers/commands/regenerate.sh"
     exit_0
 fi
@@ -23,7 +24,7 @@ if [[ -d /srv/$service/rootfs ]]
 then
     if $SC_ROOT
     then
-        if [[ $SC_USER == $(get container "$service" user) ]] || [[ $SC_USER == $(get container "$service" reseller) ]]
+        if [[ $SC_USER == $(get container "$service" user) ]] || [[ $SC_USER == $(get container "$service" reseller) ]] || $SC_ROOT
         then
             msg "AUTH-OK $SC_USER has acceess to $service"
         else
@@ -51,15 +52,6 @@ if [[ $service == all-containers ]] && [[ ! -z "$op" ]] && [[ -f "/etc/systemd/s
 then
     sudomize
     
-    for C in $(cfg user container_list)
-    do
-        msg "$C"
-        if [[ $op == restart ]]
-        then
-            run systemctl stop "srvctl-nspawn@$C"
-            run sleep 1
-        fi
-        service_action "srvctl-nspawn@$C" "$op"
-    done
+    all_containers "$op"
     exit_0
 fi

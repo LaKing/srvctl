@@ -1,5 +1,6 @@
 #!/bin/bash
 
 function diagnose_variables() {
-    ( set -o posix ; set ) | egrep "DEBUG=|ARG=|CMD=|OPA=|OPAS=|SC_|USER|HOST"
+    ## replacing egrep to grep -E
+    ( set -o posix ; set ) | grep -E "DEBUG=|ARG=|CMD=|OPA=|OPAS=|SC_|USER|HOST"
 }

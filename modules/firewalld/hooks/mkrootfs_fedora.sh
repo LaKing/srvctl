@@ -1,7 +1,8 @@
 #!/bin/bash
 
-## these are global
-if [[ "$rootfs_name" != "mail" ]]
+#rootfs_name comes from the parent calling the hook mkrootfslib
+# shellcheck disable=SC2154
+if [[ "$rootfs_name" == "fedora" ]]
 then
     ## global http and https
     firewalld_offline_add_service http tcp 80
@@ -13,7 +14,10 @@ then
     
     ## elasticsearch
     firewalld_offline_add_service https9200 tcp 9200
-else
+fi
+
+if [[ "$rootfs_name" == "mail" ]]
+then
     firewalld_offline_add_service imap tcp 143
     firewalld_offline_add_service imaps tcp 993
     firewalld_offline_add_service pop3s tcp 995

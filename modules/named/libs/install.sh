@@ -3,7 +3,7 @@
 function install_named {
     
     msg "Installing bind/named DNS server."
-    
+    # shellcheck source=/usr/local/share/srvctl/modules/named/installnamedlib.sh
     source "$SC_INSTALL_DIR/modules/named/installnamedlib.sh"
     ### procedures defined, now back to running code
     

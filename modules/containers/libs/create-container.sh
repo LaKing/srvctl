@@ -9,14 +9,9 @@ function create_nspawn_container_filesystem() { ## T C
     ## this check is a redundant one...
     if [[ ! -d $SC_ROOTFS_DIR/$T ]]
     then
-        ntc "No base for rootfs $T. Creating rootfs, this may take a while."
-        msg "srvctl regenerate-rootfs"
-        source "$SC_INSTALL_DIR/modules/containers/commands/regenerate-rootfs.sh"
-        if [[ ! -d $SC_ROOTFS_DIR/$T ]]
-        then
-            err "FATAL ERROR - rootfs $T not available"
-            exit 66
-        fi
+        err "INSTALLATION ERROR - rootfs $T not available"
+        msg "root needs to run: srvctl regenerate rootfs"
+        exit 66
     fi
     
     local rootfs

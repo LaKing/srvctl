@@ -1,4 +1,4 @@
-## Srvctl v3 (3.1.12.9)
+## Srvctl v3 (3.2.0.8)
 Under construction, - srvctl is a containerfarm-manager for microsite hosting webservers with fedora as the host operating system. It will help to set up, maintain, and to let a couple of servers work together in order to have solid web-serving services.
 Version 3 is remake in core mostly using systemd tools, thus using systemd-nspawn as the containerfarm manager. Written in the mix of bash and javascript, a modular design allows to extend it with programs. Basically it is a collection of scripts, and fast scripts.
 
@@ -129,6 +129,11 @@ COMMAND
      If neither a keyword nor an URL is given the redirect is removed.
      If the keyword is 'none' the redirect is removed as well.
     
+   install-odoo                          Run scripts that install odoo community and it's basic dependencies.
+    
+     Install the odoo ERP and CRM system.
+     Community version, installer by m1r0.
+    
    customize                             Create/edit a custom command.                  
     
      It is possible to create a custom command in ~/srvctl-includes
@@ -154,6 +159,10 @@ COMMAND
      Notes
          To flush the mail que, use: postqueue -f
          To remove all mail from the mail que use: postsuper -d ALL
+    
+   fix-sshd                              Fixing sshd permissions on keyfiles.           
+    
+     A temporary script to fix sshd permissions on keyfiles.
     
    ls                                    List all files recursive, sorted by last modified date
     
@@ -187,20 +196,20 @@ COMMAND
     
    change-user                           Move container to a different user             
     
-     Move container to be owned by a different user. This invoves a change in the IP adress, thus requres a restart of the container.
+     Move container to be owned by a different user. This invoves a change in the IP adress, thus requires a restart of the container.
     
    add-user                              Add user to the container                      
     
      Add user to the container, so that they have their own files, email accouns, and so on.
      users will have a default password, and a directory structure in the container home.
     
+   status                                List container status parameters               
+    
+    
    install-wordpress                     Run scripts that install wordpress and it's basic dependencies.
     
      Install the wordpress dependencies.
     
     
-   status                                List container status parameters               
-    
-    
-[ srvctl-devel ] ## srvctl-3.1.12.9
+[ srvctl-devel ] ## srvctl-3.2.0.8
 ```

@@ -15,12 +15,13 @@ ExecStart=/bin/node $SC_INSTALL_DIR/modules/mozilla/apps/mozilla-autoconfig-serv
 User=root
 Group=root
 
+Restart=always
+RestartSec=3
+
 [Install]
 WantedBy=multi-user.target
     " > /etc/systemd/system/mozilla-autoconfig.service
     
-    ## TODO remove after upgrade
-    rm -fr /usr/lib/systemd/system/mozilla-autoconfig.service
     
     systemctl daemon-reload
     

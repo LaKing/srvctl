@@ -8,35 +8,40 @@
 wd=/srv/codepad-project
 
 log=/var/codepad/project.log
-pid=/var/codepad/project.pid
+#pid=/var/codepad/project.pid
 rmd=/srv/codepad-project/README.md
 
-chown -R codepad:codepad $wd
-chmod -R +X $wd
-NOW=$(date +%Y.%m.%d-%H:%M:%S)
+chown -R codepad:codepad "$wd"
+chmod -R +X "$wd"
+NOW="$(date +%Y.%m.%d-%H:%M:%S)"
 
 ## enforce codepad user
 if [ "$USER" != codepad ]
 then
+    
+    mkdir -p "/srv/push-backup"
+    rsync -av /srv/codepad-project "/srv/push-backup"
+    
+    
     su codepad -s /bin/bash -c "$0"
     sc
     
-    echo "## Srvctl v3 ($(cat $wd/version))" > $rmd
-    cat $wd/README.txt >> $rmd
+    echo "## Srvctl v3 ($(cat $wd/version))" > "$rmd"
+    cat $wd/README.txt >> "$rmd"
     
     
     # shellcheck disable=SC2016
-    echo '```' >> $rmd
-    
+    echo '```' >> "$rmd"
+    # shellcheck disable=SC1117
     bash "$wd/srvctl.sh" help | sed -r "s/\x1B\[([0-9]{1,2}(;[0-9]{1,2})?)?[m|K]//g" >> $rmd
     # shellcheck disable=SC2016
     
-    echo '```' >> $rmd
+    echo '```' >> "$rmd"
     
     ## push to local
-    if [ -d "$wd/.git" ] && [ "$1" == '!' ]
+    if [ -d "$wd/.git" ] && [ "$1" == 'publish' ]
     then
-        cd "$wd"
+        cd "$wd" || exit 6
         echo "## git push"
         ## add files to repo
         echo "git add -A ."
@@ -46,16 +51,13 @@ then
         git commit -m "$(cat $wd/version)"
         ## push them
         echo git push
-        git push  >> $log
+        git push  >> "$log"
     fi
-    
     exit
 fi
 
-cd $wd
+cd "$wd" || exit 7
 
-mkdir -p /srv/push-backup
-rsync -av /srv/codepad-project /srv/push-backup
 
 
 ## INCREMENT VERSION
@@ -76,13 +78,13 @@ echo "PUSH VERSION $cv of $HOSTNAME:$wd $NOW" > $log
 
 
 find "$wd" > /tmp/srvctl-bash-beautify
-while read file
+while read -r file
 do
     if [[ "${file:0, -3 }" == ".sh" ]]
     then
         echo "@ $file" >> $log
-        shellcheck "$file" >> $log
-        shellcheck "$file"
+        shellcheck -x "$file" >> $log
+        shellcheck -x "$file"
         #echo /bin/python /srv/beautify_bash.py "$file"
         /bin/python /usr/local/share/srvctl/modules/srvctl/apps/beautify_bash.py "$file"
         rm -fr "$file~"
@@ -90,26 +92,7 @@ do
 done < /tmp/srvctl-bash-beautify
 
 
+echo "PUSH - OK. use push publish to commit to git."
 
-if [ ! -z "$(find . -name '*.ts')" ]
-then
-    if [ ! -f $wd/tsconfig.json ]
-    then
-        tsc --init >> $log
-    fi
-    ## run the typescript compiler
-    tsc >> $log
-fi
-
-if [ -f "$wd/server.js" ]
-then
-    
-    echo "PUSH - RESTARTING server.js" >> $log
-    
-    kill "$(cat $pid)"
-    
-    /bin/node $wd/server.js >> $log 2>&1 &
-    echo $! > $pid
-fi
-
-echo "PUSH - OK."
+systemctl restart codepad
+systemctl status codepad

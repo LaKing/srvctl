@@ -32,6 +32,7 @@ function hint {
     echo ''
     
 }
+
 function title {
     
     echo ''
@@ -54,6 +55,8 @@ function load_libs {
             do
                 debug "@lib ${dir##*/} ${sourcefile##*/}"
                 
+                ## dynamic source
+                # shellcheck disable=SC1090
                 [[ -f $sourcefile ]] && source "$sourcefile"
             done
         fi
@@ -69,7 +72,8 @@ function run_module_hook { ## module hook
     then
         
         debug "@hook ${dir##*/} $hook"
-        
+        ## dynamic source
+        # shellcheck disable=SC1090
         source "$dir/hooks/$hook.sh"
         exif "$dir hook '$hook' failed"
     fi
@@ -91,7 +95,8 @@ function run_hook {
             then
                 
                 debug "@hook ${dir##*/} $hook"
-                
+                ## dynamic source
+                # shellcheck disable=SC1090
                 source "$dir/hooks/$hook.sh"
                 exif "$dir hook '$hook' failed"
             fi
@@ -111,9 +116,28 @@ function run_command {
     
     local tvrc module
     
+    ## call a srvctl function
+    if [[ $UID == 0 ]] && [[ $OPAS ]] && [[ $CMD == 'exec-function' ]]
+    then
+        $OPAS
+        exif "failed to exec '$OPAS'"
+        return
+    fi
+    
+    ## call a srvctl data function
+    if [[ $UID == 0 ]] && [[ $OPAS ]] && [[ $CMD == 'new' ]] ||  [[ $CMD == 'get' ]] ||  [[ $CMD == 'put' ]] ||  [[ $CMD == 'out' ]] ||  [[ $CMD == 'cfg' ]] ||  [[ $CMD == 'del' ]]  ||  [[ $CMD == 'fix' ]]
+    then
+        # shellcheck disable=SC2086
+        $CMD $OPAS
+        exif "failed to exec '$CMD $OPAS'"
+        return
+    fi
+    
     ## permissions will determine the visibility of these commands
     if [[ -f /root/srvctl-includes/$CMD.sh ]]
     then
+        ## dynamic source
+        # shellcheck disable=SC1090
         source "/root/srvctl-includes/$CMD.sh"
         exif "'$CMD' failed"
         return
@@ -132,6 +156,8 @@ function run_command {
             ## find and run commands
             if [[ -f $dir/commands/$CMD.sh ]]
             then
+                ## dynamic source
+                # shellcheck disable=SC1090
                 source "$dir/commands/$CMD.sh"
                 exif "'$CMD' failed ($dir)"
                 return
@@ -142,27 +168,13 @@ function run_command {
     ## custom by user
     if [[ -f $SC_HOME/srvctl-includes/$CMD.sh ]] && [[ $SC_HOME != /root ]]
     then
+        ## dynamic source
+        # shellcheck disable=SC1090
         source "$SC_HOME/srvctl-includes/$CMD.sh"
         exif "'$CMD' failed"
         return
     fi
     
-    ## call a srvctl function
-    if [[ $SC_USER == root ]] && [[ $OPAS ]] && [[ $CMD == 'exec-function' ]]
-    then
-        $OPAS
-        exif "failed to exec '$OPAS'"
-        return
-    fi
-    
-    ## call a srvctl data function
-    if [[ $SC_USER == root ]] && [[ $OPAS ]] && [[ $CMD == 'new' ]] ||  [[ $CMD == 'get' ]] ||  [[ $CMD == 'put' ]] ||  [[ $CMD == 'out' ]] ||  [[ $CMD == 'cfg' ]] ||  [[ $CMD == 'del' ]]  ||  [[ $CMD == 'fix' ]]
-    then
-        # shellcheck disable=SC2086
-        $CMD $OPAS
-        exif "failed to exec '$CMD $OPAS'"
-        return
-    fi
     
     debug "@default-command"
     
@@ -179,12 +191,19 @@ function run_command {
             if [[ -f $dir/command.sh ]]
             then
                 debug "@command.sh ${dir##*/}"
+                ## dynamic source
+                # shellcheck disable=SC1090
                 source "$dir/command.sh"
             fi
         fi
     done
     
     return 250
+}
+
+## by default complicate takes no action, but this functuion can be re-defined
+function complicate() {
+    echo "$1" > /dev/null
 }
 
 function hint_on_file {
@@ -208,8 +227,10 @@ function hint_on_file {
     if [[ -z $hintcmd ]]
     then
         hint "${command:0: -3}" "${hintstr:7}" "$1"
+        complicate "${command:0: -3}"
     else
         hint "${hintcmd:7}" "${hintstr:7}" "$1"
+        complicate "${hintcmd:7}"
     fi
 }
 
@@ -387,6 +408,7 @@ function test_srvctl_modules() {
             trtm=false
             if [[ -f $dir/module-condition.sh ]]
             then
+                # shellcheck disable=SC1090
                 trtm="$(source "$dir/module-condition.sh")"
                 if [[ $trtm == true ]]
                 then
@@ -416,6 +438,8 @@ function test_srvctl_modules() {
     if [[ -f $conf ]]
     then
         debug "@source $conf"
+        ## dynamic source
+        # shellcheck disable=SC1090
         source "$conf"
     fi
     
