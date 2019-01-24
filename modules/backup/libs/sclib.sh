@@ -7,7 +7,8 @@ function display_backup_geometry() {
     echo "$NOW $1:$2 #source-size $3 #destination-size $4 #source-files $5 #destination-files $6" >> "$SC_HOME/.srvctl/backup.log"
 }
 
-RSYNC_PROGRESS="--info=progress2"
+#RSYNC_PROGRESS="--info=progress2"
+RSYNC_PROGRESS=""
 
 ## local backup from a local folder
 function local_backup { ## directories
@@ -136,24 +137,24 @@ function server_backup { #datahost #directories
         
         ## populate comparison variables
         # shellcheck disable=SC2029
-        source_size="$(ssh -n -o BatchMode=yes "$host" "du -hs --apparent-size $i")"
-        if [[ -d "$target/$i" ]]
-        then
-            destination_size="$(du -hs --apparent-size "$target/$i")"
-        fi
+        #        source_size="$(ssh -n -o BatchMode=yes "$host" "du -hs --apparent-size $i")"
+        #        if [[ -d "$target/$i" ]]
+        #        then
+        #            destination_size="$(du -hs --apparent-size "$target/$i")"
+        #        fi
         
         # shellcheck disable=SC2029
-        source_count="$(ssh -n -o BatchMode=yes "$host" "find $i | wc -l")"
-        if [[ -d "$target/$i" ]]
-        then
-            destination_count="$(find "$target/$i" | wc -l)"
-        fi
+        #        source_count="$(ssh -n -o BatchMode=yes "$host" "find $i | wc -l")"
+        #        if [[ -d "$target/$i" ]]
+        #        then
+        #            destination_count="$(find "$target/$i" | wc -l)"
+        #        fi
         
         ## display comparison variables
-        display_backup_geometry "$host" "$i" "$source_size" "$destination_size" "$source_count" "$destination_count"
+        #        display_backup_geometry "$host" "$i" "$source_size" "$destination_size" "$source_count" "$destination_count"
         
         ## perform the task
-        if run rsync "$RSYNC_PROGRESS" --delete -aze ssh "$host:$i" "$target/$(dirname "$i")"
+        if run rsync "$RSYNC_PROGRESS" --delete -avze ssh "$host:$i" "$target/$(dirname "$i")"
         then
             msg "OK backup done $host:$i"
             echo "$NOW OK $host $i #size: $source_size/$destination_size files: $source_count/$destination_count" >> "$SC_HOME/.srvctl/backup.log"

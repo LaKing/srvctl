@@ -1,6 +1,6 @@
 #!/bin/node
 
-/*jshint esnext: true */
+/*srvctl */
 
 function random(items) {
     return items[Math.floor(Math.random() * items.length)];

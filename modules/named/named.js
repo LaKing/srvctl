@@ -1,10 +1,12 @@
 #!/bin/node
 
-/*jshint esnext: true */
+/*srvctl */
+
+// TODO: in case of duplicate containers, dns should priorize
 
 // The DNS modules take effect on all hosts as it is based mainly on clusters!
 
-const lablib = '../../lablib.js';
+const lablib = "../../lablib.js";
 const msg = require(lablib).msg;
 const ntc = require(lablib).ntc;
 const err = require(lablib).err;
@@ -17,27 +19,26 @@ function out(msg) {
 }
 
 // includes
-const fs = require('fs');
-const os = require('os');
-const http = require('http');
-const https = require('https');
+const fs = require("fs");
+const os = require("os");
+const http = require("http");
+const https = require("https");
 
 const CMD = process.argv[2];
 // constatnts
 
 const CDN = process.env.SC_COMPANY_DOMAIN;
 
-var datastore = require('../datastore/lib.js');
-
+var datastore = require("../datastore/lib.js");
 
 // constants
 const HOSTNAME = os.hostname();
-const br = '\n';
+const br = "\n";
 const SC_CLUSTERNAME = process.env.SC_CLUSTERNAME;
 const SC_CLUSTERS_DATA_FILE = "/etc/srvctl/clusters.json";
 const SRVCTL = process.env.SRVCTL;
 const SC_ROOT = process.env.SC_ROOT;
-const localhost = 'localhost';
+const localhost = "localhost";
 
 process.exitCode = 99;
 
@@ -46,7 +47,7 @@ function exit() {
 }
 
 function return_value(msg) {
-    if (msg === undefined || msg === '') process.exitCode = 100;
+    if (msg === undefined || msg === "") process.exitCode = 100;
     else {
         console.log(msg);
         process.exitCode = 0;
@@ -54,7 +55,7 @@ function return_value(msg) {
 }
 
 function return_error(msg) {
-    console.error('DATA-ERROR:', msg);
+    console.error("DATA-ERROR:", msg);
     process.exitCode = 111;
     process.exit(111);
 }
@@ -64,10 +65,9 @@ function output(variable, value) {
     process.exitCode = 0;
 }
 
-// if the default 
+// if the default
 var is_master = false;
-if (datastore.hosts[HOSTNAME])
-if (datastore.hosts[HOSTNAME].dns_server === 'master') is_master = true;
+if (datastore.hosts[HOSTNAME]) if (datastore.hosts[HOSTNAME].dns_server === "master") is_master = true;
 if (is_master) msg("bind DNS master");
 else msg("bind DNS slave");
 
@@ -82,38 +82,37 @@ var clusters;
 try {
     clusters = JSON.parse(fs.readFileSync(SC_CLUSTERS_DATA_FILE));
 } catch (err) {
-    return_error('READFILE ' + SC_CLUSTERS_DATA_FILE + ' ' + err);
+    return_error("READFILE " + SC_CLUSTERS_DATA_FILE + " " + err);
 }
 
-var master_servers = '';
+var master_servers = "";
 
 Object.keys(clusters).forEach(function(i) {
     Object.keys(clusters[i]).forEach(function(j) {
-        if (clusters[i][j].dns_server === 'master') {
-            master_servers += clusters[i][j].host_ip + ';';
+        if (clusters[i][j].dns_server === "master") {
+            master_servers += clusters[i][j].host_ip + ";";
         }
     });
 });
 
-if (master_servers === '') {
+if (master_servers === "") {
     return_error("could not locate master servers in the cluster configuration");
-} else msg('master servers: ' + master_servers);
-
+} else msg("master servers: " + master_servers);
 
 function splitstring(s) {
-    const re = new RegExp('.{1,33}', 'g');
+    const re = new RegExp(".{1,33}", "g");
     r = br;
-	var a =	s.match(re);
+    var a = s.match(re);
     for (var i in a) {
-    	r += '    "' + a[i] + '"' + br;
-    }  
+        r += '    "' + a[i] + '"' + br;
+    }
     return r;
 }
 
 function get_container_zone(cluster, host, hostdata, containers, name, alias) {
     var container = containers[name];
-    var zone = ';;' + cluster + ' ' + host + ' ' + name + br + br;
-    if (alias) zone = ';;' + cluster + ' ' + host + ' ' + name + ' ' + alias + br + br;
+    var zone = ";;" + cluster + " " + host + " " + name + br + br;
+    if (alias) zone = ";;" + cluster + " " + host + " " + name + " " + alias + br + br;
     var ip = hostdata.host_ip;
     var spf_string = "v=spf1";
 
@@ -126,8 +125,10 @@ function get_container_zone(cluster, host, hostdata, containers, name, alias) {
 
     spf_string += " a mx";
 
-    if (container.use_gsuite) spf_string += " include:_spf.google.com ~all";
-    else spf_string += " -all";
+    if (container.use_gsuite) spf_string += " include:_spf.google.com";
+    if (container.use_mailchimp) spf_string += " include:servers.mcsv.net";
+
+    spf_string += " ~all";
 
     zone += "$TTL 1D" + br;
     zone += "@        IN SOA        @ hostmaster." + CDN + ". (" + br;
@@ -154,24 +155,36 @@ function get_container_zone(cluster, host, hostdata, containers, name, alias) {
 
     zone += ";; SPF" + br;
     zone += '@        IN        TXT        "' + spf_string + '"' + br;
-    zone += ";; dkim-default" + br;
-    if (container["dkim-default-domainkey"] !== undefined) zone += 'default._domainkey       IN        TXT       ( "v=DKIM1; k=rsa;"' + splitstring(container["dkim-default-domainkey"]) + ' )' + br;
 
-    zone += ";; dkim-mail" + br;
-    if (container["dkim-mail-domainkey"] !== undefined) zone += 'mail._domainkey       IN        TXT       ( "v=DKIM1; k=rsa;"' + splitstring(container["dkim-mail-domainkey"]) + ' )' + br;
-
-    zone += ";; dkim-google" + br;
-    if (container["dkim-google-domainkey"] !== undefined) zone += 'google._domainkey       IN        TXT       ( "v=DKIM1; k=rsa;"' + splitstring(container["dkim-google-domainkey"]) + ' )' + br;
-
-    zone += ";; dkim-mailcontainer" + br;
-    if (containers["mail." + name] !== undefined) {
-        if (containers["mail." + name]["dkim-mail-domainkey"] !== undefined) zone += 'mail._domainkey       IN        TXT       ( "v=DKIM1; k=rsa;"' + splitstring(containers["mail." + name]["dkim-mail-domainkey"]) + ' )' + br;
+    if (container["dkim-default-domainkey"] !== undefined) {
+        zone += ";; dkim-default" + br;
+        zone += 'default._domainkey       IN        TXT       ( "v=DKIM1; k=rsa;"' + splitstring(container["dkim-default-domainkey"]) + " )" + br;
     }
 
+    if (container["dkim-mail-domainkey"] !== undefined) {
+        zone += ";; dkim-mail" + br;
+        zone += 'mail._domainkey       IN        TXT       ( "v=DKIM1; k=rsa;"' + splitstring(container["dkim-mail-domainkey"]) + " )" + br;
+    }
 
-  // temporary
-  //if (container.use_gsuite) return zone;
-  
+    if (container["dkim-google-domainkey"] !== undefined) {
+        zone += ";; dkim-google" + br;
+        zone += 'google._domainkey       IN        TXT       ( "v=DKIM1; k=rsa;"' + splitstring(container["dkim-google-domainkey"]) + " )" + br;
+    }
+
+    if (containers["mail." + name] !== undefined) {
+        zone += ";; dkim-mailcontainer" + br;
+        if (containers["mail." + name]["dkim-mail-domainkey"] !== undefined)
+            zone += 'mail._domainkey       IN        TXT       ( "v=DKIM1; k=rsa;"' + splitstring(containers["mail." + name]["dkim-mail-domainkey"]) + " )" + br;
+    }
+
+    if (container.use_mailchimp) {
+        zone += ";; dkim-mailchimp" + br;
+        zone += "k1._domainkey       IN        CNAME       dkim.mcsv.net." + br;
+    }
+
+    // temporary
+    //if (container.use_gsuite) return zone;
+
     zone += ";; DMARC" + br;
     if (container.use_gsuite && container["dkim-google-domainkey"] === undefined) err("Missing DKIM google-domainkey in datastore for domain " + name);
     else zone += '_dmarc   TXT ( "v=DMARC1;p=reject;sp=reject;pct=100;adkim=r;aspf=r;fo=1;ri=86400;rua=mailto:webmaster@' + name + '")' + br;
@@ -180,17 +193,17 @@ function get_container_zone(cluster, host, hostdata, containers, name, alias) {
 }
 
 function get_conf(cluster, host) {
-    var conf = '## ' + host + br + br;
+    var conf = "## " + host + br + br;
     var containers = {};
     var file = "/var/srvctl3/named/" + host + ".json";
-    if (host === HOSTNAME) file = '/var/srvctl3/datastore/containers.json';
+    if (host === HOSTNAME) file = "/var/srvctl3/datastore/containers.json";
 
     var hostdata = clusters[cluster][host];
 
     try {
         containers = JSON.parse(fs.readFileSync(file));
     } catch (error) {
-        err('READFILE for ' + host + ' ' + error);
+        err("READFILE for " + host + " " + error);
         return conf + br + br;
     }
 
@@ -219,7 +232,7 @@ function get_conf(cluster, host) {
 }
 
 function make_conf() {
-    var conf = '## BIND-CONFIG ' + br + br;
+    var conf = "## BIND-CONFIG " + br + br;
 
     Object.keys(clusters).forEach(function(i) {
         Object.keys(clusters[i]).forEach(function(j) {
@@ -236,52 +249,50 @@ function get_host_containers(cluster, host) {
     var req = {
         host: host,
         port: 443,
-        path: '/.well-known/srvctl/datastore/containers.json',
-        method: 'GET',
+        path: "/.well-known/srvctl/datastore/containers.json",
+        method: "GET",
         rejectUnauthorized: false,
         requestCert: true,
-        agent: false
+        agent: new https.Agent({ keepAlive: false, timeout: 1000 })
     };
-    https.get(req, function(res) {
-        const {
-            statusCode
-        } = res;
-        const contentType = res.headers['content-type'];
+    https
+        .get(req, function(res) {
+            const { statusCode } = res;
+            const contentType = res.headers["content-type"];
 
-        let error;
-        if (statusCode !== 200) {
-            error = new Error('Request Failed.\n' +
-                `Status Code: ${statusCode}`);
-        } else if (!/^application\/json/.test(contentType)) {
-            error = new Error('Invalid content-type.\n' +
-                `Expected application/json but received ${contentType}`);
-        }
-        if (error) {
-            console.error(error.message);
-            // consume response data to free up memory
-            res.resume();
-            return;
-        }
-
-        res.setEncoding('utf8');
-        let rawData = '';
-        res.on('data', (chunk) => {
-            rawData += chunk;
-        });
-        res.on('end', () => {
-            try {
-                const parsedData = JSON.parse(rawData);
-                //xhosts[ip] = parsedData;
-                fs.writeFile("/var/srvctl3/named/" + host + ".json", rawData, function(err) {
-                    if (err) return_error('WRITEFILE zone ' + err);
-                });
-            } catch (e) {
-                console.error(e.message, rawData);
+            let error;
+            if (statusCode !== 200) {
+                error = new Error("Request Failed.\n" + `Status Code: ${statusCode}`);
+            } else if (!/^application\/json/.test(contentType)) {
+                error = new Error("Invalid content-type.\n" + `Expected application/json but received ${contentType}`);
             }
+            if (error) {
+                console.error(error.message);
+                // consume response data to free up memory
+                res.resume();
+                return;
+            }
+
+            res.setEncoding("utf8");
+            let rawData = "";
+            res.on("data", chunk => {
+                rawData += chunk;
+            });
+            res.on("end", () => {
+                try {
+                    const parsedData = JSON.parse(rawData);
+                    //xhosts[ip] = parsedData;
+                    fs.writeFile("/var/srvctl3/named/" + host + ".json", rawData, function(err) {
+                        if (err) return_error("WRITEFILE zone " + err);
+                    });
+                } catch (e) {
+                    console.error(e.message, rawData);
+                }
+            });
+        })
+        .on("error", e => {
+            console.error("GET https://" + host + "/.well-known/srvctl/datastore/containers.json", e);
         });
-    }).on('error', (e) => {
-        console.error('GET https://' + host + '/.well-known/srvctl/datastore/containers.json', e);
-    });
 }
 
 //---------
@@ -290,23 +301,20 @@ function get_host_containers(cluster, host) {
 Object.keys(clusters).forEach(function(i) {
     //if (i !== SC_CLUSTERNAME)
     Object.keys(clusters[i]).forEach(function(j) {
-        if (clusters[i][j].host_ip !== undefined)
-            get_host_containers(i, j);
+        if (clusters[i][j].host_ip !== undefined) get_host_containers(i, j);
         //console.log(clusters[i][j].host_ip);
     });
 });
 
-
-process.on('exit', function() {
-
+process.on("exit", function() {
     var conf = make_conf();
     //console.log(conf);
 
     try {
         fs.writeFileSync("/var/named/srvctl.conf", conf);
-        msg('wrote named conf');
+        msg("wrote named conf");
     } catch (err) {
-        return_error('ERROR WRITEFILE named srvctl conf' + err);
+        return_error("ERROR WRITEFILE named srvctl conf" + err);
     }
 
     exit();

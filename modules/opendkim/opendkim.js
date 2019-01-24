@@ -1,6 +1,6 @@
 #!/bin/node
 
-/*jshint esnext: true */
+/*srvctl */
 
 const lablib = '../../lablib.js';
 const msg = require(lablib).msg;

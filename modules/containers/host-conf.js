@@ -1,6 +1,6 @@
 #!/bin/node
 
-/*jshint esnext: true */
+/*srvctl */
 
 // includes
 const fs = require('fs');

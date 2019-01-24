@@ -1,6 +1,6 @@
 #!/bin/node
 
-/*jshint esnext: true */
+/*srvctl */
 
 // regenerate users
 

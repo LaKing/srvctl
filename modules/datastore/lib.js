@@ -1,6 +1,6 @@
 #!/bin/node
 
-/*jshint esnext: true */
+/*srvctl */
 
 const lablib = '../../lablib.js';
 const msg = require(lablib).msg;
@@ -240,6 +240,26 @@ function container_https_port(container) {
 }
 
 exports.container_https_port = container_https_port;
+
+/*
+
+For example:
+	"mapped_ports": [
+      {
+        "proto": "tcp",
+        "host_port": 1100,
+        "container_port": 1100,
+        "comment": "VPN"
+      },
+      {
+        "proto": "tcp",
+        "host_port": 2022,
+        "container_port": 22,
+        "comment": "SSH"
+      }
+    ],
+
+*/
 
 function container_mapped_ports(container) {
     if (container.mapped_ports) {

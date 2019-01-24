@@ -2,7 +2,7 @@
 
 //'use strict';
 
-/*jshint esnext: true */
+/*srvctl */
 
 const global_install_prefix = '/usr/lib/node_modules/';
 const port = 250;
