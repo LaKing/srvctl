@@ -220,6 +220,8 @@ function get_global() {
     return str;
 }
 
+// TODO if there is no http add a redirect to https
+
 function get_frontend_http() {
     var str = "";
     str += br + "frontend http";
@@ -237,6 +239,10 @@ function get_frontend_http() {
                 str += redirect("http", i, containers[i].aliases[j]);
             }
         }
+      
+      	// since 3.2.0.9 - as of 2019 July, we will use https by default
+        // so unless http redirect is non, redirect to https.
+        if (containers[i]["http-redirect"] === undefined) str += br + "    redirect prefix https://" + i + " code 301 if { hdr(host) -i " + i + " }" + rule_exeptions;
 
         if (containers[i]["http-redirect"] !== undefined && containers[i]["http-redirect"] !== "none") {
             if (containers[i]["http-redirect"] === "https") str += br + "    redirect prefix https://" + i + " code 301 if { hdr(host) -i " + i + " }" + rule_exeptions;

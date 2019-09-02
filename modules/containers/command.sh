@@ -100,7 +100,7 @@ then
         exif
         exit 0
     fi
-    say machinectl -q --no-pager shell "$C" "/bin/bash/ -c '$ARG $OPAS3'"
+    nur machinectl -q --no-pager shell "$C" "/bin/bash/ -c '$ARG $OPAS3'"
     temp_file=$(mktemp)
     echo "machinectl -q --no-pager shell $C /bin/bash/ -c '$ARG $OPAS3'" > "$temp_file"
     /bin/bash "$temp_file"

@@ -84,3 +84,4 @@ smtp_host_lookup = native
 myorigin = $mydomain
 ## mydestination
 mydestination = localhost, localhost.localdomain, $myhostname, $mydomain
+

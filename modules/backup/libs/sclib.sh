@@ -2,6 +2,9 @@
 
 [[ $SC_BACKUP_PATH ]] || SC_BACKUP_PATH="/backup"
 
+#echo "#!/bin/bash" > $SC_BACKUP_PATH/backup.sh
+#echo "## $NOW" >> $SC_BACKUP_PATH/backup.sh
+
 function display_backup_geometry() {
     msg "$1:$2 #source-size $3 #destination-size $4 #source-files $5 #destination-files $6"
     echo "$NOW $1:$2 #source-size $3 #destination-size $4 #source-files $5 #destination-files $6" >> "$SC_HOME/.srvctl/backup.log"
@@ -10,16 +13,22 @@ function display_backup_geometry() {
 #RSYNC_PROGRESS="--info=progress2"
 RSYNC_PROGRESS=""
 
+if $SC_TTY
+then
+  RSYNC_PROGRESS="--progress"
+fi
+
 ## local backup from a local folder
 function local_backup { ## directories
     
     local dirs target source_size destination_size source_count destination_count
-    
-    msg "Local backup"
-    
+        
     #args="${@:1}"
     args="${*:1}"
     target="$SC_BACKUP_PATH/$HOSTNAME"
+    
+    msg "Local backup $args"
+
     
     for i in $args
     do
@@ -35,7 +44,7 @@ function local_backup { ## directories
         ## we must create the parent directory so we can rsync to it
         mkdir -p "$target/$(dirname "$i")"
         
-        ## mae sure there is no other process doing the same
+        ## make sure there is no other process doing the same
         if [[ "$(systemctl status | grep rsync | grep "$target" | grep -c "$i")" != "0" ]]
         then
             err "There is a process already running for this backup task."
@@ -44,31 +53,39 @@ function local_backup { ## directories
             continue
         fi
         
-        ## init comparison variables
-        source_size=0
-        destination_size=0
-        source_count=0
-        destination_count=0
-        
-        ## populate comparison variables
-        source_size="$(du -hs --apparent-size "$i")"
-        
-        if [[ -d "$target/$i" ]]
+        if $SC_TTY
         then
-            destination_size="$(du -hs --apparent-size "$target/$i")"
-        fi
+        	ntc "Calculating ..."
+        	## init comparison variables
+        	source_size=0
+        	destination_size=0
+        	source_count=0
+        	destination_count=0
         
-        source_count="$(find "$i" | wc -l)"
-        if [[ -d "$target/$i" ]]
-        then
-            destination_count="$(find "$target/$i" | wc -l)"
-        fi
+        	## populate comparison variables
+        	source_size="$(du -hs --apparent-size "$i")"
         
-        ## display comparison variables
-        display_backup_geometry "$HOSTNAME" "$i" "$source_size" "$destination_size" "$source_count" "$destination_count"
+        	if [[ -d "$target/$i" ]]
+        	then
+            	destination_size="$(du -hs --apparent-size "$target/$i")"
+        	fi
+        
+        	source_count="$(find "$i" | wc -l)"
+        	if [[ -d "$target/$i" ]]
+        	then
+            	destination_count="$(find "$target/$i" | wc -l)"
+        	fi
+        
+        	## display comparison variables
+        	display_backup_geometry "$HOSTNAME" "$i" "$source_size" "$destination_size" "$source_count" "$destination_count"
+        fi
         
         ## perform the task
-        if run rsync "$RSYNC_PROGRESS" --delete -a "$i" "$target/$(dirname "$i")"
+        t="$target/$(dirname "$i")"
+        
+        nur rsync --progress --delete-after -a "$i" "$t"
+        rsync --progress --delete-after -a "$i" "$t"
+        if [[ $? == 0 ]]
         then
             msg "OK backup done $HOSTNAME:$i"
             echo "$NOW OK local-backup $i #size: $source_size/$destination_size files: $source_count/$destination_count" >> "$SC_HOME/.srvctl/backup.log"
@@ -106,6 +123,8 @@ function server_backup { #datahost #directories
     
     target="$SC_BACKUP_PATH/$hostname"
     
+    msg "Server backup $host $dirs"
+    
     
     for i in $dirs
     do
@@ -129,32 +148,42 @@ function server_backup { #datahost #directories
             continue
         fi
         
-        ## init comparison variables
-        source_size=0
-        destination_size=0
-        source_count=0
-        destination_count=0
+        if $SC_TTY
+        then
+        	ntc "Calculating ..."
+        	## init comparison variables
+        	source_size=0
+        	destination_size=0
+        	source_count=0
+        	destination_count=0
         
-        ## populate comparison variables
-        # shellcheck disable=SC2029
-        #        source_size="$(ssh -n -o BatchMode=yes "$host" "du -hs --apparent-size $i")"
-        #        if [[ -d "$target/$i" ]]
-        #        then
-        #            destination_size="$(du -hs --apparent-size "$target/$i")"
-        #        fi
+        	## populate comparison variables
+        	# shellcheck disable=SC2029
+            source_size="$(ssh -n -o BatchMode=yes "$host" "du -hs --apparent-size $i")"
+            if [[ -d "$target/$i" ]]
+            then
+                destination_size="$(du -hs --apparent-size "$target/$i")"
+            fi
         
-        # shellcheck disable=SC2029
-        #        source_count="$(ssh -n -o BatchMode=yes "$host" "find $i | wc -l")"
-        #        if [[ -d "$target/$i" ]]
-        #        then
-        #            destination_count="$(find "$target/$i" | wc -l)"
-        #        fi
+            # shellcheck disable=SC2029
+            source_count="$(ssh -n -o BatchMode=yes "$host" "find $i | wc -l")"
+            if [[ -d "$target/$i" ]]
+            then
+                destination_count="$(find "$target/$i" | wc -l)"
+            fi
         
-        ## display comparison variables
-        #        display_backup_geometry "$host" "$i" "$source_size" "$destination_size" "$source_count" "$destination_count"
+             ## display comparison variables
+            display_backup_geometry "$host" "$i" "$source_size" "$destination_size" "$source_count" "$destination_count"
+        
+        fi
         
         ## perform the task
-        if run rsync "$RSYNC_PROGRESS" --delete -avze ssh "$host:$i" "$target/$(dirname "$i")"
+        t="$target/$(dirname "$i")"
+        s="$host:$i" 
+        nur rsync --progress --delete-after -avze ssh "$s" "$t"
+        rsync --progress --delete-after -avze ssh "$s" "$t"
+        
+        if [[ $? == 0 ]]
         then
             msg "OK backup done $host:$i"
             echo "$NOW OK $host $i #size: $source_size/$destination_size files: $source_count/$destination_count" >> "$SC_HOME/.srvctl/backup.log"
@@ -193,6 +222,8 @@ function remote_backup { #proxyhost #datahost #directories
     dirs="${*:3}"
     target=$SC_BACKUP_PATH/$hostname
     
+    msg "remote backup $proxy $host $dirs"
+    
     for i in $dirs
     do
         ## check oif have a real source
@@ -215,32 +246,44 @@ function remote_backup { #proxyhost #datahost #directories
             continue
         fi
         
+		if $SC_TTY
+		then 
+            ntc "Calculating ..."
+            ## init comparison variables
+            source_size=0
+            destination_size=0
+            source_count=0
+            destination_count=0
         
-        ## init comparison variables
-        source_size=0
-        destination_size=0
-        source_count=0
-        destination_count=0
+        	## populate comparison variables
+        	# shellcheck disable=SC2029
+        	source_size="$(ssh -n -o BatchMode=yes "$proxy" ssh -n -o BatchMode=yes "$host" "du -hs --apparent-size $i")"
+        	if [[ -d "$target/$i" ]]
+        	then
+            	destination_size="$(du -hs --apparent-size "$target/$i")"
+        	fi
         
-        ## populate comparison variables
-        # shellcheck disable=SC2029
-        source_size="$(ssh -n -o BatchMode=yes "$proxy" ssh -n -o BatchMode=yes "$host" "du -hs --apparent-size $i")"
-        if [[ -d "$target/$i" ]]
-        then
-            destination_size="$(du -hs --apparent-size "$target/$i")"
-        fi
-        # shellcheck disable=SC2029
-        source_count="$(ssh -n -o BatchMode=yes "$proxy" ssh -n -o BatchMode=yes "$host" "find $i | wc -l")"
-        if [[ -d "$target/$i" ]]
-        then
-            destination_count="$(find "$target/$i" | wc -l)"
-        fi
+        	# shellcheck disable=SC2029
+        	source_count="$(ssh -n -o BatchMode=yes "$proxy" ssh -n -o BatchMode=yes "$host" "find $i | wc -l")"
+        	if [[ -d "$target/$i" ]]
+        	then
+            	destination_count="$(find "$target/$i" | wc -l)"
+        	fi
         
-        ## display comparison variables
-        display_backup_geometry "$host" "$i" "$source_size" "$destination_size" "$source_count" "$destination_count"
+        	## display comparison variables
+        	display_backup_geometry "$host" "$i" "$source_size" "$destination_size" "$source_count" "$destination_count"
+		fi        
+
+		## perform the task
+    
+        t="$target/$(dirname "$i")"
+        s="root@$host:$i"
+        p="ssh -A $proxy ssh"
         
-        ## perform the task
-        if rsync "$RSYNC_PROGRESS" --delete -avz -e "ssh -A $proxy ssh" "$host:$i" "$target/$(dirname "$i")"
+        nur rsync --progress --delete-after -avz -e "$p" "$s" "$t"
+        rsync --progress --delete-after -avz -e "$p" "$s" "$t"
+        
+        if [[ $? == 0 ]]
         then
             msg "OK backup done $host:$i"
             echo "$NOW OK $host $i #size: $source_size/$destination_size files: $source_count/$destination_count" >> "$SC_HOME/.srvctl/backup.log"

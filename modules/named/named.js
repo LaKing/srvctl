@@ -139,8 +139,8 @@ function get_container_zone(cluster, host, hostdata, containers, name, alias) {
     zone += "                                        3H )        ; minimum" + br;
     zone += "        IN         NS        ns1." + CDN + "." + br;
     zone += "        IN         NS        ns2." + CDN + "." + br;
-    zone += "        IN         NS        ns3." + CDN + "." + br;
-    zone += "        IN         NS        ns4." + CDN + "." + br;
+    //zone += "        IN         NS        ns3." + CDN + "." + br;
+    //zone += "        IN         NS        ns4." + CDN + "." + br;
     zone += "*        IN         A        " + ip + br;
     zone += "@        IN         A        " + ip + br;
 

@@ -58,7 +58,13 @@ function return_error(msg) {
 }
 
 function output(variable, value) {
-    console.log(variable + '="' + value + '"');
+    if (typeof value === "object") value = JSON.stringify(value);
+    console.log(variable.replace(/-/g, '_') + "='" + value + "'");
+    process.exitCode = 0;
+}
+
+function output_json(value) {
+    console.log(JSON.stringify(value));
     process.exitCode = 0;
 }
 
@@ -141,7 +147,7 @@ if (DAT === 'container') {
           	if (CMD === CFG) {
             	if (OPA === 'mapped_ports') return_value(datastore.container_mapped_ports(container));
                 else
-                if (OPA === 'container_firewall_commands') return_value(datastore.container_firewall_commands(container));
+                if (OPA === 'container_firewall_commands') return_value(datastore.container_firewall_commands(container, C));
                 else return_value(JSON.stringify(container, null, 4));
             }
 

@@ -28,7 +28,7 @@ function mkrootfs_fedora_base { ## name packagelist
     base_pkg_list="dnf initscripts passwd rsyslog vim-minimal openssh-server openssh-clients dhclient chkconfig rootfiles policycoreutils fedora-repos fedora-release bash-completion"
     
     ## added systemd-container for docker support
-    plus_pkg_list="nodejs gcc-c++ mc openssl postfix mailx sendmail unzip rsync wget firewalld"
+    plus_pkg_list="hostname git nodejs gcc-c++ mc openssl postfix mailx sendmail unzip rsync wget firewalld"
     
     run dnf --releasever="$release" --installroot "$rootfs_base" -y --nogpgcheck install "$base_pkg_list" "$plus_pkg_list" "$srvctl_pkg_list"
     exif "failed to build rootfs"

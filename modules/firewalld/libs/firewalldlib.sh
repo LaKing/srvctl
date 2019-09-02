@@ -1,6 +1,6 @@
 #!bin/bash
 
-function firewalld_add_service() { ## name proto port
+function firewalld_add_service() { ## name proto port hint
     
     systemctl start firewalld.service
     
@@ -9,6 +9,12 @@ function firewalld_add_service() { ## name proto port
     name="$1"
     proto="$2"
     port="$3"
+    hint="$4"
+    
+    if ! [[ $hint ]]
+    then
+    	hint="srvctl"
+    fi
     
     zone=$(firewall-cmd --get-default-zone)
     
@@ -29,7 +35,7 @@ cat > "/etc/firewalld/services/$name.xml" << EOF
 <?xml version="1.0" encoding="utf-8"?>
 <service>
   <short>$name</short>
-  <description>$name $proto $port (added by srvctl)</description>
+  <description>$name $proto $port (added by $hint)</description>
   <port protocol="$proto" port="$port"/>
 </service>
 EOF

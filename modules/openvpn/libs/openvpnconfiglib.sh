@@ -1,6 +1,6 @@
 #!/bin/bash
 
-function write_openvpn_server_config() {
+function write_openvpn_hostnet_server_config() {
     
     msg "Writing openvpn hostnet-server config"
     

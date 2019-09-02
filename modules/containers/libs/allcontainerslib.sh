@@ -22,7 +22,7 @@ function all_containers_execute() { ## cmd
             if systemctl is-active srvctl-nspawn@"$C" >/dev/null 2>&1
             then
                 ## this is a solution .. direct call causes some shell weirdness
-                say machinectl -q --no-pager shell "$C" "/bin/bash/ -c '$cmd'"
+                nur machinectl -q --no-pager shell "$C" "/bin/bash/ -c '$cmd'"
                 temp_file=$(mktemp)
                 echo "machinectl -q --no-pager shell $C /bin/bash/ -c '$cmd'" > "$temp_file"
                 /bin/bash "$temp_file"

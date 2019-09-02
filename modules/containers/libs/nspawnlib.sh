@@ -17,6 +17,7 @@ function create_nspawn_container_settings { ## container ## bridge
     
     mkdir -p "/var/srvctl3/share/containers/$C/users"
     
+    ## mapped ports allow applications to connect to certain containers.
     
 cat > "/srv/$C/$C.nspawn" << EOF
 [Network]
@@ -39,7 +40,9 @@ BindReadOnly=/var/srvctl3/share/lock:/run/systemd/network
 BindReadOnly=/srv/$C/hosts:/etc/hosts
 
 EOF
-    
+
+	out container "$C" > "/var/srvctl3/share/containers/$C/config"
+        
     ## add codepad
     if [[ -d /usr/local/share/boilerplate ]]
     then

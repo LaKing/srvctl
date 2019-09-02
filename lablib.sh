@@ -56,7 +56,7 @@ dbgc=0
 function dbg {
     ((dbgc++))
     ## short debug message if debugging is on
-    if $DEBUG && $TTY
+    if $DEBUG && $SC_TTY
     then
         # shellcheck disable=SC2128
         echo -e "${YELLOW}DEBUG #$dbgc ${BASH_SOURCE[1]}#$BASH_LINENO ${FUNCNAME[1]} ${GREEN} $* ${CLEAR}"
@@ -65,7 +65,7 @@ function dbg {
 function debug {
     ## short debug message if debugging is on
     local now
-    if $DEBUG && $TTY
+    if $DEBUG && $SC_TTY
     then
         now="$(date +%s%3N)"
         echo -e "${GREEN}# $((now-SC_STARTTIME))${YELLOW} $* ${CLEAR}"
@@ -114,7 +114,7 @@ function run {
 }
 
 ## a kind of run, but without running anything
-function say {
+function nur {
     local signum='$'
     local __exitcode
     if [ "$USER" == root ]
@@ -162,7 +162,7 @@ function eyif {
 
 function exit_0() {
     ## exit normally, without error
-    if $DEBUG && $TTY
+    if $DEBUG && $SC_TTY
     then
         debug "$SRVCTL"
         exit 0

@@ -276,14 +276,14 @@ function container_mapped_ports(container) {
 
 exports.container_mapped_ports = container_mapped_ports;
 
-function container_firewall_commands(container) {
+function container_firewall_commands(container, name) {
     if (container.mapped_ports) {
       var str = '';
       for (let i in container.mapped_ports) {
       	let p = container.mapped_ports[i];
       	//str += "## " + p.comment + "\n";
         //if (str.length > 0) str += " && "; 
-        str += "firewalld_add_service port-" + p.host_port +" " + p.proto + " " + p.host_port + " \ \n";
+        str += "firewalld_add_service port-" + p.host_port +" " + p.proto + " " + p.host_port + " " + name + " \ \n";
       }
       return str;
     }

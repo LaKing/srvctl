@@ -18,16 +18,24 @@
 if tty > /dev/null
 then
     ## in terminal
-    TTY=true
+    SC_TTY=true
 else
     ## in srvctl-gui, or in program
-    TTY=false
+    SC_TTY=false
 fi
 
 if [[ $USER == root ]]
 then
     ## okay THIS IS REALLY only for development.
-    [[ -f /bin/pop ]] && "$TTY" && sudo /bin/pop
+    [[ -f /bin/pop ]] && "$SC_TTY" && sudo /bin/pop
+fi
+
+## we met a situation in fedora 29 where hostname is undefined
+if [[ $HOSTNAME ]]
+then
+	readonly HOSTNAME
+else
+	readonly HOSTNAME="$(uname -n)"
 fi
 
 ## can be set true in /etc/srvctl/config
@@ -97,7 +105,7 @@ fi
 
 if [[ $CMD == 'exec-function' ]]
 then
-    echo "SC_USER: $SC_USER, UID: $UID, TTY: $TTY, CMD: $CMD, OPAS: $OPAS, DEBUG: $DEBUG"
+    echo "SC_USER: $SC_USER, UID: $UID, SC_TTY: $SC_TTY, CMD: $CMD, OPAS: $OPAS, DEBUG: $DEBUG"
     exit 1
 fi
 

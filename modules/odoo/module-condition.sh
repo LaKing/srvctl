@@ -1,6 +1,7 @@
 #! /bin/bash
 
-## referenced, not assigned here, but in init
+container=$HOSTNAME
+
 # shellcheck disable=SC2154
 if [[ "${container:0:5}" == "mail." ]]
 then

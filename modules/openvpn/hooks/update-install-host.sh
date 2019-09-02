@@ -14,9 +14,11 @@ run mkdir -p /etc/openvpn
 ## then get the certificates
 if [[ "$SC_ROOTCA_HOST" == "$HOSTNAME" ]]
 then
-    init_openvpn_rootca_certificates
+    init_openvpn_rootca_certificates hostnet
+    init_openvpn_rootca_certificates usernet
 else
-    grab_openvpn_rootca_certificates
+    grab_openvpn_rootca_certificates usernet
+    grab_openvpn_rootca_certificates hostnet
 fi
 
 run chmod 600 /etc/openvpn/*.key.pem
@@ -32,7 +34,7 @@ fi
 if [[ $SC_HOSTNET ]]
 then
     
-    write_openvpn_server_config
+    write_openvpn_hostnet_server_config
     
     run chown -R openvpn:openvpn /etc/openvpn
     

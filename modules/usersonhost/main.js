@@ -192,7 +192,7 @@ function create_user_client_cert(user) {
 
 var mounts = get("mount");
 
-function make_share(u, c) {
+function make_share(u, c, options) {
     // msg("Match domain-user " + c + " to " + u);
     var getent = get("getent passwd " + u);
     if (getent === undefined) return err("getent passwd " + u + " #returned undefined, skipping");
@@ -211,7 +211,8 @@ function make_share(u, c) {
         }
     }
     if (mounts.indexOf(source_path + " on " + dir + "/bindfs type fuse") !== -1) return;
-    run("bindfs --mirror=" + u + " --create-for-user=" + ve_root_uid + " --create-for-group=" + ve_root_uid + " " + source_path + " " + dir + "/bindfs");
+    if (!options) options = '';
+    run("bindfs " + options + " --mirror=" + u + " --create-for-user=" + ve_root_uid + " --create-for-group=" + ve_root_uid + " " + source_path + " " + dir + "/bindfs");
 }
 
 msg("check users");
@@ -235,9 +236,14 @@ msg("users share's");
 Object.keys(containers).forEach(function(c) {
     if (containers[c].user !== root) make_share(containers[c].user, c);
     if (containers[c].users !== undefined)
-        for (i = 0; i < containers[c].users.length; i++) {
+        for (let i = 0; i < containers[c].users.length; i++) {
             make_share(containers[c].users[i], c);
         }
+    if (containers[c].readers !== undefined)
+        for (let i = 0; i < containers[c].readers.length; i++) {
+            make_share(containers[c].readers[i], c, "-r");
+        }
+  
 });
 msg("SC_ROOTCA_HOST:" + SC_ROOTCA_HOST);
 

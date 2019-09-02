@@ -81,7 +81,7 @@ function mkrootfs_fedora_install_codepad {
     msg "mkrootfs_fedora_install_codepad"
     
     ## function from containers module
-    mkrootfs_fedora_base codepad "systemd-container httpd mod_ssl gzip git-core curl python openssl-devel postgresql-devel mariadb-server ShellCheck mongodb mongodb-server"
+    mkrootfs_fedora_base codepad "systemd-container httpd mod_ssl gzip git-core curl python openssl-devel postgresql-devel mariadb-server ShellCheck"
     
     msg "mkrootfs_fedora_install_codepad - complete"
     

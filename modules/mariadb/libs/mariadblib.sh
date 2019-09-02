@@ -69,7 +69,7 @@ function backup_mariadb() {
     for i in $(echo "show databases" | mysql $SC_MDA | grep -v Database); do
         if [ "$i" != "information_schema" ] && [ "$i" != "performance_schema" ]
         then
-            say "mysqldump $SC_MDA --databases $i > $BACKUP_POINT/$i.sql"
+            nur "mysqldump $SC_MDA --databases $i > $BACKUP_POINT/$i.sql"
             # shellcheck disable=SC2086
             mysqldump $SC_MDA --databases "$i" > "$BACKUP_POINT/$i.sql"
             exif

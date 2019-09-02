@@ -9,7 +9,9 @@ root_only
 
 sc_install wordpress
 sc_install php
+sc_install php-mysqlnd  
 
+msg "Adding wp-permalink configuration to apache"
 cat > /etc/httpd/conf.d/wp-permalink.conf << EOF
 ## srvctl generated
 <Directory /var/www/html/>
@@ -23,7 +25,7 @@ cat > /etc/httpd/conf.d/wp-permalink.conf << EOF
 </Directory>
 EOF
 
-
+msg "Set up logging behind a reverse proxy"
 cat > /etc/httpd/conf.d/logging-behind-reverse-proxy.conf << EOF
 ## srvctl generated
         <IfModule log_config_module>
@@ -37,6 +39,7 @@ cat > /etc/httpd/conf.d/logging-behind-reverse-proxy.conf << EOF
         </IfModule>
 EOF
 
+msg "Disable httpd systemwide wordpress configuration"
 if [[ -f /etc/httpd/conf.d/wordpress.conf ]]
 then
     rm -fr /etc/httpd/conf.d/wordpress.conf
@@ -45,7 +48,7 @@ fi
 dir=/var/www/html
 db_name=$(echo "$HOSTNAME" | cut -f1 -d"." )'_wp'
 
-
+msg "Downloading and installing latest wordpress from source"
 wd=/root
 run curl https://wordpress.org/latest.zip > "$wd"/latest.zip
 run unzip "$wd"/latest.zip -d "$wd" >> "$wd"/unzip.log
@@ -133,14 +136,21 @@ password="$(get_password)"
     
 } > "$dir"/wp-install.php
 
-php -f "$dir"/wp-install.php
+msg "Running wp-install.php script"
+if php -f "$dir"/wp-install.php
+then
+	msg "OK"
+else
+	err $?
+fi
+
 
 echo "$password" > "$dir/.admin"
 chmod 000 "$dir/.admin"
 
 rm -fr "$dir"/index.html
 
-msg "Wordpress instance installed. https://$HOSTNAME/wp-admin admin:$password"
+msg "Wordpress @ https://$HOSTNAME/wp-admin admin:$password"
 
 
 add_service httpd

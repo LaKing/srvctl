@@ -3,6 +3,8 @@
 ###
 msg "Containerfarm host installation"
 
+chmod 750 /srv
+
 ## this option allows machinectl to see our custom machines
 #if [[ ! -d /var/lib/containers ]] && [[ ! -f /var/lib/containers ]]
 #then
@@ -23,6 +25,8 @@ create_srvctl_nspawn_service
 run systemctl enable machines.target
 
 mkdir -p /var/srvctl3/share/containers
+chown 750 /var/srvctl3/share/containers
+
 mkdir -p /var/srvctl3/share/common
 mkdir -p /var/srvctl3/share/lock
 
