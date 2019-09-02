@@ -9,7 +9,7 @@ root_only
 
 sc_install wordpress
 sc_install php
-sc_install php-mysqlnd  
+sc_install php-mysqlnd
 
 msg "Adding wp-permalink configuration to apache"
 cat > /etc/httpd/conf.d/wp-permalink.conf << EOF
@@ -139,9 +139,9 @@ password="$(get_password)"
 msg "Running wp-install.php script"
 if php -f "$dir"/wp-install.php
 then
-	msg "OK"
+    msg "OK"
 else
-	err $?
+    err $?
 fi
 
 

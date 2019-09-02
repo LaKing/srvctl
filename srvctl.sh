@@ -33,9 +33,9 @@ fi
 ## we met a situation in fedora 29 where hostname is undefined
 if [[ $HOSTNAME ]]
 then
-	readonly HOSTNAME
+    readonly HOSTNAME
 else
-	readonly HOSTNAME="$(uname -n)"
+    readonly HOSTNAME="$(uname -n)"
 fi
 
 ## can be set true in /etc/srvctl/config

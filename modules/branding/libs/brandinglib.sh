@@ -8,9 +8,9 @@ function setup_index_html() { ## name dir
     _name="$1"
     _index="$2/index.html"
     
-	if [[ -d $2 ]] 
-	then
-
+    if [[ -d $2 ]]
+    then
+        
 cat > "$_index" << EOF
 <!DOCTYPE html>
 <html lang="en">
@@ -32,9 +32,9 @@ cat > "$_index" << EOF
 </body>
 </html>
 EOF
+        
+        cp "$SC_INSTALL_DIR/modules/branding/favicon.ico" "$2"
+        
+    fi
     
-    cp "$SC_INSTALL_DIR/modules/branding/favicon.ico" "$2"
-
-	fi
-
 }

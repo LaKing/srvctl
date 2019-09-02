@@ -40,9 +40,9 @@ BindReadOnly=/var/srvctl3/share/lock:/run/systemd/network
 BindReadOnly=/srv/$C/hosts:/etc/hosts
 
 EOF
-
-	out container "$C" > "/var/srvctl3/share/containers/$C/config"
-        
+    
+    out container "$C" > "/var/srvctl3/share/containers/$C/config"
+    
     ## add codepad
     if [[ -d /usr/local/share/boilerplate ]]
     then

@@ -13,7 +13,7 @@ function firewalld_add_service() { ## name proto port hint
     
     if ! [[ $hint ]]
     then
-    	hint="srvctl"
+        hint="srvctl"
     fi
     
     zone=$(firewall-cmd --get-default-zone)

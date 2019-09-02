@@ -86,9 +86,9 @@ EOF
         then
             echo "DNS=$dns2" >> "$f"
         fi
-       
+        
     else
-    
+        
     cat > "$f" << EOF
 [Match]
 Name=$interface
@@ -96,7 +96,7 @@ Name=$interface
 [Network]
 DHCP=YES
 EOF
-       
+        
     fi
     
 }

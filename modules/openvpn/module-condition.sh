@@ -2,7 +2,7 @@
 
 if [[ -d /etc/openvpn ]]
 then
-	echo true
+    echo true
     return
 fi
 

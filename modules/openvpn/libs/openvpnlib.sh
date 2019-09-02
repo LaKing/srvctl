@@ -46,7 +46,7 @@ function init_openvpn_rootca_certificates() { #net
 }
 
 function grab_openvpn_rootca_certificates() { #net
-
+    
     local NET SID
     ## usernet / hostnet / whatevernet
     NET="$1"
@@ -59,7 +59,7 @@ function grab_openvpn_rootca_certificates() { #net
         
         # shellcheck disable=SC2029
         ssh -n -o ConnectTimeout=1 "$SC_ROOTCA_HOST" "/bin/srvctl exec-function init_openvpn_create_ca_certificates $NET $HOSTNAME"
-
+        
         options="--no-R --no-implied-dirs -avze ssh"
         
         if [ ! -f /etc/openvpn/"$NET"-ca.crt.pem ]
