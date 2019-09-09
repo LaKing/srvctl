@@ -34,7 +34,7 @@ then
         msg "$arg is a copy from srvctl"
     else
         
-cat > "$file" << EOF
+cat > "$file" << 'EOF'
 #!/bin/bash
 
 ## @@@ $ARG

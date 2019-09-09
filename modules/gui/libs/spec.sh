@@ -27,9 +27,12 @@ function make_commands_spec() {
         make_commands_spec_on_file "$sourcefile"
     done
     
-    for sourcefile in $SC_INSTALL_DIR/modules/*/commands/*.sh
+    for dir in $SC_MODULES
     do
-        make_commands_spec_on_file "$sourcefile"
+        for sourcefile in $dir/commands/*.sh
+        do
+            make_commands_spec_on_file "$sourcefile"
+        done
     done
     
     for homedir in /home/*
@@ -44,7 +47,7 @@ function make_commands_spec() {
     done
     
     local tvhc module
-    for dir in $SC_INSTALL_DIR/modules/*
+    for dir in $SC_MODULES
     do
         module="${dir##*/}"
         tvhc="SC_USE_${module^^}"

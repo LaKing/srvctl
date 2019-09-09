@@ -45,7 +45,7 @@ function title {
 function load_libs {
     local tvll module
     
-    for dir in $SC_INSTALL_DIR/modules/*
+    for dir in $SC_MODULES
     do
         module="${dir##*/}"
         tvll="SC_USE_${module^^}"
@@ -63,26 +63,27 @@ function load_libs {
     done
 }
 
-function run_module_hook { ## module hook
-    local dir hook
-    dir="$SC_INSTALL_DIR/modules/$1"
-    hook="$2"
-    
-    if [[ -f $dir/hooks/$hook.sh ]]
-    then
-        
-        debug "@hook ${dir##*/} $hook"
-        ## dynamic source
-        # shellcheck disable=SC1090
-        source "$dir/hooks/$hook.sh"
-        exif "$dir hook '$hook' failed"
-    fi
-}
+## outdated - modules shall be taken from SC_MODULES
+#function run_module_hook { ## module hook
+#    local dir hook
+#    dir="$SC_INSTALL_DIR/modules/$1"
+#    hook="$2"
+#
+#    if [[ -f $dir/hooks/$hook.sh ]]
+#    then
+#
+#        debug "@hook ${dir##*/} $hook"
+#        ## dynamic source
+#        # shellcheck disable=SC1090
+#        source "$dir/hooks/$hook.sh"
+#        exif "$dir hook '$hook' failed"
+#    fi
+#}
 
 function run_hook {
     local hook tvrh module
     hook="$1"
-    for dir in $SC_INSTALL_DIR/modules/*
+    for dir in $SC_MODULES
     do
         module="${dir##*/}"
         tvrh="SC_USE_${module^^}"
@@ -144,7 +145,7 @@ function run_command {
     fi
     
     ## command from a module
-    for dir in $SC_INSTALL_DIR/modules/*
+    for dir in $SC_MODULES
     do
         
         module="${dir##*/}"
@@ -178,7 +179,7 @@ function run_command {
     
     debug "@default-command"
     
-    for dir in $SC_INSTALL_DIR/modules/*
+    for dir in $SC_MODULES
     do
         
         module="${dir##*/}"
@@ -256,7 +257,7 @@ function hint_commands {
     fi
     
     local tvhc module
-    for dir in $SC_INSTALL_DIR/modules/*
+    for dir in $SC_MODULES
     do
         
         module="${dir##*/}"
@@ -282,7 +283,7 @@ function hint_commands {
     
     echo ''
     
-    for dir in $SC_INSTALL_DIR/modules/*
+    for dir in $SC_MODULES
     do
         module="${dir##*/}"
         tvhc="SC_USE_${module^^}"
@@ -335,9 +336,12 @@ function help_commands {
             title "COMMAND - from srvctl"
         fi
         
-        for sourcefile in $SC_INSTALL_DIR/modules/*/commands/*.sh
+        for dir in $SC_MODULES
         do
-            help_on_file "$sourcefile"
+            for sourcefile in $dir/commands/*.sh
+            do
+                help_on_file "$sourcefile"
+            done
         done
         
         if [[ -d $SC_HOME/srvctl-includes ]] && [[ $SC_HOME != /root ]]
@@ -361,7 +365,7 @@ function help_commands {
             return
         fi
         
-        for dir in $SC_INSTALL_DIR/modules/*
+        for dir in $SC_MODULES
         do
             if [[ -f $dir/commands/$arg ]]
             then
@@ -390,7 +394,10 @@ function test_srvctl_modules() {
     if [[ $USER == root ]]
     then
         conf=/var/local/srvctl/modules.conf
-    else
+    fi
+    
+    if [[ $SC_HOME ]]
+    then
         conf="$SC_HOME/.srvctl/modules.conf"
         mkdir -p "$SC_HOME/.srvctl"
     fi
@@ -401,7 +408,7 @@ function test_srvctl_modules() {
         
         ## test value / test result on tested module
         local tvtm trtm module
-        for dir in $SC_INSTALL_DIR/modules/*
+        for dir in $SC_MODULES
         do
             module="${dir##*/}"
             tvtm="SC_USE_${module^^}"
@@ -417,16 +424,18 @@ function test_srvctl_modules() {
                     trtm=false
                 fi
                 ntc "tested module: $tvtm=$trtm"
+            else
+                err "Module $module has no condition file in $dir"
             fi
             #declare $tv=$tr
             echo "export $tvtm=$trtm" >> "$conf"
         done
-        
-        if [[ $CMD == 'test-modules' ]]
-        then
-            msg "srvctl modules selected"
-            exit 0
-        fi
+    fi
+    
+    if [[ $CMD == 'test-modules' ]]
+    then
+        msg "srvctl modules selected"
+        exit 0
     fi
     
     if [[ -f /var/local/srvctl/modules.conf ]]
@@ -443,7 +452,7 @@ function test_srvctl_modules() {
         source "$conf"
     fi
     
-    for dir in $SC_INSTALL_DIR/modules/*
+    for dir in $SC_MODULES
     do
         module="${dir##*/}"
         export "SC_USE_${module^^}"

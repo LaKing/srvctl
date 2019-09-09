@@ -53,6 +53,25 @@ readonly SC_COMMAND_ARGUMENTS="$*"
 ## should be /usr/local/share/srvctl
 export SC_INSTALL_DIR
 
+SC_MODULES=''
+
+## standard modules
+for dir in $SC_INSTALL_DIR/modules/*
+do
+    SC_MODULES="$SC_MODULES $dir"
+done
+
+## root-defined custom modules
+if [[ -d /root/srvctl-includes/modules ]]
+then
+    for dir in /root/srvctl-includes/modules/*
+    do
+        if [[ -d $dir ]]
+        then
+            SC_MODULES="$SC_MODULES $dir"
+        fi
+    done
+fi
 
 ## command arguments saved into variables
 # shellcheck disable=SC2034

@@ -19,9 +19,11 @@ function create_nspawn_container_settings { ## container ## bridge
     
     ## mapped ports allow applications to connect to certain containers.
     
+    
 cat > "/srv/$C/$C.nspawn" << EOF
 [Network]
 Bridge=$br
+#Bridge=br-hangmaffia
 $(cfg container "$C" mapped_ports)
 
 [Exec]
@@ -41,6 +43,7 @@ BindReadOnly=/srv/$C/hosts:/etc/hosts
 
 EOF
     
+    ## write out config to a file accessible inside containers
     out container "$C" > "/var/srvctl3/share/containers/$C/config"
     
     ## add codepad
@@ -48,13 +51,6 @@ EOF
     then
         echo 'BindReadOnly=/usr/local/share/boilerplate' >> "/srv/$C/$C.nspawn"
     fi
-    
-    
-    ## add codepad - legacy at th emoment
-    #if [[ -d /var/codepad/boilerplate ]]
-    #then
-    #    echo 'BindReadOnly=/var/codepad/boilerplate' >> "/srv/$C/$C.nspawn"
-    #fi
     
     for f in /srv/$C/*.binds
     do
@@ -65,7 +61,7 @@ EOF
         fi
     done
     
-    
+    ## create a shell file for firewalld configuration
     cfg container "$C" container_firewall_commands > /srv/"$C"/firewall_cmd.sh
     # shellcheck disable=SC1090
     source /srv/"$C"/firewall_cmd.sh
