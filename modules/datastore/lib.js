@@ -255,7 +255,7 @@ function container_https_port(container) {
     else return 443;
 }
 
-exports.container_http_port = container_http_port;
+exports.container_https_port = container_https_port;
 
 function container_resolv_conf(container) {
     return "nameserver " + container_gw(container) + "\n";
