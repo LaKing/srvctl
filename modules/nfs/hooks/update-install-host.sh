@@ -10,4 +10,5 @@ firewalld_add_service rpc-bind
 
 nfs_mount
 
-add_service nfs
+add_service rpcbind
+add_service nfs-server

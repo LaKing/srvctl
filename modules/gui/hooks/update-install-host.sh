@@ -30,7 +30,7 @@ cd "$SC_INSTALL_DIR/modules/gui/" || return
 
 #npm install
 
-run npm install -g pty.js --unsafe-perm
+run npm install -g node-pty
 run npm install -g express
 run npm install -g socket.io
 run npm install -g ssh2

@@ -118,6 +118,7 @@ if (DAT === "container") {
 
             if (CMD === GET) {
                 if (OPA === "interface") return_value(datastore.container_interface_name(container));
+                else if (OPA === "bridge") return_value(datastore.container_bridge(container));
                 else if (OPA === "br") return_value(datastore.container_br(container));
                 else if (OPA === "gw") return_value(datastore.container_gw(container));
                 else if (OPA === "br_host_ip") return_value(datastore.container_bridge_host_ip(container));
@@ -139,6 +140,8 @@ if (DAT === "container") {
                 else if (OPA === "br_network") return_value(datastore.container_br_network(container));
                 else if (OPA === "hosts") return_value(datastore.container_hosts(C));
                 else if (OPA === "nspawn") return_value(datastore.container_nspawn(C));
+                else if (OPA === "ethernet") return_value(datastore.container_ethernet(container));
+                else if (OPA === "ethernet_network") return_value(datastore.container_ethernet_network(container));
                 else if (OPA === "container_firewall_commands") return_value(datastore.container_firewall_commands(container, C));
                 else return_value(JSON.stringify(container, null, 4));
             }

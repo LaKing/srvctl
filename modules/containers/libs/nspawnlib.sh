@@ -5,7 +5,7 @@ function create_nspawn_container_settings { ## container
     local C
     C="$1"
     
-    msg "Create nspawn container settings for $C)"
+    msg "Create nspawn container settings for $C"
     
     mkdir -p "/var/srvctl3/share/containers/$C/users"
     
@@ -31,10 +31,17 @@ function create_nspawn_container_settings { ## container
         fi
     done
     
+    ## create a shell file for ethernet configuration
+    cfg container "$C" ethernet > /srv/"$C"/ethernet.sh
+    # shellcheck disable=SC1090
+    source /srv/"$C"/ethernet.sh
+    
     ## create a shell file for firewalld configuration
     cfg container "$C" container_firewall_commands > /srv/"$C"/firewall_cmd.sh
     # shellcheck disable=SC1090
     source /srv/"$C"/firewall_cmd.sh
+    
+    
     
 }
 

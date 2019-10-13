@@ -166,6 +166,7 @@ exports.container_gw = container_gw;
 
 function container_interface_name(container) {
     if (container.interface) return container.interface;
+
     var cipa = container.ip.split(dot);
     if (Number(cipa[0]) === 192) return Number(cipa[1]) + "_" + Number(cipa[2]) + "_" + Number(cipa[3]);
     if (Number(cipa[0]) === 172) return Number(cipa[1]) + "+" + Number(cipa[2]) + "+" + Number(cipa[3]);
@@ -181,6 +182,13 @@ function container_bridge_host_ip(container) {
 }
 
 exports.container_bridge_host_ip = container_bridge_host_ip;
+
+function container_bridge(container) {
+    if (container.bridge) return container.bridge;
+    return "FALSE";
+}
+
+exports.container_bridge = container_bridge;
 
 function container_user_id(container) {
     var cipa = container.ip.split(dot);
@@ -270,7 +278,34 @@ function container_nspawn_network_ethernet(container) {
 
 //exports.container_nspawn_network_ethernet = container_nspawn_network_ethernet;
 
-function container_network_ethernet_network(container) {
+function container_ethernet(container) {
+    if (container.bridge) return "## nothing to do.";
+
+    var interface = container_interface_name(container);
+    var br = container_br(container);
+
+    var str = "#!/bin/bash" + "\n";
+    str += "" + "\n";
+    str += "if ip link set dev " + interface + " up" + "\n";
+    str += "then" + "\n";
+    str += "    echo '[ OK ] ip link set dev " + interface + " up'" + "\n";
+    str += "else" + "\n";
+    str += "    echo '[FAIL] ip link set dev " + interface + " up'" + "\n";
+    str += "fi" + "\n";
+    str += "" + "\n";
+    str += "if brctl addif " + br + " " + interface + "\n";
+    str += "then" + "\n";
+    str += "    echo '[ OK ] brctl addif " + br + " " + interface + "'" + "\n";
+    str += "else" + "\n";
+    str += "    echo '[FAIL] brctl addif " + br + " " + interface + "'" + "\n";
+    str += "fi" + "\n";
+
+    return str;
+}
+
+exports.container_ethernet = container_ethernet;
+
+function container_ethernet_network(container) {
     var str = "## srvctl-generated";
 
     if (container.bridge) {
@@ -302,7 +337,7 @@ function container_network_ethernet_network(container) {
     }
 }
 
-exports.container_network_ethernet_network = container_network_ethernet_network;
+exports.container_ethernet_network = container_ethernet_network;
 
 function container_hosts(C) {
     var container = containers[C];

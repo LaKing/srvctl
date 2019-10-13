@@ -115,6 +115,7 @@ function get_container_zone(cluster, host, hostdata, containers, name, alias) {
     var zone = ";;" + cluster + " " + host + " " + name + br + br;
     if (alias) zone = ";;" + cluster + " " + host + " " + name + " " + alias + br + br;
     var ip = hostdata.host_ip;
+  
     var spf_string = "v=spf1";
 
     var serial = Math.floor(new Date().getTime() / 1000);
@@ -200,6 +201,7 @@ function get_conf(cluster, host) {
     if (host === HOSTNAME) file = "/var/srvctl3/datastore/containers.json";
 
     var hostdata = clusters[cluster][host];
+    if (!hostdata.host_ip) return '';
 
     try {
         containers = JSON.parse(fs.readFileSync(file));

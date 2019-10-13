@@ -221,7 +221,7 @@ function make_share(u, c, options) {
     if (!fs.existsSync(dir)) fs.mkdirSync(dir);
     var host = datastore.container_host(containers[c]);
     var source_path = "/var/srvctl3/nfs/" + host + "/srv/" + c + "/rootfs";
-    if (!fs.existsSync(source_path)) return console.log(source_path + " not mounted. Check OpenVPN.");
+    if (!fs.existsSync(source_path)) return err(source_path + " not mounted. Check OpenVPN.");
     if (!fs.existsSync(dir + "/bindfs")) {
         // TODO handle case of stale file handle with umount -f
         try {

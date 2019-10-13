@@ -23,7 +23,7 @@ then
     cat "/srv/$C/local.nspawn" >  "/srv/$C/$C.nspawn"
 else
     ## automatic config via srvctl
-    echo "srvctl exec-function create_nspawn_container_settings $C"
+    echo "create_nspawn_container_settings"
     bash /bin/srvctl exec-function create_nspawn_container_settings "$C" || exit 11
 fi
 

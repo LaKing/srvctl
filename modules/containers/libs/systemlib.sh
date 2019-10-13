@@ -12,18 +12,19 @@ function create_container_config() { ## Container
     
     ## if we have a custom bridge use that, no need to go further
     bridge="$(get container "$C" bridge)"
-    if [[ $bridge ]]
+    
+    if [[ $bridge == FALSE ]]
     then
-        #cfg container "$C" network_ethernet_network > "/srv/$C/network/80-container-host0.network"
-        cat /usr/lib/systemd/network/80-container-host0.network > "/srv/$C/network/80-container-host0.network"
-        
-    else
-        cfg container "$C" network_ethernet_network > "/srv/$C/network/ethernet.network"
+        msg "Using the default virtual ethernet configuration."
+        cfg container "$C" ethernet_network > "/srv/$C/network/ethernet.network"
         cfg container "$C" hosts > "/srv/$C/hosts"
         cfg container "$C" resolv_conf > "/srv/$C/rootfs/etc/resolv.conf"
         
         create_networkd_bridge "$C"
-        
+    else
+        msg "Using bridge $bridge with host0 interface (DHCP)."
+        #cfg container "$C" ethernet_network > "/srv/$C/network/80-container-host0.network"
+        cat /usr/lib/systemd/network/80-container-host0.network > "/srv/$C/network/80-container-host0.network"
     fi
 }
 
@@ -34,6 +35,7 @@ function create_srvctl_nspawn_service {
     
     msg "Create srvctl-nspawn@.service"
     
+    ## this file resambles systemd-nspawn@.service with some tuning
 cat > "/etc/systemd/system/srvctl-nspawn@.service" << EOF
 # $SRVCTL $NOW
 [Unit]
@@ -41,7 +43,8 @@ Description=srvctl - container %i
 Documentation=man:systemd-nspawn(1)
 PartOf=machines.target
 Before=machines.target
-After=network.target
+After=network.target systemd-resolved.service
+RequiresMountsFor=/var/lib/machines
 
 [Service]
 ExecStartPre=/bin/bash $SC_INSTALL_DIR/modules/containers/execstartpre.sh %i
@@ -53,6 +56,7 @@ KillMode=mixed
 Type=notify
 RestartForceExitStatus=133
 SuccessExitStatus=133
+WatchdogSec=3min
 Slice=machine.slice
 Delegate=yes
 TasksMax=16384
@@ -69,6 +73,11 @@ DeviceAllow=char-pts rw
 DeviceAllow=/dev/loop-control rw
 DeviceAllow=block-loop rw
 DeviceAllow=block-blkext rw
+
+# nspawn can set up LUKS encrypted loopback files, in which case it needs
+# access to /dev/mapper/control and the block devices /dev/mapper/*.
+DeviceAllow=/dev/mapper/control rw
+DeviceAllow=block-device-mapper rw
 
 [Install]
 WantedBy=machines.target
@@ -87,7 +96,6 @@ function create_networkd_bridge { ## for container
     
     if [[ -f "/etc/systemd/network/br-$br.netdev" ]] && [[ -f "/etc/systemd/network/br-$br.network" ]]
     then
-        msg ""
         return
     fi
     

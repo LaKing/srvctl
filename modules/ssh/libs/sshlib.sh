@@ -49,6 +49,10 @@ function update_install_ssh_config() {
     chown root:root /var/srvctl3/share/common/authorized_keys
     chmod 644 /var/srvctl3/share/common/authorized_keys
     
+    ## users need to access this file
+    chmod -R 644 /var/srvctl3/ssh/known_hosts
+    chmod +X /var/srvctl3/ssh
+    
     mkdir -p "$SC_DATASTORE_RW_DIR/users"
     
     run systemctl enable sshd
