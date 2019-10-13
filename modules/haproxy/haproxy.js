@@ -186,12 +186,12 @@ function get_global() {
     str += br + "        retries                 3";
     str += br + "        timeout http-request    10s";
     str += br + "        timeout queue           1m";
-    str += br + "        timeout connect         1s";
-    str += br + "        timeout client          1m";
-    str += br + "        timeout server          3m"; /// 1m is the default!
+    str += br + "        timeout connect         10s";
+    str += br + "        timeout client          5m"; // 1m is the default!
+    str += br + "        timeout server          5m"; // 1m is the default!
     str += br + "        timeout http-keep-alive 10s";
     str += br + "        timeout check           10s";
-    str += br + "        maxconn                 3000";
+    str += br + "        maxconn                 50000"; // 3000 was a default
 
     str += br + "        option forwardfor";
     str += br + "        option http-server-close";

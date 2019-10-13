@@ -5,8 +5,6 @@
 ## &en Generic container for software developmen.
 ## &en Contains all packages for collaborative software development.
 
-ve_only
-
 if [[ "${ARG:0:5}" == "mail." ]]
 then
     err "Adding codepad as mail container is not permitted."

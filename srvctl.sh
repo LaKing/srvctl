@@ -24,11 +24,11 @@ else
     SC_TTY=false
 fi
 
-if [[ $USER == root ]]
-then
-    ## okay THIS IS REALLY only for development.
-    [[ -f /bin/pop ]] && "$SC_TTY" && sudo /bin/pop
-fi
+#if [[ $USER == root ]]
+#then
+## okay THIS IS REALLY only for development.
+[[ -f /bin/pop ]] && "$SC_TTY" && sudo /bin/pop
+#fi
 
 ## we met a situation in fedora 29 where hostname is undefined
 if [[ $HOSTNAME ]]
@@ -55,11 +55,6 @@ export SC_INSTALL_DIR
 
 SC_MODULES=''
 
-## standard modules
-for dir in $SC_INSTALL_DIR/modules/*
-do
-    SC_MODULES="$SC_MODULES $dir"
-done
 
 ## root-defined custom modules
 if [[ -d /root/srvctl-includes/modules ]]
@@ -72,6 +67,12 @@ then
         fi
     done
 fi
+
+## standard modules
+for dir in $SC_INSTALL_DIR/modules/*
+do
+    SC_MODULES="$SC_MODULES $dir"
+done
 
 ## command arguments saved into variables
 # shellcheck disable=SC2034

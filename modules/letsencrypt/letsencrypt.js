@@ -189,7 +189,8 @@ function run_on_domain(domain) {
 function main() {
     Object.keys(containers).forEach(function(i) {
         if ((i.substr(i.length - 6) !== '.devel') && (i.substr(i.length - 6) !== '-devel') && (i.substr(i.length - 6) !== '.local') && (i.substr(i.length - 6) !== '-local') && (i.substring(0, 5) !== 'mail.')) {
-            check_domain(i);
+            
+          	if (i.indexOf('.') > 0) check_domain(i);
             //if (containers[i].aliases) containers[i].aliases.forEach(function(j) {
             //    check_domain(j);
             //});

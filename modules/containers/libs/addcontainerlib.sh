@@ -31,6 +31,11 @@ function add_ve() { ## type name
     ## Failed to add new veth interfaces (vb-alpha-test.:host0): File exists
     ## alpha-test.domain1.ve alpha-test.domain2.ve
     
+    ## Workaround is to use NetworkvethExtra
+    ## add a "test" interface
+    ## ip link set dev test up
+    ## brctl addif 10.110.24.x test
+    
     ## add to database
     new container "$C" "$T"
     exif "Could not add container to datastore."
@@ -50,7 +55,7 @@ function add_ve() { ## type name
     setup_index_html "$C" "/srv/$C/rootfs/var/www/html"
     write_ve_postfix_conf "$C"
     
-    ln -s "/srv/$C/rootfs/usr/lib/systemd/system/httpd.service" "/srv/$C/rootfs/etc/systemd/system/multi-user.target.wants/httpd.service"
+    ln -s "/usr/lib/systemd/system/httpd.service" "/srv/$C/rootfs/etc/systemd/system/multi-user.target.wants/httpd.service"
     run systemctl start "srvctl-nspawn@$C" --no-pager
     run systemctl status "srvctl-nspawn@$C" --no-pager
     

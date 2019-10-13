@@ -3,17 +3,28 @@
 
 function create_container_config() { ## Container
     
-    local ip br C
+    local br bridge C
     C="$1"
-    ip="$(get container "$C" ip)" || exit
-    br="$(get container "$C" br)" || exit
     
-    create_networkd_bridge "$br"
-    create_nspawn_container_host0 "$C" "$br" "$ip"
-    create_nspawn_container_hostsfile "$C" "$br" "$ip"
-    create_nspawn_container_resolvconf "$C" "$br"
-    create_nspawn_container_settings "$C" "$br"
+    create_nspawn_container_settings "$C"
     
+    mkdir -p "/srv/$C/network"
+    
+    ## if we have a custom bridge use that, no need to go further
+    bridge="$(get container "$C" bridge)"
+    if [[ $bridge ]]
+    then
+        #cfg container "$C" network_ethernet_network > "/srv/$C/network/80-container-host0.network"
+        cat /usr/lib/systemd/network/80-container-host0.network > "/srv/$C/network/80-container-host0.network"
+        
+    else
+        cfg container "$C" network_ethernet_network > "/srv/$C/network/ethernet.network"
+        cfg container "$C" hosts > "/srv/$C/hosts"
+        cfg container "$C" resolv_conf > "/srv/$C/rootfs/etc/resolv.conf"
+        
+        create_networkd_bridge "$C"
+        
+    fi
 }
 
 function create_srvctl_nspawn_service {
@@ -69,92 +80,23 @@ EOF
 
 
 
-function create_networkd_bridge { ## br
-    local br gw
-    br="$1"
-    gw="${br::-1}1"
+function create_networkd_bridge { ## for container
+    local C br
+    C="$1"
+    br="$(get container "$C" br)" || return
     
     if [[ -f "/etc/systemd/network/br-$br.netdev" ]] && [[ -f "/etc/systemd/network/br-$br.network" ]]
     then
+        msg ""
         return
     fi
     
     msg "Creating network bridge $br"
     
-cat > "/etc/systemd/network/br-$br.netdev" << EOF
-[NetDev]
-Name=$br
-Kind=bridge
-
-EOF
-    
-cat > "/etc/systemd/network/br-$br.network" << EOF
-[Match]
-Name=$br
-
-[Network]
-IPMasquerade=yes
-Address=$gw/24
-
-EOF
+    cfg container "$C" br_netdev > "/etc/systemd/network/br-$br.netdev"
+    cfg container "$C" br_network > "/etc/systemd/network/br-$br.network"
     
     run systemctl restart systemd-networkd --no-pager
 }
 
 
-
-function create_nspawn_container_host0 {
-    local C gw ip br
-    C="$1"
-    br="$2"
-    ## here I assume that the bridge always ends in .x and the gateway adress, (bridge adress) is .1
-    gw="${br::-1}1"
-    ip="$3"
-    
-    ## cat > "/srv/$C/rootfs/etc/systemd/network/80-container-host0.network" << EOF
-    mkdir -p "/srv/$C/network"
-cat > "/srv/$C/network/80-container-host0.network" << EOF
-[Match]
-Virtualization=container
-Name=host0
-
-[Network]
-Address=$ip/24
-Gateway=$gw
-
-EOF
-    
-}
-
-
-function create_nspawn_container_hostsfile {
-    local C gw ip br
-    C="$1"
-    br="$2"
-    gw="${br::-1}1"
-    ip="$3"
-    
-    
-cat > "/srv/$C/hosts" << EOF
-127.0.0.1   localhost localhost.localdomain localhost4 localhost4.localdomain4
-::1         localhost localhost.localdomain localhost6 localhost6.localdomain6
-
-$ip $C
-$gw srvctl-gateway
-
-EOF
-    
-}
-
-function create_nspawn_container_resolvconf {
-    local C gw ip br
-    C="$1"
-    br="$2"
-    gw="${br::-1}1"
-    
-    
-cat > "/srv/$C/rootfs/etc/resolv.conf" << EOF
-nameserver $gw
-EOF
-    
-}

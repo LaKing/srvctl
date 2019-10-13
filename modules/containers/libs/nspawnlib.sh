@@ -1,51 +1,21 @@
 #!/bin/bash
 
-function create_nspawn_container_settings { ## container ## bridge
+function create_nspawn_container_settings { ## container
     
     local C
     C="$1"
-    br="$2"
-    if [[ -z $br ]]
-    then
-        br="$(get container "$C" br)"
-        ## TODO ensure bridge is created and exists
-        
-    fi
-    uid="$(get container "$C" uid)"
     
-    msg "Create nspawn container settings for $C $br ($uid)"
+    msg "Create nspawn container settings for $C)"
     
     mkdir -p "/var/srvctl3/share/containers/$C/users"
     
-    ## mapped ports allow applications to connect to certain containers.
-    
-    
-cat > "/srv/$C/$C.nspawn" << EOF
-[Network]
-Bridge=$br
-#Bridge=br-hangmaffia
-$(cfg container "$C" mapped_ports)
-
-[Exec]
-#PrivateUsers=$uid
-
-[Files]
-#PrivateUsersChown=true
-BindReadOnly=$SC_INSTALL_DIR
-
-BindReadOnly=/var/srvctl3/share/containers/$C
-BindReadOnly=/var/srvctl3/share/common
-
-BindReadOnly=/srv/$C/network:/etc/systemd/network
-#BindReadOnly=/var/srvctl3/share/lock:/usr/lib/systemd/network
-BindReadOnly=/var/srvctl3/share/lock:/run/systemd/network
-BindReadOnly=/srv/$C/hosts:/etc/hosts
-
-EOF
+    ## create the nspawn file
+    cfg container "$C" nspawn > "/srv/$C/$C.nspawn"
     
     ## write out config to a file accessible inside containers
     out container "$C" > "/var/srvctl3/share/containers/$C/config"
     
+    ## TODO implement with hooks
     ## add codepad
     if [[ -d /usr/local/share/boilerplate ]]
     then
@@ -72,11 +42,11 @@ function update_nspawn_container { ## container
     
     local C
     C="$1"
-    
+    source /etc/os-release
     
     run ssh "$C" "dnf -y install kernel kernel-modules kernel-core kernel-headers dnf-plugin-system-upgrade"
     run ssh "$C" "dnf -y upgrade --refresh"
-    run ssh "$C" "dnf -y system-upgrade download --refresh --releasever=28"
+    run ssh "$C" "dnf -y system-upgrade download --refresh --releasever=$VERSION_ID"
     #exif
     run ssh "$C" "dnf -y system-upgrade reboot"
     sleep 3

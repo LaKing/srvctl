@@ -16,7 +16,7 @@ const SC_HOST_CONF = "/etc/srvctl/host.conf";
 
 function return_error(msg) {
     console.error('DATA-ERROR:', msg);
-    process.exit(111);
+    process.exit(113);
 }
 
 var out = '#!/bin/bash' + br;

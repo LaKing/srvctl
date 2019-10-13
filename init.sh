@@ -60,7 +60,7 @@ source "$SC_INSTALL_DIR/commonlib.sh" || echo "commonlib could not be loaded!" 1
 readonly NOW=$(date +%Y.%m.%d-%H:%M:%S)
 export NOW
 
-if [[ $CMD == update-install ]] || [[ $CMD == 'test-modules' ]]
+if [[ $CMD == update-install ]] || [[ $CMD == test-modules ]]
 then
     msg "srvctl test-modules"
     rm -fr /var/local/srvctl/modules.conf

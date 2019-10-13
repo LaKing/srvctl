@@ -90,7 +90,8 @@ var master_servers = "";
 Object.keys(clusters).forEach(function(i) {
     Object.keys(clusters[i]).forEach(function(j) {
         if (clusters[i][j].dns_server === "master") {
-            master_servers += clusters[i][j].host_ip + ";";
+            // if it has a public IP address 
+            if (clusters[i][j].host_ip) master_servers += clusters[i][j].host_ip + ";";
         }
     });
 });

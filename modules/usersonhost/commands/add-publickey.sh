@@ -40,10 +40,28 @@ fi
 cat "$pub"
 echo ''
 
+msg "Verifying ..."
 if run ssh-keygen -l -f "$pub"
 then
     msg "OK"
 else
-    err "Could not verify the publikkey, removing."
-    rm -fr "$pub"
+    err "Failed."
+    msg "Trying to convert to the openssh format..."
+    cat "$pub" > "$pub.tmp"
+    if run ssh-keygen -i -f "$pub.tmp" > "$pub"
+    then
+        msg "Success!"
+    else
+        err "Failed to convert."
+    fi
+    run rm -fr "$pub.tmp"
+    
+    msg "Verifying ..."
+    if run ssh-keygen -l -f "$pub"
+    then
+        msg "OK"
+    else
+        err "Could not verify the publikkey, removing."
+        run rm -fr "$pub"
+    fi
 fi

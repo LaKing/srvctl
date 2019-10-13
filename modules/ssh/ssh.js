@@ -172,9 +172,9 @@ function ssh_config() {
         str += "Host " + i + br;
         str += "User root" + br;
         str += "StrictHostKeyChecking no" + br;
-        str += "UserKnownHostsFile /dev/null" + br;
         str += "UserKnownHostsFile /var/srvctl3/ssh/known_hosts" + br;
-        
+        str += "UserKnownHostsFile /dev/null" + br;
+
         str += "" + br;
     });
     fs.writeFile('/etc/ssh/ssh_config.d/srvctl-containers.conf', str, function(err) {

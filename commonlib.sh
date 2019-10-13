@@ -391,9 +391,13 @@ function help_commands {
 function test_srvctl_modules() {
     
     local conf
+    
+    conf=/var/local/srvctl/modules.conf
+    
     if [[ $USER == root ]]
     then
-        conf=/var/local/srvctl/modules.conf
+        #conf=/var/local/srvctl/modules.conf
+        mkdir -p /var/local/srvctl/
     fi
     
     if [[ $SC_HOME ]]
@@ -402,7 +406,7 @@ function test_srvctl_modules() {
         mkdir -p "$SC_HOME/.srvctl"
     fi
     
-    if [[ ! -f $conf ]]
+    if [[ ! -f $conf ]] || [[ $CMD == update-install ]] || [[ $CMD == test-modules ]]
     then
         msg "Srvctl modules configuration"
         
