@@ -1,10 +1,11 @@
 #!/bin/bash
 
-function create_nspawn_container_filesystem() { ## T C
+function create_nspawn_container_filesystem() { ## C
     
-    local T C
-    T="$1"
-    C="$2"
+    local C T
+    C="$1"
+    
+    T="$(get container "$C" type)" || return
     
     ## this check is a redundant one...
     if [[ ! -d $SC_ROOTFS_DIR/$T ]]
@@ -27,59 +28,5 @@ function create_nspawn_container_filesystem() { ## T C
     ## copy the filesystem root
     run cp -R -p "$SC_ROOTFS_DIR/$T/*" "$rootfs"
     
-    ## end of function
-}
-
-function create_nspawn_container_network() { ## T C
-    
-    local T C
-    T="$1"
-    C="$2"
-    
-    local ip br
-    ip="$(get container "$C" ip)" || exit
-    br="$(get container "$C" br)" || exit
-    
-    msg "Create $T nspawn container network $C"
-    msg "ip: $ip / br: $br"
-    
-    
-    local rootfs
-    rootfs="/srv/$C/rootfs"
-    mkdir -p "$rootfs"
-    
-    create_container_config "$C"
-    
-    run systemctl enable "srvctl-nspawn@$C"
-    
-    ## create container networking in the container
-    if [[ ! -e "$rootfs"/etc/systemd/system/multi-user.target.wants/systemd-networkd.service ]]
-    then
-        ln -s /usr/lib/systemd/system/systemd-networkd.service "$rootfs"/etc/systemd/system/multi-user.target.wants/systemd-networkd.service
-    fi
-    #ln -s /usr/lib/systemd/system/systemd-networkd.service "$rootfs"/etc/systemd/system/sockets.target.wants/systemd-networkd.socket
-    
-    if [[ ! -e "$rootfs"/etc/systemd/system/multi-user.target.wants/systemd-resolved.service ]]
-    then
-        ln -s /usr/lib/systemd/system/systemd-resolved.service "$rootfs"/etc/systemd/system/multi-user.target.wants/systemd-resolved.service
-    fi
-    
-    echo "nameserver ${br:: -1}1" > "$rootfs"/etc/resolv.conf
-    ## add other nameservers?
-    
-    local dns
-    dns="$(get host "$HOSTNAME" dns1)"
-    if [[ ! -z $dns ]]
-    then
-        echo "nameserver $dns" >> "$rootfs"/etc/resolv.conf
-    fi
-    
-    dns="$(get host "$HOSTNAME" dns2)"
-    if [[ ! -z $dns ]]
-    then
-        echo "nameserver $dns" >> "$rootfs"/etc/resolv.conf
-    fi
-    
-    echo "nameserver 8.8.8.8" >> "$rootfs"/etc/resolv.conf
     ## end of function
 }

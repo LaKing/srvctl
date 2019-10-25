@@ -21,7 +21,7 @@ function update_install_ssh_config() {
     #echo '' > /etc/ssh/ssh_known_hosts
     
     ## we could store host_keys in our datastore (as well). But we wont. At least not for now.
-    #cfg cluster host_keys
+    # get cluster host_keys > /etc/ssh/ssh_known_hosts
     
     mkdir -p /etc/ssh/ssh_config.d
     mkdir -p /var/srvctl3/share/common

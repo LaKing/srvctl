@@ -1,11 +1,11 @@
 #!/bin/bash
 
-function add_ve() { ## type name
+function add_ve() { ## type name [bridge]
     
-    local T C
+    local T C B
     T="$1"
     C="$2"
-    
+    B="$3"
     
     if [[ ! -d $SC_ROOTFS_DIR/$T ]]
     then
@@ -37,20 +37,20 @@ function add_ve() { ## type name
     ## brctl addif 10.110.24.x test
     
     ## add to database
-    new container "$C" "$T"
+    new container "$C" "$T" "$B"
     exif "Could not add container to datastore."
     
     msg "$T container $C added to datastore."
     
-    run_hooks add_ve_create_nspawn_container "$T" "$C"
+    run_hooks add_ve_create_nspawn_container "$C"
     
     ## make local container
-    create_nspawn_container_filesystem "$T" "$C"
-    create_nspawn_container_network "$T" "$C"
+    create_nspawn_container_filesystem "$C"
+    create_nspawn_container_config "$C"
     
-    create_selfsigned_domain_certificate "$C" "/srv/$C/cert"
-    cat "/srv/$C/cert/$C.crt" > "/srv/$C/rootfs/etc/pki/tls/certs/localhost.crt"
-    cat "/srv/$C/cert/$C.key" > "/srv/$C/rootfs/etc/pki/tls/private/localhost.key"
+    run systemctl enable "srvctl-nspawn@$C"
+    
+    add_ve_certificate "$C"
     
     setup_index_html "$C" "/srv/$C/rootfs/var/www/html"
     write_ve_postfix_conf "$C"
@@ -59,4 +59,14 @@ function add_ve() { ## type name
     run systemctl start "srvctl-nspawn@$C" --no-pager
     run systemctl status "srvctl-nspawn@$C" --no-pager
     
+}
+
+function add_ve_certificate() {
+    local C
+    C="$1"
+    msg "Add VE certificate"
+    create_selfsigned_domain_certificate "$C" "/srv/$C/cert"
+    cat "/srv/$C/cert/$C.crt" > "/srv/$C/rootfs/etc/pki/tls/certs/localhost.crt"
+    cat "/srv/$C/cert/$C.key" > "/srv/$C/rootfs/etc/pki/tls/private/localhost.key"
+    cat "/srv/$C/cert/$C.pem" > "/var/srvctl3/datastore/cert/$C.pem"
 }

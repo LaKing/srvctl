@@ -26,7 +26,7 @@ function init_gluster_rootca_certificates() {
     cat /etc/srvctl/CA/glusternet/client-"$HOSTNAME".key.pem > /etc/glusterfs/glusternet-client.key.pem
     cat /etc/srvctl/CA/glusternet/client-"$HOSTNAME".crt.pem > /etc/glusterfs/glusternet-client.crt.pem
     
-    for S in $(cfg cluster host_list)
+    for S in $(get cluster host_list)
     do
         ## glusterfs client certificate
         create_ca_certificate server glusternet "$S"

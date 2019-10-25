@@ -1,31 +1,82 @@
 #!/bin/bash
 
 
-function create_container_config() { ## Container
+function create_nspawn_container_config() { ## Container
+    
+    ## does the action on /srv
     
     local br bridge C
     C="$1"
     
+    msg "Create nspawn container config for $C"
+    
+    ## create the nspawn file
+    get container "$C" nspawn > "/srv/$C/$C.nspawn"
+    
     create_nspawn_container_settings "$C"
     
+    rm -fr "/srv/$C/network"
     mkdir -p "/srv/$C/network"
     
-    ## if we have a custom bridge use that, no need to go further
+    ## custom bridge
     bridge="$(get container "$C" bridge)"
     
-    if [[ $bridge == FALSE ]]
+    if [[ $bridge == false ]]
     then
-        msg "Using the default virtual ethernet configuration."
-        cfg container "$C" ethernet_network > "/srv/$C/network/ethernet.network"
-        cfg container "$C" hosts > "/srv/$C/hosts"
-        cfg container "$C" resolv_conf > "/srv/$C/rootfs/etc/resolv.conf"
+        msg "Using the default virtual ethernet configuration for $C"
+        get container "$C" ethernet_network > "/srv/$C/network/ethernet.network"
         
         create_networkd_bridge "$C"
     else
-        msg "Using bridge $bridge with host0 interface (DHCP)."
-        #cfg container "$C" ethernet_network > "/srv/$C/network/80-container-host0.network"
-        cat /usr/lib/systemd/network/80-container-host0.network > "/srv/$C/network/80-container-host0.network"
+        msg "Using bridge $bridge with host0 interface (DHCP). for $C"
+        get container "$C" ethernet_network > "/srv/$C/network/80-container-host0.network"
+        #cat /usr/lib/systemd/network/80-container-host0.network > "/srv/$C/network/80-container-host0.network"
     fi
+    
+    get container "$C" hosts > "/srv/$C/hosts"
+    get container "$C" resolv_conf > "/srv/$C/rootfs/etc/resolv.conf"
+    
+    ## TODO implement with hooks
+    ## add codepad
+    if [[ -d /usr/local/share/boilerplate ]]
+    then
+        echo 'BindReadOnly=/usr/local/share/boilerplate' >> "/srv/$C/$C.nspawn"
+    fi
+    
+    for f in /srv/$C/*.binds
+    do
+        if [[ -f $f ]]
+        then
+            msg "Adding extra bind to nspawn ($f)"
+            cat "$f" >> "/srv/$C/$C.nspawn"
+        fi
+    done
+    
+    ## create a shell file for ethernet configuration
+    get container "$C" ethernet > /srv/"$C"/ethernet.sh
+    
+    ## create a shell file for firewalld configuration
+    get container "$C" firewall_commands > /srv/"$C"/firewall_cmd.sh
+    # shellcheck disable=SC1090
+    source /srv/"$C"/firewall_cmd.sh
+    
+}
+
+
+function create_nspawn_container_settings { ## container
+    
+    ## does the action on /var
+    
+    local C
+    C="$1"
+    
+    msg "Create nspawn container settings for $C"
+    
+    mkdir -p "/var/srvctl3/share/containers/$C/users"
+    
+    ## write out config to a file accessible inside containers
+    out container "$C" > "/var/srvctl3/share/containers/$C/config"
+    
 }
 
 function create_srvctl_nspawn_service {
@@ -89,7 +140,7 @@ EOF
 
 
 
-function create_networkd_bridge { ## for container
+function create_networkd_bridge { ## C
     local C br
     C="$1"
     br="$(get container "$C" br)" || return
@@ -101,8 +152,8 @@ function create_networkd_bridge { ## for container
     
     msg "Creating network bridge $br"
     
-    cfg container "$C" br_netdev > "/etc/systemd/network/br-$br.netdev"
-    cfg container "$C" br_network > "/etc/systemd/network/br-$br.network"
+    get container "$C" br_netdev > "/etc/systemd/network/br-$br.netdev"
+    get container "$C" br_network > "/etc/systemd/network/br-$br.network"
     
     run systemctl restart systemd-networkd --no-pager
 }

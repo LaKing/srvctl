@@ -66,11 +66,11 @@ if (process.env.SC_USE_CODEPAD === "true") use_codepad = true;
 
 // create an array of arrays based on the dots
 var aa = [];
-Object.keys(datastore.containers).forEach(function(i) {
-    if (i.split(".")[0] === "mail") return;
-    var l = i.split(".").length;
+Object.keys(datastore.containers).forEach(function(c) {
+    if (c.split(".")[0] === "mail") return;
+    var l = c.split(".").length;
     if (!aa[l]) aa[l] = [];
-    aa[l].push(i);
+    aa[l].push(c);
 });
 
 // create the sorted version of the containers object
@@ -228,25 +228,25 @@ function get_frontend_http() {
     str += br + "    bind *:80";
     str += br;
 
-  	str += br + get_well_known_acl();
-  
+    str += br + get_well_known_acl();
+
     // REDIRECT RULEs
-    Object.keys(containers).forEach(function(i) {
-        str += br + redirect("http", i, "www." + i);
+    Object.keys(containers).forEach(function(c) {
+        str += br + redirect("http", c, "www." + c);
         // handle aliases
-        if (containers[i].aliases) {
-            for (j = 0; j < containers[i].aliases.length; j++) {
-                str += redirect("http", i, containers[i].aliases[j]);
+        if (containers[c].aliases) {
+            for (j = 0; j < containers[c].aliases.length; j++) {
+                str += redirect("http", c, containers[c].aliases[j]);
             }
         }
-      
-      	// since 3.2.0.9 - as of 2019 July, we will use https by default
-        // so unless http redirect is non, redirect to https.
-        if (containers[i]["http-redirect"] === undefined) str += br + "    redirect prefix https://" + i + " code 301 if { hdr(host) -i " + i + " }" + rule_exeptions;
 
-        if (containers[i]["http-redirect"] !== undefined && containers[i]["http-redirect"] !== "none") {
-            if (containers[i]["http-redirect"] === "https") str += br + "    redirect prefix https://" + i + " code 301 if { hdr(host) -i " + i + " }" + rule_exeptions;
-            else str += br + "    redirect prefix " + containers[i]["http-redirect"] + " code 301 if { hdr(host) -i " + i + " }" + rule_exeptions;
+        // since 3.2.0.9 - as of 2019 July, we will use https by default
+        // so unless http redirect is non, redirect to https.
+        if (containers[c]["http-redirect"] === undefined) str += br + "    redirect prefix https://" + c + " code 301 if { hdr(host) -i " + c + " }" + rule_exeptions;
+
+        if (containers[c]["http-redirect"] !== undefined && containers[c]["http-redirect"] !== "none") {
+            if (containers[c]["http-redirect"] === "https") str += br + "    redirect prefix https://" + c + " code 301 if { hdr(host) -i " + c + " }" + rule_exeptions;
+            else str += br + "    redirect prefix " + containers[c]["http-redirect"] + " code 301 if { hdr(host) -i " + c + " }" + rule_exeptions;
         }
     });
     str += br;
@@ -255,14 +255,14 @@ function get_frontend_http() {
 
     str += br;
     // USE BACKENDs
-    Object.keys(containers).forEach(function(i) {
+    Object.keys(containers).forEach(function(c) {
         // the standard container is started, use it, otherwise it will fallback to the default
-        if (containers[i].static) msg("Using only static config for " + i);
-        else str += acl("http", i, 80);
+        if (containers[c].static) msg("Using only static config for " + c);
+        else str += acl("http", c, 80);
 
-        if (containers[i].altnames) {
-            for (j = 0; j < containers[i].altnames.length; j++) {
-                str += aacl("http", i, containers[i].altnames[j], 80);
+        if (containers[c].altnames) {
+            for (j = 0; j < containers[c].altnames.length; j++) {
+                str += aacl("http", c, containers[c].altnames[j], 80);
             }
         }
     });
@@ -279,22 +279,22 @@ function get_frontend_https() {
     str += br + "frontend https";
     str += br + "    bind *:443 ssl crt /var/haproxy";
     str += br;
-  
-  	str += br + get_well_known_acl();
+
+    str += br + get_well_known_acl();
 
     // REDIRECT
-    Object.keys(containers).forEach(function(i) {
-        str += br + redirect("https", i, "www." + i);
+    Object.keys(containers).forEach(function(c) {
+        str += br + redirect("https", c, "www." + c);
         // handle aliases
-        if (containers[i].aliases) {
-            for (j = 0; j < containers[i].aliases.length; j++) {
-                str += redirect("https", i, containers[i].aliases[j]);
+        if (containers[c].aliases) {
+            for (j = 0; j < containers[c].aliases.length; j++) {
+                str += redirect("https", c, containers[c].aliases[j]);
             }
         }
 
-        if (containers[i]["https-redirect"] !== undefined && containers[i]["https-redirect"] !== "none") {
-            if (containers[i]["https-redirect"] === "http") str += br + "    redirect prefix http://" + i + " code 301 if { hdr(host) -i " + i + " }";
-            else str += br + "    redirect prefix " + containers[i]["https-redirect"] + " code 301 if { hdr(host) -i " + i + " }";
+        if (containers[c]["https-redirect"] !== undefined && containers[c]["https-redirect"] !== "none") {
+            if (containers[c]["https-redirect"] === "http") str += br + "    redirect prefix http://" + c + " code 301 if { hdr(host) -i " + c + " }";
+            else str += br + "    redirect prefix " + containers[c]["https-redirect"] + " code 301 if { hdr(host) -i " + c + " }";
         }
     });
     str += br;
@@ -302,14 +302,14 @@ function get_frontend_https() {
     str += br;
 
     // USE BACKEND
-    Object.keys(containers).forEach(function(i) {
+    Object.keys(containers).forEach(function(c) {
         // the standard container
-        if (containers[i].static) msg("Using only static config for " + i);
-        else str += acl("https", i, 443);
+        if (containers[c].static) msg("Using only static config for " + c);
+        else str += acl("https", c, 443);
 
-        if (containers[i].altnames) {
-            for (j = 0; j < containers[i].altnames.length; j++) {
-                str += aacl("https", i, containers[i].altnames[j], 443);
+        if (containers[c].altnames) {
+            for (j = 0; j < containers[c].altnames.length; j++) {
+                str += aacl("https", c, containers[c].altnames[j], 443);
             }
         }
     });
@@ -329,13 +329,13 @@ function get_frontend_port(n, ssl) {
     str += br;
 
     // USE BACKEND (no redirects)
-    Object.keys(containers).forEach(function(i) {
+    Object.keys(containers).forEach(function(c) {
         // srvctl-releated port permissions based on configurations
-        if (use_codepad && containers[i].type !== "codepad") {
+        if (use_codepad && containers[c].type !== "codepad") {
             if (n === 9000 || n === 9001) return;
         }
 
-        str += acl("port" + n, i, n);
+        str += acl("port" + n, c, n);
     });
 
     // certfiles are in:
@@ -350,10 +350,9 @@ function get_frontend_port(n, ssl) {
 
 function get_backends_for_http() {
     var str = "";
-    Object.keys(containers).forEach(function(i) {
-        var c = containers[i];
-        str += br + "backend http:" + i;
-        str += br + "    server http:" + i + " " + i + ":" + datastore.container_http_port(c);
+    Object.keys(containers).forEach(function(c) {
+        str += br + "backend http:" + c;
+        str += br + "    server http:" + c + " " + c + ":" + datastore.container_http_port(c);
         str += br + "";
     });
 
@@ -371,12 +370,11 @@ function get_backends_for_http() {
 
 function get_backends_for_https() {
     var str = "";
-    Object.keys(containers).forEach(function(i) {
-        var c = containers[i];
-        str += br + "backend https:" + i;
+    Object.keys(containers).forEach(function(c) {
+        str += br + "backend https:" + c;
         // for https only
         //str += br + '    redirect scheme https if !{ ssl_fc }';
-        str += br + "    server https:" + i + " " + i + ":" + datastore.container_https_port(c) + " ssl";
+        str += br + "    server https:" + c + " " + c + ":" + datastore.container_https_port(c) + " ssl";
         str += br + "";
     });
     return str;
@@ -384,17 +382,16 @@ function get_backends_for_https() {
 
 function get_backends_for_port(n, ssl) {
     var str = "";
-    Object.keys(containers).forEach(function(i) {
+    Object.keys(containers).forEach(function(c) {
         // srvctl-releated port permissions based on configurations
-        if (use_codepad && containers[i].type !== "codepad") {
+        if (use_codepad && containers[c].type !== "codepad") {
             if (n === 9000 || n === 9001) return;
         }
 
-        var c = containers[i];
-        str += br + "backend port" + n + ":" + i;
+        str += br + "backend port" + n + ":" + c;
         // for https only
         //str += br + '    redirect scheme https if !{ ssl_fc }';
-        str += br + "    server port" + n + ":" + i + " " + i + ":" + n;
+        str += br + "    server port" + n + ":" + c + " " + c + ":" + n;
         if (ssl) str += " ssl";
         str += br + "";
     });

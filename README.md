@@ -1,4 +1,4 @@
-## Srvctl v3 (3.2.2.0)
+## Srvctl v3 (3.2.2.1)
 Under construction, - srvctl is a containerfarm-manager for microsite hosting webservers with fedora as the host operating system. It will help to set up, maintain, and to let a couple of servers work together in order to have solid web-serving services.
 Version 3 is remake in core mostly using systemd tools, thus using systemd-nspawn as the containerfarm manager. Written in the mix of bash and javascript, a modular design allows to extend it with programs. Basically it is a collection of scripts, and fast scripts.
 
@@ -110,6 +110,11 @@ COMMAND
     
      In some cases it might come handy to run a single command on all containers.
     
+   map-port                              Map a tcp port to the host.                    
+    
+     Mapping container tcp or udp ports directly to the host.
+     Port number must be between 1 and 65535
+    
    regenerate                            Update configuration settings.                 
     
      Get all modules to write and overwrite config files with the actual configurations.
@@ -138,6 +143,11 @@ COMMAND
     
      Install the odoo ERP and CRM system.
      Community version, installer by m1r0.
+    
+   fix-saslauthd                         restart saslauthd                              
+    
+     This command restarts saslauthd to fix mailing.
+     It is temporary..
     
    customize                             Create/edit a custom command.                  
     
@@ -216,5 +226,5 @@ COMMAND
      Install the wordpress dependencies.
     
     
-[ srvctl-devel ] ## srvctl-3.2.2.0
+[ srvctl-devel ] ## srvctl-3.2.2.1
 ```

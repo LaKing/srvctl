@@ -1,49 +1,5 @@
 #!/bin/bash
 
-function create_nspawn_container_settings { ## container
-    
-    local C
-    C="$1"
-    
-    msg "Create nspawn container settings for $C"
-    
-    mkdir -p "/var/srvctl3/share/containers/$C/users"
-    
-    ## create the nspawn file
-    cfg container "$C" nspawn > "/srv/$C/$C.nspawn"
-    
-    ## write out config to a file accessible inside containers
-    out container "$C" > "/var/srvctl3/share/containers/$C/config"
-    
-    ## TODO implement with hooks
-    ## add codepad
-    if [[ -d /usr/local/share/boilerplate ]]
-    then
-        echo 'BindReadOnly=/usr/local/share/boilerplate' >> "/srv/$C/$C.nspawn"
-    fi
-    
-    for f in /srv/$C/*.binds
-    do
-        if [[ -f $f ]]
-        then
-            msg "Adding extra bind to nspawn ($f)"
-            cat "$f" >> "/srv/$C/$C.nspawn"
-        fi
-    done
-    
-    ## create a shell file for ethernet configuration
-    cfg container "$C" ethernet > /srv/"$C"/ethernet.sh
-    # shellcheck disable=SC1090
-    source /srv/"$C"/ethernet.sh
-    
-    ## create a shell file for firewalld configuration
-    cfg container "$C" container_firewall_commands > /srv/"$C"/firewall_cmd.sh
-    # shellcheck disable=SC1090
-    source /srv/"$C"/firewall_cmd.sh
-    
-    
-    
-}
 
 function update_nspawn_container { ## container
     

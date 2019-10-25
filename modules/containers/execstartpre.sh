@@ -23,20 +23,19 @@ then
     cat "/srv/$C/local.nspawn" >  "/srv/$C/$C.nspawn"
 else
     ## automatic config via srvctl
-    echo "create_nspawn_container_settings"
-    bash /bin/srvctl exec-function create_nspawn_container_settings "$C" || exit 11
+    echo "create_nspawn_container_config"
+    bash /bin/srvctl exec-function create_nspawn_container_config "$C" || exit 11
 fi
 
-if [[ -f /srv/$C/hosts ]] && [[ -f /srv/$C/network/80-container-host0.network ]] && [[ -f /srv/$C/$C.nspawn ]]
+if [[ -f /srv/$C/hosts ]] && [[ -f /srv/$C/$C.nspawn ]]
 then
     exit 0
 else
     [[ -f /srv/$C/hosts ]] || echo "missing hosts file"
-    [[ -f /srv/$C/network/80-container-host0.network ]] || echo "missing 80-container-host0.network file"
     [[ -f /srv/$C/$C.nspawn ]] || echo "missing npsawn file"
     echo "missing config files for nspawn detected in execstartpre for $C"
     exit 15
 fi
 
-## we need to restart systemd due to https://github.com/systemd/systemd/issues/13530
-systemctl restart systemd-networkd
+## we would need to restart systemd-networkd if custom interface would be used due to https://github.com/systemd/systemd/issues/13530
+# systemctl restart systemd-networkd

@@ -2,7 +2,7 @@
 
 
 msg "-- NFS host shares --"
-for host in $(cfg cluster host_list)
+for host in $(get cluster host_list)
 do
     if run timeout 1 ping -c 1 -W 1 "$host"
     then

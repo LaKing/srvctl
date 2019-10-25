@@ -3,7 +3,7 @@
 function regenerate_etc_postfix_relaydomains() {
     if [[ -d /etc/postfix/ ]]
     then
-        cfg cluster postfix_relaydomains
+        get cluster postfix_relaydomains > /etc/postfix/relaydomains
         postmap /etc/postfix/relaydomains
     fi
 }

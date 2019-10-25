@@ -13,10 +13,11 @@ hs_only
 [[ $SRVCTL ]] || exit 4
 
 argument container
+C="$ARG"
 #authorize
-container_user="$(get container "$ARG" user)"
+container_user="$(get container "$C" user)"
 exif
-container_reseller="$(get container "$ARG" reseller)"
+container_reseller="$(get container "$C" reseller)"
 exif
 msg "Container $ARG - $container_user ($container_reseller) - $OPA"
 
@@ -25,13 +26,13 @@ then
     sudomize
 fi
 
-if [[ $USER == root ]]
+if [[ $SC_ROOT ]]
 then
-    put container "$ARG" http-redirect "$OPA"
+    put container "$C" http-redirect "$OPA"
     run_hook regenerate_certificates
     regenerate_haproxy_conf
 else
-    err "$SC_USER has no access to $ARG"
+    err "$SC_USER has no access to $C"
     exit
 fi
 

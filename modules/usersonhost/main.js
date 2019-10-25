@@ -217,9 +217,9 @@ function make_share(u, c, options) {
     var getent = get("getent passwd " + u);
     if (getent === undefined) return err("getent passwd " + u + " #returned undefined, skipping");
     var dir = getent.split(":")[5] + "/" + c;
-    var ve_root_uid = datastore.container_uid(containers[c]);
+    var ve_root_uid = datastore.container_uid(c);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir);
-    var host = datastore.container_host(containers[c]);
+    var host = datastore.container_host(c);
     var source_path = "/var/srvctl3/nfs/" + host + "/srv/" + c + "/rootfs";
     if (!fs.existsSync(source_path)) return err(source_path + " not mounted. Check OpenVPN.");
     if (!fs.existsSync(dir + "/bindfs")) {

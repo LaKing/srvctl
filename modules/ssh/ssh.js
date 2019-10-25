@@ -197,6 +197,7 @@ function scan_host_keys() {
 function check_host_keys(data, i) {
     if (data[i].host_key === undefined) {        
         try {
+          	msg("ssh-keyscan -t rsa -T 1 " + i +" 2> /tmp/srvctl-host-key-scan");
             var result = execSync("ssh-keyscan -t rsa -T 1 " + i +" 2> /tmp/srvctl-host-key-scan");
             data[i].host_key = result.toString().slice(0,-1).split(' ')[2];
         } catch(err) {

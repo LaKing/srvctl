@@ -14,7 +14,7 @@ function nfs_mount() {
     msg "nfs mount"
     
     local hs
-    for host in $(cfg cluster host_list)
+    for host in $(get cluster host_list)
     do
         hs="$(get host "$host" hostnet)"
         msg "openvpn connection check to $host ($hs)"

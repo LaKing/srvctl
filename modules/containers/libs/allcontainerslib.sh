@@ -8,7 +8,7 @@ function all_containers_execute() { ## cmd
     
     if $SC_ROOT
     then
-        list="$(cfg cluster container_list)" || exit 15
+        list="$(get cluster container_list)" || exit 15
     else
         list="$(cfg user container_list)" || exit 15
     fi
@@ -47,14 +47,15 @@ function all_containers_execute() { ## cmd
 }
 
 function all_containers_pingback() { ## cmd
-    local list host cmd temp_file
+    local list host cmd temp_file dom ip
     cmd="$1"
-    
-    msg "Checking all container's pingback to $SC_DNS1"
+    dom="d250.hu"
+    ip="8.8.8.8"
+    msg "Checking all container's pingback to $SC_DNS1 and $dom"
     
     if $SC_ROOT
     then
-        list="$(cfg cluster container_list)" || exit 15
+        list="$(get cluster container_list)" || exit 15
     else
         list="$(cfg user container_list)" || exit 15
     fi
@@ -66,17 +67,17 @@ function all_containers_pingback() { ## cmd
             
             if systemctl is-active srvctl-nspawn@"$C" >/dev/null 2>&1
             then
-                if timeout 1 ssh "$C" "ping -c 1 -W 1 $SC_DNS1 >/dev/null 2>&1"  2>/dev/null #2>&1
+                if timeout 1 ssh "$C" "ping -c 1 -W 1 $ip >/dev/null 2>&1"  2>/dev/null #2>&1
                 then
-                    msg "$C ping by IP OK"
+                    msg "$C ping $ip OK"
                 else
-                    err "$C NO - ping $SC_DNS1 failed."
+                    err "$C NO - ping $ip failed."
                 fi
-                if timeout 1 ssh "$C" "ping -c 1 -W 1 google.com >/dev/null 2>&1"  2>/dev/null #2>&1
+                if timeout 1 ssh "$C" "ping -c 1 -W 1 $dom >/dev/null 2>&1"  2>/dev/null #2>&1
                 then
-                    msg "$C ping by NS OK"
+                    msg "$C ping $dom OK"
                 else
-                    err "$C NO - ping google.com failed."
+                    err "$C NO - ping $dom failed."
                 fi
             else
                 err "Container $C is inactive"

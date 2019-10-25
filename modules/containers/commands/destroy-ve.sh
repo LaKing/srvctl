@@ -21,7 +21,7 @@ then
     sudomize
 fi
 
-if [[ $USER == root ]]
+if [[ $SC_ROOT ]]
 then
     
     C="$ARG"
@@ -52,7 +52,7 @@ then
     
     run sleep 3
     run machinectl terminate "$C"
-    
+    run machinectl kill "$C"
     
     while [[ -d /srv/$C ]]
     do

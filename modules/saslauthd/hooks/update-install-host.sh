@@ -1,6 +1,7 @@
 #!/bin/bash
 
-## Due to incompatibility of saslauthd <= 2.1.26 and perdition, a custom version of saslauthd is required
+
+run dnf -y install cyrus-sasl
 
 msg "Installing saslauthd - binary for x86_64"
 
@@ -10,9 +11,11 @@ msg "Installing saslauthd - binary for x86_64"
     
 } > /etc/sasl2/smtpd.conf
 
-msg "Copy the patched saslauthd"
-cp "$SC_INSTALL_DIR/modules/saslauthd/bin/saslauthd" /usr/sbin/saslauthd
-chmod 755 /usr/sbin/saslauthd
+## Due to incompatibility of saslauthd <= 2.1.26 and perdition, a custom version of saslauthd is required - this seems to be OK now.
+#msg "Copy the patched saslauthd"
+#cp "$SC_INSTALL_DIR/modules/saslauthd/bin/saslauthd" /usr/sbin/saslauthd
+#chmod 755 /usr/sbin/saslauthd
+
 run saslauthd -v
 
 #TODO check this, if it was successful?

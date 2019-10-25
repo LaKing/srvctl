@@ -30,7 +30,7 @@ function init_openvpn_rootca_certificates() { #net
     
     create_ca_certificate client "$NET" root
     
-    for S in $(cfg cluster host_list)
+    for S in $(get cluster host_list)
     do
         init_openvpn_create_ca_certificates "$NET" "$S"
     done

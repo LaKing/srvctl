@@ -91,13 +91,25 @@ function install_service_hostcertificate() { ## path
     
     if $found
     then
+        
+        ## some services - like perdition - may require dhparams added to the crt
+        ssl_dhparams="$src/dhparam"
+        
+        if [[ ! -f $ssl_dhparams ]]
+        then
+            run openssl dhparam -out "$ssl_dhparams" 1024
+        fi
+        
         cat "$src/$dom.pem" > "$path/crt.pem"
         cat "$src/$dom.key" > "$path/key.pem"
+        cat "$ssl_dhparams" >> "$path/crt.pem"
+        
         if [[ -f $src/ca-bundle.pem ]]
         then
             cat "$src/ca-bundle.pem" > "$path/ca-bundle.pem"
         fi
         msg "Imported $dom certificate for $path"
+        
     else
         err "ERROR Could not locate a certificate for $path"
         exit

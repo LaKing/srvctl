@@ -6,7 +6,7 @@ function publish_data() {
     ## simple rsync based data syncronization
     
     local hostlist
-    hostlist="$(cfg cluster host_list)"
+    hostlist="$(get cluster host_list)"
     
     for host in $hostlist
     do

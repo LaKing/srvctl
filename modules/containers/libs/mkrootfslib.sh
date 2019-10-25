@@ -72,6 +72,16 @@ function mkrootfs_fedora_base { ## name packagelist
     rm -fr "$rootfs_base"/aliases.db
     chroot "$rootfs_base" newaliases
     
+    ## create container networking in the container
+    #if [[ ! -e "$rootfs_base"/etc/systemd/system/multi-user.target.wants/systemd-networkd.service ]]
+    #then
+    run ln -s /usr/lib/systemd/system/systemd-networkd.service "$rootfs_base"/etc/systemd/system/multi-user.target.wants/systemd-networkd.service
+    #fi
+    #if [[ ! -e "$rootfs_base"/etc/systemd/system/multi-user.target.wants/systemd-resolved.service ]]
+    #then
+    run ln -s /usr/lib/systemd/system/systemd-resolved.service "$rootfs_base"/etc/systemd/system/multi-user.target.wants/systemd-resolved.service
+    #fi
+    
     if [[ $rootfs_name == mail ]]
     then
         cat "$SC_INSTALL_DIR/modules/postfix/conf/ve-mail.cf" > "$rootfs_base"/etc/postfix/main.cf

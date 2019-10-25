@@ -69,7 +69,7 @@ if $SC_USE_CONTAINERS
 then
     mkdir -p /var/srvctl3/ssh
     mkdir -p ~/.ssh
-    for host in $(cfg cluster host_list)
+    for host in $(get cluster host_list)
     do
         msg "ssh-keyscan $host"
         ssh-keyscan "$host" >> ~/.ssh/known_hosts

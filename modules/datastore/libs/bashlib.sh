@@ -12,7 +12,7 @@ function new {
     # shellcheck disable=SC2048
     # shellcheck disable=SC2086
     __result="$(/bin/node $SC_INSTALL_DIR/modules/datastore/main.js new $* 2>&1)"
-    exif "DATASTORE-ERROR new $* ($?) $__result"
+    exif "DATASTORE-ERROR new $* EXIT ($?) $__result"
     
     datastore_push "new $*"
 }
@@ -39,12 +39,12 @@ function get {
     then
         if [[ $CMD == 'exec-function' ]] || [[ $CMD == 'get' ]]
         then
-            err "DATASTORE get $* ($__exitcode) optional value is not defined. $__result"
+            err "DATASTORE get $* EXIT ($__exitcode) requested value is not defined. $__result"
         fi
         return $__exitcode
     fi
     
-    err "DATASTORE-ERROR get $* ($__exitcode) $__result"
+    err "DATASTORE-ERROR get $* EXIT ($__exitcode) $__result"
     return $__exitcode
 }
 
@@ -54,7 +54,7 @@ function put {
     # shellcheck disable=SC2048
     # shellcheck disable=SC2086
     __result="$(/bin/node "$SC_INSTALL_DIR/modules/datastore/main.js" put $* 2>&1)"
-    exif "DATASTORE-ERROR put $* ($?) $__result"
+    exif "DATASTORE-ERROR put $* EXIT ($?) $__result"
     
     datastore_push "put $*"
 }
@@ -65,7 +65,7 @@ function out {
     # shellcheck disable=SC2048
     # shellcheck disable=SC2086
     __result="$(/bin/node "$SC_INSTALL_DIR/modules/datastore/main.js" out $* 2>&1)"
-    exif "DATASTORE-ERROR out $* ($?) $__result"
+    exif "DATASTORE-ERROR out $* EXIT ($?) $__result"
     
     echo "$__result"
 }
@@ -76,7 +76,7 @@ function cfg {
     # shellcheck disable=SC2048
     # shellcheck disable=SC2086
     __result="$(/bin/node "$SC_INSTALL_DIR/modules/datastore/main.js" cfg $* 2>&1)"
-    exif "DATASTORE-ERROR cfg $* ($?) $__result"
+    exif "DATASTORE-ERROR cfg $* EXIT ($?) $__result"
     
     echo "$__result"
 }
@@ -87,7 +87,7 @@ function del {
     # shellcheck disable=SC2048
     # shellcheck disable=SC2086
     /bin/node "$SC_INSTALL_DIR/modules/datastore/main.js" del $* 2>&1
-    exif "DATASTORE-ERROR del $* ($?) $__result"
+    exif "DATASTORE-ERROR del $* EXIT ($?) $__result"
     
     datastore_push "del $*"
 }
@@ -99,7 +99,7 @@ function fix {
     # shellcheck disable=SC2048
     # shellcheck disable=SC2086
     /bin/node "$SC_INSTALL_DIR/modules/datastore/main.js" fix $* 2>&1
-    exif "DATASTORE-ERROR fix $* ($?) $__result"
+    exif "DATASTORE-ERROR fix $* EXIT ($?) $__result"
     
     datastore_push "del $*"
 }

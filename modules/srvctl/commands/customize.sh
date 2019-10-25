@@ -34,7 +34,8 @@ then
         msg "$arg is a copy from srvctl"
     else
         
-cat > "$file" << 'EOF'
+        ## create the file
+cat > "$file" << EOF
 #!/bin/bash
 
 ## @@@ $ARG
@@ -43,7 +44,7 @@ cat > "$file" << 'EOF'
 ## &en It might be customized further, depending on the author.
 
 ## run only with srvctl? or with bash?
-#[[ $SRVCTL ]] || exit 4
+[[ \$SRVCTL ]] || exit 4
 
 ## Place your code here ...
 

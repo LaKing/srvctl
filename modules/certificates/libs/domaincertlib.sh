@@ -61,9 +61,6 @@ function create_selfsigned_domain_certificate { ## for domain on path
     ## the self signed certificate
     ssl_crt="$cert_path/$domain.crt"
     
-    ## dhparams
-    ssl_dhparams="$cert_path/dhparam"
-    
     ## THE CERTIFICATE - overwrite with:
     ## key
     ## CA signed crt
@@ -144,13 +141,17 @@ function create_selfsigned_domain_certificate { ## for domain on path
 
 EOF
     
+    #keyUsage = nonRepudiation, digitalSignature, keyEncipherment
+    
+    ## this causes chrome to fail with ERR_SSL_KEY_USAGE_INCOMPATIBLE
+    #keyUsage = keyEncipherment, dataEncipherment
     
         cat > "$ssl_extfile" << EOF
         [ v3_req ]
         basicConstraints = critical,CA:FALSE
-        keyUsage = keyEncipherment, dataEncipherment
         extendedKeyUsage = serverAuth
         subjectAltName = @alt_names
+        keyUsage = nonRepudiation, digitalSignature, keyEncipherment, dataEncipherment
         [alt_names]
         DNS.1 = $domain
         DNS.2 = *.$domain
@@ -173,14 +174,6 @@ EOF
     
     ## Self-Sign Certificate
     run openssl x509 -req -days "$ssl_days" -passin pass:"$ssl_password" -extensions v3_req -extfile "$ssl_extfile" -in "$ssl_csr" -signkey "$ssl_key" -out "$ssl_crt" 2> /dev/null
-    
-    ## some services - like perdition - may require dhparams added to the crt
-    if [[ ! -f $ssl_dhparams ]]
-    then
-        run openssl dhparam -out "$ssl_dhparams" 1024
-    fi
-    
-    cat "$ssl_dhparams" >> "$ssl_crt"
     
     ## create a certificate chainfile in pem format
     cat "$ssl_key" >  "$ssl_pem"

@@ -2,7 +2,7 @@
 
 function regenerate_all_hosts() {
     msg "Regenerate hosts in cluster $SC_CLUSTERNAME"
-    for host in $(cfg cluster host_list)
+    for host in $(get cluster host_list)
     do
         msg "regenerate $host"
         if [[ $host == "$HOSTNAME" ]]
@@ -20,8 +20,8 @@ function regenerate_all_hosts() {
 }
 
 function regenerate_etc_hosts() {
-    cfg cluster etc_hosts
-    #> /etc/hosts
+    msg "regenerate /etc/hosts"
+    get cluster etc_hosts > /etc/hosts
 }
 
 
@@ -34,12 +34,13 @@ function check_container_directories() {
             continue
         fi
         
-        if [[ -d $D ]]
+        if [[ -d $D/rootfs ]]
         then
             local C
             
             ## strip /srv
             C="${D:5}"
+            
             
             if [[ "$(get container "$C" exist)" != true ]]
             then
@@ -65,7 +66,7 @@ function check_container_directories() {
                         put container "$C" ip "$(cat "/srv/$C/ipv4-address")"
                         put container "$C" br "$(cat "/srv/$C/bridge-address")"
                     else
-                        create_nspawn_container_network "$T" "$C"
+                        create_nspawn_container_config "$C"
                     fi
                 fi
             fi
@@ -77,15 +78,18 @@ function check_container_directories() {
                     run systemctl enable "srvctl-nspawn@$C"
                 fi
                 
-                if [[ -f /srv/$C/hosts ]] && [[ -f /srv/$C/network/80-container-host0.network ]] && [[ -f /srv/$C/$C.nspawn ]]
+                if [[ ! -f /srv/$C/hosts ]] || [[ ! -f /srv/$C/$C.nspawn ]]
                 then
-                    continue
-                else
                     msg "Updating container configuration for $C"
                     
-                    fix container "$C" update_container_ip
-                    create_container_config "$C"
+                    #cfg container "$C" update_ip
+                    create_nspawn_container_config "$C"
                 fi
+            fi
+            
+            if [[ ! -f /srv/$C/cert/$C.crt ]] || [[ ! -f /srv/$C/cert/$C.key ]] || [[ ! -f /srv/$C/cert/$C.pem ]]
+            then
+                add_ve_certificate "$C"
             fi
         fi
     done
@@ -94,7 +98,7 @@ function check_container_directories() {
 function check_container_database() {
     msg "Checking for containers in the database"
     local container_list h
-    container_list="$(cfg cluster container_list)"
+    container_list="$(get cluster container_list)"
     for C in $container_list
     do
         h="$(get container "$C" host)"
@@ -106,8 +110,8 @@ function check_container_database() {
                 msg "Create local container"
                 local T
                 T="$(get container "$C" type)"
-                create_nspawn_container_filesystem "$T" "$C"
-                create_nspawn_container_network "$T" "$C"
+                create_nspawn_container_filesystem "$C"
+                create_nspawn_container_config "$C"
             fi
         fi
     done
@@ -116,7 +120,7 @@ function check_container_database() {
 function check_container_ownership() {
     msg "Checking for container owners in the database"
     local container_list
-    container_list="$(cfg cluster container_list)"
+    container_list="$(get cluster container_list)"
     for C in $container_list
     do
         if [[ $(get container "$C" user_ip_match) ]]
@@ -125,10 +129,10 @@ function check_container_ownership() {
         else
             msg "Re-setting internal IP of $C due to false user_ip_match"
             
-            fix container "$C" update_container_ip
             run systemctl stop srvctl-nspawn@"$C"
+            cfg container "$C" update_ip
             
-            create_container_config "$C"
+            create_nspawn_container_config "$C"
             
             run systemctl start srvctl-nspawn@"$C" --no-pager -n 30
             run systemctl status srvctl-nspawn@"$C" --no-pager -n 30

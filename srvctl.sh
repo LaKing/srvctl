@@ -24,11 +24,11 @@ else
     SC_TTY=false
 fi
 
-#if [[ $USER == root ]]
-#then
-## okay THIS IS REALLY only for development.
-[[ -f /bin/pop ]] && "$SC_TTY" && sudo /bin/pop
-#fi
+if [[ $USER == root ]] || [[ $USER == x ]]
+then
+    ## okay THIS IS REALLY only for development.
+    [[ -f /bin/pop ]] && "$SC_TTY" && sudo /bin/pop
+fi
 
 ## we met a situation in fedora 29 where hostname is undefined
 if [[ $HOSTNAME ]]

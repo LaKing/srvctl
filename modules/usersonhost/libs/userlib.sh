@@ -61,7 +61,7 @@ function regenerate_users() {
     
     
     local userlist password passfile passuser
-    userlist="$(cfg cluster user_list)"
+    userlist="$(get cluster user_list)"
     
     ## optimized for speed, we just check if the user already exists, and perform all the action if not.
     for user in $userlist

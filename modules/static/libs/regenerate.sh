@@ -2,7 +2,7 @@
 
 function regenerate_static_server() {
     msg "regenerate static server index files"
-    for dir in $(cfg cluster container_list)
+    for dir in $(get cluster container_list)
     do
         mkdir -p "/var/srvctl3/storage/static/$dir/html"
         if [[ ! -f "/var/srvctl3/storage/static/$dir/html/index.html" ]]

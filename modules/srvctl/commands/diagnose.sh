@@ -84,8 +84,9 @@ msg "-- table of processes --"
 run top -n 1
 msg "-- shell users --"
 run w
-msg "-- process tree --"
-run systemctl status --no-pager
+#msg "-- process tree --"
+msg "To see the process tree run: systemctl status --no-pager"
+#run systemctl status --no-pager
 
 run_hooks diagnose
 

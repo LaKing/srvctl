@@ -8,7 +8,3 @@ C="$1"
 
 #machinectl terminate "$C"
 #echo "machinectl terminate exit-code: $?"
-
-sleep 1
-
-echo "execstoppost complete"

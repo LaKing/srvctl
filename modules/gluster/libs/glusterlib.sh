@@ -52,7 +52,7 @@ function gluster_configure { ## datadir mountdir
     then
         
         msg "probing gluster peers"
-        for host in $(cfg cluster host_list)
+        for host in $(get cluster host_list)
         do
             
             ip="$(get host "$host" host_ip)"
@@ -71,7 +71,7 @@ function gluster_configure { ## datadir mountdir
         
         local list lista
         list=''
-        for host in $(cfg cluster host_list)
+        for host in $(get cluster host_list)
         do
             ip="$(get host "$host" host_ip)"
             hs="$(get host "$host" hostnet)"
