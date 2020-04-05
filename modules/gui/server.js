@@ -18,7 +18,7 @@ const fs = require('fs');
 const exec = require('child_process').exec;
 
 const express = require(global_install_prefix + 'express');
-const pty = require(global_install_prefix + 'pty.js');
+const pty = require(global_install_prefix + 'node-pty');
 
 // NOTE https://github.com/mscdex/ssh2/issues/433
 

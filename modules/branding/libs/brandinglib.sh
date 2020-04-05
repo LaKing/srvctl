@@ -2,16 +2,16 @@
 
 function setup_index_html() { ## name dir
     
-    local _index _name
+    local _index_html _name
     ## set default index page
     # shellcheck disable=SC2154
     _name="$1"
-    _index="$2/index.html"
+    _index_html="$2/index.html"
     
     if [[ -d $2 ]]
     then
         
-cat > "$_index" << EOF
+cat > "$_index_html" << EOF
 <!DOCTYPE html>
 <html lang="en">
   <head>

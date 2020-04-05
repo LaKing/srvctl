@@ -212,6 +212,25 @@ function create_user_client_cert(user) {
 
 var mounts = get("mount");
 
+function make_share_mount(u, c, options, dir, source_path, uid, mountname) {
+    if (!options) options = "";
+
+    // bindfs shall be a root mount
+    if (!fs.existsSync(dir + "/" + mountname)) {
+        // TODO handle case of stale file handle with umount -f
+        try {
+            fs.mkdirSync(dir + "/" + mountname);
+        } catch (error) {
+            err(error);
+        }
+    }
+   
+    if (!fs.existsSync(source_path)) return err(source_path + " dont exists.");
+   
+    if (mounts.indexOf(source_path + " on " + dir + "/" + mountname + " type fuse") === -1)
+        run("bindfs " + options + " --mirror=" + u + " --create-for-user=" + uid + " --create-for-group=" + uid + " " + source_path + " " + dir + "/" + mountname);
+}
+
 function make_share(u, c, options) {
     // msg("Match domain-user " + c + " to " + u);
     var getent = get("getent passwd " + u);
@@ -219,9 +238,20 @@ function make_share(u, c, options) {
     var dir = getent.split(":")[5] + "/" + c;
     var ve_root_uid = datastore.container_uid(c);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir);
+
     var host = datastore.container_host(c);
-    var source_path = "/var/srvctl3/nfs/" + host + "/srv/" + c + "/rootfs";
-    if (!fs.existsSync(source_path)) return err(source_path + " not mounted. Check OpenVPN.");
+    var source_path = "/srv/" + c + "/rootfs";
+    if (host !== HOSTNAME) {
+        source_path = "/var/srvctl3/nfs/" + host + "/srv/" + c + "/rootfs";
+        if (!fs.existsSync(source_path)) return err(source_path + " not mounted from remote host. Check NFS and OpenVPN. " + source_path);
+    }
+
+    make_share_mount(u, c, options, dir, source_path, ve_root_uid, "bindfs");
+    if (c.substring(0,5) !== "mail.") make_share_mount(u, c, options, dir, source_path + "/var/www/html", 48, "html");
+    /*
+  	if (!options) options = "";
+  
+  	// bindfs shall be a root mount
     if (!fs.existsSync(dir + "/bindfs")) {
         // TODO handle case of stale file handle with umount -f
         try {
@@ -230,9 +260,10 @@ function make_share(u, c, options) {
             err(error);
         }
     }
-    if (mounts.indexOf(source_path + " on " + dir + "/bindfs type fuse") !== -1) return;
-    if (!options) options = "";
+    if (mounts.indexOf(source_path + " on " + dir + "/bindfs type fuse") === -1)
     run("bindfs " + options + " --mirror=" + u + " --create-for-user=" + ve_root_uid + " --create-for-group=" + ve_root_uid + " " + source_path + " " + dir + "/bindfs");
+
+*/
 }
 
 msg("check users");

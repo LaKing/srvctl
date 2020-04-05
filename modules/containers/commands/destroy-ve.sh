@@ -11,6 +11,13 @@ hs_only
 
 argument container
 #authorize
+
+if [[ "$(get container "$ARG" exist)" == false ]]
+then
+    err "Container does not exist."
+    exit 0
+fi
+
 container_user="$(get container "$ARG" user)"
 container_reseller="$(get container "$ARG" reseller)"
 
@@ -30,8 +37,9 @@ then
     
     if [[ -f /etc/srvctl/containers/$C.service ]]
     then
-        systemctl stop "$C"
-        systemctl disable "$C"
+        run systemctl stop "$C"
+        run systemctl disable "$C"
+        rm -f /etc/srvctl/containers/"$C".service
     fi
     
     del container "$C"
@@ -44,15 +52,23 @@ then
     do
         if [[ -d "$uh"/"$C" ]]
         then
-            run umount -f "$uh"/"$C"/bindfs
-            run rm -fr "$uh"/"$C"/bindfs
+            for mp in "$uh"/"$C"/*
+            do
+                run umount -f "$mp"
+                run rm -fr "$mp"
+            done
             run rm -fr "$uh"/"$C"
         fi
     done
     
     run sleep 3
-    run machinectl terminate "$C"
-    run machinectl kill "$C"
+    
+    ## TODO check if it is running
+    if run machinectl status "$C" 2> /dev/null
+    then
+        run machinectl terminate "$C"
+        run machinectl kill "$C"
+    fi
     
     while [[ -d /srv/$C ]]
     do

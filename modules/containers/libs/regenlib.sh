@@ -87,10 +87,10 @@ function check_container_directories() {
                 fi
             fi
             
-            if [[ ! -f /srv/$C/cert/$C.crt ]] || [[ ! -f /srv/$C/cert/$C.key ]] || [[ ! -f /srv/$C/cert/$C.pem ]]
-            then
-                add_ve_certificate "$C"
-            fi
+            #if [[ ! -f /srv/$C/cert/$C.crt ]] || [[ ! -f /srv/$C/cert/$C.key ]] || [[ ! -f /srv/$C/cert/$C.pem ]]
+            #then
+            #    msg "No certificate for $C - fix: srvctl-exec-function add_ve_certificate $C"
+            #fi
         fi
     done
 }

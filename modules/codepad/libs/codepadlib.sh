@@ -81,7 +81,7 @@ function mkrootfs_fedora_install_codepad {
     msg "mkrootfs_fedora_install_codepad"
     
     ## function from containers module
-    mkrootfs_fedora_base codepad "systemd-container httpd mod_ssl gzip git-core curl python openssl-devel postgresql-devel mariadb-server ShellCheck"
+    mkrootfs_fedora_base codepad "systemd-container httpd mod_ssl gzip git-core curl python openssl-devel postgresql-devel mariadb-server ShellCheck make"
     
     msg "mkrootfs_fedora_install_codepad - base installation complete"
     
@@ -197,15 +197,20 @@ EOF
 
 function init_codepad_project { ## Container
     
-    local C
+    local C C_uid codepad_uid
     C="$1"
     
-    msg "init_codepad_project $C"
+    C_uid="$(get container "$C" uid)"
+    
+    msg "init_codepad_project $C with uid $C_uid"
     
     rm -fr /srv/"$C"/rootfs/var/codepad/.ssh/*
     ssh-keygen -b 4096 -f /srv/"$C"/rootfs/var/codepad/.ssh/id_rsa -N '' -C "codepad@$C $NOW"
     cat /srv/"$C"/rootfs/var/codepad/.ssh/id_rsa.pub > /srv/"$C"/rootfs/var/codepad/.ssh/authorized_keys
-    run chown -R 104:104 /srv/"$C"/rootfs/var/codepad
+    
+    codepad_uid=$(( C_uid + 104 ))
+    
+    run chown -R "$codepad_uid:$codepad_uid" /srv/"$C"/rootfs/var/codepad
     
     run ln -s /var/srvctl3/share/containers/"$C"/users /srv/"$C"/rootfs/var/codepad/users
     

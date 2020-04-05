@@ -115,6 +115,12 @@ function copy_access_keys(c,u) {
 }
 
 function remake_access_keys(c) {
+  
+  	//  the user may have a special codepad attriibute called all-access
+  	Object.keys(users).forEach(function(u) {
+    	if (users[u].codepad == "all-access") copy_access_keys(c,u);
+    });
+  
     if (containers[c].user === undefined) return;
     
     // primary user

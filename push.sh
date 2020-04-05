@@ -7,7 +7,7 @@
 ## get project directory - this file should reside in the project root folder
 wd=/srv/codepad-project
 
-log=/var/codepad/project.log
+log=/var/codepad-project/project.log
 #pid=/var/codepad/project.pid
 rmd=/srv/codepad-project/README.md
 
@@ -82,7 +82,7 @@ while read -r file
 do
     if [[ "${file:0, -3 }" == ".sh" ]]
     then
-        echo "@ $file" >> $log
+        #echo "@ $file" >> $log
         shellcheck -x "$file" >> $log
         shellcheck -x "$file"
         #echo /bin/python /srv/beautify_bash.py "$file"
@@ -94,5 +94,6 @@ done < /tmp/srvctl-bash-beautify
 
 echo "PUSH - OK. use push publish to commit to git."
 
-systemctl restart codepad
-systemctl status codepad
+echo "READY: $( wc -l < "$log")" >> "$log"
+#systemctl restart codepad
+#systemctl status codepad

@@ -13,7 +13,7 @@ function firewalld_add_service() { ## name proto port hint
     
     if ! [[ $hint ]]
     then
-        hint="srvctl"
+        hint="$SC_USER"
     fi
     
     zone=$(firewall-cmd --get-default-zone)
@@ -35,7 +35,7 @@ cat > "/etc/firewalld/services/$name.xml" << EOF
 <?xml version="1.0" encoding="utf-8"?>
 <service>
   <short>$name</short>
-  <description>$name $proto $port (added by $hint)</description>
+  <description>$name $proto $port (srvctl added for $hint)</description>
   <port protocol="$proto" port="$port"/>
 </service>
 EOF

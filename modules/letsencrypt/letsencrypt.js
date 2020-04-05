@@ -2,7 +2,7 @@
 
 /*srvctl */
 
-const lablib = '../../lablib.js';
+const lablib = "../../lablib.js";
 const msg = require(lablib).msg;
 const ntc = require(lablib).ntc;
 const err = require(lablib).err;
@@ -15,24 +15,24 @@ function out(msg) {
 }
 
 // includes
-const fs = require('fs');
-const datastore = require('../datastore/lib.js');
-const execSync = require('child_process').execSync;
-const https = require('https');
+const fs = require("fs");
+const datastore = require("../datastore/lib.js");
+const execSync = require("child_process").execSync;
+const https = require("https");
 
 const CMD = process.argv[2];
 // constatnts
 
-const SC_CONTAINERS_DATA_FILE = process.env.SC_DATASTORE_DIR + '/containers.json';
-const SC_CONTAINERS_CERT_DIR = process.env.SC_DATASTORE_DIR + '/cert';
+const SC_CONTAINERS_DATA_FILE = process.env.SC_DATASTORE_DIR + "/containers.json";
+const SC_CONTAINERS_CERT_DIR = process.env.SC_DATASTORE_DIR + "/cert";
 const SC_INSTALL_DIR = process.env.SC_INSTALL_DIR;
 const SC_COMPANY_DOMAIN = process.env.SC_COMPANY_DOMAIN;
 const SRVCTL = process.env.SRVCTL;
 const SC_ROOT = process.env.SC_ROOT;
-const os = require('os');
+const os = require("os");
 const HOSTNAME = os.hostname();
-const localhost = 'localhost';
-const br = '\n';
+const localhost = "localhost";
+const br = "\n";
 process.exitCode = 99;
 
 function exit() {
@@ -40,7 +40,7 @@ function exit() {
 }
 
 function return_value(msg) {
-    if (msg === undefined || msg === '') process.exitCode = 100;
+    if (msg === undefined || msg === "") process.exitCode = 100;
     else {
         console.log(msg);
         process.exitCode = 0;
@@ -48,7 +48,7 @@ function return_value(msg) {
 }
 
 function return_error(msg) {
-    console.error('DATA-ERROR:', msg);
+    console.error("DATA-ERROR:", msg);
     process.exitCode = 111;
     process.exit(111);
 }
@@ -58,11 +58,10 @@ function output(variable, value) {
     process.exitCode = 0;
 }
 
-
 function is_wildcard_certificate(domain) {
     var cert_file = "/etc/srvctl/cert/" + domain + "/" + domain + ".pem";
     if (fs.existsSync(cert_file)) {
-        if (execSync('openssl x509 -noout -subject -in ' + cert_file).indexOf('*') > -1) {
+        if (execSync("openssl x509 -noout -subject -in " + cert_file).indexOf("*") > -1) {
             return true;
         }
     }
@@ -71,25 +70,24 @@ function is_wildcard_certificate(domain) {
 
 function has_wildcard_certificate(domain) {
     if (is_wildcard_certificate(domain)) return true;
-    if (is_wildcard_certificate(domain.substring(1 + domain.indexOf('.')))) return true;
+    if (is_wildcard_certificate(domain.substring(1 + domain.indexOf(".")))) return true;
     return false;
 }
-
 
 // variables
 var hosts = datastore.hosts;
 var users = datastore.users;
 var resellers = datastore.resellers;
 var containers = datastore.containers;
-var user = '';
-var container = '';
+var user = "";
+var container = "";
 
 var le_dirs = fs.readdirSync("/etc/letsencrypt/live");
 
 function get_le_dir(domain) {
     var le_dir = process.env.SC_COMPANY_DOMAIN;
     le_dirs.forEach(dir => {
-        if (dir.substring(0, domain.length + 4) === 'www.' + domain) le_dir = dir;
+        if (dir.substring(0, domain.length + 4) === "www." + domain) le_dir = dir;
         if (dir.substring(0, domain.length) === domain) le_dir = dir;
     });
     return le_dir;
@@ -106,24 +104,22 @@ function letsencrypt_deploy(domain) {
     if (!fs.existsSync(fullchain_pem)) return err("Certificate dont exists " + fullchain_pem);
     if (!fs.existsSync(ca_pem)) return err("CA file dont exists " + ca_pem);
 
-    var privkey = fs.readFileSync(privkey_pem, 'UTF8');
-    var fullchain = fs.readFileSync(fullchain_pem, 'UTF8');
-    var ca = fs.readFileSync(ca_pem, 'UTF8');
+    var privkey = fs.readFileSync(privkey_pem, "UTF8");
+    var fullchain = fs.readFileSync(fullchain_pem, "UTF8");
+    var ca = fs.readFileSync(ca_pem, "UTF8");
 
     var pem = privkey + br + fullchain + br + ca + br;
 
-    fs.writeFileSync(SC_CONTAINERS_CERT_DIR + '/' + domain + '.pem', pem);
+    fs.writeFileSync(SC_CONTAINERS_CERT_DIR + "/" + domain + ".pem", pem);
     msg(domain + " letsencrypt certificate deployed");
 }
 
 function check_checkend(cert_file) {
-
     if (!fs.existsSync(cert_file)) return false;
     var returnState = false;
-
     try {
         //run('openssl x509 -checkend 604800 -noout -in ' + cert_file);
-        execSync('openssl x509 -checkend 604800 -noout -in ' + cert_file);
+        execSync("openssl x509 -checkend 604800 -noout -in " + cert_file);
         returnState = true;
     } catch (error) {
         //ntc('CATCH Certificate will expire! ' + cert_file);
@@ -132,13 +128,37 @@ function check_checkend(cert_file) {
     }
 }
 
-function check_domain(domain) {
+function check_datastore_cert(domain) {
+      // TODO no need to check this certificate in the LE module.
+    var cert_file = SC_CONTAINERS_CERT_DIR + "/" + domain + ".pem";
+	var cmd = "openssl x509 -noout -subject -in " + cert_file;
 
+    if (fs.existsSync(cert_file)) {
+      	var cn = '';
+        try {
+            cn = execSync(cmd).toString();
+        } catch (err) {
+            if (err) return console.log("Letsencypt check_domain failure for ", domain, err);
+        }
+      
+      	if (cn.indexOf("emailAddress = webmaster@") > 0) {
+        	console.log("Selfsigned certiciate in the datastore for ", domain);
+      		return false;
+    	}
+      	
+      	return check_checkend(cert_file);
+
+      
+    } else {
+      ntc("No datastore cert file for", domain);
+      return false;
+    }
+}
+
+function check_domain(domain) {
     if (has_wildcard_certificate(domain)) return; // msg("Using wildcard certificate for " + domain);
 
-    var cert_file = SC_CONTAINERS_CERT_DIR + "/" + domain + ".pem";
-
-    if (check_checkend(cert_file)) return;
+	if (check_datastore_cert(domain)) return;
 
 
     var le_dir = get_le_dir(domain);
@@ -147,33 +167,46 @@ function check_domain(domain) {
     if (check_checkend(cert_pem)) return letsencrypt_deploy(domain);
 
     var hasA = false;
+    var points_to = '';
     if (hosts[HOSTNAME])
-    containers[domain].dns_scan.A.forEach(function(e) {
-        if (e === hosts[HOSTNAME].host_ip) hasA = true; //return run_on_domain(domain);
-        //else ntc(domain + ' ' + e);
-    });
+        containers[domain].dns_scan.A.forEach(function(e) {
+            if (e === hosts[HOSTNAME].host_ip) hasA = true;
+            else points_to += e + ' ';
+        });
 
+  // TODO add aliasdomain
+  
     if (hasA) run_on_domain(domain);
-    else ntc("Letsencrypt: no A record for " + domain + " Namesevers are " + containers[domain].dns_scan.NS[0] || "" + " " + containers[domain].dns_scan.NS[1] || '');
-
+    else ntc("Letsencrypt: no A record for " + domain + " Namesevers are " + (containers[domain].dns_scan.NS[0] || "" + " " + containers[domain].dns_scan.NS[1] || "") + " - " + points_to);
 }
 
-
 function run_on_domain(domain) {
-
     // we can check against HOSTNAME if a reverse address is set, but since it is not mandatory ...
-    //if (containers[domain].dns_scan.A[hosts[HOSTNAME].host_ip] === undefined) return; 
+    //if (containers[domain].dns_scan.A[hosts[HOSTNAME].host_ip] === undefined) return;
     var has_www = false;
     if (hosts[HOSTNAME])
-    containers[domain].www_scan.A.forEach(function(e) {
-        if (e === hosts[HOSTNAME].host_ip) has_www = true;
-    });
+        containers[domain].www_scan.A.forEach(function(e) {
+            if (e === hosts[HOSTNAME].host_ip) has_www = true;
+        });
 
     if (has_www) msg("Certificate required for " + domain + " and www." + domain);
     else msg("Certificate required for " + domain);
 
-    var cmd = "letsencrypt certonly --non-interactive --agree-tos --keep-until-expiring --expand --webroot --webroot-path /var/acme/ -d " + domain + " >> /srv/" + domain + "/letsencrypt.log";
-    if (has_www) cmd = "letsencrypt certonly --non-interactive --agree-tos --keep-until-expiring --expand --webroot --webroot-path /var/acme/ -d " + domain + " -d www." + domain + " >> /srv/" + domain + "/letsencrypt.log";
+    var cmd =
+        "letsencrypt certonly --non-interactive --agree-tos --keep-until-expiring --expand --webroot --webroot-path /var/acme/ -d " +
+        domain +
+        " >> /srv/" +
+        domain +
+        "/letsencrypt.log";
+    if (has_www)
+        cmd =
+            "letsencrypt certonly --non-interactive --agree-tos --keep-until-expiring --expand --webroot --webroot-path /var/acme/ -d " +
+            domain +
+            " -d www." +
+            domain +
+            " >> /srv/" +
+            domain +
+            "/letsencrypt.log";
     ntc(cmd);
 
     try {
@@ -188,9 +221,14 @@ function run_on_domain(domain) {
 
 function main() {
     Object.keys(containers).forEach(function(i) {
-        if ((i.substr(i.length - 6) !== '.devel') && (i.substr(i.length - 6) !== '-devel') && (i.substr(i.length - 6) !== '.local') && (i.substr(i.length - 6) !== '-local') && (i.substring(0, 5) !== 'mail.')) {
-            
-          	if (i.indexOf('.') > 0) check_domain(i);
+        if (
+            i.substr(i.length - 6) !== ".devel" &&
+            i.substr(i.length - 6) !== "-devel" &&
+            i.substr(i.length - 6) !== ".local" &&
+            i.substr(i.length - 6) !== "-local" &&
+            i.substring(0, 5) !== "mail."
+        ) {
+            if (i.indexOf(".") > 0) check_domain(i);
             //if (containers[i].aliases) containers[i].aliases.forEach(function(j) {
             //    check_domain(j);
             //});

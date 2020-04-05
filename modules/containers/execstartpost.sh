@@ -4,7 +4,13 @@
 # shellcheck disable=SC2034
 C="$1"
 
-echo "execstartpost $C"
+echo "[execstartpost] $C"
+
+if [[ ! -d /srv/"$C" ]]
+then
+    echo "Machine folder not found."
+    exit 14
+fi
 
 if [[ -f /srv/"$C"/ethernet.sh ]]
 then
@@ -13,13 +19,14 @@ fi
 
 sleep 3
 
-ip="$(machinectl -q --no-pager shell $C /bin/bash/ -c 'hostname --all-ip-addresses')"
-if [[ $ip ]]
+query="$(machinectl -q --no-pager shell "$C" /bin/bash/ -c 'hostname --all-ip-addresses')"
+ip=${query//[$'\t\r\n ']}
+if [[ $ip =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]
 then
-    echo "IP for $C is $ip"
+    echo "[execstartpost] IP for $C is $ip"
     /usr/bin/srvctl put container "$C" ip "$ip"
 else
-    echo "No IP address for $C"
+    echo "[execstartpost] No IP address for $C (result $ip)"
 fi
 
 #/usr/bin/srvctl put container "$C" started true

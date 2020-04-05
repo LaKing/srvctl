@@ -6,7 +6,9 @@
 function sc_install {
     # shellcheck disable=SC2048
     # shellcheck disable=SC2086
-    run dnf -y -q --releasever "$VERSION_ID" install $*
+    #run dnf -y -q --releasever "$VERSION_ID" install $*
+    run dnf -y -q install $*
+    
 }
 
 function sc_update {

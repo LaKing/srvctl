@@ -92,64 +92,85 @@ console.log("REACTION " + "VE".tab(36) + " " + "IP".tab(16) + " " + "TYPE".tab(1
 
 Object.keys(containers).forEach(function(c) {
     if (SC_USER !== root && containers[c].user !== SC_USER && datastore.container_reseller(c) !== SC_USER) return;
-
     var ping_cmd = "timeout 0.2 ping -c 1 " + containers[c].ip + " | grep rtt";
     var ping = $RED + "failure ";
     var infos = "";
     var extras = "";
     var is_active = false;
-	var color0 = $RED; 
-    
+    var color0 = $RED;
+
     try {
         execSync("timeout 0.2 systemctl is-enabled srvctl-nspawn@" + c + ".service");
     } catch (e) {
-    	color0 = $BLUE; 
+        color0 = $BLUE;
         infos += " DISABLED";
     }
-  
+          
+    ping = color0 + "inactive";
+
+  	if (containers[c].ip)
     try {
         execSync("timeout 0.2 systemctl is-active srvctl-nspawn@" + c + ".service");
-        ping = color0  + "active  ";
-      is_active = true;
+        ping = color0 + "active  ";
+        is_active = true;
     } catch (e) {
-    	ping = color0  + "inactive";
-    }
-  
-    try {
-      var release = fs.readFileSync("/srv/"+c+"/rootfs/etc/os-release", 'utf8').split('\n');
-      infos += ' ' + release[2].split('=')[1] + ' ' + release[3].split('=')[1];      
-	} catch (e) {
-    	extras += 'OS?';
-    }
-  
-  	if (is_active)
-    try {
-        ping =
-            $GREEN +
-            execSync(ping_cmd)
-                .toString()
-                .split("/")[5] +
-            "ms " + $CLEAR;
-    } catch (e) {
-    	extras += " PING?";
+      //console.log(e);
     }
 
-	if (containers[c].bridge) infos += " BRIDGE:"+containers[c].bridge;
-  
-    if (containers[c].dns_scan) {
-        if (containers[c].dns_scan.NS.length === 0) extras += " NS?";
-        if (containers[c].dns_scan.MX.length === 0) extras += " MX?";
-        if (Object.keys(containers[c].dns_scan.A).length === 0) extras += " A?";
-        if (Object.keys(containers[c].dns_scan.AAAA).length === 0) extras += " AAAA?";
+    try {
+        var release = fs.readFileSync("/srv/" + c + "/rootfs/etc/os-release", "utf8").split("\n");
+        infos += " " + release[2].split("=")[1] + " " + release[3].split("=")[1];
+    } catch (e) {
+        extras += "OS?";
     }
+
+    if (is_active)
+        try {
+            ping =
+                $GREEN +
+                execSync(ping_cmd)
+                    .toString()
+                    .split("/")[5] +
+                "ms " +
+                $CLEAR;
+        } catch (e) {
+            extras += " PING?";
+        }
+
+    if (containers[c].bridge) infos += " BRIDGE:" + containers[c].bridge;
+
+    if (containers[c].dns_query)
+        if (containers[c].dns_query.state !== "OK") extras += " DNS-QUERY-ERROR:" + containers[c].dns_query.state + "		";
+        else if (containers[c].dns_scan) {
+            if (containers[c].dns_scan.NS.length === 0) extras += " NS?";
+            if (containers[c].dns_scan.MX.length === 0) extras += " MX?";
+            if (Object.keys(containers[c].dns_scan.A).length === 0) extras += " A?";
+            if (Object.keys(containers[c].dns_scan.AAAA).length === 0) extras += " AAAA?";
+        }
     var reseller = containers[c].user;
     if (users[containers[c].user].reseller !== undefined) reseller = users[containers[c].user].reseller;
 
-  	var ip = '';
-  	if (containers[c].ip) ip = containers[c].ip;
-  
+    var ip = "";
+    if (containers[c].ip) ip = containers[c].ip;
+
     console.log(
-        ping + " " + c.tab(36) + " " + ip.tab(16) + " " + containers[c].type.tab(12) + " " + containers[c].user.tab(16) + " " + reseller.tab(16) + " " + $CLEAR + infos.tab(32) + " " + $RED + extras
+        ping +
+            " " +
+            c.tab(36) +
+            " " +
+            ip.tab(16) +
+            " " +
+            containers[c].type.tab(12) +
+            " " +
+            containers[c].user.tab(16) +
+            " " +
+            reseller.tab(16) +
+            " " +
+            $CLEAR +
+            infos.tab(32) +
+            " " +
+            $RED +
+            extras
     );
 });
 

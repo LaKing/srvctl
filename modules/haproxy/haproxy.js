@@ -102,10 +102,12 @@ function acl(p, h, n) {
     if (n === 80 || n === 443) {
         str += br + "    use_backend " + p + ":" + h + " if { hdr(host) -i " + h + " }";
         str += br + "    use_backend " + p + ":" + h + " if { hdr(host) -i " + ddn(h) + " }";
+        //str += br + "    use_backend " + p + ":" + h + " if { hdr(host) -i " + h + "." + HOSTNAME + " }";
     }
 
     str += br + "    use_backend " + p + ":" + h + " if { hdr(host) -i " + h + ":" + n + " }";
     str += br + "    use_backend " + p + ":" + h + " if { hdr(host) -i " + ddn(h) + ":" + n + " }";
+    //str += br + "    use_backend " + p + ":" + h + " if { hdr(host) -i " + h + "." + HOSTNAME + ":" + n + " }";
 
     return str;
 }
@@ -133,6 +135,8 @@ function get_well_known_acl() {
     str += br + "    acl letsencrypt-acl path_beg /.well-known/acme-challenge/";
     str += br + "    acl thunderbird-acl path_beg /.well-known/autoconfig/mail/";
     str += br + "    acl srvctl3data-acl path_beg /.well-known/srvctl/datastore/";
+    str += br + "    acl pki-validations-acl path_beg /.well-known/pki-validation/";
+
     return br + str;
 }
 
@@ -141,6 +145,10 @@ function get_well_known() {
     str += br + "    use_backend letsencrypt-backend if letsencrypt-acl" + br;
     str += br + "    use_backend thunderbird-backend if thunderbird-acl" + br;
     str += br + "    use_backend srvctl3data-backend if srvctl3data-acl" + br;
+    str += br + "    use_backend srvctl3data-backend if pki-validations-acl" + br;
+
+    //str += br + "    use_backend srvctl3gui-backend if srvctl3gui-acl" + br;
+
     return br + str;
 }
 
@@ -201,19 +209,23 @@ function get_global() {
     //str += br + '       stats realm Haproxy\\ Statistics';
     //str += br + '       stats auth stat:stat'; // we keep this no-password style password for now
 
-    str += br + "        errorfile 400 /var/www/html/400.html";
-    str += br + "        errorfile 403 /var/www/html/403.html";
+    if (fs.existsSync("/var/www/html/400.http")) str += br + "        errorfile 400 /var/www/html/400.http";
+    if (fs.existsSync("/var/www/html/403.http")) str += br + "        errorfile 403 /var/www/html/403.http";
+
     //https://serverfault.com/questions/885264/haproxy-error-400-bad-request-randomly?noredirect=1#comment1141829_885264
     //str += br + '        errorfile 408 /var/www/html/408.html';
-    str += br + "        errorfile 500 /var/www/html/500.html";
+
+    if (fs.existsSync("/var/www/html/500.http")) str += br + "        errorfile 500 /var/www/html/500.http";
+
     //  status code 501 not handled by 'errorfile', error customization will be ignored.
     //str += br + '        errorfile 501 /var/www/html/501.html';
-    str += br + "        errorfile 502 /var/www/html/502.html";
-    str += br + "        errorfile 503 /var/www/html/503.html";
-    str += br + "        errorfile 504 /var/www/html/504.html";
+
+    if (fs.existsSync("/var/www/html/502.http")) str += br + "        errorfile 502 /var/www/html/502.http";
+    if (fs.existsSync("/var/www/html/503.http")) str += br + "        errorfile 503 /var/www/html/503.http";
+    if (fs.existsSync("/var/www/html/504.http")) str += br + "        errorfile 504 /var/www/html/504.http";
 
     str += br + "        compression algo gzip";
-    str += br + "        compression type text/html text/plain text/css";
+    str += br + "    compression type text/css text/html text/javascript application/javascript text/plain text/xml application/json";
 
     str += br + "";
 
@@ -374,9 +386,14 @@ function get_backends_for_https() {
         str += br + "backend https:" + c;
         // for https only
         //str += br + '    redirect scheme https if !{ ssl_fc }';
+
         str += br + "    server https:" + c + " " + c + ":" + datastore.container_https_port(c) + " ssl";
         str += br + "";
     });
+
+    //str += br + "backend srvctl3gui-backend";
+    //str += br + "       server srvctl3gui 127.0.0.1:250" + br;
+
     return str;
 }
 
@@ -431,6 +448,7 @@ cfg += get_backends_for_port(9200, false);
 cfg += get_backends_for_port(8080, false);
 cfg += get_backends_for_port(8443, true);
 
+// 1282 ?
 cfg += br + "backend default";
 cfg += br + "    server default-server localhost:1282";
 

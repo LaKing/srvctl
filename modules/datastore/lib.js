@@ -228,11 +228,11 @@ function container_hostnet(C) {
 
 exports.container_hostnet = container_hostnet;
 
-// confucius, this got propably outdated in time.
 function container_host(C) {
     var container = containers[C];
 
-    //if (fs.existsSync("/srv/" + C + "/rootfs")) return HOSTNAME;
+  	// confucius, this got propably outdated in time. Not sure if we need this.
+    if (fs.existsSync("/srv/" + C + "/rootfs")) return HOSTNAME;
 
     var hostnet = container_hostnet(C);
     var ret;
@@ -380,11 +380,12 @@ function container_hosts(C) {
     var container = containers[C];
     var str = "## srvctl-generated for " + C + br;
 
-    str += "127.0.0.1   localhost localhost.localdomain localhost4 localhost4.localdomain4" + br;
+    str += "127.0.0.1   localhost localhost.localdomain localhost4 localhost4.localdomain4 " + C + br;
     str += "::1         localhost localhost.localdomain localhost6 localhost6.localdomain6" + br;
 
     if (container.ip) {
-        str += container.ip + " " + C + br;
+      	// seems this confuses curl in containers with https and certificates
+        //str += container.ip + " " + C + br;
         str += container_gw(C) + " srvctl-gateway" + br;
     }
     return str;
@@ -496,6 +497,19 @@ function container_nspawn_network_mapped_ports(C) {
 
 //exports.container_nspawn_network_mapped_ports = container_nspawn_network_mapped_ports;
 
+/*
+
+Private users rpm bug - therfore private users disabled for now. 
+
+[root@mariadb-test root]# dnf -y -q install mariadb-server
+Error unpacking rpm package mariadb-server-3:10.3.18-1.fc29.x86_64
+Error: Transaction failed
+
+
+*/
+
+
+
 function container_nspawn(C) {
     var container = containers[C];
     var str = "## srvctl generated - " + C + br;
@@ -504,17 +518,18 @@ function container_nspawn(C) {
     str += container_nspawn_network_mapped_ports(C);
     str += br;
     str += "[Exec]" + br;
-    str += "#PrivateUsers=" + container_uid(C) + br;
+    str += "PrivateUsers=" + container_uid(C) + br;
     str += "" + br;
     str += "[Files]" + br;
-    str += "#PrivateUsersChown=true" + br;
+    str += "PrivateUsersChown=true" + br;
     str += "BindReadOnly=" + process.env.SC_INSTALL_DIR + br;
     str += "BindReadOnly=/var/srvctl3/share/containers/" + C + br;
     str += "BindReadOnly=/var/srvctl3/share/common" + br;
     str += "BindReadOnly=/srv/" + C + "/network:/etc/systemd/network" + br;
-    // Preventiv security. This might couse some trouble at a container update, but it is possibly neccessery due to the way .network files are processed. TODO - check the status of this.
-    str += "BindReadOnly=/usr/lib/systemd/network:/usr/lib/systemd/network" + br;
-    str += "BindReadOnly=/var/srvctl3/share/lock:/run/systemd/network" + br;
+    // Preventiv security. This might couse some trouble at a container update, but it is [WAS] possibly neccessery due to the way .network files are processed. TODO - check the status of this. 
+    // Since we have now an advanced networking setup system, this seems to be obsolete. Users may hack the ip with container root access but wont get the right bridge on the host side. TODO test it.
+    // str += "BindReadOnly=/usr/lib/systemd/network:/usr/lib/systemd/network" + br;
+    // str += "BindReadOnly=/var/srvctl3/share/lock:/run/systemd/network" + br;
     str += br;
     str += "BindReadOnly=/srv/" + C + "/hosts:/etc/hosts" + br;
     str += br;
@@ -558,7 +573,7 @@ function container_firewall_commands(C) {
             let p = container.mapped_ports[i];
             //str += "## " + p.comment + "\n";
             //if (str.length > 0) str += " && ";
-            str += "firewalld_add_service port-" + p.host_port + " " + p.proto + " " + p.host_port + " " + name + br;
+            str += "firewalld_add_service port-" + p.host_port + " " + p.proto + " " + p.host_port + " " + C + br;
         }
         return str;
     } else return "## no mapped ports";
@@ -740,6 +755,7 @@ function cluster_etc_hosts() {
     Object.keys(containers).forEach(function(i) {
         if (containers[i].ip) {
             str += containers[i].ip + "    " + i + br;
+          	if (i.indexOf('.') < 0) str += containers[i].ip + "    " + i + ".local" + br;
             if (containers["mail." + i] === undefined) str += containers[i].ip + "    mail." + i + br;
         }
     });

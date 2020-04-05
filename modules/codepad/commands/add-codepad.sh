@@ -7,7 +7,8 @@
 
 if [[ "${ARG:0:5}" == "mail." ]]
 then
-    err "Adding codepad as mail container is not permitted."
+    err "Adding codepad into a mail container is uncommon, and not suggested. I will stop for now."
+    exit 13
 fi
 
 argument container-name

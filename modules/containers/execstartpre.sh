@@ -23,7 +23,7 @@ then
     cat "/srv/$C/local.nspawn" >  "/srv/$C/$C.nspawn"
 else
     ## automatic config via srvctl
-    echo "create_nspawn_container_config"
+    echo "[execstartpre] create_nspawn_container_config"
     bash /bin/srvctl exec-function create_nspawn_container_config "$C" || exit 11
 fi
 
@@ -33,7 +33,7 @@ then
 else
     [[ -f /srv/$C/hosts ]] || echo "missing hosts file"
     [[ -f /srv/$C/$C.nspawn ]] || echo "missing npsawn file"
-    echo "missing config files for nspawn detected in execstartpre for $C"
+    echo "[execstartpre] missing config files for nspawn detected in execstartpre for $C"
     exit 15
 fi
 

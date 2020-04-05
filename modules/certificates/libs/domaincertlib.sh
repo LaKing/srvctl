@@ -1,5 +1,6 @@
 #!/bin/bash
 
+## unused
 function check_pem { ## file
     
     local pem

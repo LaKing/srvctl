@@ -90,7 +90,7 @@ var master_servers = "";
 Object.keys(clusters).forEach(function(i) {
     Object.keys(clusters[i]).forEach(function(j) {
         if (clusters[i][j].dns_server === "master") {
-            // if it has a public IP address 
+            // if it has a public IP address
             if (clusters[i][j].host_ip) master_servers += clusters[i][j].host_ip + ";";
         }
     });
@@ -110,12 +110,14 @@ function splitstring(s) {
     return r;
 }
 
+const tab = '	';
+
 function get_container_zone(cluster, host, hostdata, containers, name, alias) {
     var container = containers[name];
     var zone = ";;" + cluster + " " + host + " " + name + br + br;
     if (alias) zone = ";;" + cluster + " " + host + " " + name + " " + alias + br + br;
     var ip = hostdata.host_ip;
-  
+
     var spf_string = "v=spf1";
 
     var serial = Math.floor(new Date().getTime() / 1000);
@@ -157,6 +159,31 @@ function get_container_zone(cluster, host, hostdata, containers, name, alias) {
 
     zone += ";; SPF" + br;
     zone += '@        IN        TXT        "' + spf_string + '"' + br;
+
+    // https://en.wikipedia.org/wiki/Zone_file
+    if (container.dns_records !== undefined) {
+        container.dns_records.forEach(function(o) {
+            let record_name = o.name || "@";
+            let record_ttl = o.ttl || "";
+            let record_class = o.class || "IN";
+            let record_type = o.type || "A";
+            let record_priority = o.priority || "";
+            let record_data = o.data || ip;
+
+            zone += ";; custom DNS record" + br;
+            zone += record_name + tab + record_ttl + tab + record_class + tab + record_type + tab + record_priority + tab + record_data + br;
+        });
+    }
+
+    if (container["google-site-verification"] !== undefined) {
+        zone += ";; google-site-verification" + br;
+        zone += "@       IN        TXT       google-site-verification=" + container["google-site-verification"] + br;
+    }
+
+    if (container["facebook-domain-verification"] !== undefined) {
+        zone += ";; facebook-domain-verification" + br;
+        zone += "@       IN        TXT       facebook-domain-verification=" + container["facebook-domain-verification"] + br;
+    }
 
     if (container["dkim-default-domainkey"] !== undefined) {
         zone += ";; dkim-default" + br;
@@ -201,7 +228,7 @@ function get_conf(cluster, host) {
     if (host === HOSTNAME) file = "/var/srvctl3/datastore/containers.json";
 
     var hostdata = clusters[cluster][host];
-    if (!hostdata.host_ip) return '';
+    if (!hostdata.host_ip) return "";
 
     try {
         containers = JSON.parse(fs.readFileSync(file));

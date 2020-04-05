@@ -6,15 +6,16 @@
 
 if [[ $ARG ]]
 then
-    
     argument container-name
     authorize
     
-    if [[ -d /srv/$ARG/rootfs ]]
+    C="$ARG"
+    
+    if [[ -d /srv/$C/rootfs ]]
     then
-        service_action "srvctl-nspawn@$ARG.service" status
+        service_action "srvctl-nspawn@$C.service" status
     else
-        service_action "$ARG" status
+        service_action "$C" status
     fi
     return
 fi
