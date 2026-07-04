@@ -1,5 +1,22 @@
 #!/bin/bash
 
+function create_userslice_config() {
+    
+    msg "Create user-* slice configuration"
+    
+    mkdir -p /etc/systemd/system/user-.slice.d
+    
+cat > /etc/systemd/system/user-.slice.d/50-srvctl.conf << EOF
+[Slice]
+CPUQuota=400%
+MemoryMax=16G
+MemoryHigh=8G
+EOF
+    
+    run systemctl daemon-reload
+    
+}
+
 
 function create_nspawn_container_config() { ## Container
     
@@ -17,33 +34,62 @@ function create_nspawn_container_config() { ## Container
     
     rm -fr "/srv/$C/network"
     mkdir -p "/srv/$C/network"
+   
+   	create_default_network_files "$C"
     
     ## custom bridge
     bridge="$(get container "$C" bridge)"
     
-    if [[ $bridge == false ]]
-    then
-        msg "Using the default virtual ethernet configuration for $C"
-        get container "$C" ethernet_network > "/srv/$C/network/ethernet.network"
+    msg "Using the default virtual ethernet configuration for $C"
+    get container "$C" ethernet_network > "/srv/$C/network/srvctl-ethernet.network"
         
-        create_networkd_bridge "$C"
-    else
+    create_networkd_bridge "$C"
+       
+    if [[ $bridge != false ]]
+    then
         msg "Using bridge $bridge with host0 interface (DHCP). for $C"
-        get container "$C" ethernet_network > "/srv/$C/network/80-container-host0.network"
-        #cat /usr/lib/systemd/network/80-container-host0.network > "/srv/$C/network/80-container-host0.network"
+
+cat > "/srv/$C/network/80-container-host0.network" << EOF
+[Match]
+Virtualization=container
+Name=host0
+
+[Network]
+DHCP=yes
+
+[DHCP]
+UseTimezone=yes
+EOF
+
     fi
     
     get container "$C" hosts > "/srv/$C/hosts"
-    get container "$C" resolv_conf > "/srv/$C/rootfs/etc/resolv.conf"
+    #get container "$C" resolv_conf > "/srv/$C/rootfs/etc/resolv.conf"
+    
     
     ## TODO implement with hooks
     ## add codepad
     if [[ -d /usr/local/share/boilerplate ]]
     then
-        echo 'BindReadOnly=/usr/local/share/boilerplate' >> "/srv/$C/$C.nspawn"
-    fi
+    	## TODO this now bp-devel specific, it should be generally in a module
+        echo 'BindReadOnly=/srv/v3-devel/rootfs/srv/boilerplate:/usr/local/share/boilerplate' >> "/srv/$C/$C.nspawn"
+	fi
+    
+    if [[ -d /usr/local/share/codepad ]]
+    then
+        echo 'BindReadOnly=/srv/c3-devel/rootfs/srv/codepad:/usr/local/share/codepad' >> "/srv/$C/$C.nspawn"
+	fi
     
     for f in /srv/$C/*.binds
+    do
+        if [[ -f $f ]]
+        then
+            msg "Adding extra bind to nspawn ($f)"
+            cat "$f" >> "/srv/$C/$C.nspawn"
+        fi
+    done 
+    
+    for f in /srv/$C/binds/*.binds
     do
         if [[ -f $f ]]
         then
@@ -60,6 +106,15 @@ function create_nspawn_container_config() { ## Container
     # shellcheck disable=SC1090
     source /srv/"$C"/firewall_cmd.sh
     
+}
+
+function create_nspawn_container_configs() {
+
+	for C in $(get cluster container_list)
+	do
+    	#create_nspawn_container_config "$C"
+        /bin/bash /srv/"$C"/ethernet.sh
+    done
 }
 
 
@@ -81,8 +136,11 @@ function create_nspawn_container_settings { ## container
 
 function create_srvctl_nspawn_service {
     
-    ## TODO remove, this is just temporary
-    rm -fr /usr/lib/systemd/system/srvctl-nspawn@.service
+    if [[ -f /usr/lib/systemd/system/srvctl-nspawn@.service ]]
+    then
+        msg "The srvctl-nspawn@.service configuration file is already installed."
+        return
+    fi
     
     msg "Create srvctl-nspawn@.service"
     
@@ -130,6 +188,11 @@ DeviceAllow=block-blkext rw
 DeviceAllow=/dev/mapper/control rw
 DeviceAllow=block-device-mapper rw
 
+## enforce limits
+CPUQuota=800%
+MemoryMax=16G
+MemoryHigh=8G
+
 [Install]
 WantedBy=machines.target
 
@@ -144,18 +207,38 @@ function create_networkd_bridge { ## C
     local C br
     C="$1"
     br="$(get container "$C" br)" || return
+    mkdir -p /run/systemd/network
     
-    if [[ -f "/etc/systemd/network/br-$br.netdev" ]] && [[ -f "/etc/systemd/network/br-$br.network" ]]
+    if [[ -f "/run/systemd/network/br-$br.netdev" ]] && [[ -f "/run/systemd/network/br-$br.network" ]]
     then
+    	ntc "Bridge $br exists"
         return
+    fi
+    
+    if [[ "$(get container "$C" deprecated)" == true ]]
+    then
+    	ntc "Container is deprecated, not creating the bridge"
+    	return
     fi
     
     msg "Creating network bridge $br"
     
-    get container "$C" br_netdev > "/etc/systemd/network/br-$br.netdev"
-    get container "$C" br_network > "/etc/systemd/network/br-$br.network"
+    get container "$C" br_netdev > "/run/systemd/network/br-$br.netdev"
+    get container "$C" br_network > "/run/systemd/network/br-$br.network"
     
     run systemctl restart systemd-networkd --no-pager
 }
 
 
+function create_default_network_files { ## C
+	local C
+    C=$1
+
+cat > "/srv/$C/network/zt-bridge-endpoint.network" << EOF
+[Match]
+Name=zt-*
+
+[Network]
+DHCP=yes
+EOF
+}

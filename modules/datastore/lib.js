@@ -14,6 +14,7 @@ const SC_HOSTS_DATA_FILE = process.env.SC_DATASTORE_DIR + "/hosts.json";
 const SC_USERS_DATA_FILE = process.env.SC_DATASTORE_DIR + "/users.json";
 const SC_CONTAINERS_DATA_FILE = process.env.SC_DATASTORE_DIR + "/containers.json";
 const SC_DATASTORE_RO = process.env.SC_DATASTORE_RO;
+const SC_COMPANY_DOMAIN = process.env.SC_COMPANY_DOMAIN;
 const dot = ".";
 const root = "root";
 const br = "\n";
@@ -29,7 +30,7 @@ else ON_HS = false;
 const SC_ON_HS = ON_HS;
 
 const SRVCTL = process.env.SRVCTL;
-const SC_ROOT = process.env.SC_ROOT;
+const SC_UID0 = process.env.SC_UID0;
 const os = require("os");
 const HOSTNAME = os.hostname();
 const SC_HOSTNET = Number(process.env.SC_HOSTNET);
@@ -90,7 +91,7 @@ exports.users = users;
 
 function load_resellers() {
     var resellers = {};
-    Object.keys(users).forEach(function(i) {
+    Object.keys(users).forEach(function (i) {
         if (users[i].reseller_id !== undefined) resellers[i] = users[i];
     });
     return resellers;
@@ -114,7 +115,7 @@ function write_users() {
     if (SC_DATASTORE_RO) return_error("Readonly datastore.");
     else
         try {
-            fs.writeFile(SC_USERS_DATA_FILE, JSON.stringify(users, null, 2), function(err) {
+            fs.writeFile(SC_USERS_DATA_FILE, JSON.stringify(users, null, 2), function (err) {
                 if (err) return_error("WRITEFILE " + err);
                 else msg("wrote users.json");
             });
@@ -129,7 +130,7 @@ function write_containers() {
     if (SC_DATASTORE_RO) return_error("Readonly datastore.");
     else
         try {
-            fs.writeFile(SC_CONTAINERS_DATA_FILE, JSON.stringify(containers, null, 2), function(err) {
+            fs.writeFile(SC_CONTAINERS_DATA_FILE, JSON.stringify(containers, null, 2), function (err) {
                 if (err) return_error("WRITEFILE " + err);
                 else msg("wrote containers.json");
             });
@@ -231,12 +232,12 @@ exports.container_hostnet = container_hostnet;
 function container_host(C) {
     var container = containers[C];
 
-  	// confucius, this got propably outdated in time. Not sure if we need this.
+    // confucius, this got propably outdated in time. Not sure if we need this.
     if (fs.existsSync("/srv/" + C + "/rootfs")) return HOSTNAME;
 
     var hostnet = container_hostnet(C);
     var ret;
-    Object.keys(hosts).forEach(function(i) {
+    Object.keys(hosts).forEach(function (i) {
         if (hosts[i].hostnet == hostnet) ret = i;
     });
     return ret;
@@ -248,7 +249,7 @@ function container_host_ip(C) {
     var container = containers[C];
     var hostnet = container_hostnet(C);
     var ret = "ERROR datastore/lib.js: container_host_ip not found";
-    Object.keys(hosts).forEach(function(i) {
+    Object.keys(hosts).forEach(function (i) {
         if (hosts[i].hostnet == hostnet) ret = hosts[i].host_ip;
     });
     return ret;
@@ -270,7 +271,7 @@ function container_user(C) {
     var cipa = container.ip.split(dot);
     var reseller = container_reseller(C);
     var ret = "root";
-    Object.keys(users).forEach(function(i) {
+    Object.keys(users).forEach(function (i) {
         if (users[i].reseller == reseller) if (users[i].id === cipa[2]) ret = i;
     });
     return ret;
@@ -307,21 +308,23 @@ exports.container_resolv_conf = container_resolv_conf;
 
 function container_nspawn_network_ethernet(C) {
     var container = containers[C];
-    if (container.bridge) return "Bridge=" + container.bridge + br;
-    return "VirtualEthernetExtra=" + container_interface(C) + br;
+    let lines = "";
+    if (!container.deprecated) lines += "VirtualEthernetExtra=" + container_interface(C) + br;
+    if (container.bridge) lines += "Bridge=" + container.bridge + br;
+    return lines;
 }
 
 //exports.container_nspawn_network_ethernet = container_nspawn_network_ethernet;
 
 function container_ethernet(C) {
     var container = containers[C];
-    if (container.bridge) return "## using a custom bridge";
 
     var interface = container_interface(C);
     var ip_br = container_br(C);
 
     var str = "#!/bin/bash" + br;
     str += br;
+    //str += "ip link del " + interface + br;
     str += "if ip link set dev " + interface + " up" + br;
     str += "then" + br;
     str += "    echo '[ OK ] ip link set dev " + interface + " up'" + br;
@@ -335,7 +338,20 @@ function container_ethernet(C) {
     str += "else" + br;
     str += "    echo '[FAIL] brctl addif " + ip_br + " " + interface + "'" + br;
     str += "fi" + br;
-
+    str += br;
+    str += "if firewall-cmd --zone=trusted --add-interface=" + ip_br + br;
+    str += "then" + br;
+    str += "    echo '[ OK ] fireall-cmd added " + ip_br + "  to the trusted interfaces'" + br;
+    str += "else" + br;
+    str += "    echo '[FAIL] fireall-cmd could not add " + ip_br + "  to the trusted interfaces'" + br;
+    str += "fi" + br;
+    str += br;
+    str += "if firewall-cmd --permanent --zone=trusted --add-interface=" + ip_br + br;
+    str += "then" + br;
+    str += "    echo '[ OK ] fireall-cmd added " + ip_br + "  to the trusted interfaces'" + br;
+    str += "else" + br;
+    str += "    echo '[FAIL] fireall-cmd could not add " + ip_br + "  to the trusted interfaces'" + br;
+    str += "fi" + br;
     return str;
 }
 
@@ -345,33 +361,17 @@ function container_ethernet_network(C) {
     var container = containers[C];
     var str = "## srvctl-generated" + br;
 
-    if (container.bridge) {
-        str += "[Match]" + br;
-        str += "Virtualization=container" + br;
-        str += "Name=host0" + br;
-        str += br;
-        str += "[Network]" + br;
-        str += "DHCP=yes" + br;
-        //str += "LinkLocalAddressing=yes" + br;
-        //str += "LLDP=yes" + "\n";
-        //str += "EmitLLDP=customer-bridge" + br;
-        str += br;
-        str += "[DHCP]" + br;
-        str += "UseTimezone=yes" + br;
-        return str;
-    } else {
-        str += "[Match]" + br;
-        str += "Virtualization=container" + br;
-        str += "Name=" + container_interface(C) + br;
-        str += "" + br;
-        str += "[Network]" + br;
-        str += "Address=" + container.ip + "/24" + br;
-        str += "Gateway=" + container_gw(C) + br;
-        str += br;
-        //str += "[DHCP]" + br;
-        //str += "UseTimezone=yes" + br;
-        return str;
-    }
+    str += "[Match]" + br;
+    str += "Virtualization=container" + br;
+    str += "Name=" + container_interface(C) + br;
+    str += "" + br;
+    str += "[Network]" + br;
+    str += "Address=" + container.ip + "/24" + br;
+    str += "Gateway=" + container_gw(C) + br;
+    str += "DNS=8.8.8.8" + br;
+    str += br;
+
+    return str;
 }
 
 exports.container_ethernet_network = container_ethernet_network;
@@ -384,7 +384,7 @@ function container_hosts(C) {
     str += "::1         localhost localhost.localdomain localhost6 localhost6.localdomain6" + br;
 
     if (container.ip) {
-      	// seems this confuses curl in containers with https and certificates
+        // seems this confuses curl in containers with https and certificates
         //str += container.ip + " " + C + br;
         str += container_gw(C) + " srvctl-gateway" + br;
     }
@@ -392,6 +392,17 @@ function container_hosts(C) {
 }
 
 exports.container_hosts = container_hosts;
+
+function container_quota(C) {
+    var container = containers[C];
+    var str = "250000000";
+
+    if (container.quota !== undefined) str = container.quota;
+
+    return str;
+}
+
+exports.container_quota = container_quota;
 
 /*
 
@@ -420,9 +431,9 @@ function is_mapped_port(proto, n) {
     if (n < 1024) return true;
 
     var result = false;
-    Object.keys(containers).forEach(function(i) {
+    Object.keys(containers).forEach(function (i) {
         if (containers[i].mapped_ports)
-            containers[i].mapped_ports.forEach(function(j) {
+            containers[i].mapped_ports.forEach(function (j) {
                 if (j.proto === proto && j.host_port === n) result = true;
             });
     });
@@ -442,7 +453,7 @@ function container_add_mapped_port(C) {
     // sc cfg container container2 add_mapped_port udp 22 testing adding a mapped port
     if (process.argv[6] === "udp" || process.argv[6] === "tcp") o.proto = process.argv[6];
 
-    // when passing OPAS over he com,mand an additional containername slips into the parameters passed
+    // when passing OPAS over he command an additional containername slips into the parameters passed
     if (process.argv[7] === "udp" || process.argv[7] === "tcp") {
         o.proto = process.argv[7];
         port_arg = process.argv[8];
@@ -508,7 +519,78 @@ Error: Transaction failed
 
 */
 
+function container_useruids(C) {
+    const container = containers[C];
+    const root_uid = container_uid(C);
 
+    let users_content = fs.readFileSync("/srv/" + C + "/rootfs/etc/passwd", "UTF8");
+    let users_content_lines = users_content.split("\n");
+    let users = {};
+    for (let i = 0; i < users_content_lines.length; i++) {
+        let ucl = users_content_lines[i].split(":");
+        users[ucl[0]] = Number(ucl[2]);
+    }
+
+    let groups_content = fs.readFileSync("/srv/" + C + "/rootfs/etc/group", "UTF8");
+    let groups_content_lines = groups_content.split("\n");
+    let groups = {};
+    for (let i = 0; i < groups_content_lines.length; i++) {
+        let ucl = groups_content_lines[i].split(":");
+        groups[ucl[0]] = Number(ucl[2]);
+    }
+
+    function chown(C, user, group, path) {
+        if (!users[user]) return "## no user " + user + br;
+        if (!groups[group]) return "## no group " + group + br;
+        return (
+            "[[ -d /srv/" +
+            C +
+            "/rootfs" +
+            path +
+            " ]] && chown -R " +
+            Number(root_uid + users[user]) +
+            ":" +
+            Number(root_uid + groups[group]) +
+            " /srv/" +
+            C +
+            "/rootfs" +
+            path +
+            " && echo '" +
+            path +
+            "'" +
+            br
+        );
+    }
+
+    var str = "## srvctl generated - for restore userids shell script" + C + br;
+    str += "root_uid=" + container_uid(C) + br;
+    str += "" + br;
+    str += "#echo 'USERS " + JSON.stringify(users) + "'" + br;
+    str += "#echo 'GROUP " + JSON.stringify(groups) + "'" + br;
+    str += "" + br;
+
+    str += chown(C, "codepad", "codepad", "/srv/codepad-project");
+    str += chown(C, "apache", "apache", "/var/www/html");
+    str += chown(C, "mysql", "mysql", "/var/lib/mysql");
+    str += chown(C, "mongod", "mongod", "/var/lib/mongo");
+
+    str += "# for u in /srv/" + C + "/rootfs" + br;
+    str += "# do" + br;
+    str += "#   ssh " + C + ' "sc add-user $u"' + br;
+    str += "# done" + br;
+
+    for (let u in users) {
+        if (users[u] >= 1000) str += chown(C, u, u, "/home/" + u);
+    }
+
+    // leave root last
+    str += chown(C, "root", "root", "/root");
+    str += "" + br;
+    str += br;
+    return str;
+}
+
+exports.container_useruids = container_useruids;
 
 function container_nspawn(C) {
     var container = containers[C];
@@ -519,6 +601,11 @@ function container_nspawn(C) {
     str += br;
     str += "[Exec]" + br;
     str += "PrivateUsers=" + container_uid(C) + br;
+    // Capability needed for mongo, the mongodb shell
+    str += "Capability=CAP_IPC_LOCK" + br;
+    // Capability needed for docker inside containers
+    str += "SystemCallFilter=add_key keyctl bpf" + br;
+
     str += "" + br;
     str += "[Files]" + br;
     str += "PrivateUsersChown=true" + br;
@@ -526,7 +613,7 @@ function container_nspawn(C) {
     str += "BindReadOnly=/var/srvctl3/share/containers/" + C + br;
     str += "BindReadOnly=/var/srvctl3/share/common" + br;
     str += "BindReadOnly=/srv/" + C + "/network:/etc/systemd/network" + br;
-    // Preventiv security. This might couse some trouble at a container update, but it is [WAS] possibly neccessery due to the way .network files are processed. TODO - check the status of this. 
+    // Preventiv security. This might couse some trouble at a container update, but it is [WAS] possibly neccessery due to the way .network files are processed. TODO - check the status of this.
     // Since we have now an advanced networking setup system, this seems to be obsolete. Users may hack the ip with container root access but wont get the right bridge on the host side. TODO test it.
     // str += "BindReadOnly=/usr/lib/systemd/network:/usr/lib/systemd/network" + br;
     // str += "BindReadOnly=/var/srvctl3/share/lock:/run/systemd/network" + br;
@@ -540,7 +627,7 @@ exports.container_nspawn = container_nspawn;
 
 function container_br_netdev(C) {
     var container = containers[C];
-    if (container.bridge) return return_error("A container with a bridge shall not have a virtual br.");
+    //if (container.bridge) return return_error("A container with a bridge shall not have a virtual br.");
     var str = "## srvctl generated" + br;
     str += "[NetDev]" + br;
     str += "Name=" + container_br(C) + br;
@@ -552,14 +639,16 @@ exports.container_br_netdev = container_br_netdev;
 
 function container_br_network(C) {
     var container = containers[C];
-    if (container.bridge) return return_error("A container with a bridge shall not have a virtual br.");
+    //if (container.bridge) return return_error("A container with a bridge shall not have a virtual br.");
     var str = "## srvctl generated" + br;
     str += "[Match]" + br;
     str += "Name=" + container_br(C) + br;
     str += br;
     str += "[Network]" + br;
-    str += "IPMasquerade=yes" + br;
-    str += "Address=" + container_gw + "/24" + br;
+    str += "IPMasquerade=ipv4" + br;
+    str += "Address=" + container_gw(C) + "/24" + br;
+    // https://github.com/systemd/systemd/issues/9252
+    str += "ConfigureWithoutCarrier=yes";
     return str;
 }
 
@@ -591,12 +680,70 @@ function container_mx(C) {
 
 exports.container_mx = container_mx;
 
+function container_domains(name) {
+    let domains = [];
+    if (name.indexOf(".") > 0) {
+        domains.push(name);
+        domains.push("www." + name);
+    }
+    // aliases do redirects and forwards
+    if (containers[name].aliases) {
+        for (let i in containers[name].aliases) {
+            let domain = containers[name].aliases[i];
+            domains.push(domain);
+            domains.push("www." + domain);
+        }
+    }
+    // altnames are direct alternative names, no redirects or forwards
+    if (containers[name].altnames) {
+        for (let i in containers[name].altnames) {
+            let domain = containers[name].altnames[i];
+            domains.push(domain);
+            domains.push("www." + domain);
+        }
+    }
+    // subdomains are extra labels under the container's own name, e.g. "fox" -> fox.<fqdn>.
+    // Expand against the normalized fqdn so dotless container names get the company domain
+    // appended (v4-devel -> v4-devel.d250.hu -> fox.v4-devel.d250.hu). A *.<parent> wildcard
+    // only matches a single label, so fox.v4-devel.d250.hu is NOT covered by *.d250.hu and
+    // needs its own certificate. No www. variant — these are leaf names served by the same
+    // container (haproxy already routes *.<name> via subacl).
+    if (containers[name].subdomains) {
+        let fqdn = normalize_container_domain(name);
+        for (let i in containers[name].subdomains) {
+            domains.push(containers[name].subdomains[i] + "." + fqdn);
+        }
+    }
+    return domains;
+}
+
+exports.container_domains = container_domains;
+
+function normalize_container_domain(name) {
+    if (!SC_COMPANY_DOMAIN) return name;
+
+    if (name.substring(0, 5) === "mail.") {
+        const base = name.substring(5);
+        if (base.indexOf(dot) < 0) return "mail." + base + dot + SC_COMPANY_DOMAIN;
+        return name;
+    }
+
+    if (name.indexOf(dot) < 0) return name + dot + SC_COMPANY_DOMAIN;
+    return name;
+}
+
+function normalize_mail_domain(name) {
+    if (name.substring(0, 5) === "mail.") name = name.substring(5);
+    if (name.indexOf(dot) < 0 && SC_COMPANY_DOMAIN) return "mail." + name + dot + SC_COMPANY_DOMAIN;
+    return "mail." + name;
+}
+
 // internal function for default network ip calculation
 function find_next_cip_for_container_on_network(network) {
     var nipa = network.split(dot);
     var c = 2;
-    Object.keys(containers).forEach(function(i) {
-      	if (containers[i].bridge) return;
+    Object.keys(containers).forEach(function (i) {
+        //if (containers[i].bridge) return;
         var cipa = containers[i].ip.split(dot);
         if (cipa[1] === nipa[1] && cipa[2] === nipa[2]) {
             var cc = Number(cipa[3]);
@@ -607,6 +754,7 @@ function find_next_cip_for_container_on_network(network) {
     if (c > 250) return_error("out of range in find_next_cip_for_container_on_network " + network);
     return c;
 }
+
 /*
 function get_reseller_id(user) {
     
@@ -635,7 +783,7 @@ function user_uid(u) {
     if (users[u]) if (users[u].uid !== undefined) return users[u].uid;
 
     var ret = 1000;
-    Object.keys(users).forEach(function(i) {
+    Object.keys(users).forEach(function (i) {
         if (Number(users[i].uid) >= ret) ret = Number(users[i].uid) + 1;
     });
 
@@ -648,7 +796,7 @@ exports.user_uid = user_uid;
 // users uid is between 1000 and 10000
 function get_next_user_id() {
     var ret = 1;
-    Object.keys(users).forEach(function(i) {
+    Object.keys(users).forEach(function (i) {
         if (Number(users[i].user_id) >= ret) ret = Number(users[i].user_id) + 1;
     });
     if (ret > 255) return_error("Out of range. Can not allocate user_id");
@@ -690,7 +838,7 @@ function new_reseller(username) {
 
     user.reseller = username;
     var rid = 1;
-    Object.keys(users).forEach(function(i) {
+    Object.keys(users).forEach(function (i) {
         if (users[i].reseller_id >= rid) rid = users[i].reseller_id + 1;
     });
     user.reseller_id = rid;
@@ -712,7 +860,8 @@ function new_container(C, T, B) {
 
     // bridge is defined or get a new ip for the default?
     if (B) container.bridge = B;
-    else container.ip = find_ip_for_container();
+    //else
+    container.ip = find_ip_for_container();
 
     container.creation_time = NOW;
     //container.creation_host = HOSTNAME;
@@ -747,23 +896,38 @@ function cluster_etc_hosts() {
     str += "127.0.0.1    localhost.localdomain localhost " + HOSTNAME + br;
     str += "::1    localhost6.localdomain6 localhost6" + br;
     str += "## hosts" + br;
-    Object.keys(hosts).forEach(function(i) {
+    Object.keys(hosts).forEach(function (i) {
         if (hosts[i].host_ip) str += hosts[i].host_ip + "    " + i + br;
         if (hosts[i].hostnet) str += "10.15." + hosts[i].hostnet + ".0    " + i.split(".")[0] + br;
     });
     str += "## containers" + br;
-    Object.keys(containers).forEach(function(i) {
+    Object.keys(containers).forEach(function (i) {
         if (containers[i].ip) {
             str += containers[i].ip + "    " + i + br;
-          	if (i.indexOf('.') < 0) str += containers[i].ip + "    " + i + ".local" + br;
-            if (containers["mail." + i] === undefined) str += containers[i].ip + "    mail." + i + br;
+            if (i.indexOf(".") < 0) str += containers[i].ip + "    " + i + ".local" + br;
+            if (i.indexOf(".") < 0) str += containers[i].ip + "    " + i + "." + process.env.SC_COMPANY_DOMAIN + br;
+
+            if (containers["mail." + i] === undefined)
+                if (containers[i].is_mail === false) str += "## [disabled] " + containers[i].ip + "    mail." + i + br;
+                else {
+                  str += containers[i].ip + "    mail." + i + br;
+                  str += containers[i].ip + "    mail." + i + "." + process.env.SC_COMPANY_DOMAIN + br;
+                }
+            if (containers[i].aliases) {
+                for (const alias of containers[i].aliases) {
+                    str += containers[i].ip + "    " + alias + br;
+                    if (containers["mail." + i] === undefined)
+                        if (containers[i].is_mail === false) str += "## [disabled] " + containers[i].ip + "    mail." + alias + br;
+                        else str += containers[i].ip + "    mail." + alias + br;
+                }
+            }
         }
     });
     //fs.writeFile("/etc/hosts", str, function(err) {
     //    if (err) return_error("WRITEFILE " + err);
     //    else msg("wrote /etc/hosts");
     //});
-  	return str;
+    return str;
 }
 
 exports.cluster_etc_hosts = cluster_etc_hosts;
@@ -771,37 +935,39 @@ exports.cluster_etc_hosts = cluster_etc_hosts;
 function cluster_postfix_relaydomains() {
     var str = "";
     var rd = [];
-    Object.keys(hosts).forEach(function(i) {
+    Object.keys(hosts).forEach(function (i) {
         rd.push(i);
     });
-    Object.keys(containers).forEach(function(i) {
-        if (i.substring(0, 5) === "mail.") rd.push(i.substring(5));
-        else rd.push(i);
+    Object.keys(containers).forEach(function (i) {
+        if (i.substring(0, 5) === "mail.") rd.push(normalize_container_domain(i.substring(5)));
+        else rd.push(normalize_container_domain(i));
+
+        if (containers[i].aliases) for (const alias of containers[i].aliases) rd.push(normalize_container_domain(alias));
     });
 
     // create string
-    [...new Set(rd)].forEach(function(i) {
-        str += i + " #" + br;
+    [...new Set(rd)].forEach(function (i) {
+        str += i + "\tOK" + br;
     });
 
     //fs.writeFile("/etc/postfix/relaydomains", str, function(err) {
     //    if (err) return_error("WRITEFILE " + err);
     //    else msg("datastore -> postfix relaydomains");
     //});
-  	return str;
+    return str;
 }
 
 exports.cluster_postfix_relaydomains = cluster_postfix_relaydomains;
 
 function cluster_host_keys() {
     var str = "";
-    Object.keys(hosts).forEach(function(i) {
-        Object.keys(hosts[i]).forEach(function(j) {
+    Object.keys(hosts).forEach(function (i) {
+        Object.keys(hosts[i]).forEach(function (j) {
             if (j.substring(0, 8) === "host-key") str += hosts[i][j] + br;
         });
     });
-    Object.keys(containers).forEach(function(i) {
-        Object.keys(containers[i]).forEach(function(j) {
+    Object.keys(containers).forEach(function (i) {
+        Object.keys(containers[i]).forEach(function (j) {
             if (j.substring(0, 8) === "host-key") str += containers[i][j] + br;
         });
     });
@@ -816,7 +982,7 @@ exports.cluster_host_keys = cluster_host_keys;
 
 function cluster_user_list() {
     var str = "";
-    Object.keys(users).forEach(function(i) {
+    Object.keys(users).forEach(function (i) {
         str += i + " ";
     });
     return str;
@@ -826,7 +992,7 @@ exports.cluster_user_list = cluster_user_list;
 
 function cluster_container_list() {
     var str = "";
-    Object.keys(containers).forEach(function(i) {
+    Object.keys(containers).forEach(function (i) {
         str += i + " ";
     });
     return str;
@@ -836,7 +1002,7 @@ exports.cluster_container_list = cluster_container_list;
 
 function user_container_list() {
     var str = " ";
-    Object.keys(containers).forEach(function(i) {
+    Object.keys(containers).forEach(function (i) {
         if (containers[i].user === SC_USER) str += i + " ";
         else if (users[containers[i].user].reseller === SC_USER) str += i + " ";
     });
@@ -847,7 +1013,7 @@ exports.user_container_list = user_container_list;
 
 function cluster_host_list() {
     var str = "";
-    Object.keys(hosts).forEach(function(i) {
+    Object.keys(hosts).forEach(function (i) {
         str += i + " ";
     });
     return str;
@@ -857,7 +1023,7 @@ exports.cluster_host_list = cluster_host_list;
 
 function cluster_host_ip_list() {
     var str = "";
-    Object.keys(hosts).forEach(function(i) {
+    Object.keys(hosts).forEach(function (i) {
         if (hosts[i].host_ip !== undefined) str += hosts[i].host_ip + " ";
     });
     return str;

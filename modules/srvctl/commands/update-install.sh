@@ -1,6 +1,6 @@
 #!/bin/bash
 
-## @@@ update-install
+## @@@ update-install HOSTNAME
 ## @en Run the installation/update script.
 ## &en Update/Install all components.
 ## &en On host systems install the containerfarm. and additionally use [HOSTNAME] as additional argument to select a host from a cluster.
@@ -8,12 +8,6 @@
 root_only
 
 sc_update
-
-if [[ $ARG ]]
-then
-    msg "Argument $ARG"
-fi
-
 
 if ! $SC_USE_CONTAINERS
 then
@@ -25,6 +19,13 @@ then
 fi
 
 ## continue if on the host
+if [[ $ARG ]]
+then
+    msg "Argument $ARG"
+else
+    ntc "No argument, so we will stop here."
+    exit
+fi
 
 if [[ ! -f /etc/srvctl/debug.conf ]]
 then
@@ -33,7 +34,7 @@ then
 fi
 
 ## disable selinux
-msg 'disabling SELinux'
+msg 'disabling SELinux - needs a reboot for activation'
 echo 'SELINUX=disabled' > /etc/selinux/config
 ## TODO enable it when we are there
 
@@ -52,6 +53,7 @@ then
         echo "$ARG" > /etc/hostname
     else
         msg "please set a hostname"
+        sleep 2
         mcedit /etc/hostname
         cat /etc/hostname
     fi
@@ -90,5 +92,5 @@ cat "$SC_INSTALL_DIR"/modules/srvctl/completion.sh > /etc/bash_completion.d/srvc
 
 
 set_permissions
-msg "update-install complete"
+msg "update-install complete. please reboot."
 echo ""

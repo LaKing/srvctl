@@ -19,7 +19,7 @@
 ## &en     To flush the mail que, use: postqueue -f
 ## &en     To remove all mail from the mail que use: postsuper -d ALL
 
-echo "huh?"
+
 msg "srvctl version $(cat "$SC_INSTALL_DIR/version")"
 
 diagnose_variables
@@ -61,7 +61,7 @@ do
     fi
 done
 
-systemctl list-units --state=failed
+run systemctl list-units --state=failed
 
 msg "-- mail que --"
 run journalctl -u postfix --since yesterday | grep fatal
@@ -91,6 +91,7 @@ msg "To see the process tree run: systemctl status --no-pager"
 run_hooks diagnose
 
 
-
+msg "To flush the mail que, use: postqueue -f"
+msg "To remove all mail from the mail que use: postsuper -d ALL"
 
 

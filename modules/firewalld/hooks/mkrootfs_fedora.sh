@@ -14,10 +14,11 @@ then
     
     ## elasticsearch
     firewalld_offline_add_service https9200 tcp 9200
-fi
-
-if [[ "$rootfs_name" == "mail" ]]
-then
+    #fi
+    
+    #if [[ "$rootfs_name" == "mail" ]]
+    #then
+    
     firewalld_offline_add_service imap tcp 143
     firewalld_offline_add_service imaps tcp 993
     firewalld_offline_add_service pop3s tcp 995

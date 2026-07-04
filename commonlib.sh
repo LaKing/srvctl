@@ -9,6 +9,8 @@ readonly HEMP='## @@@'
 readonly HINT='## @en'
 ## mandatory - the multistring help
 readonly HELP='## &en'
+## optional - help dynamically executed
+readonly HEXE='## &&&'
 
 # No Color
 #readonly CLEAR='\e[0m'
@@ -126,7 +128,7 @@ function run_command {
     fi
     
     ## call a srvctl data function
-    if [[ $UID == 0 ]] && [[ $OPAS ]] && [[ $CMD == 'new' ]] ||  [[ $CMD == 'get' ]] ||  [[ $CMD == 'put' ]] ||  [[ $CMD == 'out' ]] ||  [[ $CMD == 'cfg' ]] ||  [[ $CMD == 'del' ]]  ||  [[ $CMD == 'fix' ]]
+    if [[ $UID == 0 ]] && [[ $OPAS ]] && [[ $CMD == 'new' ]] ||  [[ $CMD == 'get' ]] ||  [[ $CMD == 'put' ]] ||  [[ $CMD == 'out' ]] ||  [[ $CMD == 'cfg' ]] ||  [[ $CMD == 'del' ]]  ||  [[ $CMD == 'add' ]]
     then
         # shellcheck disable=SC2086
         $CMD $OPAS
@@ -209,30 +211,41 @@ function complicate() {
 
 function hint_on_file {
     
-    [[ -f $1 ]] || return 132
+    local file
+    file="$1"
+    
+    [[ -f $file ]] || return 132
     ## root_only: if not root, and file marked as root_only skip this item
-    ! $SC_ROOT && head "$1" | grep -q 'root_only' && return 133
+    ! $SC_UID0 && head -n 20 "$file" | grep -q 'root_only' && return 133
     ## if not on a containerfarm host
-    ! [[ $SC_HOSTNET ]] && head "$1" | grep -q 'hs_only' && return 134
+    ! [[ $SC_HOSTNET ]] && head -n 20 "$file" | grep -q 'hs_only' && return 134
     ## is user is not a reseller
-    ! $SC_ROOT && ! [[ "${#SC_USER}" == 1 ]] && head "$1" | grep -q 'reseller_only' && return 134
+    ! $SC_UID0 && ! [[ "${#SC_USER}" == 1 ]] && head -n 20 "$file" | grep -q 'reseller_only' && return 134
     
     #! $SC_ON_VE && head "$1" | grep -q 've_only' && return 135
     
-    local hintstr command hintcmd
+    local hintstr command hintcmd hintexec data
     
-    hintstr="$(head "$1" | grep -m 1 "$HINT")"
-    command="$(basename "$1")"
-    hintcmd="$(head "$1" | grep -m 1 "$HEMP" "$1")"
+    hintstr="$(head "$file" | grep -m 1 "$HINT")"
+    command="$(basename "$file")"
+    hintcmd="$(head "$file" | grep -m 1 "$HEMP" "$file")"
+    
+    data=""
+    hintexec="$(head "$file" | grep -m 1 "$HEXE" "$file")"
+    if [[ $hintexec ]]
+    then
+        data="[$(${hintexec:7} | tr '\n' '|')]"
+    fi
     
     if [[ -z $hintcmd ]]
     then
-        hint "${command:0: -3}" "${hintstr:7}" "$1"
+        hint "${command:0: -3}" "${hintstr:7} $data" "$file"
         complicate "${command:0: -3}"
     else
-        hint "${hintcmd:7}" "${hintstr:7}" "$1"
+        hint "${hintcmd:7}" "${hintstr:7} $data" "$file"
         complicate "${hintcmd:7}"
     fi
+    
 }
 
 function hint_commands {

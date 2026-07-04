@@ -34,13 +34,13 @@ function check_container_directories() {
             continue
         fi
         
+        local C
+        
+        ## strip /srv
+        C="${D:5}"
+        
         if [[ -d $D/rootfs ]]
         then
-            local C
-            
-            ## strip /srv
-            C="${D:5}"
-            
             
             if [[ "$(get container "$C" exist)" != true ]]
             then
@@ -50,10 +50,8 @@ function check_container_directories() {
                     ## AUTOFIX
                     ## C appears to have a valid filesystem
                     local T
-                    if [[ -f /srv/$C/ctype ]]
+                    if [[ -f $D/rootfs/etc/os-release ]]
                     then
-                        T="$(cat "/srv/$C/ctype")"
-                    else
                         # shellcheck disable=SC1090
                         T="$(source "$D/rootfs/etc/os-release" && echo "$ID")"
                     fi
@@ -69,7 +67,9 @@ function check_container_directories() {
                         create_nspawn_container_config "$C"
                     fi
                 fi
+                
             fi
+            
             
             if [[ -d /srv/$C/rootfs/etc ]]
             then
@@ -92,6 +92,12 @@ function check_container_directories() {
             #    msg "No certificate for $C - fix: srvctl-exec-function add_ve_certificate $C"
             #fi
         fi
+        
+        ## if container has everything but a rootfs
+        if [[ ! -d $D/rootfs ]]
+        then
+            create_nspawn_container_filesystem "$C"
+        fi
     done
 }
 
@@ -108,8 +114,9 @@ function check_container_database() {
             if ! [[ -d /srv/$C ]]
             then
                 msg "Create local container"
-                local T
-                T="$(get container "$C" type)"
+                #local T
+                #T="$(get container "$C" type)"
+                create_container_configuration_files "$C"
                 create_nspawn_container_filesystem "$C"
                 create_nspawn_container_config "$C"
             fi
@@ -140,3 +147,12 @@ function check_container_ownership() {
     done
 }
 
+function restore_uids() { ## C
+    local C
+    C="$1"
+    
+    msg "chown container $C filesystem to restore uids and gids on common folders."
+    get container "$C" useruids > /srv/"$C"/restore-uids.sh
+    source /srv/"$C"/restore-uids.sh
+    
+}

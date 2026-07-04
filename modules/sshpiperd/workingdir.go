@@ -27,7 +27,7 @@ type userFile string
 
 var (
         UserAuthorizedKeysFile userFile = "authorized_keys"
-        UserKeyFile            userFile = "srvctl_id_rsa"
+        UserKeyFile            userFile = "srvctl_id_ecdsa"
         UserUpstreamFile       userFile = "sshpiper_upstream"
 
         usernameRule *regexp.Regexp

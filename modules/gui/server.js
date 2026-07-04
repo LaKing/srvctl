@@ -177,7 +177,7 @@ io.on('connection', function(socket) {
     socket.user = cert.subject.CN;
     socket.host = HOSTNAME;
     
-    var keyfile = SC_DATASTORE_DIR + "/users/" + socket.user + "/srvctl_id_rsa";
+    var keyfile = SC_DATASTORE_DIR + "/users/" + socket.user + "/srvctl_id_ecdsa";
     fs.readFile(keyfile, 'utf8', function(err, data) {
 
         if (err) {

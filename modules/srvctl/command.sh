@@ -21,89 +21,77 @@
 ## spec //services×status×status of a service×status SERVICE
 ## spec //services×kill×kill a service×kill SERVICE
 
-## adjust-service
-if [[ $ARG == enable ]] || [[ $ARG == start ]] || [[ $ARG == restart ]] || [[ $ARG == stop ]] || [[ $ARG == status ]]  || [[ $ARG == disable ]] || [[ $ARG == kill ]] \
-|| [[ $CMD == enable ]] || [[ $CMD == start ]] || [[ $CMD == restart ]] || [[ $CMD == stop ]] || [[ $CMD == status ]]  || [[ $CMD == disable ]] || [[ $CMD == kill ]]
+
+op=''
+service="$CMD"
+
+## fix op/service ordering
+if [[ $ARG == "enable" ]] || [[ $ARG == "start" ]] || [[ $ARG == "restart" ]] || [[ $ARG == "stop" ]] || [[ $ARG == "status" ]] || [[ $ARG == "disable" ]] || [[ $ARG == "kill" ]]
 then
-    
-    op=''
-    service=''
-    
-    ## fix op/service ordering
-    if [[ $ARG == "enable" ]] || [[ $ARG == "start" ]] || [[ $ARG == "restart" ]] || [[ $ARG == "stop" ]] || [[ $ARG == "status" ]] || [[ $ARG == "disable" ]] || [[ $ARG == "kill" ]]
-    then
-        op=$ARG
-        service=$CMD
-    fi
-    
-    ## its the other way around
-    if [[ $CMD == "enable" ]] || [[ $CMD == "start" ]] || [[ $CMD == "restart" ]] || [[ $CMD == "stop" ]] || [[ $CMD == "status" ]] || [[ $CMD == "disable" ]] || [[ $CMD == "kill" ]]
-    then
-        op=$CMD
-        service=$ARG
-    fi
-    
-    run_hook adjust-service
-    
-    #[[ $DEBUG == true ]] && ntc "@srvctl-command"
-    #ntc "SERVICE: $service OP: $op"
-    
-    if [[ ! -z "$service" ]] && [[ ! -z "$op" ]]
-    then
-        #local ok ck xswitch
-        
-        #if [[ "$(systemctl is-active "$service")" != unknown ]]
-        if systemctl is-active "$service" > /dev/null
-        then
-            ok=true
-        else
-            ok=false
-            ck=''
-            xswitch=""
-            for i in /usr/lib/systemd/system/* /etc/systemd/system/* /etc/systemd/system/*/* /run/systemd/system/*
-            do
-                [[ -f "$i" ]] || continue
-                #[[ $DEBUG == true ]] && ntc "@ $i"
-                ck="$(basename "$i")"
-                ## service.service, socket.socket, device.device, mount.mount, automount.automount, swap.swap, target.target, path.path, timer.timer, slice.slice, scope.scope
-                if [[ "$ck" == "$i" ]] || [[ "$ck" == "$service.service" ]] || [[ "$ck" == "$service.socket" ]] || [[ "$ck" == "$service.device" ]] || [[ "$ck" == "$service.mount" ]] || [[ "$ck" == "$service.automount" ]] \
-                || [[ "$ck" == "$service.swap" ]] || [[ "$ck" == "$service.target" ]] || [[ "$ck" == "$service.path" ]] || [[ "$ck" == "$service.timer" ]] || [[ "$ck" == "$service.slice" ]] || [[ "$ck" == "$service.scope" ]]
-                then
-                    service="$ck"
-                    ok=true
-                    ntc "ASSUME system-service: $service"
-                    break
-                fi
-            done
-            
-            for i in ~/.config/systemd/user/* /etc/systemd/user/* $XDG_RUNTIME_DIR/systemd/user/* /run/systemd/user/* ~/.local/share/systemd/user/* /usr/lib/systemd/user/*
-            do
-                [[ -f "$i" ]] || continue
-                #[[ $DEBUG == true ]] && ntc "@ $i"
-                ck="$(basename "$i")"
-                ## service.service, socket.socket, device.device, mount.mount, automount.automount, swap.swap, target.target, path.path, timer.timer, slice.slice, scope.scope
-                if [[ "$ck" == "$i" ]] || [[ "$ck" == "$service.service" ]] || [[ "$ck" == "$service.socket" ]] || [[ "$ck" == "$service.device" ]] || [[ "$ck" == "$service.mount" ]] || [[ "$ck" == "$service.automount" ]] \
-                || [[ "$ck" == "$service.swap" ]] || [[ "$ck" == "$service.target" ]] || [[ "$ck" == "$service.path" ]] || [[ "$ck" == "$service.timer" ]] || [[ "$ck" == "$service.slice" ]] || [[ "$ck" == "$service.scope" ]]
-                then
-                    xswitch="--user"
-                    service="$ck"
-                    ok=true
-                    ntc "ASSUME user-service: $service"
-                    break
-                fi
-            done
-            
-        fi
-        
-        if ! $ok
-        then
-            err "could not locate '$service' in systemd"
-            return 78
-        fi
-        
-        service_action "$service" "$op" "$xswitch"
-        exit_0
-    fi
-    return 0
-    #exit 0
+    op="$ARG"
+    service="$CMD"
 fi
+
+## its the other way around
+if [[ $CMD == "enable" ]] || [[ $CMD == "start" ]] || [[ $CMD == "restart" ]] || [[ $CMD == "stop" ]] || [[ $CMD == "status" ]] || [[ $CMD == "disable" ]] || [[ $CMD == "kill" ]]
+then
+    op="$CMD"
+    service="$ARG"
+fi
+
+## check additional modules
+run_hook adjust-service
+
+if systemctl is-active "$service" > /dev/null
+then
+    ok=true
+else
+    ok=false
+    ck=''
+    xswitch=""
+    for i in /usr/lib/systemd/system/* /etc/systemd/system/* /etc/systemd/system/*/* /run/systemd/system/* /run/systemd/transient/*
+    do
+        [[ -f "$i" ]] || continue
+        #[[ $DEBUG == true ]] && ntc "@ $i"
+        ck="$(basename "$i")"
+        ## service.service, socket.socket, device.device, mount.mount, automount.automount, swap.swap, target.target, path.path, timer.timer, slice.slice, scope.scope
+        if [[ "$ck" == "$i" ]] || [[ "$ck" == "$service.service" ]] || [[ "$ck" == "$service.socket" ]] || [[ "$ck" == "$service.device" ]] || [[ "$ck" == "$service.mount" ]] || [[ "$ck" == "$service.automount" ]] \
+        || [[ "$ck" == "$service.swap" ]] || [[ "$ck" == "$service.target" ]] || [[ "$ck" == "$service.path" ]] || [[ "$ck" == "$service.timer" ]] || [[ "$ck" == "$service.slice" ]] || [[ "$ck" == "$service.scope" ]]
+        then
+            service="$ck"
+            ok=true
+            ntc "ASSUME system-service: $service"
+            break
+        fi
+    done
+    
+    for i in ~/.config/systemd/user/* /etc/systemd/user/* $XDG_RUNTIME_DIR/systemd/user/* /run/systemd/user/* ~/.local/share/systemd/user/* /usr/lib/systemd/user/*
+    do
+        [[ -f "$i" ]] || continue
+        #[[ $DEBUG == true ]] && ntc "@ $i"
+        ck="$(basename "$i")"
+        ## service.service, socket.socket, device.device, mount.mount, automount.automount, swap.swap, target.target, path.path, timer.timer, slice.slice, scope.scope
+        if [[ "$ck" == "$i" ]] || [[ "$ck" == "$service.service" ]] || [[ "$ck" == "$service.socket" ]] || [[ "$ck" == "$service.device" ]] || [[ "$ck" == "$service.mount" ]] || [[ "$ck" == "$service.automount" ]] \
+        || [[ "$ck" == "$service.swap" ]] || [[ "$ck" == "$service.target" ]] || [[ "$ck" == "$service.path" ]] || [[ "$ck" == "$service.timer" ]] || [[ "$ck" == "$service.slice" ]] || [[ "$ck" == "$service.scope" ]]
+        then
+            xswitch="--user"
+            service="$ck"
+            ok=true
+            ntc "ASSUME user-service: $service"
+            break
+        fi
+    done
+    
+fi
+
+if [[ $ok == true ]]
+then
+    service_action "$service" "$op" "$xswitch"
+    exit_0
+fi
+
+
+
+
+return 0
+

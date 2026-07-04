@@ -3,7 +3,7 @@
 function all_containers() { ## op
     local list cop host
     cop="$1"
-    if $SC_ROOT
+    if $SC_UID0
     then
         list="$(get cluster container_list)" || exit 15
     else
@@ -85,7 +85,7 @@ function bash_container_status() {
 function bash_containers_status() {
     
     local list
-    if $SC_ROOT
+    if $SC_UID0
     then
         list="$(get cluster container_list)" || exit 15
     else

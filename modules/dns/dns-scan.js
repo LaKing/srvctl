@@ -1,6 +1,9 @@
 #!/bin/node
 
 /*srvctl */
+const lablib = "../../lablib.js";
+const msg = require(lablib).msg;
+const ntc = require(lablib).ntc;
 
 function out(msg) {
     console.log(msg);
@@ -16,7 +19,7 @@ const CMD = process.argv[2];
 const SC_CONTAINERS_DATA_FILE = process.env.SC_DATASTORE_DIR + "/containers.json";
 
 const SRVCTL = process.env.SRVCTL;
-const SC_ROOT = process.env.SC_ROOT;
+const SC_UID0 = process.env.SC_UID0;
 const os = require("os");
 const HOSTNAME = os.hostname();
 const localhost = "localhost";
@@ -54,7 +57,11 @@ var containers = datastore.containers;
 var user = "";
 var container = "";
 
-const dns = require("dns");
+//const dns = require("dns");
+const { Resolver } = require('dns');
+const dns = new Resolver();
+dns.setServers(['8.8.8.8']);
+
 const NOW = new Date().toISOString();
 const NOW_T = Math.floor(Date.now() / 1000);
 
@@ -66,95 +73,78 @@ const NOW_T = Math.floor(Date.now() / 1000);
 
 // data functions
 
-function scan_prepare(domain) {
-    if (containers[domain].dns_scan === undefined) containers[domain].dns_scan = {};
-    containers[domain].dns_scan.A = [];
-    containers[domain].dns_scan.AAAA = [];
-    containers[domain].dns_scan.MX = [];
-    containers[domain].dns_scan.NS = [];
-
-    if (containers[domain].www_scan === undefined) containers[domain].www_scan = {};
-    containers[domain].www_scan.A = [];
-    containers[domain].www_scan.AAAA = [];
-    containers[domain].www_scan.MX = [];
-    containers[domain].www_scan.NS = [];
+function scan_container(name) {
+  	let domains = datastore.container_domains(name);
+    for (let n in domains) {
+        scan_container_domain(name, domains[n]);
+    }
 }
 
-function scan_domain(domain) {
-    if (domain.indexOf(".") < 0) return;
-    if (!containers[domain]) return console.log("No container for " + domain);
+function scan_container_domain(name, domain) {
+    // some sanity check, propably redundant
+    if (!containers[name]) return console.log("No container for " + domain);
+    // ensure object exists
+    if (containers[name].dns === undefined) containers[name].dns = {};
+    // reset the scan
+    if (!containers[name].dns[domain]) containers[name].dns[domain] = {};
+    // create a reference
+    var o = containers[name].dns[domain];
+    // create datapoints
+    o.A = [];
+    o.AAAA = [];
+    o.MX = [];
+    o.NS = [];
 
-    scan_prepare(domain);
-
-    if (containers[domain].dns_query === undefined) containers[domain].dns_query = {};
-
+    if (o.timestamp === undefined) o.timestamp = {};
+    if (!o.timestamp.time) o.timestamp.time = 0;
+    
     // scan problematic domains only once a day
-    if (NOW_T - containers[domain].dns_query.time < 43200) {
-        if (containers[domain].dns_query.state === "ENOTFOUND") return console.log("Skipping DNS scan on ENOTFOUND " + domain);
-        if (containers[domain].dns_query.state === "ETIMEOUT") return console.log("Skipping DNS scan on ETIMEOUT " + domain);
-        if (containers[domain].dns_query.state === "ESERVFAIL") return console.log("Skipping DNS scan on ESERVFAIL " + domain);
+    //if (NOW_T - o.timestamp.time < 43200) {
+    
+    // scan problematic domains hourly
+    if (NOW_T - o.timestamp.time < 3600) {
+        if (o.timestamp.state === "ENOTFOUND") return console.log("Skipping DNS scan on ENOTFOUND " + name + " " + domain);
+        if (o.timestamp.state === "ETIMEOUT") return console.log("Skipping DNS scan on ETIMEOUT " + name + " " + domain);
+        if (o.timestamp.state === "ESERVFAIL") return console.log("Skipping DNS scan on ESERVFAIL " + name + " " + domain);
     }
+	
+    o.timestamp.time = NOW_T;
+    o.timestamp.state = "UNKNOWN";
 
-    containers[domain].dns_query.time = NOW_T;
-    containers[domain].dns_query.state = "UNKNOWN";
-
-    dns.resolve4(domain, function(err, addresses) {
+    dns.resolve4(domain, function (err, addresses) {
         if (err) {
             //if (err) return console.log('ERR1resolvev4', err.code, err.hostname);
-            console.log("DNS Scan A record", err.code, err.hostname);
-            containers[domain].dns_query.state = err.code;
+            ntc("DNS Scan A record", err.code, err.hostname);
+            o.timestamp.state = err.code;
             return;
         }
+  //console.log(name + " -> " + domain, addresses);
 
-        containers[domain].dns_query.state = "OK";
-        if (addresses !== undefined) containers[domain].dns_scan.A = addresses;
+        o.timestamp.state = "OK";
+        if (addresses !== undefined) o.A = addresses;
 
-        scan_domain_extended(domain);
-    });
-}
+        dns.resolve6(domain, function (err, addresses) {
+            //if (err) return console.log("err1resolvev6", err.code, err.hostname);
+            if (addresses !== undefined) o.AAAA = addresses;
+        });
 
-function scan_domain_extended(domain) {
-    if (containers[domain].dns_scan === undefined) containers[domain].dns_scan = {};
+        dns.resolveMx(domain, function (err, addresses) {
+            //if (err) return console.log('err1resolveMx', err.code, err.hostname);
+            if (addresses !== undefined) o.MX = addresses;
+        });
 
-    dns.resolve6(domain, function(err, addresses) {
-        //if (err) return console.log("err1resolvev6", err.code, err.hostname);
-        if (addresses !== undefined) containers[domain].dns_scan.AAAA = addresses;
-    });
+        dns.resolveNs(domain, function (err, addresses) {
+            //if (err) return console.log('err1resolveNs', err.code, err.hostname);
+            if (addresses !== undefined) o.NS = addresses;
+        });
 
-    dns.resolveMx(domain, function(err, addresses) {
-        //if (err) return console.log('err1resolveMx', err.code, err.hostname);
-        if (addresses !== undefined) containers[domain].dns_scan.MX = addresses;
-    });
-
-    dns.resolveNs(domain, function(err, addresses) {
-        //if (err) return console.log('err1resolveNs', err.code, err.hostname);
-        if (addresses !== undefined) containers[domain].dns_scan.NS = addresses;
-    });
-
-    dns.resolve4("www." + domain, function(err, addresses) {
-        //if (err) return console.log('ERR1resolvev4', err.code, err.hostname);
-        if (addresses !== undefined) containers[domain].www_scan.A = addresses;
-    });
-
-    dns.resolve6("www." + domain, function(err, addresses) {
-        //if (err) return console.log('err1resolvev6', err.code, err.hostname);
-        if (addresses !== undefined) containers[domain].www_scan.AAAA = addresses;
-    });
-
-    dns.resolveMx("www." + domain, function(err, addresses) {
-        //if (err) return console.log('err1resolveMx', err.code, err.hostname);
-        if (addresses !== undefined) containers[domain].www_scan.MX = addresses;
-    });
-
-    dns.resolveNs("www." + domain, function(err, addresses) {
-        //if (err) return console.log('err1resolveNs', err.code, err.hostname);
-        if (addresses !== undefined) containers[domain].www_scan.NS = addresses;
     });
 }
 
 function scan() {
-    Object.keys(containers).forEach(function(i) {
-        scan_domain(i);
+    Object.keys(containers).forEach(function (i) {
+        //scan_domain(i);
+        scan_container(i);
     });
 }
 
@@ -162,7 +152,7 @@ scan();
 
 process.exitCode = 0;
 
-process.on("exit", function() {
+process.on("exit", function () {
     fs.writeFileSync(SC_CONTAINERS_DATA_FILE, JSON.stringify(containers, null, 2));
 });
 

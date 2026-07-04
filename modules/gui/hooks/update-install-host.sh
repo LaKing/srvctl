@@ -1,5 +1,8 @@
 #!/bin/bash
 
+if false
+then
+
 ## TODO this is just temporary for upgrading from srvctl2
 rm -fr /usr/lib/systemd/system/srvctl-gui.service
 
@@ -45,3 +48,5 @@ run systemctl start srvctl-gui.service
 run systemctl status srvctl-gui.service --no-pager
 
 firewalld_add_service srvctl-gui tcp 250
+
+fi

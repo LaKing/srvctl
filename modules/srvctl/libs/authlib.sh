@@ -1,8 +1,9 @@
 #!/bin/bash
 
 function root_only {
-    if $SC_ROOT
+    if $SC_UID0
     then
+        echo "SC_UID0 $SC_UID0"
         return 0
     else
         err "Authorization failure. (root_only)"
@@ -11,7 +12,7 @@ function root_only {
 }
 
 function reseller_only {
-    if [[ "${#SC_USER}" == 1 ]] || $SC_ROOT
+    if [[ "${#SC_USER}" == 1 ]] || $SC_UID0
     then
         return 0
     else
@@ -29,7 +30,7 @@ function argument {
 }
 
 function authorize {
-    if $SC_ROOT
+    if $SC_UID0
     then
         return
     else
@@ -43,7 +44,7 @@ function authorize {
 }
 
 function sudomize {
-    if ! $SC_ROOT
+    if ! $SC_UID0
     then
         debug "@sudomize"
         if run sudo "$SC_INSTALL_DIR/srvctl.sh" "$SC_COMMAND_ARGUMENTS"

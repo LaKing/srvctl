@@ -47,9 +47,7 @@ options {
     allow-recursion { trusted; };
     allow-query-cache { trusted; };
     recursion yes;
-    dnssec-enable yes;
     dnssec-validation yes;
-    dnssec-lookaside auto;
     bindkeys-file "/etc/named.iscdlv.key";
     managed-keys-directory "/var/named/dynamic";
 };
@@ -69,6 +67,7 @@ zone "." IN {
 include "/etc/named.rfc1912.zones";
 include "/etc/named.root.key";
 
+include "/var/named/d250.conf";
 include "/var/named/srvctl.conf";
 EOF
 }

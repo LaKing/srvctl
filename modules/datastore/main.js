@@ -10,6 +10,9 @@ function log(msg) {
 var fs = require("fs");
 var datastore = require("../datastore/lib.js");
 
+// implement a very simple human-readable command set for data manipulation
+// for example.: [sc] get container hangmaffia-devel users
+
 // command: get put, ...
 const CMD = process.argv[2];
 // database: users, containers, cluster, ..
@@ -39,7 +42,7 @@ const OUT = "out";
 const CFG = "cfg";
 const DEL = "del";
 const NEW = "new";
-const FIX = "fix";
+const ADD = "add";
 // fix is actually unused
 
 const dot = ".";
@@ -74,19 +77,19 @@ function output(variable, value) {
 }
 
 function output_json(value) {
-    console.log(JSON.stringify(value));
+    console.log(JSON.stringify(value, null, 4));
     process.exitCode = 0;
 }
 
 // 1. get or put
-if (CMD === undefined) return_error("MISSING CMD ARGUMENT: get | put | out | cfg | del | new | fix");
+if (CMD === undefined) return_error("MISSING CMD ARGUMENT: get | put | out | cfg | del | new | add");
 // 2. users or containers
 if (DAT === undefined) return_error("MISSING DAT ARGUMENT: cluster | user | reseller | container | host");
 // 3. field
 if (ARG === undefined) return_error("MISSING ARG ARGUMENT: containername / username / hostname / query");
 // 4. OPA is optional
 
-if (CMD !== GET && CMD !== PUT && CMD !== OUT && CMD !== CFG && CMD !== DEL && CMD !== NEW && CMD !== FIX) return_error("INVALID CMD ARGUMENT: " + CMD);
+if (CMD !== GET && CMD !== PUT && CMD !== OUT && CMD !== CFG && CMD !== DEL && CMD !== NEW && CMD !== ADD) return_error("INVALID CMD ARGUMENT: " + CMD);
 if (DAT !== "cluster" && DAT !== "user" && DAT != "container" && DAT != "host" && DAT != "reseller") return_error("INVALID DAT ARGUMENT: " + DAT);
 
 // variables
@@ -125,33 +128,6 @@ if (DAT === "container") {
                 datastore.write_containers();
                 exit();
             }
-            /*
-          	// get single values
-            if (CMD === GET) {
-                if (OPA === "interface") return_value(datastore.container_interface(C));
-                else if (OPA === "bridge") return_value(datastore.container_bridge(C));
-                else if (OPA === "br") return_value(datastore.container_br(C));
-                else if (OPA === "gw") return_value(datastore.container_gw(C));
-                else if (OPA === "br_host_ip") return_value(datastore.container_br_host_ip(C));
-                else if (OPA === "reseller") return_value(datastore.container_reseller(C));
-                else if (OPA === "host_ip") return_value(datastore.container_host_ip(C));
-                else if (OPA === "host") return_value(datastore.container_host(C));
-                else if (OPA === "http_port") return_value(datastore.container_http_port(C));
-                else if (OPA === "https_port") return_value(datastore.container_https_port(C));
-                else if (OPA === "uid") return_value(datastore.container_uid(C));
-                else if (OPA === "user_id") return_value(datastore.container_user_id(C));
-                else if (OPA === "user_ip_match") return_value(datastore.container_user_ip_match(C));
-                else if (OPA === "mx") return_value(datastore.container_mx(C));
-                else if (OPA === "resolv_conf") return_value(datastore.container_resolv_conf(C));
-                else if (OPA === "br_netdev") return_value(datastore.container_br_netdev(C));
-                else if (OPA === "br_network") return_value(datastore.container_br_network(C));
-                else if (OPA === "hosts") return_value(datastore.container_hosts(C));
-                else if (OPA === "nspawn") return_value(datastore.container_nspawn(C));
-                else if (OPA === "ethernet") return_value(datastore.container_ethernet(C));
-                else if (OPA === "ethernet_network") return_value(datastore.container_ethernet_network(C));
-                else if (OPA === "firewall_commands") return_value(datastore.container_firewall_commands(C));
-                else return_value(container[OPA]);
-            }*/
 
             if (CMD === CFG) {
                 if (OPA === "update_ip") return_value(datastore.container_update_ip(C));
@@ -162,6 +138,10 @@ if (DAT === "container") {
             }
 
             if (CMD == OUT) {
+                if (OPA === "json") {
+                	 output_json(container);
+                     return exit();
+                }
                 output("C", ARG);
                 Object.keys(container).forEach(function(j) {
                     output(j, container[j]);
@@ -174,8 +154,25 @@ if (DAT === "container") {
                 datastore.write_containers();
                 exit();
             }
-
-            // GET
+            if (CMD === ADD) {
+                if (OPA === 'user' && VAL) {
+                	if (!container.users) container.users = [];
+                  	if (container.users.indexOf(VAL) < 0) container.users.push(VAL);
+                  	return_value(container.users);
+                }
+                datastore.write_containers();
+                exit();
+            }
+            if (CMD === ADD) {
+                if (OPA === 'vncuser' && VAL) {
+                	if (!container.vncusers) container.vncusers = [];
+                  	if (container.vncusers.indexOf(VAL) < 0) container.vncusers.push(VAL);
+                  	return_value(container.vncusers);
+                }
+                datastore.write_containers();
+                exit();
+            }
+            // GET single values
             if (CMD === GET) {
                 const fn = "container_" + OPA;
                 if (datastore[fn]) {
@@ -245,8 +242,9 @@ if (DAT === "reseller") {
 if (DAT === "host") {
     if (hosts[ARG] === undefined) return_error("HOST " + ARG + " DONT EXISTS " + JSON.stringify(Object.keys(hosts)));
     else {
-        var host = hosts[ARG];
-
+                
+        var host = hosts[ARG];        
+        
         if (CMD === GET) {
             return_value(host[OPA]);
         }

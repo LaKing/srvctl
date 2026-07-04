@@ -4,6 +4,7 @@
 
 msg "Installing postfix."
 
+sc_install spamassassin
 sc_install postfix
 sc_install amavisd-new
 
@@ -23,6 +24,7 @@ cat "$SC_INSTALL_DIR/modules/postfix/conf/hs-master.cf" > /etc/postfix/master.cf
 
 add_service postfix
 add_service amavisd
+add_service spamassassin
 
 make_aliases_db ''
 

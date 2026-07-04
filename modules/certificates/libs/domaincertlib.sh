@@ -8,12 +8,29 @@ function check_pem { ## file
     
     if [[ -f "$pem" ]]
     then
-        if openssl x509 -checkend 604800 -noout -in "$pem"
+        if openssl x509 -checkend 604800 -noout -in "$pem" > /dev/null
         then
             #dbg "$cert_pem OK"
             echo 0 > /dev/null
         else
-            msg "Certificate has expired or will do so within a week! $pem"
+            # Get details before removal
+            cert_subject=$(openssl x509 -noout -subject -in "$pem" 2>/dev/null | sed 's/subject=//')
+            cert_issuer=$(openssl x509 -noout -issuer  -in "$pem" 2>/dev/null | sed 's/issuer=//')
+            cert_start=$(openssl x509 -noout -startdate -in "$pem" 2>/dev/null | sed 's/notBefore=//')
+            cert_end=$(openssl x509 -noout -enddate   -in "$pem" 2>/dev/null | sed 's/notAfter=//')
+    
+            # Determine if it's already expired or just expiring soon
+            if openssl x509 -checkend 0 -noout -in "$pem" > /dev/null 2>&1; then
+                reason="expires within 7 days"
+            else
+                reason="already EXPIRED"
+            fi
+    
+            msg "Certificate check failed ($reason): $pem"
+            msg "  Subject : $cert_subject"
+            msg "  Issuer  : $cert_issuer"
+            msg "  Valid   : $cert_start  ->  $cert_end"
+            msg "  Removing file."
             rm -rf "$pem"
         fi
     fi
@@ -73,7 +90,7 @@ function create_selfsigned_domain_certificate { ## for domain on path
         ssl_cab=''
     fi
     
-    if [[ -f $ssl_pem ]] && [[ ! -z "$(cat "$ssl_pem")" ]]
+    if [[ -f $ssl_pem ]] && [[ -n "$(cat "$ssl_pem")" ]]
     then
         
         if run openssl x509 -checkend 604800 -noout -in "$ssl_pem"

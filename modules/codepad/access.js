@@ -30,7 +30,7 @@ const SC_HOSTS_DATA_FILE = process.env.SC_DATASTORE_DIR + '/hosts.json';
 const SC_CONTAINERS_DATA_FILE = process.env.SC_DATASTORE_DIR + '/containers.json';
 
 const SRVCTL = process.env.SRVCTL;
-const SC_ROOT = process.env.SC_ROOT;
+const SC_UID0 = process.env.SC_UID0;
 
 const localhost = 'localhost';
 const br = '\n';
@@ -111,14 +111,21 @@ function copy_access_keys(c,u) {
             fs.writeFileSync(dir + '/' + files[i], password);
         }
     }
-
+  
+    var ip;
+    for (i = 0; i < files.length; i++) { 
+        if (files[i].split('.')[1] === 'ip') {
+            ip = fs.readFileSync(SC_DATASTORE_DIR + "/users/" + u + "/" + files[i]);
+            fs.writeFileSync(dir + '/' + files[i], ip);
+        }
+    }
 }
 
 function remake_access_keys(c) {
   
-  	//  the user may have a special codepad attriibute called all-access
+  	//  the user may have a special codepad all-access
   	Object.keys(users).forEach(function(u) {
-    	if (users[u].codepad == "all-access") copy_access_keys(c,u);
+    	if (users[u].access == "all") copy_access_keys(c,u);
     });
   
     if (containers[c].user === undefined) return;

@@ -5,10 +5,10 @@
 
 
 ## fedora 27 introduced a change in openvpn service files
-#if [[ $service == openvpn ]] && [[ ! -z "$op" ]] && [[ -f "/usr/lib/systemd/system/openvpn@.service" ]] && $SC_ROOT
+#if [[ $service == openvpn ]] && [[ -n "$op" ]] && [[ -f "/usr/lib/systemd/system/openvpn@.service" ]] && $SC_UID0
 if [[ -f "/usr/lib/systemd/system/openvpn@.service" ]]
 then
-    if [[ $service == openvpn ]] && [[ ! -z "$op" ]] && $SC_ROOT
+    if [[ $service == openvpn ]] #&& [[ -n "$op" ]] && $SC_UID0
     then
         msg "openvpn $op"
         ## must have conf
@@ -24,7 +24,7 @@ fi
 
 if [[ -f "/usr/lib/systemd/system/openvpn-client@.service" ]] && [[ -f "/usr/lib/systemd/system/openvpn-server@.service" ]]
 then
-    if [[ $service == openvpn ]] && [[ ! -z "$op" ]] && $SC_ROOT
+    if [[ $service == openvpn ]] #&& [[ -n "$op" ]] && $SC_UID0
     then
         msg "openvpn/server's $op"
         ## must have conf
@@ -48,3 +48,4 @@ then
         return 0
     fi
 fi
+

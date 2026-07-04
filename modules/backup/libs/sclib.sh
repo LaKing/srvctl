@@ -27,7 +27,7 @@ function local_backup { ## directories
     args="${*:1}"
     target="$SC_BACKUP_PATH/$HOSTNAME"
     
-    msg "Local backup $args"
+    msg "Local backup $args to $target"
     
     
     for i in $args
@@ -122,7 +122,7 @@ function server_backup { #datahost #directories
     
     target="$SC_BACKUP_PATH/$hostname"
     
-    msg "Server backup $host $dirs"
+    msg "Server backup $host $dirs to $target"
     
     
     for i in $dirs
@@ -221,7 +221,7 @@ function remote_backup { #proxyhost #datahost #directories
     dirs="${*:3}"
     target=$SC_BACKUP_PATH/$hostname
     
-    msg "remote backup $proxy $host $dirs"
+    msg "remote backup $proxy $host $dirs to $target"
     
     for i in $dirs
     do

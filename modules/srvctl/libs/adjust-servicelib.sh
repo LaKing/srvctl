@@ -7,7 +7,7 @@ function service_action {
     # extra switches for the commands
     local xswitch=''
     
-    if [[ ! -z "$3" ]]
+    if [[ -n "$3" ]]
     then
         xswitch="$3"
     fi
@@ -18,8 +18,15 @@ function service_action {
         return 0
     else
         
+        if [[ -z "$op" ]]
+        then
+            run journalctl -u "$service" --since yesterday --no-pager
+            return 0
+        fi
+        
+        
         # if root privilegs given at start - or --user switch used, or user is in wheel
-        if $SC_ROOT || [[ ! -z "$xswitch" ]] || groups | grep wheel > /dev/null
+        if $SC_UID0 || [[ -n "$xswitch" ]] || groups | grep wheel > /dev/null
         then
             
             ## yea, in sc we use simplified operations, use systemd for speceific ops
@@ -33,16 +40,20 @@ function service_action {
             fi
             
             
-            if [[ $op == "stop" ]] || [[ $op == "disable" ]] || [[ $op == "kill" ]]
+            if [[ $op == "kill" ]]
             then
-                [[ $op == "disable" ]] && run systemctl disable "$service" "$xswitch"
-                run systemctl stop "$service" "$xswitch"
-                [[ $op == "kill" ]] && run systemctl kill "$service" "$xswitch" --no-pager
+                run systemctl kill "$service" "$xswitch" --no-pager
                 run systemctl status "$service" "$xswitch" --no-pager -n 30
                 return 0
             fi
             
-            ## there was no op??
+            if [[ $op == "stop" ]] || [[ $op == "disable" ]]
+            then
+                [[ $op == "disable" ]] && run systemctl disable "$service" "$xswitch"
+                run systemctl stop "$service" "$xswitch"
+                run systemctl status "$service" "$xswitch" --no-pager -n 30
+                return 0
+            fi
             return 223
             
         else

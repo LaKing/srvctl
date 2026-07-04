@@ -10,7 +10,7 @@ argument username
 ## local username password home
 username="${ARG,,}"
 
-if ! [[ "$username" =~ ([a-z_][a-z0-9_]{2,30}) ]]
+if ! [[ "$username" =~ ([a-z_][a-z0-9_]{0,30}) ]]
 then
     err "Invalid username: $username"
     exit 22

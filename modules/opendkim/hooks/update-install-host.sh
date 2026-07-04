@@ -4,6 +4,7 @@
 msg "Install opendkim, to sign e-mail's."
 
 sc_install opendkim
+sc_install opendkim-tools
 
 cat > /etc/opendkim.conf << EOF
 #### srvctl $SRVCTL tuned onemdkim.conf

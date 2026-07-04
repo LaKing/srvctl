@@ -26,7 +26,7 @@ then
     sudomize
 fi
 
-if [[ $SC_ROOT ]]
+if [[ $SC_UID0 ]]
 then
     put container "$C" http-redirect "$OPA"
     run_hook regenerate_certificates

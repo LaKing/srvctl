@@ -32,7 +32,7 @@ function grab_data() { ## from-host
     host="$1"
     
     
-    if [[ ! -z "$host" ]] && [[ "$(ssh -n -o ConnectTimeout=1 "$host" hostname 2> /dev/null)" == "$host" ]]
+    if [[ -n "$host" ]] && [[ "$(ssh -n -o ConnectTimeout=1 "$host" hostname 2> /dev/null)" == "$host" ]]
     then
         msg "syncing srvctl data from $host"
         mkdir -p /etc/srvctl

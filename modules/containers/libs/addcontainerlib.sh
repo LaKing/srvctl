@@ -26,7 +26,6 @@ function add_ve() { ## type name [bridge]
         exit 12
     fi
     
-    ## TODO
     ## if the first 12 characters of the domain match against against a containers first 12 characters, then nspawn will fail to assign the vb- interface
     ## Failed to add new veth interfaces (vb-alpha-test.:host0): File exists
     ## alpha-test.domain1.ve alpha-test.domain2.ve
@@ -37,26 +36,37 @@ function add_ve() { ## type name [bridge]
     ## brctl addif 10.110.24.x test
     
     ## add to database
-    new container "$C" "$T" "$B"
+    ## TODO - implement with hooks
+    if [[ $T == codepad ]]
+    then
+        new container "$C" fedora "$B"
+    else
+        new container "$C" "$T" "$B"
+    fi
+    
     exif "Could not add container to datastore."
     
-    msg "$T container $C added to datastore."
+    msg "$C added to the datastore."
     
     run_hooks add_ve_create_nspawn_container "$C"
     
     ## make local container
-    create_nspawn_container_filesystem "$C"
+    create_container_configuration_files "$C"
+    create_nspawn_container_filesystem "$C" "$T"
     create_nspawn_container_config "$C"
     
     add_ve_certificate "$C"
     
     ## use a selfsigned certificate temporary
-    cat "/srv/$C/cert/$C.pem" > "/var/srvctl3/datastore/cert/$C.pem"
+    run cat "/srv/$C/cert/$C.pem" > "/var/srvctl3/datastore/cert/$C.pem"
     
     setup_index_html "$C" "/srv/$C/rootfs/var/www/html"
     write_ve_postfix_conf "$C"
     
     ln -s "/usr/lib/systemd/system/httpd.service" "/srv/$C/rootfs/etc/systemd/system/multi-user.target.wants/httpd.service"
+    
+    ## there is a bug somehwere, this is a hotfix
+    run cat "/usr/local/share/srvctl/modules/containers/conf/resolved.conf" > "/srv/$C/rootfs/etc/systemd/resolved.conf"
     
     run systemctl enable "srvctl-nspawn@$C"
     if run systemctl start "srvctl-nspawn@$C" --no-pager
@@ -71,12 +81,17 @@ function add_ve() { ## type name [bridge]
     
 }
 
-## TODO detect if domain has a wildcard certificate
+## TODO detect if domain has a wildcard certificate? Nah, containers should not access wildcard certificates. Unless the cert owner is the container owner? Naah, better not.
 function add_ve_certificate() {
     local C
     C="$1"
-    msg "Add VE certificate"
-    create_selfsigned_domain_certificate "$C" "/srv/$C/cert"
-    cat "/srv/$C/cert/$C.crt" > "/srv/$C/rootfs/etc/pki/tls/certs/localhost.crt"
-    cat "/srv/$C/cert/$C.key" > "/srv/$C/rootfs/etc/pki/tls/private/localhost.key"
+    
+    ## this seems to be fedora-only
+    if [[ -d "/srv/$C/rootfs/etc/pki/tls/certs" ]] && [[ -d "/srv/$C/rootfs/etc/pki/tls/private" ]]
+    then
+        msg "Add VE certificate"
+        create_selfsigned_domain_certificate "$C" "/srv/$C/cert"
+        cat "/srv/$C/cert/$C.crt" > "/srv/$C/rootfs/etc/pki/tls/certs/localhost.crt"
+        cat "/srv/$C/cert/$C.key" > "/srv/$C/rootfs/etc/pki/tls/private/localhost.key"
+    fi
 }

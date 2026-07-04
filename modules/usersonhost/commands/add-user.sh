@@ -21,8 +21,7 @@ else
     
     if [[ "$(get user "$username" exist)" == true ]]
     then
-        err "User $username already exist."
-        
+        ntc "User $username already exist."
     else
         new user "$username"
         regenerate_users

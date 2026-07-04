@@ -1,6 +1,6 @@
 #!/bin/bash
 
-sc_install ntp
+sc_install ntpsec
 
 run systemctl enable ntpd
 run systemctl start ntpd

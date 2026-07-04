@@ -92,14 +92,13 @@ function del {
     datastore_push "del $*"
 }
 
-## function internal execution
-function fix {
+function add {
     
     local __result
     # shellcheck disable=SC2048
     # shellcheck disable=SC2086
-    /bin/node "$SC_INSTALL_DIR/modules/datastore/main.js" fix $* 2>&1
-    exif "DATASTORE-ERROR fix $* EXIT ($?) $__result"
+    /bin/node "$SC_INSTALL_DIR/modules/datastore/main.js" add $* 2>&1
+    exif "DATASTORE-ERROR add $* EXIT ($?) $__result"
     
-    datastore_push "del $*"
+    echo "$__result"
 }

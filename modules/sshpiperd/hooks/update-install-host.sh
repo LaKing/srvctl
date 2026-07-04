@@ -15,7 +15,7 @@ run mkdir -p /etc/sshpiper
 if [[ ! -f /etc/sshpiper/ssh_host_rsa_key ]]
 then
     msg "ssh-keygen sshpiper ssh_host_rsa_key"
-    ssh-keygen -t rsa -f /etc/sshpiper/ssh_host_rsa_key -N ''
+    ssh-keygen -t ecdsa -f /etc/sshpiper/ssh_host_rsa_key -N ''
 fi
 
 run chown -R sshpiper:root /etc/sshpiper

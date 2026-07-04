@@ -10,7 +10,7 @@ hs_only
 [[ $SRVCTL ]] || exit 4
 
 argument container
-#authorize
+authorize
 
 if [[ "$(get container "$ARG" exist)" == false ]]
 then
@@ -28,7 +28,7 @@ then
     sudomize
 fi
 
-if [[ $SC_ROOT ]]
+if [[ $SC_UID0 ]]
 then
     
     C="$ARG"
@@ -81,7 +81,7 @@ then
     done
     
     msg "$C destroyed."
-    
+    cd /srv
     
 else
     err "$SC_USER has no access to $ARG"

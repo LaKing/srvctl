@@ -1,13 +1,22 @@
 #!/bin/bash
 
 ## @@@ add-codepad NAME
-## @en Add a codepad fedora container.
-## &en Generic container for software developmen.
-## &en Contains all packages for collaborative software development.
+## @en Add a fedora container with codepad preinstalled.
+## &en Codepad container for software development.
+## &en Contains the collaborative software development environment.
+
+
+## DEPRECATED
 
 if [[ "${ARG:0:5}" == "mail." ]]
 then
     err "Adding codepad into a mail container is uncommon, and not suggested. I will stop for now."
+    exit 13
+fi
+
+if [[ "${ARG: -6}" != "-devel" ]]
+then
+    err "We require codepad containers to use a *-devel name. Exiting for now."
     exit 13
 fi
 

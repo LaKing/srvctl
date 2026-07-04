@@ -6,7 +6,7 @@ function all_containers_execute() { ## cmd
     
     msg "Command is: $cmd"
     
-    if $SC_ROOT
+    if $SC_UID0
     then
         list="$(get cluster container_list)" || exit 15
     else
@@ -53,7 +53,7 @@ function all_containers_pingback() { ## cmd
     ip="8.8.8.8"
     msg "Checking all container's pingback to $SC_DNS1 and $dom"
     
-    if $SC_ROOT
+    if $SC_UID0
     then
         list="$(get cluster container_list)" || exit 15
     else

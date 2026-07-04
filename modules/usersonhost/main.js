@@ -95,9 +95,13 @@ function crate_user_password(user) {
         //if (!fs.existsSync(userpass))
         fs.writeFileSync(userpass, password);
 
-        if (!fs.existsSync(userdata + "/.hash")) run("echo -n $(echo -n " + password + " | openssl dgst -sha512 | cut -d ' ' -f 2) > " + userdata + "/.hash");
+        run("echo -n $(echo -n " + password + " | openssl dgst -sha512 | cut -d ' ' -f 2) > " + userdata + "/.hash");
     }
 
+    if (!fs.existsSync(userdata + "/.hash")) {
+
+        run("echo -n $(echo -n " + password + " | openssl dgst -sha512 | cut -d ' ' -f 2) > " + userdata + "/.hash");
+    }
     //run("echo " + password + " > $(getent passwd " + user + " | cut -f6 -d:)/.password");
 }
 
@@ -108,21 +112,21 @@ function create_user_ssh(user) {
     if (!fs.existsSync(dir)) fs.mkdirSync(dir);
     fs.chmodSync(dir, 0600);
 
-    /// the id_rsa (without prefix) will be placed in the users home directory.
+    /// the id_ecdsa (without prefix) will be placed in the users home directory.
     /// that means users have access to the keyfile.
 
-    if (!fs.existsSync(dir + "/id_rsa")) {
-        msg("Create datastore user id_rsa for " + user);
+    if (!fs.existsSync(dir + "/id_ecdsa")) {
+        msg("Create datastore user id_ecdsa for " + user);
         var cmd1 =
-            "ssh-keygen -t rsa -b 4096 -f " +
+            "ssh-keygen -t ecdsa -f " +
             SC_DATASTORE_DIR +
             "/users/" +
             user +
-            "/id_rsa -N '' -C '" +
+            "/id_ecdsa -N '' -C '" +
             user +
             "@" +
             SC_COMPANY_DOMAIN +
-            " (id_rsa " +
+            " (id_ecdsa " +
             HOSTNAME +
             " " +
             NOW +
@@ -130,17 +134,17 @@ function create_user_ssh(user) {
         run(cmd1);
     }
 
-    /// the srvctl_id_rsa is used internally, in the srvctl-gui, in sshpiperd, and in the reseller-user structure.
+    /// the srvctl_id_ecdsa is used internally, in the srvctl-gui, in sshpiperd, and in the reseller-user structure.
     /// that means users do not have access to the keyfile, thus we can say they are save and wont be compromised.
 
-    if (!fs.existsSync(dir + "/srvctl_id_rsa")) {
-        msg("Create datastore srvctl_id_rsa for " + user);
+    if (!fs.existsSync(dir + "/srvctl_id_ecdsa")) {
+        msg("Create datastore srvctl_id_ecdsa for " + user);
         var cmd2 =
-            "ssh-keygen -t rsa -b 4096 -f " +
+            "ssh-keygen -t ecdsa -f " +
             SC_DATASTORE_DIR +
             "/users/" +
             user +
-            "/srvctl_id_rsa -N '' -C '" +
+            "/srvctl_id_ecdsa -N '' -C '" +
             user +
             "@" +
             SC_COMPANY_DOMAIN +
@@ -157,10 +161,10 @@ function create_user_ssh(user) {
 
     var home = homedir.split(":")[5];
 
-    if (!fs.existsSync(home + "/.ssh/id_rsa")) {
+    if (!fs.existsSync(home + "/.ssh/id_ecdsa")) {
         run("mkdir -p " + home + "/.ssh");
-        run("cat " + SC_DATASTORE_DIR + "/users/" + user + "/id_rsa > " + home + "/.ssh/id_rsa");
-        run("cat " + SC_DATASTORE_DIR + "/users/" + user + "/id_rsa.pub > " + home + "/.ssh/id_rsa.pub");
+        run("cat " + SC_DATASTORE_DIR + "/users/" + user + "/id_ecdsa > " + home + "/.ssh/id_ecdsa");
+        run("cat " + SC_DATASTORE_DIR + "/users/" + user + "/id_ecdsa.pub > " + home + "/.ssh/id_ecdsa.pub");
 
         run("chown -R " + user + ":" + user + " " + home + "/.ssh");
         run("chmod -R 600 " + home + "/.ssh");
@@ -170,9 +174,9 @@ function create_user_ssh(user) {
     if (users[user].reseller_id === undefined && users[user].reseller !== undefined) {
         var reseller = users[user].reseller;
         if (reseller === root) return;
-        if (!fs.existsSync(SC_DATASTORE_DIR + "/users/" + user + "/reseller_id_rsa.pub")) {
-            run("ln -s ../" + reseller + "/id_rsa.pub " + SC_DATASTORE_DIR + "/users/" + user + "/reseller_id_rsa.pub");
-            run("ln -s ../" + reseller + "/srvctl_id_rsa.pub " + SC_DATASTORE_DIR + "/users/" + user + "/srvctl_reseller_id_rsa.pub");
+        if (!fs.existsSync(SC_DATASTORE_DIR + "/users/" + user + "/reseller_id_ecdsa.pub")) {
+            run("ln -s ../" + reseller + "/id_ecdsa.pub " + SC_DATASTORE_DIR + "/users/" + user + "/reseller_id_ecdsa.pub");
+            run("ln -s ../" + reseller + "/srvctl_id_ecdsa.pub " + SC_DATASTORE_DIR + "/users/" + user + "/srvctl_reseller_id_ecdsa.pub");
         }
     }
 }
@@ -224,9 +228,9 @@ function make_share_mount(u, c, options, dir, source_path, uid, mountname) {
             err(error);
         }
     }
-   
+
     if (!fs.existsSync(source_path)) return err(source_path + " dont exists.");
-   
+
     if (mounts.indexOf(source_path + " on " + dir + "/" + mountname + " type fuse") === -1)
         run("bindfs " + options + " --mirror=" + u + " --create-for-user=" + uid + " --create-for-group=" + uid + " " + source_path + " " + dir + "/" + mountname);
 }
@@ -247,27 +251,11 @@ function make_share(u, c, options) {
     }
 
     make_share_mount(u, c, options, dir, source_path, ve_root_uid, "bindfs");
-    if (c.substring(0,5) !== "mail.") make_share_mount(u, c, options, dir, source_path + "/var/www/html", 48, "html");
-    /*
-  	if (!options) options = "";
-  
-  	// bindfs shall be a root mount
-    if (!fs.existsSync(dir + "/bindfs")) {
-        // TODO handle case of stale file handle with umount -f
-        try {
-            fs.mkdirSync(dir + "/bindfs");
-        } catch (error) {
-            err(error);
-        }
-    }
-    if (mounts.indexOf(source_path + " on " + dir + "/bindfs type fuse") === -1)
-    run("bindfs " + options + " --mirror=" + u + " --create-for-user=" + ve_root_uid + " --create-for-group=" + ve_root_uid + " " + source_path + " " + dir + "/bindfs");
-
-*/
+    if (c.substring(0, 5) !== "mail.") make_share_mount(u, c, options, dir, source_path + "/var/www/html", ve_root_uid + 48, "html");
 }
 
 msg("check users");
-Object.keys(users).forEach(function(u) {
+Object.keys(users).forEach(function (u) {
     if (u === root) return;
     if (!rok("id " + u)) {
         if (users[u].uid === undefined) return err("No UID for " + u);
@@ -283,7 +271,7 @@ Object.keys(users).forEach(function(u) {
 });
 
 msg("users share's");
-Object.keys(containers).forEach(function(c) {
+Object.keys(containers).forEach(function (c) {
     if (containers[c].user !== root) make_share(containers[c].user, c);
     if (containers[c].users !== undefined)
         for (let i = 0; i < containers[c].users.length; i++) {

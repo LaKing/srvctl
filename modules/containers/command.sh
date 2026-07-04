@@ -27,18 +27,6 @@ then
     return
 fi
 
-cop="shell"
-
-if [[ $CMD == reboot ]] || [[ $CMD == poweroff ]] || [[ $CMD == kill ]] || [[ $CMD == login ]] || [[ $CMD == show ]] || [[ $CMD == status ]]
-then
-    cop="$CMD"
-fi
-
-if [[ $ARG == reboot ]] || [[ $ARG == poweroff ]] || [[ $ARG == kill ]] || [[ $ARG == login ]] || [[ $ARG == show ]] || [[ $ARG == status ]]
-then
-    cop="$ARG"
-fi
-
 
 if [[ -d /srv/$CMD ]]
 then
@@ -53,6 +41,18 @@ fi
 if [[ -z $C ]]
 then
     return
+fi
+
+cop="$C"
+
+if [[ $CMD == reboot ]] || [[ $CMD == poweroff ]] || [[ $CMD == kill ]] || [[ $CMD == login ]] || [[ $CMD == show ]] || [[ $CMD == status ]] || [[ $CMD == shell ]]
+then
+    cop="$CMD"
+fi
+
+if [[ $ARG == reboot ]] || [[ $ARG == poweroff ]] || [[ $ARG == kill ]] || [[ $ARG == login ]] || [[ $ARG == show ]] || [[ $ARG == status ]] || [[ $ARG == shell ]]
+then
+    cop="$ARG"
 fi
 
 if [[ "$cop" == "$C" ]]
@@ -80,6 +80,10 @@ fi
 
 if [[ $cop == shell ]]
 then
+	run machinectl -q --no-pager shell "$C"
+    exif
+	exit 0
+
     if [[ -f /srv/$C/rootfs/usr/sbin/$ARG ]]
     then
         run machinectl -q --no-pager shell "$C" "/usr/sbin/$ARG $OPAS3"

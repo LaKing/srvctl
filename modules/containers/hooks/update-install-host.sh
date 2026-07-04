@@ -19,6 +19,8 @@ cat "$SC_INSTALL_DIR/modules/containers/conf/srvctl-sysctl.conf" > /etc/sysctl.d
 sysctl --system
 
 sc_install systemd-container
+sc_install debootstrap
+sc_install arch-install-scripts
 
 create_srvctl_nspawn_service
 

@@ -2,7 +2,7 @@
 
 function install_acme {
     
-    msg "Installing letsencryppt and the acme-server"
+    msg "Installing letsencrypt and the acme-server"
     
     ## install letsencrypt
     sc_install letsencrypt

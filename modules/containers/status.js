@@ -25,6 +25,7 @@ const CMD = process.argv[2];
 
 const SRVCTL = process.env.SRVCTL;
 const SC_DATASTORE_DIR = process.env.SC_DATASTORE_DIR;
+const SC_COMPANY_DOMAIN = process.env.SC_COMPANY_DOMAIN;
 const os = require("os");
 const HOSTNAME = os.hostname();
 const localhost = "localhost";
@@ -72,7 +73,7 @@ const $CLEAR = "\x1b[37m";
 
 //if (DAT === 'container') container = ARG;
 //if (DAT === 'user') user = ARG;
-String.prototype.tab = function(n, c) {
+String.prototype.tab = function (n, c) {
     var val = this.valueOf();
     if (Math.abs(n) <= val.length) {
         return val;
@@ -84,14 +85,15 @@ String.prototype.tab = function(n, c) {
     //      return (n < 0) ? val + pad : pad + val;
 };
 
-Object.prototype.length = function() {
+Object.prototype.length = function () {
     return Object.keys(this).length;
 };
 
-console.log("REACTION " + "VE".tab(36) + " " + "IP".tab(16) + " " + "TYPE".tab(12) + " " + "USER".tab(16) + " " + "RESELLER".tab(16) + "INFO".tab(32) + " ");
+console.log("REACTION " + "VE".tab(36) + " " + "IP".tab(16) + " " + "TYPE".tab(10) + " " + "DISK".tab(6) + " " + "USER".tab(16) + " " + "RESELLER".tab(16) + "  " + "INFO".tab(32) + " ");
 
-Object.keys(containers).forEach(function(c) {
-    if (SC_USER !== root && containers[c].user !== SC_USER && datastore.container_reseller(c) !== SC_USER) return;
+Object.keys(containers).forEach(function (c) {
+    if (!containers[c]) return;
+    if (SC_USER !== root && containers[c].user !== SC_USER && datastore.container_reseller(c) !== SC_USER && users[SC_USER].access !== "all") return;
     var ping_cmd = "timeout 0.2 ping -c 1 " + containers[c].ip + " | grep rtt";
     var ping = $RED + "failure ";
     var infos = "";
@@ -105,17 +107,17 @@ Object.keys(containers).forEach(function(c) {
         color0 = $BLUE;
         infos += " DISABLED";
     }
-          
+
     ping = color0 + "inactive";
 
-  	if (containers[c].ip)
-    try {
-        execSync("timeout 0.2 systemctl is-active srvctl-nspawn@" + c + ".service");
-        ping = color0 + "active  ";
-        is_active = true;
-    } catch (e) {
-      //console.log(e);
-    }
+    if (containers[c].ip)
+        try {
+            execSync("timeout 0.2 systemctl is-active srvctl-nspawn@" + c + ".service");
+            ping = color0 + "active  ";
+            is_active = true;
+        } catch (e) {
+            //console.log(e);
+        }
 
     try {
         var release = fs.readFileSync("/srv/" + c + "/rootfs/etc/os-release", "utf8").split("\n");
@@ -126,27 +128,25 @@ Object.keys(containers).forEach(function(c) {
 
     if (is_active)
         try {
-            ping =
-                $GREEN +
-                execSync(ping_cmd)
-                    .toString()
-                    .split("/")[5] +
-                "ms " +
-                $CLEAR;
+            ping = $GREEN + execSync(ping_cmd).toString().split("/")[5] + "ms " + $CLEAR;
         } catch (e) {
             extras += " PING?";
         }
 
     if (containers[c].bridge) infos += " BRIDGE:" + containers[c].bridge;
 
-    if (containers[c].dns_query)
-        if (containers[c].dns_query.state !== "OK") extras += " DNS-QUERY-ERROR:" + containers[c].dns_query.state + "		";
-        else if (containers[c].dns_scan) {
-            if (containers[c].dns_scan.NS.length === 0) extras += " NS?";
-            if (containers[c].dns_scan.MX.length === 0) extras += " MX?";
-            if (Object.keys(containers[c].dns_scan.A).length === 0) extras += " A?";
-            if (Object.keys(containers[c].dns_scan.AAAA).length === 0) extras += " AAAA?";
+    if (containers[c].dns)
+        if (containers[c].dns[c]) {
+            let o = containers[c].dns[c];
+            if (o.timestamp.state !== "OK") extras += " DNS-QUERY-ERROR:" + o.timestamp.state + "		";
+            else {
+                if (o.NS.length === 0) extras += " NS?";
+                if (o.MX.length === 0) extras += " MX?";
+                if (Object.keys(o.A).length === 0) extras += " A?";
+                if (Object.keys(o.AAAA).length === 0) extras += " AAAA?";
+            }
         }
+
     var reseller = containers[c].user;
     if (users[containers[c].user].reseller !== undefined) reseller = users[containers[c].user].reseller;
 
@@ -160,7 +160,9 @@ Object.keys(containers).forEach(function(c) {
             " " +
             ip.tab(16) +
             " " +
-            containers[c].type.tab(12) +
+            containers[c].type.tab(10) +
+            " " +
+        	(Math.ceil(Number(containers[c].du || '0')/1000000)).toString().tab(6) +
             " " +
             containers[c].user.tab(16) +
             " " +

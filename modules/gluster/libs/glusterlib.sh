@@ -58,7 +58,7 @@ function gluster_configure { ## datadir mountdir
             ip="$(get host "$host" host_ip)"
             hs="$(get host "$host" hostnet)"
             
-            if [[ ! -z $ip ]] && [[ ! -z $hs ]] && [[ $host != "$HOSTNAME" ]]
+            if [[ -n $ip ]] && [[ -n $hs ]] && [[ $host != "$HOSTNAME" ]]
             then
                 run gluster peer probe "$host"
             fi
@@ -76,7 +76,7 @@ function gluster_configure { ## datadir mountdir
             ip="$(get host "$host" host_ip)"
             hs="$(get host "$host" hostnet)"
             
-            if [[ ! -z $ip ]] && [[ ! -z $hs ]]
+            if [[ -n $ip ]] && [[ -n $hs ]]
             then
                 list="$list $host:/glu/$datadir/brick"
             fi
@@ -160,7 +160,7 @@ function gluster_mount_data() { ## datadir mountdir
     
     ## make sure all bricks are online
     check="$(gluster volume status "$datadir" | grep 'N/A       N/A        N       N/A')"
-    if [[ ! -z "$check" ]]
+    if [[ -n "$check" ]]
     then
         
         run gluster volume status "$datadir"

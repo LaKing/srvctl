@@ -8,7 +8,7 @@ then
     return
 fi
 
-[[ $BACKUP_PATH ]] || BACKUP_PATH="/mnt/backup"
+[[ $BACKUP_PATH ]] || BACKUP_PATH="/backup"
 
 ## backup
 function local_container_7z_backup {
@@ -19,6 +19,13 @@ function local_container_7z_backup {
     C="$1"
     
     to="$BACKUP_PATH/$HOSTNAME/$C"
+    
+    if [[ $2 ]]
+    then
+        to="$2"
+    fi
+    
+    exit
     
     mkdir -p "$to"
     
@@ -53,7 +60,7 @@ function local_container_7z_backup {
     run 7z u -uq0 "$to/cert.7z" "/srv/$C/cert"
     
     ntc /srv
-    if [[ ! -z "$(ls "/srv/$C/rootfs/srv" 2> /dev/null)" ]]
+    if [[ -n "$(ls "/srv/$C/rootfs/srv" 2> /dev/null)" ]]
     then
         run 7z u -uq0 "$to/srv.7z" "/srv/$C/rootfs/srv"
     fi
@@ -61,7 +68,7 @@ function local_container_7z_backup {
     ## TODO store an incremental backup of mysql
     
     ntc /home
-    if [[ ! -z "$(ls "/srv/$C/rootfs/home" 2> /dev/null)" ]]
+    if [[ -n "$(ls "/srv/$C/rootfs/home" 2> /dev/null)" ]]
     then
         run 7z u -uq0 "$to/home.7z" "/srv/$C/rootfs/home"
     fi
@@ -77,7 +84,7 @@ function local_container_7z_backup {
     
     
     ntc /var/lib/mysql
-    if [[ ! -z "$(ls "/srv/$C/rootfs/var/lib/mysql" 2> /dev/null )" ]]
+    if [[ -n "$(ls "/srv/$C/rootfs/var/lib/mysql" 2> /dev/null )" ]]
     then
         run 7z u -uq0 "$to/var-lib-mysql.7z" "/srv/$C/rootfs/var/lib/mysql"
     fi

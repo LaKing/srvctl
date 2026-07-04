@@ -2,17 +2,16 @@
 
 #local zone services
 
-zone=$(firewall-cmd --get-default-zone)
-services="services: $(firewall-cmd --zone="$zone" --list-services) ."
+run firewall-cmd --get-default-zone
+run firewall-cmd --state
+run firewall-cmd --zone="$zone" --list-services
+run firewall-cmd --list-interfaces
 
-msg "Firewall $(firewall-cmd --state) - default zone: $zone"
-echo "$services"
-echo ''
-
-interfaces=$(firewall-cmd --list-interfaces)
+interfaces="$(firewall-cmd --list-interfaces)"
 
 for i in $interfaces
 do
-    echo "$i - $(firewall-cmd --get-zone-of-interface="$i")"
-    echo ''
+    run firewall-cmd --get-zone-of-interface="$i"
 done
+
+## firewall-cmd --zone=trusted --add-interface=10.50.0.x

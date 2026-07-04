@@ -14,17 +14,20 @@ fi
 
 if [[ -f /srv/"$C"/ethernet.sh ]]
 then
+	echo "[execstartpost] Calling /srv/"$C"/ethernet.sh"
     /bin/bash /srv/"$C"/ethernet.sh
 fi
 
 sleep 3
 
-query="$(machinectl -q --no-pager shell "$C" /bin/bash/ -c 'hostname --all-ip-addresses')"
-ip=${query//[$'\t\r\n ']}
+#ip="$(machinectl status "$C" | head -n 6 | tail -n 1 |  sed 's/^.*: //')"
+ip="$(machinectl status "$C"| head -n 8 | grep Address |  sed 's/^.*: //')"
+
+
 if [[ $ip =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]
 then
     echo "[execstartpost] IP for $C is $ip"
-    /usr/bin/srvctl put container "$C" ip "$ip"
+    #/usr/bin/srvctl put container "$C" ip "$ip"
 else
     echo "[execstartpost] No IP address for $C (result $ip)"
 fi

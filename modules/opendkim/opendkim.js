@@ -26,7 +26,7 @@ const SC_CONTAINERS_DATA_FILE = process.env.SC_DATASTORE_DIR + '/containers.json
 const SC_OPENDKIM_FOLDER = process.env.SC_DATASTORE_DIR + '/opendkim';
 
 const SRVCTL = process.env.SRVCTL;
-const SC_ROOT = process.env.SC_ROOT;
+const SC_UID0 = process.env.SC_UID0;
 const os =  require('os');
 const HOSTNAME = os.hostname();
 const localhost = 'localhost';

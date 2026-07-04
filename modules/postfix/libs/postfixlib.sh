@@ -34,6 +34,10 @@ function write_ve_postfix_main { #container
         return 0
     fi
     
+    if [[ ! -d /srv/$container/rootfs/etc/postfix ]]
+    then
+        return 0
+    fi
     
     if [[ $(get container "$container" exist) == true ]]
     then
@@ -48,12 +52,12 @@ function write_ve_postfix_main { #container
             cat "$conf" >> "/srv/$container/rootfs/etc/postfix/main.cf-$NOW.bak"
         fi
         
-        if [[ "${container:0:5}" == "mail." ]]
-        then
-            cat "$SC_INSTALL_DIR/modules/postfix/conf/ve-mail.cf" > "$conf"
-        else
-            cat "$SC_INSTALL_DIR/modules/postfix/conf/ve-main.cf" > "$conf"
-        fi
+        #if [[ "${container:0:5}" == "mail." ]]
+        #then
+        #  cat "$SC_INSTALL_DIR/modules/postfix/conf/ve-mail.cf" > "$conf"
+        #else
+           cat "$SC_INSTALL_DIR/modules/postfix/conf/ve-main.cf" > "$conf"
+        #fi
     else
         err "$container dont exists"
     fi
@@ -75,12 +79,12 @@ function write_postfix_main {
         cat "$conf" >> "/etc/postfix/main.cf-$NOW.bak"
     fi
     
-    if [[ "${container:0:5}" == "mail." ]]
-    then
-        cat "$SC_INSTALL_DIR/modules/postfix/conf/ve-mail.cf" > "$conf"
-    else
+    #if [[ "${container:0:5}" == "mail." ]]
+    #then
+    #   cat "$SC_INSTALL_DIR/modules/postfix/conf/ve-mail.cf" > "$conf"
+    #else
         cat "$SC_INSTALL_DIR/modules/postfix/conf/ve-main.cf" > "$conf"
-    fi
+    #fi
     
     run systemctl restart postfix
 }

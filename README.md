@@ -1,4 +1,4 @@
-## Srvctl v3 (3.2.3.4)
+## Srvctl v3 (3.2.5.9)
 Under construction, - srvctl is a containerfarm-manager for microsite hosting webservers with fedora as the host operating system. It will help to set up, maintain, and to let a couple of servers work together in order to have solid web-serving services.
 Version 3 is remake in core mostly using systemd tools, thus using systemd-nspawn as the containerfarm manager. Written in the mix of bash and javascript, a modular design allows to extend it with programs. Basically it is a collection of scripts, and fast scripts.
 
@@ -82,25 +82,24 @@ srvctl COMMAND [arguments]
 
 COMMAND                                 
 
-   add-codepad                           Add a codepad fedora container.                
+   add-codepad                           Add a fedora container with codepad preinstalled.
     
-     Generic container for software developmen.
-     Contains all packages for collaborative software development.
+     Codepad container for software development.
+     Contains the collaborative software development environment.
     
-   add-fedora                            Add a fedora container.                        
+   add-ve                                Add a VE under a domain name, by instantiating from TYPE
     
      Generic container for customization.
      Contains basic packages.
     
-   add-mail                              Add a mailing container.                       
+   add-ve-user                           Add user to the current cluster                
     
-     Mail container for pop3/imap6smtp access.
-     Contains dovecot, postfix.
+     Create the user in the current cluster datastore and create it on the system.
+     users will have default passwords, certificates, etc, ..
     
-   add-ve                                Add a standard fedora container, alias of add-fedora
+   backup-ve                             backup container with all its files            
     
-     Generic container for customization.
-     This command is an alias for add-fedora.
+     Create a system-backup of the container
     
    destroy-ve                            Delete container with all its files            
     
@@ -115,12 +114,20 @@ COMMAND
      Mapping container tcp or udp ports directly to the host.
      Port number must be between 1 and 65535
     
+   recreate-ve                           Recreate the rootfs                            
+    
+     The rootfs is removed, recreated, and user-data restored as good as possible
+    
    regenerate                            Update configuration settings.                 
     
      Get all modules to write and overwrite config files with the actual configurations.
      The argument all-hosts makes the command perform on all hosts.
      The regenerate rootfs command rebuilds the container base images.
     
+    
+   remove-ve                             Remove container with all its files            
+    
+     All files will be in a 7z format archive in the users home/.srvctl directory.
     
    status                                List container statuses                        
     
@@ -149,6 +156,10 @@ COMMAND
      This command restarts saslauthd to fix mailing.
      It is temporary..
     
+   testsaslauthd                         test a given user of a container for email-functionality
+    
+     This command runs the testsaslauthd command, with the password automatically filled in..
+    
    customize                             Create/edit a custom command.                  
     
      It is possible to create a custom command in ~/srvctl-includes
@@ -174,6 +185,11 @@ COMMAND
      Notes
          To flush the mail que, use: postqueue -f
          To remove all mail from the mail que use: postsuper -d ALL
+    
+   fix-owner                             Set user and group on all content to parent owner.
+    
+     Useful for transfers of files across systems.
+     Recursive chown based on parent directory.
     
    fix-sshd                              Fixing sshd permissions on keyfiles.           
     
@@ -226,5 +242,5 @@ COMMAND
      Install the wordpress dependencies.
     
     
-[ srvctl-devel ] ## srvctl-3.2.3.4
+[ srvctl-devel ] ## srvctl-3.2.5.9
 ```

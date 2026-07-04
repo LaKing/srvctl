@@ -118,7 +118,7 @@ fi
 ## check for arguments
 if [[ $CMD ]]
 then
-    err "Invalid command."
+    err "Invalid command. $CMD"
 else
     err "No-command."
 fi

@@ -33,7 +33,7 @@ then
         fi
     fi
     ## command completion
-    if [[ ! -e /etc/bash_completion.d/srvctl-completion ]]
+    if [[ -d /etc/bash_completion.d ]] && [[ ! -e /etc/bash_completion.d/srvctl-completion ]]
     then
         if [[ -f /usr/bin/sudo ]]
         then
@@ -62,26 +62,28 @@ export NOW
 
 if [[ $CMD == update-install ]] || [[ $CMD == test-modules ]]
 then
-    msg "srvctl test-modules"
-    rm -fr /var/local/srvctl/modules.conf
-    
-    for sourcefile in /etc/srvctl/data/*.conf
-    do
-        [[ -f $sourcefile ]] && cat "$sourcefile" > /etc/srvctl/"${sourcefile:17}" && debug "@init data -> /etc/srvctl/${sourcefile:17}"
-    done
-fi
-
-
-if [[ $CMD == update-install ]]
-then
     if [[ -f /bin/node ]]
     then
         debug "Node.JS version $(node --version)"
     else
-        dnf -y install nodejs
+        msg "NodeJS must be installed."
+        run dnf -y install nodejs
+        exif
     fi
     
-    ## this is included inline
+    if [[ -f /bin/git ]]
+    then
+        debug "Git version $(git --version)"
+    else
+        msg "Git must be installed."
+        run dnf -y install git
+        exif
+    fi
+    
+    msg "srvctl test-modules"
+    rm -fr /var/local/srvctl/modules.conf
+    
+    ## this is included inline, as it has to be done before our module system is initialized
     if [[ -f /etc/srvctl/data/clusters.json ]] && [[ -f $SC_INSTALL_DIR/modules/containers/host-conf.js ]]
     then
         msg "Configuring host and clusters based on /etc/srvctl/data"
@@ -95,6 +97,12 @@ then
         chmod 644 /etc/srvctl/host.conf
         chmod 644 /etc/srvctl/hosts.json
     fi
+    
+    for sourcefile in /etc/srvctl/data/*.conf
+    do
+        ntc "Processing $sourcefile"
+        [[ -f $sourcefile ]] && cat "$sourcefile" > /etc/srvctl/"${sourcefile:17}" && debug "@init data -> /etc/srvctl/${sourcefile:17}"
+    done
 fi
 
 ## LOAD CONFIGs
@@ -118,15 +126,16 @@ fi
 
 if [[ $UID == 0 ]]
 then
-    readonly SC_ROOT=true
+    readonly SC_UID0=true
 else
-    readonly SC_ROOT=false
+    readonly SC_UID0=false
 fi
 
 readonly SC_HOME="$(getent passwd "$SC_USER" | cut -f6 -d:)"
 export SC_HOME
 
-debug "UID: $UID USER: $USER SUDO_USER $SUDO_USER SC_USER: $SC_USER SC_ROOT $SC_ROOT"
+# echo "debug UID: $UID USER: $USER SUDO_USER $SUDO_USER SC_USER: $SC_USER SC_UID0 $SC_UID0"
+# echo "debug: CMD:$CMD ARG:$ARG OPA:$OPA "
 
 logs "srvctl $SC_COMMAND_ARGUMENTS"
 
@@ -144,7 +153,7 @@ readonly OPAS
 readonly DEBUG
 
 export SC_USER
-export SC_ROOT
+export SC_UID0
 export SRVCTL
 
 ## load root and user modules

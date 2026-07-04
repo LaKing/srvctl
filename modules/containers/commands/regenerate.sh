@@ -7,7 +7,7 @@
 ## &en The regenerate rootfs command rebuilds the container base images.
 ## &en
 
-root_only
+##root_only
 hs_only
 
 ## run only with srvctl? or with bash?

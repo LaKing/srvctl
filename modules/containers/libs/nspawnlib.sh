@@ -1,5 +1,6 @@
 #!/bin/bash
 
+## does not work well
 
 function update_nspawn_container { ## container
     

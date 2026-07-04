@@ -1,6 +1,7 @@
 #!/bin/bash
 
-function check_wildcared_pem { ## file
+function check_wildcard_pem { ## file
+    ## first certificate in pem file must be the certificate.
     
     local pem subject
     pem="$1"
@@ -18,6 +19,11 @@ function check_wildcared_pem { ## file
                 ## return the domain of the wildcard certificate
                 echo "${subject:15}"
                 return
+            elif [[ $subject == "subject=CN=*."* ]]
+            then
+                ## OpenSSL 3.x format without spaces
+                echo "${subject:13}"
+                return
             fi
         fi
     fi
@@ -27,9 +33,13 @@ function check_wildcared_pem { ## file
 
 function apply_wildcard_certificates() {
     
+    msg "Apply wildcard certificates"
+    
     for i in /etc/srvctl/cert/*/*.pem
     do
-        checked_domain="$(check_wildcared_pem "$i")"
+        checked_domain="$(check_wildcard_pem "$i")"
+        
+        msg "Check $i $checked_domain"
         
         if [[ "$checked_domain" != false ]]
         then
@@ -39,7 +49,7 @@ function apply_wildcard_certificates() {
             do
                 
                 ## check the domains we have a wildcard certificate for
-                if [[ $c == *".$checked_domain" ]]
+                if [[ $c == *".$checked_domain" ]] || [[ $c == "$checked_domain" ]]
                 then
                     ## create a copy of the cert in the datastore cert dir
                     cat "$i" > "$SC_DATASTORE_DIR/cert/$c.pem"
@@ -57,7 +67,3 @@ function apply_wildcard_certificates() {
         
     done
 }
-
-## TODO
-## rather delete haproxy certs then creating copies
-## check how we could use ipv6 with certificates without publishing them to containers

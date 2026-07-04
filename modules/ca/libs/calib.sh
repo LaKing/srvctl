@@ -163,7 +163,7 @@ function create_ca_certificate { ## type net name
             #local _passphrase
             ##_passphrase="$(cat "/var/srvctl-users/$_u/.password")"
             #_passphrase="$(new_password)"
-            #if [[ ! -z "$_passphrase" ]]
+            #if [[ -n "$_passphrase" ]]
             #then
             
             ntc "create $_file p12"

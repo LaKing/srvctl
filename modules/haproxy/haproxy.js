@@ -22,7 +22,7 @@ const CMD = process.argv[2];
 // constatnts
 
 const SRVCTL = process.env.SRVCTL;
-const SC_ROOT = process.env.SC_ROOT;
+const SC_UID0 = process.env.SC_UID0;
 const os = require("os");
 const HOSTNAME = os.hostname();
 const SC_COMPANY_DOMAIN = process.env.SC_COMPANY_DOMAIN;
@@ -66,7 +66,7 @@ if (process.env.SC_USE_CODEPAD === "true") use_codepad = true;
 
 // create an array of arrays based on the dots
 var aa = [];
-Object.keys(datastore.containers).forEach(function(c) {
+Object.keys(datastore.containers).forEach(function (c) {
     if (c.split(".")[0] === "mail") return;
     var l = c.split(".").length;
     if (!aa[l]) aa[l] = [];
@@ -102,12 +102,26 @@ function acl(p, h, n) {
     if (n === 80 || n === 443) {
         str += br + "    use_backend " + p + ":" + h + " if { hdr(host) -i " + h + " }";
         str += br + "    use_backend " + p + ":" + h + " if { hdr(host) -i " + ddn(h) + " }";
-        //str += br + "    use_backend " + p + ":" + h + " if { hdr(host) -i " + h + "." + HOSTNAME + " }";
     }
 
     str += br + "    use_backend " + p + ":" + h + " if { hdr(host) -i " + h + ":" + n + " }";
     str += br + "    use_backend " + p + ":" + h + " if { hdr(host) -i " + ddn(h) + ":" + n + " }";
-    //str += br + "    use_backend " + p + ":" + h + " if { hdr(host) -i " + h + "." + HOSTNAME + ":" + n + " }";
+
+    return str;
+}
+
+// added for custom subdomains
+function subacl(p, h, n) {
+    // proto host port
+    var str = "";
+
+    if (n === 80 || n === 443) {
+        str += br + "    use_backend " + p + ":" + h + " if { hdr(host) -m end ." + h + " }";
+        str += br + "    use_backend " + p + ":" + h + " if { hdr(host) -m end ." + ddn(h) + " }";
+    }
+
+    str += br + "    use_backend " + p + ":" + h + " if { hdr(host) -m end ." + h + ":" + n + " }";
+    str += br + "    use_backend " + p + ":" + h + " if { hdr(host) -m end ." + ddn(h) + ":" + n + " }";
 
     return str;
 }
@@ -152,11 +166,15 @@ function get_well_known() {
     return br + str;
 }
 
-function redirect(p, h, d) {
-    // proto host dest
+function redirect(p, h, d, cacheable) {
+    // proto host dest [cacheable]
     var str = "";
     str += br + "    redirect prefix " + p + "://" + h + " code 301 if { hdr(host) -i " + d + " }" + rule_exeptions;
-    if (d.substring(0, 4) !== "www.") str += br + "    redirect prefix " + p + "://" + h + " code 301 if { hdr(host) -i www." + d + " }" + rule_exeptions;
+    if (cacheable) str += br + "    http-after-response set-header Cache-Control \"max-age=86400\" if { hdr(host) -i " + d + " } { status eq 301 }";
+    if (d.substring(0, 4) !== "www.") {
+        str += br + "    redirect prefix " + p + "://" + h + " code 301 if { hdr(host) -i www." + d + " }" + rule_exeptions;
+        if (cacheable) str += br + "    http-after-response set-header Cache-Control \"max-age=86400\" if { hdr(host) -i www." + d + " } { status eq 301 }";
+    }
     return str;
 }
 
@@ -243,12 +261,12 @@ function get_frontend_http() {
     str += br + get_well_known_acl();
 
     // REDIRECT RULEs
-    Object.keys(containers).forEach(function(c) {
+    Object.keys(containers).forEach(function (c) {
         str += br + redirect("http", c, "www." + c);
         // handle aliases
         if (containers[c].aliases) {
             for (j = 0; j < containers[c].aliases.length; j++) {
-                str += redirect("http", c, containers[c].aliases[j]);
+                str += redirect("http", c, containers[c].aliases[j], true);
             }
         }
 
@@ -267,16 +285,27 @@ function get_frontend_http() {
 
     str += br;
     // USE BACKENDs
-    Object.keys(containers).forEach(function(c) {
+    Object.keys(containers).forEach(function (c) {
         // the standard container is started, use it, otherwise it will fallback to the default
         if (containers[c].static) msg("Using only static config for " + c);
         else str += acl("http", c, 80);
 
         if (containers[c].altnames) {
             for (j = 0; j < containers[c].altnames.length; j++) {
-                str += aacl("http", c, containers[c].altnames[j], 80);
+                // Well, redirect altnames to https unless ...
+                // TODO better fix that consequently
+                if (containers[c]["http-redirect"] === undefined)
+                    str += br + "    redirect prefix https://" + containers[c].altnames[j] + " code 301 if { hdr(host) -i " + containers[c].altnames[j] + " }" + rule_exeptions;
+                else str += aacl("http", c, containers[c].altnames[j], 80);
             }
         }
+    });
+    str += br;
+    //subdomains
+    Object.keys(containers).forEach(function (c) {
+        // the standard container is started, use it, otherwise it will fallback to the default
+        if (containers[c].static) msg("Using only static config for " + c);
+        else str += subacl("http", c, 80);
     });
 
     str += br + "    default_backend default";
@@ -289,18 +318,18 @@ function get_frontend_https() {
     var str = "";
 
     str += br + "frontend https";
-    str += br + "    bind *:443 ssl crt /var/haproxy";
+    str += br + "    bind *:443 ssl crt /var/haproxy alpn h2,http/1.1";
     str += br;
 
     str += br + get_well_known_acl();
 
     // REDIRECT
-    Object.keys(containers).forEach(function(c) {
+    Object.keys(containers).forEach(function (c) {
         str += br + redirect("https", c, "www." + c);
         // handle aliases
         if (containers[c].aliases) {
             for (j = 0; j < containers[c].aliases.length; j++) {
-                str += redirect("https", c, containers[c].aliases[j]);
+                str += redirect("https", c, containers[c].aliases[j], true);
             }
         }
 
@@ -314,16 +343,24 @@ function get_frontend_https() {
     str += br;
 
     // USE BACKEND
-    Object.keys(containers).forEach(function(c) {
+    Object.keys(containers).forEach(function (c) {
         // the standard container
         if (containers[c].static) msg("Using only static config for " + c);
         else str += acl("https", c, 443);
 
+        // altnames are only used in the reverse proxy.
         if (containers[c].altnames) {
             for (j = 0; j < containers[c].altnames.length; j++) {
                 str += aacl("https", c, containers[c].altnames[j], 443);
             }
         }
+    });
+    str += br;
+    // subdomains
+    Object.keys(containers).forEach(function (c) {
+        // the standard container
+        if (containers[c].static) msg("Using only static config for " + c);
+        else str += subacl("https", c, 443);
     });
 
     str += br + "    default_backend default";
@@ -336,18 +373,34 @@ function get_frontend_port(n, ssl) {
     var str = "";
     str += br + "frontend port" + n;
     str += br + "    bind *:" + n;
-    if (ssl) str += " ssl crt /var/haproxy";
+    if (ssl)
+        if (n === 9000 || n === 9001 || n === 24678) str += " ssl crt /var/haproxy";
+        else str += " ssl crt /var/haproxy alpn h2,http/1.1";
 
     str += br;
 
     // USE BACKEND (no redirects)
-    Object.keys(containers).forEach(function(c) {
+    Object.keys(containers).forEach(function (c) {
         // srvctl-releated port permissions based on configurations
-        if (use_codepad && containers[c].type !== "codepad") {
-            if (n === 9000 || n === 9001) return;
+
+        // codepad reserved ports
+        if (n === 9000 || n === 9001 || n === 24678) {
+            if (!containers[c].proxy_ports || containers[c].proxy_ports.indexOf(n) < 0) if (!c.includes("-devel")) return;
         }
 
         str += acl("port" + n, c, n);
+    });
+
+    // subdomains
+    Object.keys(containers).forEach(function (c) {
+        // srvctl-releated port permissions based on configurations
+
+        // codepad reserved ports
+        if (n === 9000 || n === 9001 || n === 24678) {
+            if (!containers[c].proxy_ports || containers[c].proxy_ports.indexOf(n) < 0) if (!c.includes("-devel")) return;
+        }
+
+        str += subacl("port" + n, c, n);
     });
 
     // certfiles are in:
@@ -362,7 +415,7 @@ function get_frontend_port(n, ssl) {
 
 function get_backends_for_http() {
     var str = "";
-    Object.keys(containers).forEach(function(c) {
+    Object.keys(containers).forEach(function (c) {
         str += br + "backend http:" + c;
         str += br + "    server http:" + c + " " + c + ":" + datastore.container_http_port(c);
         str += br + "";
@@ -382,12 +435,12 @@ function get_backends_for_http() {
 
 function get_backends_for_https() {
     var str = "";
-    Object.keys(containers).forEach(function(c) {
+    Object.keys(containers).forEach(function (c) {
         str += br + "backend https:" + c;
         // for https only
         //str += br + '    redirect scheme https if !{ ssl_fc }';
 
-        str += br + "    server https:" + c + " " + c + ":" + datastore.container_https_port(c) + " ssl";
+        str += br + "    server https:" + c + " " + c + ":" + datastore.container_https_port(c) + " ssl verify none alpn h2,http/1.1";
         str += br + "";
     });
 
@@ -399,17 +452,22 @@ function get_backends_for_https() {
 
 function get_backends_for_port(n, ssl) {
     var str = "";
-    Object.keys(containers).forEach(function(c) {
+    Object.keys(containers).forEach(function (c) {
         // srvctl-releated port permissions based on configurations
-        if (use_codepad && containers[c].type !== "codepad") {
-            if (n === 9000 || n === 9001) return;
+
+        // codepad reserved ports
+        if (n === 9000 || n === 9001 || n === 24678) {
+            if (!containers[c].proxy_ports || containers[c].proxy_ports.indexOf(n) < 0) if (!c.includes("-devel")) return;
         }
 
         str += br + "backend port" + n + ":" + c;
         // for https only
         //str += br + '    redirect scheme https if !{ ssl_fc }';
         str += br + "    server port" + n + ":" + c + " " + c + ":" + n;
-        if (ssl) str += " ssl";
+        if (ssl)
+            if (n === 9000 || n === 9001 || n === 24678) str += " ssl verify none";
+            else str += " ssl verify none alpn h2,http/1.1";
+
         str += br + "";
     });
     return str;
@@ -425,6 +483,7 @@ cfg += get_frontend_https();
 if (use_codepad) {
     cfg += get_frontend_port(9000, true);
     cfg += get_frontend_port(9001, true);
+    //cfg += get_frontend_port(24678, true);
 }
 
 // elasticsearch
@@ -440,6 +499,7 @@ cfg += get_backends_for_https();
 if (use_codepad) {
     cfg += get_backends_for_port(9000, true);
     cfg += get_backends_for_port(9001, true);
+    //cfg += get_backends_for_port(24678, true);
 }
 
 // elasticsearch
@@ -455,7 +515,7 @@ cfg += br + "    server default-server localhost:1282";
 cfg += br + "";
 
 function write_haproxy_cfg() {
-    fs.writeFile("/etc/haproxy/haproxy.cfg", cfg, function(err) {
+    fs.writeFile("/etc/haproxy/haproxy.cfg", cfg, function (err) {
         if (err) return_error("WRITEFILE " + err);
         else msg("wrote haproxy conf");
     });

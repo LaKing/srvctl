@@ -13,18 +13,21 @@
 #    exit 0
 #fi
 
-if [[ -z "$service" ]] && [[ $op == 'restart' ]]
-then
-    # shellcheck source=/usr/local/share/srvctl/modules/containers/commands/regenerate.sh
-    source "$SC_INSTALL_DIR/modules/containers/commands/regenerate.sh"
-    exit_0
-fi
+echo "============= SERVICE: $service OP: $op SC_USER $SC_USER SC_UID0: $SC_UID0 ======================"
+
+## seems irrelevant, probably some outdated code - delete it lataer
+#if [[ -z "$service" ]] && [[ $op == 'restart' ]]
+#then
+#    # shellcheck source=/usr/local/share/srvctl/modules/containers/commands/regenerate.sh
+#    source "$SC_INSTALL_DIR/modules/containers/commands/regenerate.sh"
+#    exit_0
+#fi
 
 if [[ -d /srv/$service/rootfs ]]
 then
-    if $SC_ROOT
+    if $SC_UID0
     then
-        if [[ $SC_USER == $(get container "$service" user) ]] || [[ $SC_USER == $(get container "$service" reseller) ]] || $SC_ROOT
+        if [[ $SC_USER == $(get container "$service" user) ]] || [[ $SC_USER == $(get container "$service" reseller) ]] || $SC_UID0
         then
             msg "AUTH-OK $SC_USER has acceess to $service"
         else
@@ -48,7 +51,7 @@ fi
 
 
 ## all-containers
-if [[ $service == all-containers ]] && [[ ! -z "$op" ]] && [[ -f "/etc/systemd/system/srvctl-nspawn@.service" ]]
+if [[ $service == all-containers ]] && [[ -n "$op" ]] && [[ -f "/etc/systemd/system/srvctl-nspawn@.service" ]]
 then
     sudomize
     

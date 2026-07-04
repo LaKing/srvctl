@@ -16,8 +16,11 @@ else
     SC_CLUSTERNAME=test_cluster
 fi
 
+# shellcheck disable=SC2034
 readonly SC_HOSTNET
+# shellcheck disable=SC2034
 readonly SC_ROOTFS_DIR
+# shellcheck disable=SC2034
 readonly SC_MOUNTS_DIR
 
 ## make these variables accessible to js

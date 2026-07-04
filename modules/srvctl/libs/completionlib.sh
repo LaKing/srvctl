@@ -5,7 +5,7 @@
 
 function generate_completion() {
     msg "Writing command-completion data"
-    if $SC_ROOT
+    if $SC_UID0
     then
         mkdir -p /var/local/srvctl/completion
         chmod 777 /var/local/srvctl/completion

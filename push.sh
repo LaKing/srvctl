@@ -75,7 +75,20 @@ echo "$cv" > $wd/version
 echo "PUSH VERSION $cv of $HOSTNAME:$wd $NOW"
 echo "PUSH VERSION $cv of $HOSTNAME:$wd $NOW" > $log
 
-
+function linkin() {
+    
+    src=":"
+    res=""
+    sed -i "s|$src|$res|" /tmp/urlconverter
+    
+    src="In /srv/codepad-project"
+    res="https://srvctl-devel.d250.hu:9001/p"
+    sed -i "s|$src|$res|" /tmp/urlconverter
+    
+    src=" line "
+    res="?line="
+    sed -i "s|$src|$res|" /tmp/urlconverter
+}
 
 find "$wd" > /tmp/srvctl-bash-beautify
 while read -r file
@@ -83,14 +96,16 @@ do
     if [[ "${file:0, -3 }" == ".sh" ]]
     then
         #echo "@ $file" >> $log
-        shellcheck -x "$file" >> $log
+        shellcheck -x "$file" > /tmp/urlconverter
+        linkin
+        cat /tmp/urlconverter >> $log
+        #shellcheck -x "$file" >> $log
         shellcheck -x "$file"
         #echo /bin/python /srv/beautify_bash.py "$file"
         /bin/python /usr/local/share/srvctl/modules/srvctl/apps/beautify_bash.py "$file"
         rm -fr "$file~"
     fi
 done < /tmp/srvctl-bash-beautify
-
 
 echo "PUSH - OK. use push publish to commit to git."
 

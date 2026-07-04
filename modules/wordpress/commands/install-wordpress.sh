@@ -7,9 +7,11 @@
 
 root_only
 
-sc_install wordpress
-sc_install php
+## lock to 8.0.11 for now
+sc_install php #-8.0.11
 sc_install php-mysqlnd
+sc_install wordpress
+
 
 msg "Adding wp-permalink configuration to apache"
 cat > /etc/httpd/conf.d/wp-permalink.conf << EOF
@@ -154,3 +156,5 @@ msg "Wordpress @ https://$HOSTNAME/wp-admin admin:$password"
 
 
 add_service httpd
+
+chown -R apache:apache /var/www/html
