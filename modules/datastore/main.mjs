@@ -83,10 +83,14 @@ function loadJson(name, { required }) {
   }
 }
 
+// v3 load_hosts/load_users/load_containers each JSON.parse(readFileSync(...))
+// and return_error (LIB-ERROR 112) on any read/parse failure — all three
+// files are REQUIRED. A missing users.json/containers.json is datastore loss
+// or an incomplete mount, NOT an empty datastore.
 const hosts = loadJson("hosts.json", { required: true });
 if (Object.keys(hosts).length < 1) lib_error("READFILE hosts.json has no hosts defined. Eventually run: srvctl update-install");
-const users = loadJson("users.json", { required: false });
-const containers = loadJson("containers.json", { required: false });
+const users = loadJson("users.json", { required: true });
+const containers = loadJson("containers.json", { required: true });
 
 // v3 lablib.js msg(): console.log($BLUE'[ 'shorthost' ]'$GREEN, text, $CLEAR)
 // — space-separated args, so the byte layout is exactly this.
@@ -98,8 +102,23 @@ function msg(text) { console.log($TAG + "\x1b[32m", text, "\x1b[0m"); }
 // msg fires AFTER all synchronous output; we reproduce that ordering by
 // DEFERRING the "wrote" msg to a flush after dispatch (see below).
 const pendingWrites = [];
-function writeUsers() { fs.writeFileSync(path.join(DATASTORE_DIR, "users.json"), JSON.stringify(users, null, 2)); pendingWrites.push("wrote users.json"); }
-function writeContainers() { fs.writeFileSync(path.join(DATASTORE_DIR, "containers.json"), JSON.stringify(containers, null, 2)); pendingWrites.push("wrote containers.json"); }
+function writeMonolithic(name, obj, wroteMsg) {
+  // v3 write_users/write_containers: readonly guard first, then a wrapped
+  // write that raises LIB-ERROR 112 on failure (never a bare Node stack).
+  // NOTE: SC_DATASTORE_RO is v3's guard variable — dead in practice (bash
+  // sets SC_DATASTORE_RO_USE, never this); reproduced verbatim for step-1
+  // fidelity. Step 2 (store.mjs) enforces the EFFECTIVE readonly variable.
+  if (process.env.SC_DATASTORE_RO) return lib_error("Readonly datastore.");
+  const p = path.join(DATASTORE_DIR, name);
+  try {
+    fs.writeFileSync(p, JSON.stringify(obj, null, 2));
+  } catch (err) {
+    return lib_error("WRITEFILE " + p + " " + err);
+  }
+  pendingWrites.push(wroteMsg);
+}
+function writeUsers() { writeMonolithic("users.json", users, "wrote users.json"); }
+function writeContainers() { writeMonolithic("containers.json", containers, "wrote containers.json"); }
 
 // ---- derivation / generator context ---------------------------------------
 const ctx = {

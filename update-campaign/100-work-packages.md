@@ -67,8 +67,14 @@ Execution rules (from 000-PROMPT + the Stage-2 preconditions in 000-INDEX):
     write-msg ordering (deferred "wrote X.json" flush after sync output) and
     the cfg trailing-exit() (return_value undefined -> exit()=0). The
     duplicate-ADD double-write is REPRODUCED verbatim (two "wrote" lines) to
-    hold the golden; the RO guard now lives in the writer (harness runs
-    writable, so unaffected). Full datastore suite: 190 checks.
+    hold the golden. Monolithic load/write CONTRACT matches v3 (per Codex
+    audit): all three JSON files REQUIRED (missing → LIB-ERROR 112, not an
+    empty map); writes wrapped → LIB-ERROR 112 on failure (not a Node stack);
+    the SC_DATASTORE_RO guard is reproduced VERBATIM — but note it is dead in
+    practice (bash sets SC_DATASTORE_RO_USE, never SC_DATASTORE_RO), so RO is
+    NOT effectively enforced yet. Fixing the guard to the effective variable
+    is deferred to step 2 (store.mjs's writer-level RO). Full datastore
+    suite: 190 checks.
     - **WP-C — dispatcher step 2 (next)**: swap main.mjs's monolithic backend
       to store.mjs file-per-entity; adapt the verb harness's mutation
       comparison from raw monolithic bytes to semantic entity maps (stdout/
