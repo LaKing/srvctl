@@ -5,10 +5,12 @@
 ## &en This command restarts saslauthd to fix mailing.
 ## &en It is temporary..
 
-## run only with srvctl? or with bash?
-[[ $SRVCTL ]] || exit 4
+## Operator command: restart the host saslauthd.service (the SMTP AUTH
+## backend for host postfix, rimap via the local perdition proxy) and
+## report the result. Elevates itself via sudo for non-root callers.
 
-## Place your code here ...
+## Guard: refuse to run outside the srvctl dispatcher (module-local exit code).
+[[ $SRVCTL ]] || exit 4
 
 sudomize
 
