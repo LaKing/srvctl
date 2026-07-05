@@ -1,9 +1,13 @@
 SRVCTL 4 REWRITE CAMPAIGN — PLAN FIRST, THEN SEQUENTIAL EXECUTION
 
-STATUS (2026-07-05): CAMPAIGN INITIALIZED. No planning documents written yet.
-Session one runs PHASE A STEP 0 below. This prompt is the governing contract
-for every session of the campaign; re-read it at the start of each session.
-Update this STATUS line (and 000-INDEX.md) at the end of every session.
+STATUS (2026-07-05, end of session 1): DISCOVERY + AUTHORIZED POLISH PASS
+COMPLETE. Branch v4 (from e179f53), 38 functionality-preserving polish
+commits (core + all 37 modules), not pushed. Discovery fact sheets + 301
+findings filed; Phase B plan DRAFTs 010–019 written. AWAITING human review
+of the plan set (Stage gate) before any Stage 2 code. See 000-INDEX.md
+(session log + NEXT) and 020-session1-report.md. This prompt remains the
+governing contract; re-read it at the start of each session and update this
+STATUS line (and 000-INDEX.md) at the end of every session.
 
 This is a multi-session campaign in two macro-stages:
   STAGE 1 — PLANNING: produce numbered .md plan documents and work packages

@@ -30,7 +30,7 @@ Polish = overnight identical-functionality pass: [ ] pending | [x] committed | [
 | ca | 6 | 271 | 0 | keep-port | [x] | [x] | |
 | certificates | 6 | 445 | 0 | keep-port | [x] | [x] | G7 wildcard later |
 | codepad | 12 | 324 | 1 | keep-port | [x] | [x] | |
-| containers | 41 | 2309 | 12 | keep-port | [x] | [ ] | biggest module |
+| containers | 41 | 2309 | 12 | keep-port | [x] | [x] | biggest module |
 | datastore | 9 | 328 | 0 | rewrite (G2, later) | [x] | [x] | polish now, boilerplate move later |
 | default | 2 | 26 | 0 | keep-port | [x] | [x] | |
 | dns | 4 | 22 | 0 | keep-port | [x] | [x] | |
@@ -52,7 +52,7 @@ Polish = overnight identical-functionality pass: [ ] pending | [x] committed | [
 | perdition | 9 | 134 | 0 | deprecate (G9) | [x] | [x] | mail proxy replaces |
 | postfix | 10 | 173 | 0 | keep-port | [x] | [ ] | |
 | saslauthd | 7 | 111 | 2 | keep-port | [x] | [x] | |
-| srvctl | 19 | 994 | 7 | keep-port | [x] | [ ] | self-management module |
+| srvctl | 19 | 994 | 7 | keep-port | [x] | [x] | self-management module |
 | ssh | 8 | 197 | 0 | keep-port | [x] | [x] | |
 | sshpiperd | 5 | 95 | 0 | keep-port | [x] | [x] | |
 | static | 5 | 69 | 0 | keep-port | [x] | [x] | |
