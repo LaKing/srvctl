@@ -31,20 +31,20 @@ Polish = overnight identical-functionality pass: [ ] pending | [x] committed | [
 | certificates | 6 | 445 | 0 | keep-port | [x] | [x] | G7 wildcard later |
 | codepad | 12 | 324 | 1 | keep-port | [x] | [x] | |
 | containers | 41 | 2309 | 12 | keep-port | [x] | [ ] | biggest module |
-| datastore | 9 | 328 | 0 | rewrite (G2, later) | [x] | [ ] | polish now, boilerplate move later |
+| datastore | 9 | 328 | 0 | rewrite (G2, later) | [x] | [x] | polish now, boilerplate move later |
 | default | 2 | 26 | 0 | keep-port | [x] | [x] | |
-| dns | 4 | 22 | 0 | keep-port | [x] | [ ] | |
-| firewalld | 7 | 230 | 0 | keep-port | [x] | [ ] | |
+| dns | 4 | 22 | 0 | keep-port | [x] | [x] | |
+| firewalld | 7 | 230 | 0 | keep-port | [x] | [x] | |
 | ftp | 3 | 9 | 0 | undecided | [x] | [x] | tiny |
-| gluster | 5 | 424 | 0 | deprecate (G4) | [x] | [ ] | polish minimal |
-| gui | 4 | 141 | 0 | deprecate (G5) | [x] | [ ] | cockpit replaces |
+| gluster | 5 | 424 | 0 | deprecate (G4) | [x] | [x] | polish minimal |
+| gui | 4 | 141 | 0 | deprecate (G5) | [x] | [x] | cockpit replaces |
 | haproxy | 9 | 333 | 2 | keep-port | [x] | [ ] | |
 | letsencrypt | 5 | 100 | 0 | keep-port | [x] | [ ] | G7 wildcard later |
-| mariadb | 3 | 288 | 0 | keep-port | [x] | [ ] | |
-| mozilla | 3 | 42 | 0 | undecided | [x] | [ ] | |
+| mariadb | 3 | 288 | 0 | keep-port | [x] | [x] | |
+| mozilla | 3 | 42 | 0 | undecided | [x] | [x] | |
 | named | 10 | 326 | 1 | keep-port | [x] | [ ] | G7 DNS-01 later |
 | nfs | 5 | 70 | 0 | keep-port | [x] | [ ] | |
-| ntp | 2 | 8 | 0 | keep-port | [x] | [ ] | tiny |
+| ntp | 2 | 8 | 0 | keep-port | [x] | [x] | tiny |
 | odoo | 2 | 384 | 1 | keep-port | [x] | [ ] | |
 | opendkim | 7 | 128 | 0 | keep-port | [x] | [ ] | |
 | openvpn | 7 | 371 | 0 | deprecate (G8) | [x] | [ ] | zerotier replaces |
