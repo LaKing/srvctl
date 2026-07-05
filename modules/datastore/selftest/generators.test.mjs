@@ -1,20 +1,19 @@
-// modules/datastore/selftest/generators.test.mjs — differential test for the
-// v4 pure generator port (generators.mjs) against the live v3 lib.js.
+// modules/datastore/selftest/generators.test.mjs — golden test for the v4
+// pure generator port (generators.mjs) against a frozen v3 capture.
 //
-// Group A (differential): capture v3 return values via capture-generators.cjs
-//   over a rich fixture, run generators.mjs over the same fixture, assert
-//   deep-equal per generator. Normalizes os.hostname()→<HOST> and
-//   SC_INSTALL_DIR→<INSTALL> on both sides.
+// Group A (golden): compare generators.mjs against a checked-in v3 capture
+//   produced by capture-generators.cjs over a rich fixture. Normalizes
+//   os.hostname()→<HOST> and SC_INSTALL_DIR→<INSTALL>.
 // Group B: container_resolv_conf with a CONTROLLED ctx.HOSTNAME (v4 only — v3
 //   can't be driven here, see capture note). Exact expected output.
 // Group C: container_useruids over injected passwd/group content (v4 only).
 //
 // Run: node modules/datastore/selftest/generators.test.mjs  (exit != 0 on fail)
+// Re-record while v3 lib.js still exists:
+//      node modules/datastore/selftest/generators.test.mjs --record
 //
-// NOTE: Group A is a LIVE DIFFERENTIAL against modules/datastore/lib.js. It is
-// valid only while v3 lib.js exists. Before WP-C removes/replaces lib.js, this
-// reference must be frozen (record capture-generators.cjs output into a
-// checked-in golden and switch Group A to verify against it).
+// NOTE: --record depends on modules/datastore/lib.js. Normal verification does
+// not, so WP-C can replace lib.js after this golden exists.
 
 import fs from "node:fs";
 import os from "node:os";
@@ -27,6 +26,7 @@ import { derivations } from "../lib/derive.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const CAPTURE = path.join(HERE, "capture-generators.cjs");
+const GOLDEN_FILE = path.join(HERE, "golden", "generators.json");
 const HOSTNAME = os.hostname();
 const INSTALL_DIR = "/opt/srvctl-test";
 
@@ -86,21 +86,39 @@ function check(name, got, want) {
   }
 }
 
-// ---- Group A: differential vs live v3 -------------------------------------
+function captureV3Golden() {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sc-gen-"));
+  try {
+    fs.writeFileSync(path.join(dir, "hosts.json"), JSON.stringify(HOSTS));
+    fs.writeFileSync(path.join(dir, "users.json"), JSON.stringify(USERS));
+    fs.writeFileSync(path.join(dir, "containers.json"), JSON.stringify(CONTAINERS));
 
-const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sc-gen-"));
-try {
-  fs.writeFileSync(path.join(dir, "hosts.json"), JSON.stringify(HOSTS));
-  fs.writeFileSync(path.join(dir, "users.json"), JSON.stringify(USERS));
-  fs.writeFileSync(path.join(dir, "containers.json"), JSON.stringify(CONTAINERS));
+    const r = spawnSync(process.execPath, [CAPTURE], {
+      env: { ...ENV, SC_DATASTORE_DIR: dir },
+      encoding: "utf8",
+    });
+    if (r.error) throw new Error(`spawn capture: ${r.error.message}`);
+    if (r.status !== 0) throw new Error(`capture exited ${r.status}: ${r.stderr}`);
+    return normAll(JSON.parse(r.stdout));
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+}
 
-  const r = spawnSync(process.execPath, [CAPTURE], {
-    env: { ...ENV, SC_DATASTORE_DIR: dir },
-    encoding: "utf8",
-  });
-  if (r.error) throw new Error(`spawn capture: ${r.error.message}`);
-  if (r.status !== 0) throw new Error(`capture exited ${r.status}: ${r.stderr}`);
-  const v3 = normAll(JSON.parse(r.stdout));
+// ---- Group A: checked-in v3 capture ---------------------------------------
+
+{
+  const record = process.argv.includes("--record");
+  if (record) {
+    const captured = captureV3Golden();
+    fs.mkdirSync(path.dirname(GOLDEN_FILE), { recursive: true });
+    fs.writeFileSync(GOLDEN_FILE, JSON.stringify(captured, null, 2) + "\n");
+    console.log(`recorded ${Object.keys(captured).length} generator entries -> ${path.relative(process.cwd(), GOLDEN_FILE)}`);
+  }
+  if (!fs.existsSync(GOLDEN_FILE)) {
+    throw new Error("missing generator golden; run generators.test.mjs --record while v3 lib.js exists");
+  }
+  const v3 = JSON.parse(fs.readFileSync(GOLDEN_FILE, "utf8"));
 
   // Build the v4 result set with the SAME iteration as capture-generators.cjs.
   const ctx = {
@@ -124,8 +142,6 @@ try {
   // Compare every captured v3 key against v4 (and flag any v4-only keys).
   for (const k of Object.keys(v3)) check(`v3~v4 ${k}`, v4[k], v3[k]);
   for (const k of Object.keys(v4)) if (!(k in v3)) failures.push({ name: `v4-only ${k}`, got: v4[k], want: "(missing in v3)" });
-} finally {
-  fs.rmSync(dir, { recursive: true, force: true });
 }
 
 // ---- Group B: resolv_conf with a controlled HOSTNAME (v4-only) ------------

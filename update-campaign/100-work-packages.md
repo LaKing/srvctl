@@ -33,8 +33,9 @@ Execution rules (from 000-PROMPT + the Stage-2 preconditions in 000-INDEX):
     mapped_ports/dotless/gsuite/mail), + resolv_conf with controlled HOSTNAME,
     + useruids over injected passwd/group. Found+preserved v3 quirks (uid-0
     root skipped in useruids; hardcoded 10.15 in etc_hosts) as FIXME(v4).
-    Datastore suite now 182 checks. NB: the differential needs lib.js — FREEZE
-    the reference before WP-C removes it.
+    Datastore suite now 182 checks. The v3 reference is frozen in
+    selftest/golden/generators.json (71 normalized entries); normal
+    verification no longer depends on lib.js, only `--record` does.
     - Remaining for WP-C write path: mutators (new_user/reseller/container,
       container_update_ip, container_add_mapped_port) + ip allocation helpers
       — argv-coupled + write, belong with the verb dispatcher rewrite.
