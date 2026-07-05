@@ -12,8 +12,10 @@ TCP/SNI proxy. The working config is the open risk (D21). Retires perdition.
 - **Dovecot in proxy mode** is the chosen fit (D21). The user could not get a
   working config yet — so a proof-of-concept config is the FIRST deliverable
   of this work package, before any module wiring.
-- **Secure ports only** (D22): 993 (IMAPS), 995 (POP3S). No 143/110, no
-  STARTTLS on plaintext ports.
+- **Secure client-facing ports only** (D22): 993 (IMAPS), 995 (POP3S). No
+  public 143/110, no public STARTTLS-on-plaintext service. A loopback-only
+  auth path is still allowed if postfix/saslauthd needs it, but it must not
+  be exposed externally.
 - **Every mail container runs dovecot** (D23) — so backends speak the dovecot
   proxy protocol natively (login can be forwarded without re-auth).
 
@@ -34,6 +36,15 @@ Host-side dovecot as an authenticating proxy (perdition's replacement):
   datastore" pattern, replacing perdition's popmap.re.
 - Backend: each mail container's dovecot accepts the proxied connection
   (D23), so no host-side mailbox access — the host only routes.
+- SMTP AUTH dependency: v3 postfix authenticates through saslauthd
+  (`MECH=rimap`, `FLAGS="-n 0 -O localhost -r"` in
+  modules/saslauthd/conf/saslauthd.conf), and perdition provides the
+  loopback IMAP4 service for that chain
+  (modules/perdition/services/imap4.service binds 127.0.0.1). Replacing
+  perdition with only public 993/995 would break SMTP AUTH even if IMAP/POP
+  clients work. The replacement must either keep an equivalent loopback-only
+  auth listener or move postfix auth to a new dovecot/saslauthd-compatible
+  mechanism, then verify `testsaslauthd user@domain`.
 
 ## Open RISK (must resolve first in the work package)
 - Produce a MINIMAL working dovecot proxy config: host dovecot 993/995 →
@@ -42,6 +53,9 @@ Host-side dovecot as an authenticating proxy (perdition's replacement):
   the exact thing that didn't work yet — nail it in isolation before
   building the module around it. Decide passdb mechanism here (passwd-file
   generated from datastore vs checkpassword script vs dict).
+- The PoC must also prove the SMTP AUTH path, not just IMAP/POP clients:
+  `testsaslauthd user@domain` and an authenticated SMTP submission must still
+  succeed through the new local auth path.
 
 ## Module shape (after the PoC works)
 - v4 module `mailproxy` (replaces perdition): install host dovecot in
@@ -52,6 +66,7 @@ Host-side dovecot as an authenticating proxy (perdition's replacement):
 
 ## Migration (per 013)
 - Stand up host dovecot proxy on the secure ports in the VM test cluster;
-  verify with real mailboxes across two mail containers; then, in the live
-  phase, cut the 993/995 listeners from perdition to dovecot-proxy per host
-  in one service window; remove perdition after.
+  verify with real mailboxes across two mail containers and with postfix
+  SMTP AUTH; then, in the live phase, cut the 993/995 listeners from
+  perdition to dovecot-proxy per host in one service window; remove
+  perdition only after the local auth path is verified.

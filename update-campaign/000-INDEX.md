@@ -109,6 +109,21 @@ production-grade JSON storage keeping human-editable JSON") → file-per-
 entity + atomic rename + single locked writer + validate + git-versioned,
 in 014.
 
+### Session 1d — 2026-07-05 (Codex consistency audit after decisions)
+Codex re-checked the plan set after D1/D5 propagation and fixed docs only:
+- 000-PROMPT.md now matches D1/D27: no sc3/sc4 coexistence; same repo/same
+  `sc`, in-place step-by-step upgrade after VM validation; development must
+  not mutate the running /usr/local/share/srvctl install.
+- 010/011 now consistently express the D5 bash-front-door decision: the
+  command/hook boundary stays bash; node is an implementation engine invoked
+  only when useful. Removed stale node-first/direct-.mjs-command wording.
+- 011 verification wording now says compare against captured v3 baseline
+  output/behavior, not side-by-side coexistence.
+- 017 now records the extra mail-proxy dependency found during local search:
+  postfix SMTP AUTH currently goes through saslauthd -> perdition's
+  loopback IMAP4 listener, so the dovecot proxy PoC must verify that path
+  before perdition is removed.
+
 ## Document table
 
 | ID | Title | Type | Status |
@@ -144,7 +159,7 @@ HEAD-accurate marker list is 021-fixme-inventory.md.
 | 012 | Permission model | plan | decisions folded (D9/10/11) |
 | 013 | Upgrade & rollout | plan | rewritten (D1/6/26/27); no coexistence |
 | 014 | Datastore: storage contract + boilerplate | plan | storage DECIDED; D12/13/14 folded |
-| 015 | ZeroTier mesh | plan | decisions folded (D15/16/17) |
+| 015 | ZeroTier mesh | plan | decisions folded (D15/16/17); 10.16.x.y locked |
 | 016 | Wildcard certificates | plan | decisions folded (D18/19/20) |
 | 017 | Mail proxy (dovecot) | plan | rewritten (D21/22/23); PoC = open risk |
 | 018 | Cockpit | plan | POSTPONED (D24/25); gui nuked (D7) |
@@ -154,20 +169,25 @@ HEAD-accurate marker list is 021-fixme-inventory.md.
 | 022 | Decision brief (answered) | decisions | answered; approval note pending |
 | core.md, modules/*.md | Fact sheets (baseline-grounded, see caveat) | fact | written |
 
+### Session 1e — 2026-07-05 (last two flagged items resolved)
+- **ZeroTier addressing = 10.16.x.y** (decided). Separate range from
+  OpenVPN's 10.15 so both meshes run in parallel during migration without
+  overlap; 015 D16 locked (no longer a coin-flip).
+- **Mail proxy = accepted as an open PoC risk.** No reusable dovecot proxy
+  config exists in the repo (only perdition config + container-side dovecot),
+  so the PoC is real work. 017 now requires the PoC to prove postfix SMTP
+  AUTH (saslauthd → perdition loopback IMAP4 today), not just IMAPS/POP3S —
+  captured by the user in 017.
+
 ## NEXT
 
-DECISIONS ANSWERED (022) and FOLDED into 010–019 (session 1c above). The
-plan set now reflects the user's calls. Remaining before Stage 2:
+Plan set is DECISION-COMPLETE. The two previously-flagged open items are
+resolved (10.16; mail = open PoC risk with the SMTP-AUTH acceptance
+criterion). Remaining before Stage 2:
 1. **User records "plans approved" here** to open Stage 2 (not yet done).
-2. Then the orchestrator generates the ordered 100-series work packages.
-
-Two plan items need explicit attention before/at approval:
-- **017 mail proxy** carries an OPEN RISK: a working dovecot proxy config
-  (993/995 → backend by user@domain, wildcard TLS, forwarded creds) is the
-  first deliverable — the exact thing that didn't work yet. Its work package
-  starts with an isolated proof-of-concept.
-- **016 D16** addressing: reuse 10.15.x.y vs move to 10.16.x.y is still a
-  coin-flip in the doc — pick one when the zerotier package is cut.
+2. Then the orchestrator generates the ordered 100-series work packages
+   (Phase C — still Stage-1 planning; can be drafted before approval if the
+   user asks).
 
 STAGE-2 PRECONDITIONS carried from the Codex addendum (fold into 100-series
 work packages before executing them):

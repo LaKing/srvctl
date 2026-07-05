@@ -10,11 +10,13 @@ an .mjs lane next to every bash extension point.
 ```
 modules/<name>/
   module-condition.sh | condition.mjs   # enabled-check; result cached
-  commands/<cmd>.sh   | <cmd>.mjs       # CLI commands; .mjs preferred
-  hooks/<hook>.sh     | <hook>.mjs      # lifecycle hooks, same names/order
+  commands/<cmd>.sh                     # CLI command boundary; may delegate
+                                        # to lib/*.mjs for heavy logic
+  hooks/<hook>.sh                       # lifecycle hook boundary; sourced
   libs/*.sh                             # bash libs, sourced only into the
-                                        # bash child that runs .sh commands
-  lib/*.mjs                             # module functions for the mjs core
+                                        # current bash command/hook scope
+  lib/*.mjs                             # module functions called from bash
+                                        # entry scripts when useful
   conf/                                 # templates, unchanged
 ```
 
@@ -35,15 +37,15 @@ modules/<name>/
       their data from sourced scope, not argv.
   Implication for v4: a .mjs dispatcher that runs hooks in ISOLATED child
   processes, or that assumes hooks receive argv parameters, WILL break these.
-  Any hook ported to .mjs needs an EXPLICIT data contract (typed inputs
-  passed in, outputs returned/merged) replacing the implicit shared scope —
-  and the bash hooks must keep running sourced-in-caller-scope until each is
-  ported. This is a per-hook migration gate, filed as a Phase C work-package
+  Any hook logic delegated to .mjs needs an EXPLICIT data contract (typed
+  inputs passed in, outputs returned/merged) replacing the implicit shared
+  scope — and the bash hook boundary must keep running sourced-in-caller-scope.
+  This is a per-hook migration gate, filed as a Phase C work-package
   precondition.
-- Help metadata: `## @@@ / @en / &en / &&&` kept for .sh. For .mjs commands
-  the same data is an exported `meta = { syntax, hint, help, dynamic }`
-  object; the index builder normalizes both into one help database
-  (translations like @hu ride along).
+- Help metadata: `## @@@ / @en / &en / &&&` stays on the bash command
+  boundary. If a node-delegated implementation needs metadata too, it exports
+  `meta = { syntax, hint, help, dynamic }`; the index builder normalizes both
+  into one help database (translations like @hu ride along).
 - Permission markers (root_only, hs_only, reseller_only in file heads) are
   replaced by a declared field in the index (G11 permission plan will
   define roles; reseller_only dies with G6). During transition the index
@@ -55,10 +57,11 @@ modules/<name>/
 
 1. Fact sheet exists (update-campaign/modules/<name>.md) = ground truth.
 2. Polish pass done (this session) = clean bash baseline.
-3. Port heavy logic to lib/*.mjs + commands/*.mjs; keep .sh command as a
-   one-line delegator until verified, then delete it in the same package.
-4. Verification: side-by-side output comparison v3 vs v4 for each command
-   (scripted where output is deterministic).
+3. Port heavy logic to lib/*.mjs; keep the command/hook .sh file as the
+   stable callable boundary and delegate to node only where it improves
+   correctness or performance. Do not delete the .sh boundary in v4.0.
+4. Verification: compare v4 output/behavior against captured v3 baseline
+   output for each command (scripted where output is deterministic).
 
 ## Decisions folded (D4, D5)
 

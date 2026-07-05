@@ -143,12 +143,12 @@ G11 PERMISSIONS. Proper user permission management replaces v3's ad-hoc
 G12 KEEP THE MODULAR STRUCTURE. The module concept (module-condition,
     commands, hooks, libs, conf) works and survives into v4, adapted to the
     bash-shim + .mjs split. Plan the v4 module contract explicitly.
-G13 PRODUCTION CONTINUITY. ~5 production servers stay online. Development is
-    tested on live servers, so every execution work package carries explicit
-    migration steps, a verification step, and a rollback step. v3 and v4
-    must be able to coexist on a host during transition (side-by-side
-    install, not in-place mutation) — the coexistence mechanism is itself a
-    plan document.
+G13 PRODUCTION CONTINUITY. ~5 production servers stay online. Per D1/D27
+    (022-decisions.md; folded into 013), v4 is the same repo and same `sc`,
+    version 4.0.0.0, upgraded in place step by step after VM validation.
+    There is no sc3/sc4 side-by-side install. Every execution work package
+    still carries explicit migration steps, verification, backup/rollback,
+    and production-safety gates.
 
 CAMPAIGN PHASES
 STAGE 1 (planning; writes only inside this folder):
@@ -182,7 +182,7 @@ STAGE 1 (planning; writes only inside this folder):
       - certificates: wildcard DNS-01 design (G7)
       - mail proxy selection and design (G9)
       - cockpit integration design (G5)
-      - v3/v4 coexistence + per-server migration playbook skeleton (G13)
+      - in-place v4 upgrade + per-server migration playbook skeleton (G13)
       - repo/branch strategy for the v4 code itself (-for-human decision:
         new repo vs. v4 branch vs. subdirectory)
     Each plan document ends with a list of the work packages it implies.
@@ -218,8 +218,10 @@ PRODUCTION SAFETY RULES (Stage 2 and any live probing in Stage 1)
 - Live servers are production. Read-only probes are always allowed; any
   state-changing test needs the work package to name it and needs a rollback
   line next to it.
-- Never modify /srv/srvctl (the live v3 checkout) as part of development;
-  v4 work happens in its own location per the repo-strategy plan doc.
+- Never mutate the RUNNING srvctl install (/usr/local/share/srvctl and
+  /bin/sc) as part of development. Campaign work happens in the repo checkout
+  (/srv/srvctl-project, currently a symlink to /srv/srvctl) until an explicit
+  rollout work package installs/cuts it over.
 - No irreversible steps (data deletion, module removal, cert cutover, mesh
   cutover) without a verified backup and a tested rollback. Deprecations
   (G4, G6, G8, G9) are executed as: install replacement → verify → disable

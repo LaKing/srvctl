@@ -47,11 +47,15 @@ User WIP exists: modules/usersonve/commands/add-zerotier.sh (uncommitted)
 - **D15** — a fully **srvctl-managed, self-contained ZeroTier controller** on
   a cluster host (ztncui/zerotier controller). No my.zerotier.com dependency;
   srvctl provisions the network and members.
-- **D16** — addressing: reuse 10.15.x.y, or possibly move to **10.16.x.y**
-  (tentative). Either way, one deterministic per-host address mapped from
-  HOSTNET id; the migration repoints nfs/ssh/datastore/named consumers to it.
-  (Pick 10.15 vs 10.16 in the work package — 10.16 gives a clean break from
-  the OpenVPN range during the parallel-run window, avoiding any overlap.)
+- **D16** — addressing: **10.16.x.y** (DECIDED 2026-07-05). ZeroTier gets a
+  separate deterministic range from OpenVPN's 10.15.x.y so the two meshes can
+  run in parallel during migration with NO overlap and no ambiguous routing
+  while both are alive. One deterministic per-host address mapped from the
+  HOSTNET id (10.16.$SC_HOSTNET.y), mirroring the 10.15 scheme one range up.
+  Migration repoints nfs / ssh known-hosts / datastore sync / named consumers
+  from the 10.15 address to the 10.16 one, per consumer, verified each; the
+  10.15 OpenVPN mesh stays up until every consumer is moved, then openvpn is
+  removed (G8).
 - **D17** — ZeroTier replaces BOTH v3 mesh networks: the OpenVPN **hostnet**
   (host-to-host mesh) AND the **usernet** (the never-finished user/container
   access path). `add-zerotier.sh` (user WIP) is for containers and external
