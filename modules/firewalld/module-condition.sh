@@ -1,4 +1,17 @@
-#! /bin/bash
+#!/bin/bash
+
+##
+##   modules/firewalld/module-condition.sh — module activation test.
+##
+##   Sourced in a subshell by test_srvctl_modules (commonlib.sh); must
+##   print "true" or "false". The result is cached as SC_USE_FIREWALLD
+##   in modules.conf. Enabled:
+##     - inside any systemd-nspawn or lxc container,
+##     - on farm hosts (SC_HOSTNET set or /etc/srvctl/data present, and
+##       $HOSTNAME listed in /etc/srvctl/hosts.json),
+##     - on the 'update-install <host>' bootstrap path.
+##   Never on a pristine localhost.localdomain machine.
+##
 
 if [[ $HOSTNAME == localhost.localdomain ]]
 then
@@ -6,7 +19,10 @@ then
     return
 fi
 
-readonly SC_VIRT=$(systemd-detect-virt -c)
+## subshell-scoped: conditions are sourced inside $( ), so this readonly
+## does not leak into the main shell.
+SC_VIRT=$(systemd-detect-virt -c)
+readonly SC_VIRT
 
 ## lxc is deprecated, but we can consider it a container ofc.
 if [[ $SC_VIRT == systemd-nspawn ]] || [[ $SC_VIRT == lxc ]]
@@ -15,10 +31,9 @@ then
     return
 fi
 
-
+## farm host: part of a cluster and listed among the managed hosts.
 if [[ $SC_HOSTNET ]] || [[ -d /etc/srvctl/data ]]
 then
-    
     if [[ -f /etc/srvctl/hosts.json ]] && grep --quiet "\"$HOSTNAME\"" /etc/srvctl/hosts.json
     then
         echo true
@@ -26,6 +41,7 @@ then
     fi
 fi
 
+## bootstrap: first 'sc update-install HOST' on a fresh machine.
 if [[ $CMD == update-install ]] && [[ $ARG ]]
 then
     echo true
