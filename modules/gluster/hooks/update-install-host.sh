@@ -1,7 +1,22 @@
 #!/bin/bash
 
-## we can run this directly with:
-## sc exec-function run_module_hook gluster update-install
+##
+##   modules/gluster/hooks/update-install-host.sh — gluster TLS material and
+##   package install.
+##
+##   Fired by "run_hooks update-install-host" during "sc update-install" on a
+##   host. Never runs at this commit: the module is hard-disabled at baseline
+##   (see module-condition.sh) and is a deprecation candidate for v4.
+##
+##   On the CA host (SC_ROOTCA_HOST == HOSTNAME): initializes the "gluster"
+##   CA (ca module), issues server certificates for this host and every
+##   cluster host, and installs the CA cert plus own server key/cert as
+##   /etc/ssl/gluster-{ca.crt,server.key,server.crt}.pem.
+##   On every other host: pulls the missing /etc/ssl/gluster-*.pem files from
+##   the CA host with rsync over ssh.
+##   Finally generates /etc/ssl/dhparam.pem if absent and runs
+##   gluster_install (libs/glusterlib.sh).
+##
 
 if [[ -z $SC_ROOTCA_HOST ]]
 then
@@ -18,63 +33,54 @@ then
     create_ca_certificate client gluster root
     
     create_ca_certificate server gluster "$HOSTNAME"
-    #create_ca_certificate client gluster "$HOSTNAME"
-    
+
     cat /etc/srvctl/CA/ca/gluster.crt.pem > /etc/ssl/gluster-ca.crt.pem
-    
+
     cat /etc/srvctl/CA/gluster/server-"$HOSTNAME".key.pem > /etc/ssl/gluster-server.key.pem
     cat /etc/srvctl/CA/gluster/server-"$HOSTNAME".crt.pem > /etc/ssl/gluster-server.crt.pem
-    #cat /etc/srvctl/CA/gluster/client-"$HOSTNAME".key.pem > /etc/ssl/gluster-client.key.pem
-    #cat /etc/srvctl/CA/gluster/client-"$HOSTNAME".crt.pem > /etc/ssl/gluster-client.crt.pem
-    
-    
+
     for S in $(get cluster host_list)
     do
         ## ssl gluster certificate
         create_ca_certificate server gluster "$S"
-        #create_ca_certificate client gluster "$S"
     done
     
 else
     
-    if [ "$(ssh -n -o ConnectTimeout=1 -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no "$SC_ROOTCA_HOST" hostname 2> /dev/null)" == "$SC_ROOTCA_HOST" ]
+    ## FIXME(v4): the reachability probe disables host-key verification (so it
+    ## is MITM-able while deciding to fetch CA material), yet the rsync
+    ## transfers below use default ssh settings — on a fresh host with no
+    ## known_hosts entry for the CA, an unattended update-install blocks on an
+    ## interactive host-key prompt.
+    if [[ "$(ssh -n -o ConnectTimeout=1 -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no "$SC_ROOTCA_HOST" hostname 2> /dev/null)" == "$SC_ROOTCA_HOST" ]]
     then
-        
+
         msg "regenerate gluster certificate config - CA is $SC_ROOTCA_HOST"
-        #local H options
+        ## hooks are sourced, not functions, so "local" is unavailable here
         H="$HOSTNAME"
-        
+
+        ## NOTE: "$options" is passed as a single word below and relies on
+        ## run() expanding $* unquoted (lablib.sh) to re-split it into rsync
+        ## flags — do not quote it "properly" without changing run().
         options="--no-R --no-implied-dirs -avze ssh"
-        
-        if [ ! -f /etc/ssl/gluster-ca.crt.pem ]
+
+        if [[ ! -f /etc/ssl/gluster-ca.crt.pem ]]
         then
             msg "Grabbing CA certificates from $SC_ROOTCA_HOST for ssl"
             run rsync "$options" "root@$SC_ROOTCA_HOST:/etc/srvctl/CA/ca/gluster.crt.pem" /etc/ssl/gluster-ca.crt.pem
         fi
         
-        if [ ! -f /etc/ssl/gluster-server.crt.pem ]
+        if [[ ! -f /etc/ssl/gluster-server.crt.pem ]]
         then
             msg "Grabbing gluster $HOSTNAME server certificate from $SC_ROOTCA_HOST for ssl"
             run rsync "$options"  "root@$SC_ROOTCA_HOST:/etc/srvctl/CA/gluster/server-$H.crt.pem" /etc/ssl/gluster-server.crt.pem
         fi
-        
-        if [ ! -f /etc/ssl/gluster-server.key.pem ]
+
+        if [[ ! -f /etc/ssl/gluster-server.key.pem ]]
         then
             msg "Grabbing gluster $HOSTNAME server certificate from $SC_ROOTCA_HOST for ssl"
             run rsync "$options"  "root@$SC_ROOTCA_HOST:/etc/srvctl/CA/gluster/server-$H.key.pem" /etc/ssl/gluster-server.key.pem
         fi
-        
-        #if [ ! -f /etc/ssl/gluster-client.crt.pem ] || [ ! -f /etc/ssl/gluster-client.key.pem ]
-        #then
-        #    msg "Grabbing gluster $HOSTNAME client certificate from $SC_ROOTCA_HOST for ssl"
-        #    run rsync "$options"  "root@$SC_ROOTCA_HOST:/etc/srvctl/CA/gluster/client-$H.crt.pem" /etc/ssl/gluster-client.crt.pem
-        #fi
-        
-        #if [ ! -f /etc/ssl/gluster-client.crt.pem ] || [ ! -f /etc/ssl/gluster-client.key.pem ]
-        #then
-        #    msg "Grabbing gluster $HOSTNAME client certificate from $SC_ROOTCA_HOST for ssl"
-        #    run rsync "$options"  "root@$SC_ROOTCA_HOST:/etc/srvctl/CA/gluster/client-$H.crt.pem" /etc/ssl/gluster-client.crt.pem
-        #fi
     else
         err "CA $SC_ROOTCA_HOST connection failed!"
     fi
@@ -82,11 +88,9 @@ else
 fi
 
 ## generate this for the certificates
-if [ ! -f /etc/ssl/dhparam.pem ]
+if [[ ! -f /etc/ssl/dhparam.pem ]]
 then
     run openssl dhparam -out /etc/ssl/dhparam.pem 2048
 fi
 
 gluster_install
-
-

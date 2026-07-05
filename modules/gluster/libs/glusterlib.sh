@@ -1,14 +1,43 @@
 #!/bin/bash
 
+##
+##   modules/gluster/libs/glusterlib.sh — replicated gluster volume helpers.
+##
+##   Sourced by load_libs when the module is enabled. Never loaded at this
+##   commit: the module is hard-disabled at baseline (see module-condition.sh)
+##   and is a deprecation candidate for v4.
+##
+##   Cross-module API (call sites outside this module):
+##     gluster_configure DATADIR MOUNTDIR  - datastore/static
+##                                           update-install-host hooks
+##     gluster_mount_data DATADIR MOUNTDIR - datastore/static init hooks;
+##                                           returns 0 iff the fuse mount is
+##                                           present (drives
+##                                           SC_DATASTORE_RO_USE in datastore)
+##   Module-internal / operator entry points:
+##     gluster_install                     - hooks/update-install-host.sh
+##     gluster_reset DATADIR               - manual "sc exec-function" tool
+##
+##   Path scheme (consumed verbatim by datastore pre-init and ssh):
+##     brick /glu/DATADIR/brick, RO bind mount /var/srvctl3/gluster/DATADIR,
+##     fuse mount HOSTNAME:/DATADIR on MOUNTDIR.
+##
+
+## tear down volume DATADIR and its local brick; operator tool only.
 function gluster_reset { ## datadir
     local datadir
     datadir="$1"
     run gluster volume info
+    ## FIXME(v4): stale hardcoded path — the real mountpoint is
+    ## $SC_DATASTORE_RW_DIR (/var/srvctl3/datastore), so the volume below is
+    ## stopped and deleted while still fuse-mounted.
     run umount /srvctl/data
     run gluster volume stop "$datadir" force
     run gluster volume remove-brick "$datadir" "$HOSTNAME:/glu/$datadir/brick" force
     run gluster volume delete "$datadir"
-    
+
+    ## FIXME(v4): operates on the caller's current working directory, not the
+    ## brick /glu/$datadir/brick that the setfattr lines below clean up.
     attr -R -r glusterfs.volume-id .
     setfattr -x trusted.glusterfs.volume-id /glu/"$datadir"/brick
     setfattr -x trusted.gfid /glu/"$datadir"/brick
@@ -19,8 +48,11 @@ function gluster_reset { ## datadir
     ntc "A reboot is required to reset gluster properly."
 }
 
+## install glusterfs-server, wire up the TLS symlinks for secure-access mode
+## and start glusterd. Expects /etc/ssl/gluster-*.pem to be in place
+## (hooks/update-install-host.sh).
 function gluster_install {
-    
+
     sc_install glusterfs-server
     
     ln -sf /etc/ssl/gluster-ca.crt.pem /etc/ssl/glusterfs.ca
@@ -36,15 +68,22 @@ function gluster_install {
     run gluster peer status
 }
 
+## probe all cluster peers and create/start the replicated volume DATADIR
+## (one brick per cluster host, replica count = host count, client/server
+## ssl on), then mount it on MOUNTDIR via gluster_mount_data.
+## Called by datastore/static update-install-host hooks.
 function gluster_configure { ## datadir mountdir
-    
-    local datadir mountdir
+
+    local datadir mountdir host ip hs
     datadir="$1"
     mountdir="$2"
-    
+
     if ! systemctl is-active glusterd > /dev/null
     then
         err "gluster inactive"
+        ## FIXME(v4): "return 0" on an inactive glusterd — the datastore and
+        ## static update-install-host hooks proceed as if the volume were
+        ## configured.
         return 0
     fi
     
@@ -87,7 +126,7 @@ function gluster_configure { ## datadir mountdir
         if ! run gluster volume status "$datadir"
         then
             
-            ## /glu/"$datadir"/brick - the existance of this directory prevents volume creation, but attemting to create the volume creates the directory
+            ## /glu/"$datadir"/brick - the existence of this directory prevents volume creation, but attempting to create the volume creates the directory
             if [[ -d "/glu/$datadir/brick" ]] && [[ ! -d "/glu/$datadir/brick/.glusterfs" ]]
             then
                 rm -fr /glu/"$datadir"/brick
@@ -114,7 +153,7 @@ function gluster_configure { ## datadir mountdir
             return 0
         fi
         
-        ## todo, moumt it permanently
+        ## todo, mount it permanently
         
         ## okay this command will bring back all bricks, if for some reason one should be offline.
         run gluster volume start "$datadir" force
@@ -126,15 +165,23 @@ function gluster_configure { ## datadir mountdir
     fi
 }
 
-## running at init
+## running at init (datastore/static init hooks): make sure the local brick
+## is exposed read-only at /var/srvctl3/gluster/DATADIR and the volume is
+## fuse-mounted on MOUNTDIR. Returns 0 iff the fuse mount is present —
+## datastore/hooks/init.sh keys SC_DATASTORE_RO_USE off this.
 function gluster_mount_data() { ## datadir mountdir
-    
+
     [[ $USER == root ]] || return
-    
+
     local datadir mountdir check
     datadir="$1"
     mountdir="$2" ## SC_DATASTORE_RW_DIR
-    
+
+    ## FIXME(v4): the four error paths below end with err + bare "return";
+    ## err succeeds (lablib.sh), so gluster_mount_data reports SUCCESS when
+    ## the brick or the TLS material is missing — datastore/hooks/init.sh
+    ## then disables its RO fallback exactly when gluster is broken.
+
     ## first of all make sure there is a brick
     if [[ ! -d "/glu/$datadir/brick" ]]
     then
@@ -159,6 +206,9 @@ function gluster_mount_data() { ## datadir mountdir
     fi
     
     ## make sure all bricks are online
+    ## FIXME(v4): matches the exact column spacing of "gluster volume status"
+    ## output; any gluster CLI format change silently disables this
+    ## force-restart of offline bricks. Use --xml/JSON output instead.
     check="$(gluster volume status "$datadir" | grep 'N/A       N/A        N       N/A')"
     if [[ -n "$check" ]]
     then
@@ -198,12 +248,9 @@ function gluster_mount_data() { ## datadir mountdir
     if mount | grep "$HOSTNAME:/$datadir on $mountdir type fuse.glusterfs" > /dev/null
     then
         debug "$mountdir is mounted"
-        # shellcheck disable=SC2034
         return 0
     else
         err "Could not mount $datadir on $mountdir"
         return 1
     fi
 }
-
-

@@ -1,6 +1,20 @@
 #!/bin/bash
 
+##
+##   modules/gluster/libs/glustercertlib.sh — DEAD CODE, never active.
+##
+##   A "glusternet" variant of the certificate distribution that
+##   hooks/update-install-host.sh does for /etc/ssl/gluster-*.pem, writing
+##   under /etc/glusterfs/ instead. The top-level "return" below aborts
+##   sourcing (load_libs), so init_gluster_rootca_certificates and
+##   grab_gluster_rootca_certificates are never defined anywhere.
+##
+## FIXME(v4): drop this file — it duplicates hooks/update-install-host.sh
+## and has been disabled at source level; the whole module is a deprecation
+## candidate.
+
 ## NOT USED ##
+# shellcheck disable=SC2317,SC2329  ## dead
 return
 
 function init_gluster_rootca_certificates() {
