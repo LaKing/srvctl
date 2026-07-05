@@ -24,9 +24,20 @@ Execution rules (from 000-PROMPT + the Stage-2 preconditions in 000-INDEX):
   hostnet/host/host_ip/reseller/http_port/https_port) over an explicit
   context, faithful v3 port (quirks preserved, FIXMEs marked). 29 snapshot
   tests pass. Store+derive subtotal: 44 checks.
-  - **WP-B — part 2 (pending)**: config-string generators (resolv_conf,
-    /etc/hosts, nspawn, firewall, mapped_ports, relaydomains) — snapshot vs
-    v3 output; folds into WP-C wiring.
+  - **WP-B — part 2 ✅ DONE**: pure text/config generators → generators.mjs
+    (resolv_conf, hosts, ethernet, ethernet_network, quota, nspawn+helpers,
+    br_netdev, br_network, firewall_commands, mx, domains, useruids, user_uid,
+    cluster_etc_hosts/relaydomains/host_keys/lists, user_container_list,
+    normalize_*). generators.test.mjs = 77 checks: LIVE DIFFERENTIAL vs v3
+    lib.js return values over a rich fixture (aliases/altnames/subdomains/
+    mapped_ports/dotless/gsuite/mail), + resolv_conf with controlled HOSTNAME,
+    + useruids over injected passwd/group. Found+preserved v3 quirks (uid-0
+    root skipped in useruids; hardcoded 10.15 in etc_hosts) as FIXME(v4).
+    Datastore suite now 182 checks. NB: the differential needs lib.js — FREEZE
+    the reference before WP-C removes it.
+    - Remaining for WP-C write path: mutators (new_user/reseller/container,
+      container_update_ip, container_add_mapped_port) + ip allocation helpers
+      — argv-coupled + write, belong with the verb dispatcher rewrite.
 - **WP-C — golden-master harness ✅ DONE** (precondition, per user):
   selftest/verbapi.test.mjs + golden/fixture/*.json + golden/golden.json
   freeze the live v3 main.js verb contract — 61 cases (get/out/cfg/del/put/
