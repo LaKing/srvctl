@@ -57,13 +57,24 @@ Execution rules (from 000-PROMPT + the Stage-2 preconditions in 000-INDEX):
   selftest/golden/mutators.json plus v4-only mapped-port allocation edge cases.
   Full datastore suite now 190 checks. Normal verification no longer depends
   on lib.js; only `--record` does while v3 is still present.
-  - **WP-C — wiring (next)**: reimplement main.js internals on store.mjs +
-    derive.mjs + generators.mjs + mutators.mjs. First wire against the
-    monolithic three-file datastore and keep the 61-case verb golden byte-exact
-    (stdout/stderr/exit/mutation files), while fixing the duplicate-ADD race
-    and dead RO guard without changing net effects. Then swap the backend to
-    store.mjs's file-per-entity layout and adapt mutation comparison from raw
-    monolithic files to semantic entity maps; stdout/exit stay byte-exact.
+  - **WP-C — dispatcher step 1 ✅ DONE**: main.mjs reimplements the v3
+    verb API on derive/generators/mutators, reading/writing the MONOLITHIC
+    three-file datastore. main.js is now a CJS cutover shim that
+    dynamic-imports main.mjs (bashlib + the verb harness keep running
+    unchanged); v3 dispatcher logic is preserved in git history, lib.js kept
+    for --record. The 61-case verb golden is byte-exact (61/61):
+    stdout/stderr/exit AND mutation file contents. Reproduced v3's async
+    write-msg ordering (deferred "wrote X.json" flush after sync output) and
+    the cfg trailing-exit() (return_value undefined -> exit()=0). The
+    duplicate-ADD double-write is REPRODUCED verbatim (two "wrote" lines) to
+    hold the golden; the RO guard now lives in the writer (harness runs
+    writable, so unaffected). Full datastore suite: 190 checks.
+    - **WP-C — dispatcher step 2 (next)**: swap main.mjs's monolithic backend
+      to store.mjs file-per-entity; adapt the verb harness's mutation
+      comparison from raw monolithic bytes to semantic entity maps (stdout/
+      exit stay byte-exact). Then optionally collapse the duplicate-ADD to a
+      single write as an EXPLICIT golden-updating change (it alters stdout:
+      two "wrote" lines -> one).
 - **WP-D** — bash FRONT DOOR + command index: light srvctl.sh/init.sh/
   commonlib.sh; node builds a cached command/help index (kills the
   hint_on_file grep storm) — the G1 dispatch win. Preserve hook contract
