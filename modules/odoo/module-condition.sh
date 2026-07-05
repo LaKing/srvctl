@@ -1,4 +1,15 @@
-#! /bin/bash
+#!/bin/bash
+
+###
+###        odoo module condition
+###
+###        Sourced at init; must output exactly "true" to enable the module.
+###        The result is cached as SC_USE_ODOO in modules.conf.
+###
+###        Disabled in mail.* containers; otherwise delegates to the ve
+###        module condition, which is true only inside systemd-nspawn/lxc
+###        containers — so the module is never active on hosts.
+###
 
 container=$HOSTNAME
 
