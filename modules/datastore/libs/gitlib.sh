@@ -20,9 +20,15 @@ function datastore_push() {
     else
         ## no repository yet (init_datastore_install has not run): skip silently
         [[ ! -d $SC_DATASTORE_RW_DIR/.git ]] && return
-        ## v4 datastore is file-per-entity (hosts/ users/ containers/), so add
-        ## the whole tree, not just top-level *.json (.gitignore excludes the
-        ## journal + the migration backup).
-        echo "$NOW $SC_USER $(cd "$SC_DATASTORE_RW_DIR" && git add -A && git commit -m "$SC_USER@$HOSTNAME $*") $*" >> "$SC_DATASTORE_RW_DIR/.git.log"
+        ## v4 datastore is file-per-entity (hosts/ users/ containers/). Stage
+        ## ONLY the entity dirs — NOT `git add -A` over the whole tree, which
+        ## would also commit secrets/keys (cert/, users/<name>/) and the
+        ## .monolithic-backup archive. Defense in depth: the pathspec keeps
+        ## cert/ and .monolithic-backup out entirely, and .gitignore (see
+        ## init_datastore_install) excludes the users/<name>/ key dirs while
+        ## keeping users/<name>.json records. `-A` still stages entity deletes.
+        ## init_datastore_install guarantees the three dirs exist so the
+        ## pathspec never errors on an empty type.
+        echo "$NOW $SC_USER $(cd "$SC_DATASTORE_RW_DIR" && git add -A -- hosts users containers && git commit -m "$SC_USER@$HOSTNAME $*") $*" >> "$SC_DATASTORE_RW_DIR/.git.log"
     fi
 }

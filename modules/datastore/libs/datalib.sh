@@ -104,18 +104,30 @@ function init_datastore_install() {
     then
         msg "git init datastore"
         git init -q "$SC_DATASTORE_RW_DIR"
+    fi
 
+    ## Write .gitignore IDEMPOTENTLY (not only on fresh git init) so upgraded
+    ## v3 repos also exclude secrets/keys and the migration backup. This is the
+    ## second half of the "never commit secrets" guard (see gitlib.sh):
+    ##   users/*/   — per-user key dirs (id_ecdsa, .password), keep *.json
+    ##   cert/      — private keys
+    ##   .monolithic-backup/ — the pre-migration archive
 cat > "$SC_DATASTORE_RW_DIR/.gitignore" << EOF
 .git.log
 .gitignore
-.monolithic-backup
+.monolithic-backup/
+cert/
+users/*/
 EOF
-    fi
 
-    ## per-entity user records live in users/<name>.json; the per-user key
-    ## dirs used by ssh/codepad share the same users/ dir and coexist (the
-    ## store only reads *.json). cert/ is unchanged.
+    ## Guarantee the three entity type dirs exist so datastore_push's
+    ## `git add -- hosts users containers` pathspec never errors on an empty
+    ## type. per-entity user records live in users/<name>.json; the per-user
+    ## key dirs used by ssh/codepad share users/ and coexist (store reads only
+    ## *.json). cert/ is unchanged.
+    mkdir -p "$SC_DATASTORE_RW_DIR/hosts"
     mkdir -p "$SC_DATASTORE_RW_DIR/users"
+    mkdir -p "$SC_DATASTORE_RW_DIR/containers"
     mkdir -p "$SC_DATASTORE_RW_DIR/cert"
 
     migrate_datastore_to_per_entity

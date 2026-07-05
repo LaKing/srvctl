@@ -14,10 +14,15 @@ import path from "node:path";
 import { createStore, StoreError } from "./store.mjs";
 
 // The three v3 monolithic files, mapped to their v4 entity type (directory).
+// ALL THREE are REQUIRED: a partial monolithic store (e.g. only hosts.json)
+// is datastore loss/corruption, NOT an empty datastore — migrating it into
+// users:0/containers:0 would silently discard data. Fresh installs and real
+// v3 servers always have all three (the seed writes containers.json='{}' and
+// users.json), so a missing file only ever means loss → fail hard.
 export const MONOLITHIC = [
   { type: "hosts", file: "hosts.json", required: true },
-  { type: "users", file: "users.json", required: false },
-  { type: "containers", file: "containers.json", required: false },
+  { type: "users", file: "users.json", required: true },
+  { type: "containers", file: "containers.json", required: true },
 ];
 
 function loadMonolithic(srcDir, { file, required }) {
@@ -80,7 +85,15 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   }
   // git:false — the bash datastore layer (libs/gitlib.sh datastore_push)
   // owns the git commit, so the migration must not double-commit.
-  const store = createStore(dstDir, { git: false });
-  const counts = migrateToPerEntity(srcDir, store);
-  console.log("migrated:", JSON.stringify(counts));
+  try {
+    const store = createStore(dstDir, { git: false });
+    const counts = migrateToPerEntity(srcDir, store);
+    console.log("migrated:", JSON.stringify(counts));
+  } catch (err) {
+    // A missing required file (partial store = loss) or any failure -> exit
+    // non-zero with a clean message; the transaction already rolled back so no
+    // partial per-entity files were written.
+    console.error("migration failed:", err.message);
+    process.exit(1);
+  }
 }

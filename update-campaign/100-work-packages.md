@@ -106,6 +106,22 @@ Execution rules (from 000-PROMPT + the Stage-2 preconditions in 000-INDEX):
         selftest/concurrency.test.mjs proves it: 20 parallel new-container /
         new-user / add_mapped_port → zero duplicate allocations, no lost
         writes. Datastore suite now 197 checks.
+    - **WP-C — step 2b HARDENING (Codex, 3 high findings fixed)**:
+      - SECRETS: `git add -A` staged users/<name>/ keys (id_ecdsa/.password)
+        and cert/ keys. Fixed with defense-in-depth: datastore_push stages
+        `-- hosts users containers` ONLY (cert/, .monolithic-backup never
+        seen), AND .gitignore excludes `users/*/`, `cert/`, `.monolithic-
+        backup/` (keeps users/<name>.json). init guarantees the 3 type dirs
+        exist so the pathspec can't error on an empty type.
+      - .gitignore now written IDEMPOTENTLY (not only on fresh git init), so
+        upgraded v3 repos also get the new exclusions.
+      - MIGRATION LOSS: migrate.mjs now requires ALL THREE monolithic files
+        (present containers.json='{}' ok; MISSING = loss → hard fail, exit 1,
+        transaction rollback = nothing written, monolithic left in place).
+        Was: a partial hosts-only store silently migrated to users:0/
+        containers:0. store.test updated to assert the hard-fail contract.
+      - Verified: pathspec+gitignore stage only entity json (no secrets/
+        backup); partial store fails clean; suite 197.
     - **WP-C — step 2b (bash wiring) ✅ DONE (locally verified)**:
       - gitlib.sh datastore_push: `git add ./*.json` → `git add -A` (commits
         the per-entity tree; .gitignore adds .monolithic-backup).

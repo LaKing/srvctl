@@ -231,18 +231,31 @@ test("migrate monolithic → per-entity is lossless (round-trip)", (dir) => {
   assert.deepEqual(back.containers, containers);
 });
 
-test("migrate tolerates a missing optional file, requires hosts.json", (dir) => {
+test("migrate requires ALL THREE files; partial store fails hard, writes nothing", (dir) => {
+  // hosts.json only — missing users/containers is loss, not empty: must throw
+  // AND leave the destination store empty (transaction rollback), not a
+  // partially-migrated hosts-only store.
   const src = path.join(dir, "src");
   fs.mkdirSync(src, { recursive: true });
   fs.writeFileSync(path.join(src, "hosts.json"), JSON.stringify({ n1: { hostnet: 1 } }));
-  // no users.json / containers.json
   const store = createStore(path.join(dir, "store"), { git: false });
-  const counts = migrateToPerEntity(src, store);
-  assert.deepEqual(counts, { hosts: 1, users: 0, containers: 0 });
+  assert.throws(() => migrateToPerEntity(src, store), /required/);
+  assert.deepEqual(store.list("hosts"), []); // nothing written on failure
 
+  // All three present — containers may be an EMPTY {} (a valid "no containers
+  // yet", present not missing) — succeeds.
   const src2 = path.join(dir, "src2");
   fs.mkdirSync(src2, { recursive: true });
-  assert.throws(() => migrateToPerEntity(src2, createStore(path.join(dir, "s2"), { git: false })), /required/);
+  fs.writeFileSync(path.join(src2, "hosts.json"), JSON.stringify({ n1: { hostnet: 1 } }));
+  fs.writeFileSync(path.join(src2, "users.json"), JSON.stringify({ root: { uid: 0 } }));
+  fs.writeFileSync(path.join(src2, "containers.json"), JSON.stringify({}));
+  const counts = migrateToPerEntity(src2, createStore(path.join(dir, "s2"), { git: false }));
+  assert.deepEqual(counts, { hosts: 1, users: 1, containers: 0 });
+
+  // Missing hosts.json — throws too.
+  const src3 = path.join(dir, "src3");
+  fs.mkdirSync(src3, { recursive: true });
+  assert.throws(() => migrateToPerEntity(src3, createStore(path.join(dir, "s3"), { git: false })), /required/);
 });
 
 // ---- git versioning -------------------------------------------------------
