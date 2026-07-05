@@ -43,9 +43,9 @@ if z=$(curl -s 'https://install.zerotier.com/' | gpg); then echo "$z" | bash; fi
 
 if [[ -f /var/srvctl3/share/common/zerotier-one/devicemap ]]
 then
-	msg "ZeroTier can use a devicemap."
+	msg "ZeroTier will use the srvctl global devicemap."
 	ln -sfn /var/srvctl3/share/common/zerotier-one/devicemap /var/lib/zerotier-one/devicemap
-    cat /var/lib/zerotier-one/devicemap
+    #cat /var/lib/zerotier-one/devicemap
 fi
 
 run dnf -y update zerotier-one
@@ -60,8 +60,10 @@ else
 	run rm -rf /var/lib/zerotier-one/identity.secret /var/lib/zerotier-one/identity.public
 	run rm -rf /var/lib/zerotier-one/peers.d
 	run systemctl start zerotier-one
+    sleep 1
 fi
 
+sleep 2
 run zerotier-cli join $ID
 
 
@@ -72,14 +74,17 @@ then
 	then
     	interface_name=$(cat /var/lib/zerotier-one/devicemap | grep "$ID" | cut -d'=' -f2)
 		msg "Setting up firewalld to trust $interface_name"
-    	firewall-cmd --zone=trusted --add-interface=$interface_name --permanent
-    	firewall-cmd --reload
+        run systemctl restart firewalld
+    	run firewall-cmd --zone=trusted --add-interface=$interface_name --permanent
+    	run firewall-cmd --reload
 	else
 		ntc "ID not found in devicemap, zt-interface is not trusted."
 	fi
 fi
 
 run firewall-cmd --zone=trusted --list-interfaces
+
+zerotier-cli info
 
 ## testing Multicast UDP, for Xilica Xtouch
 ## sudo tcpdump -i br0 -A | grep -B 1 HeartBeat

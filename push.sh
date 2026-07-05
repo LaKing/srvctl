@@ -1,120 +1,86 @@
 #!/bin/bash
+# CODEPAD icon: mdi-atom-variant
+# CODEPAD popup: false
 
 ##
 ## This script is NOT part of the srvctl functions, it is used for development of srvctl.
-## Dev workflow on the codepad box: bumps the version, shellchecks and
-## beautifies every .sh, regenerates README.md, and with 'push publish'
-## commits and pushes the repo. Paths are hardcoded to /srv/codepad-project.
+## Codepad push button: commits the srvctl source with git and pushes it to origin.
+## Resides in the project root; optional arguments become part of the commit message.
 ##
 
-## get project directory - this file should reside in the project root folder
-wd=/srv/codepad-project
-
-log=/var/codepad-project/project.log
-#pid=/var/codepad/project.pid
-rmd=/srv/codepad-project/README.md
-
-chown -R codepad:codepad "$wd"
-chmod -R +X "$wd"
-NOW="$(date +%Y.%m.%d-%H:%M:%S)"
-
-## enforce codepad user
-if [ "$USER" != codepad ]
-then
-    
-    mkdir -p "/srv/push-backup"
-    rsync -av /srv/codepad-project "/srv/push-backup"
-    
-    
-    su codepad -s /bin/bash -c "$0"
-    sc
-    
-    echo "## Srvctl v3 ($(cat $wd/version))" > "$rmd"
-    cat $wd/README.txt >> "$rmd"
-    
-    
-    # shellcheck disable=SC2016
-    echo '```' >> "$rmd"
-    # shellcheck disable=SC1117
-    bash "$wd/srvctl.sh" help | sed -r "s/\x1B\[([0-9]{1,2}(;[0-9]{1,2})?)?[m|K]//g" >> $rmd
-    # shellcheck disable=SC2016
-    
-    echo '```' >> "$rmd"
-    
-    ## push to local
-    if [ -d "$wd/.git" ] && [ "$1" == 'publish' ]
-    then
-        cd "$wd" || exit 6
-        echo "## git push"
-        ## add files to repo
-        echo "git add -A ."
-        git add -A .
-        ## commit them
-        echo "git commit -m $(cat $wd/version)"
-        git commit -m "$(cat $wd/version)"
-        ## push them
-        echo git push
-        git push  >> "$log"
-    fi
-    exit
-fi
+## project directory - this file resides in the project root folder
+wd="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 cd "$wd" || exit 7
 
-
-
-## INCREMENT VERSION
-
-if ! [ -f "$wd/version" ]
+if ! [ -d "$wd/.git" ]
 then
-    echo 0.0.0 > $wd/version
+    echo "ERROR: $wd is not a git repository."
+    exit 6
 fi
 
-## current version
-cv=$(awk -F. -v OFS=. 'NF==1{print ++$NF}; NF>1{if(length($NF+1)>length($NF))$(NF-1)++; $NF=sprintf("%0*d", length($NF), ($NF+1)%(10^length($NF))); print}' < $wd/version)
-## in cv'
+echo "PUSH $HOSTNAME:$wd $(date +%Y.%m.%d-%H:%M:%S)"
 
-echo "$cv" > $wd/version
-echo "PUSH VERSION $cv of $HOSTNAME:$wd $NOW"
-echo "PUSH VERSION $cv of $HOSTNAME:$wd $NOW" > $log
-
-function linkin() {
-    
-    src=":"
-    res=""
-    sed -i "s|$src|$res|" /tmp/urlconverter
-    
-    src="In /srv/codepad-project"
-    res="https://srvctl-devel.d250.hu:9001/p"
-    sed -i "s|$src|$res|" /tmp/urlconverter
-    
-    src=" line "
-    res="?line="
-    sed -i "s|$src|$res|" /tmp/urlconverter
-}
-
-find "$wd" > /tmp/srvctl-bash-beautify
-while read -r file
-do
-    ## NB: "${file:0, -3 }" works by accident-of-design — the offset is an
-    ## arithmetic expression, the comma operator yields -3, so this is the
-    ## last 3 characters of the filename (".sh").
-    if [[ "${file:0, -3 }" == ".sh" ]]
-    then
-        #echo "@ $file" >> $log
-        shellcheck -x "$file" > /tmp/urlconverter
-        linkin
-        cat /tmp/urlconverter >> $log
-        #shellcheck -x "$file" >> $log
+## lint report - informational only, the push itself is not blocked
+if command -v shellcheck > /dev/null
+then
+    git ls-files '*.sh' | while read -r file
+    do
         shellcheck -x "$file"
-        #echo /bin/python /srv/beautify_bash.py "$file"
-        /bin/python /usr/local/share/srvctl/modules/srvctl/apps/beautify_bash.py "$file"
-        rm -fr "$file~"
+    done
+    echo "## shellcheck report done"
+else
+    echo "## shellcheck not installed - lint skipped"
+    exit 112
+fi
+
+if [ -z "$(git status --porcelain)" ]
+then
+    echo "No files changed. $(cat version) - nothing to commit."
+    exit 0
+fi
+
+## INCREMENT VERSION - only when there is something to commit
+if ! [ -f "$wd/version" ]
+then
+    echo "0.0.0.0" > "$wd/version"
+fi
+
+cv=$(awk -F. -v OFS=. '{$NF++; print}' "$wd/version")
+echo "$cv" > "$wd/version"
+
+## commit identity - fall back to the invoking user if git has none configured
+if ! git config user.email > /dev/null
+then
+    export GIT_AUTHOR_NAME="$USER"
+    export GIT_AUTHOR_EMAIL="$USER@$HOSTNAME"
+    export GIT_COMMITTER_NAME="$GIT_AUTHOR_NAME"
+    export GIT_COMMITTER_EMAIL="$GIT_AUTHOR_EMAIL"
+fi
+
+git add -A .
+
+msg="$cv"
+[ $# -gt 0 ] && msg="$cv $*"
+
+if ! git commit -m "$msg"
+then
+    echo "ERROR: git commit failed."
+    exit 5
+fi
+
+echo "Committed version $cv on branch $(git branch --show-current)."
+
+## push if a remote exists - a push failure must not hide behind the commit success
+if git remote | grep -q .
+then
+    if git push --set-upstream origin "$(git branch --show-current)"
+    then
+        echo "PUSH $cv - OK."
+    else
+        echo "WARNING: commit $cv created locally but PUSH FAILED - re-run push or push manually."
+        exit 4
     fi
-done < /tmp/srvctl-bash-beautify
-
-echo "PUSH - OK. use push publish to commit to git."
-
-echo "READY: $( wc -l < "$log")" >> "$log"
-#systemctl restart codepad
-#systemctl status codepad
+else
+    echo "No git remote configured - commit $cv is local only."
+fi
