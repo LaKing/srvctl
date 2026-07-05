@@ -9,6 +9,14 @@ work package. NONE of these are fixed by the overnight polish pass unless
 they meet the 002 "unambiguous mechanical defect" bar (polish agents list
 what they fixed; everything else gets a FIXME(v4) marker).
 
+RECONCILIATION (2026-07-05): the complete in-tree marker superset (427
+`FIXME(v4)` markers, discovery findings + defects found during polishing) is
+in **021-fixme-inventory.md** — draw 100-series work packages from THAT, not
+this list alone. Two findings that were marked inline but not consolidated
+here at session close are added in the ADDENDUM at the bottom of this file
+(networkd exit-0; datastore SC_USE_GLUSTER twin). Per Codex's
+audit-the-audit, 000-PROMPT.md addendum.
+
 
 ## BLOCKER (1)
 
@@ -322,3 +330,33 @@ what they fixed; everything else gets a FIXME(v4) marker).
 - **wordpress** `modules/wordpress/commands/install-wordpress.sh:56` — unzip without -o with stdout redirected to a log will prompt invisibly for overwrite if /root/wordpress remains from an aborted run (appears hung on a tty, EOF-errors non-interactively).
 - **wordpress** `modules/wordpress/commands/install-wordpress.sh:51` — Correct DB naming for hyphenated hostnames depends on add_mariadb_db reassigning the caller's global db_name to the sanitized value (mariadblib.sh:97-103); a rewrite that breaks this hidden coupling makes wp-config point at a nonexistent database.
 - **wordpress** `modules/wordpress/scripts/restore-wordpress-password.sh:16` — Dead HASH computation (md5 of password including echo's trailing newline) and plaintext password echoed to stdout (:15,77,81) — misleading code and credential leakage into terminal/logs.
+
+## ADDENDUM (2026-07-05, reconciliation — Codex audit-the-audit)
+
+These were marked inline as `FIXME(v4)` during polishing but were not folded
+into the severity lists above at session close. Added here so 003 is
+complete; both are Stage-2 work items with explicit ordering dependencies.
+
+- **srvctl** `modules/srvctl/libs/networkdlib.sh:125,137,152` — HIGH —
+  `networkd_configuration` has three failure paths (failed systemd-networkd
+  start, failed systemd-resolved start, failed post-migration ping) that do
+  `err "..."; exit` with no status. Because `err` returns success, the bare
+  `exit` inherits 0, so an `sc update-install` on a host can terminate with
+  exit 0 *after* a network migration failure — reporting success while
+  connectivity may be broken. Reached on host update-install via the
+  containers `pre-update-install-host` hook (which calls
+  `networkd_configuration`). Also noted in modules/srvctl.md. Fix is
+  behavior-changing (would surface real failures / change exit codes), so it
+  is a Stage-2 work item, not an overnight fix.
+- **datastore** `modules/datastore/hooks/init.sh:15`,
+  `modules/datastore/hooks/update-install-host.sh:12` — MEDIUM — the twin of
+  the filed **static** finding (LOW section, static/hooks/init.sh:3): `if
+  $SC_USE_GLUSTER; then ...` with an unset/empty `SC_USE_GLUSTER` runs an
+  empty command (status 0 = true) and enters the gluster branch, calling
+  undefined `gluster_*` helpers or selecting the read-only gluster datastore
+  path. Latent today (the loop always sets the var), but it becomes ACTIVE
+  during G4 if the gluster module or its config is removed before these hooks
+  are rewritten. **G4 ordering constraint**: the datastore and static hooks
+  must be de-glustered (explicit `[[ ${SC_USE_GLUSTER:-false} == true ]]`, or
+  the branch deleted) BEFORE the gluster module is dropped — captured in
+  019-gluster-removal-DRAFT.md.

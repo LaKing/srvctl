@@ -18,8 +18,28 @@ modules/<name>/
   conf/                                 # templates, unchanged
 ```
 
-- Naming, SC_USE_<MODULE> gating, hook order (pre-$CMD -> $CMD -> post-$CMD)
-  and the `[[ $SRVCTL ]] || exit 10` guard for bash files: unchanged.
+- Naming, SC_USE_<MODULE> gating, and the `[[ $SRVCTL ]] || exit 10` guard
+  for bash files: unchanged. Hook order/contract is NOT a generic
+  pre-$CMD/$CMD/post-$CMD wrapper — see 010's corrected Hooks section (fixed
+  startup sequence + explicit run_hooks groups only).
+
+- SOURCED-SCOPE CONTRACT (per Codex audit — load-bearing, easy to break):
+  .sh hooks and .sh commands are `source`d into the CALLER's shell, so they
+  READ and WRITE the caller's local variables; correctness depends on that,
+  not just on hook name and order. Concrete dependencies to preserve:
+    - the three `hooks/mkrootfs_fedora.sh` (codepad:13, firewalld:14,
+      postfix:18) read caller-local `rootfs`/`rootfs_name`/`rootfs_base` set
+      by the containers mkrootfs libs;
+    - `run_hooks`/`run_hook` currently IGNORE extra arguments callers pass
+      (e.g. addcontainerlib.sh:62 passes an arg that is dropped) — hooks get
+      their data from sourced scope, not argv.
+  Implication for v4: a .mjs dispatcher that runs hooks in ISOLATED child
+  processes, or that assumes hooks receive argv parameters, WILL break these.
+  Any hook ported to .mjs needs an EXPLICIT data contract (typed inputs
+  passed in, outputs returned/merged) replacing the implicit shared scope —
+  and the bash hooks must keep running sourced-in-caller-scope until each is
+  ported. This is a per-hook migration gate, filed as a Phase C work-package
+  precondition.
 - Help metadata: `## @@@ / @en / &en / &&&` kept for .sh. For .mjs commands
   the same data is an exported `meta = { syntax, hint, help, dynamic }`
   object; the index builder normalizes both into one help database

@@ -38,9 +38,24 @@ sourced by root shells, execing system tools interactively).
 
 - `runtime.sh` = merged, trimmed lablib.sh + commonlib.sh: output helpers,
   exif/eyif, run, hint — only what command scripts actually use.
-- Hooks: v3 sources every enabled module's hook at every init. v4: hook
-  index cached; only hooks relevant to the invoked command run. Same
-  ordering guarantees (pre-$CMD, $CMD, post-$CMD; module order preserved).
+- Hooks — CORRECTED CONTRACT (per Codex audit; earlier draft was wrong):
+  v3 does NOT wrap every command in pre-$CMD/$CMD/post-$CMD. The actual v3
+  contract is two distinct things and v4 must preserve BOTH exactly:
+    1. STARTUP sequence, fixed, from init.sh:163-186, run on every
+       invocation in this order: `run_hook pre-init-$CMD`, `run_hook
+       pre-init`, (help breakout), `load_libs`, `run_hook init`, `run_hook
+       post-init`, `run_hook post-init-$CMD`.
+    2. EXPLICIT hook groups: `run_hooks X` (= pre-X, X, post-X) fired only at
+       specific call sites (commonlib.sh:110-114) — e.g. update-install-host,
+       update-install-ve, regenerate, diagnose, adjust-service, add-ve. There
+       is NO implicit wrapper around arbitrary command dispatch.
+  Each `run_hook` iterates enabled modules in SC_MODULES order and SOURCES
+  hooks/<name>.sh into the CURRENT shell (see the sourced-scope contract in
+  011). v4 may cache a hook index for speed, but must keep: the exact startup
+  order above, the explicit-only nature of run_hooks (no generic command
+  wrapper), module iteration order, and the sourced-scope semantics.
+  Do NOT implement a generic per-command hook wrapper unless a plan
+  intentionally changes this contract AND audits every existing hook user.
 - Help/hints: generated from the cached command index (no grep storm);
   `## @en` metadata parsed once at index build.
 - Target: `sc help` < 50 ms; dispatch overhead of any command < 30 ms;

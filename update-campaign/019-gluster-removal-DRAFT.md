@@ -15,6 +15,23 @@ Status: DRAFT written session 1 (autonomous). Not approved.
   datastore RO fallback; CA gluster cert minting; firewalld glusterfs
   service.
 
+### G4 ORDERING CONSTRAINT (hard prerequisite — from 003 ADDENDUM)
+
+The `if $SC_USE_GLUSTER; then ...` hooks in datastore
+(hooks/init.sh:15, hooks/update-install-host.sh:12) and static
+(hooks/init.sh:3, hooks/update-install-host.sh:3) are UNSAFE against an
+unset variable: `if $emptyvar` runs an empty command (status 0 = true) and
+takes the gluster branch, calling now-undefined `gluster_*` helpers or
+selecting the RO gluster datastore path. Removing the gluster module (or its
+config) BEFORE these hooks are rewritten breaks datastore/static init and
+host update-install on every server.
+
+Therefore the removal work package MUST, in this order:
+1. Rewrite the four hooks to `[[ ${SC_USE_GLUSTER:-false} == true ]]` (or
+   delete the gluster branch outright), verified on a host.
+2. Only then drop the gluster module and its condition/config.
+This is a Stage-2 sequencing rule, not optional cleanup.
+
 ## What (if anything) replaces it
 
 - Its two roles were: replicated datastore (srvctl-data) and replicated

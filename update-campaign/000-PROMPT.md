@@ -9,6 +9,63 @@ of the plan set (Stage gate) before any Stage 2 code. See 000-INDEX.md
 governing contract; re-read it at the start of each session and update this
 STATUS line (and 000-INDEX.md) at the end of every session.
 
+AUDIT-THE-AUDIT ADDENDUM (2026-07-05, Codex, current HEAD ab4325b)
+Read all update-campaign files and re-checked the current v4 branch source.
+This addendum is a planning/session-start guard only: do not treat it as
+source-code authorization. Before Stage 2 starts, fold these items into the
+relevant plan/work-package docs or explicitly close them.
+
+Missed or under-consolidated runtime findings:
+1. srvctl networkd failure paths can exit success. In
+   modules/srvctl/libs/networkdlib.sh, failed systemd-networkd start,
+   failed systemd-resolved start, and failed post-migration ping each do
+   `err ...; exit` with no status. Because `err` returns success, an
+   update-install path can terminate with exit 0 after a network migration
+   failure. This is already marked inline as FIXME(v4), but it is not
+   consolidated in 003-discovery-findings.md or the srvctl fact sheet's
+   bug list. Make it a Stage 2 work item, because containers'
+   pre-update-install-host hook calls this path on host update-install.
+2. datastore has the same unsafe `if $SC_USE_GLUSTER` pattern already filed
+   for static, but it was missed for datastore. See
+   modules/datastore/hooks/init.sh and
+   modules/datastore/hooks/update-install-host.sh. In bash, an empty command
+   variable in `if $var; then` evaluates through an empty command and enters
+   the then branch. If G4 removes the gluster module or its config before
+   datastore/static hooks are rewritten, these hooks can take the gluster
+   branch, call undefined gluster helpers, or select the read-only gluster
+   datastore path during init/update-install.
+3. The v4 hook contract drafts are currently too loose and partly wrong
+   relative to v3. Current startup runs pre-init-$CMD, pre-init, load_libs,
+   init, post-init, post-init-$CMD from init.sh; plain command dispatch does
+   not wrap every command in pre-$CMD/$CMD/post-$CMD. commonlib.sh run_hooks
+   provides pre-X/X/post-X only at explicit call sites. Do not implement a
+   generic command wrapper unless a plan intentionally changes this contract
+   and audits every hook user.
+4. Hook execution depends on sourced caller scope, not just hook name/order.
+   Examples include mkrootfs_fedora hooks in codepad, firewalld, and postfix
+   reading caller-local variables such as rootfs_name/rootfs_base. Current
+   run_hooks also ignores extra arguments passed by callers such as
+   addcontainerlib.sh. A v4 .mjs dispatcher that runs hooks in isolated child
+   processes or assumes argv parameters will break existing behavior unless
+   the affected hooks are ported with explicit data contracts.
+5. The inline FIXME(v4) inventory is not fully reconciled with the campaign
+   ledger. A current non-vendored scan finds more markers than the session-1
+   summary recorded, and the networkd example proves at least one marker is
+   not represented in 003-discovery-findings.md. Before creating 100-series
+   work packages, generate or reconcile a complete FIXME(v4) inventory.
+
+Campaign ledger drift to correct before Stage 2:
+- 000-COVERAGE.md still shows postfix polish unchecked, while git history,
+  000-INDEX.md, and 020-session1-report.md say all 37 modules were polished.
+- 000-INDEX.md still says the checkout is master / 1 commit ahead of origin
+  in one place, while the actual branch is v4 and the same file later says
+  v4.
+- 000-INDEX.md lists core.md and modules/*.md as pending in the first table
+  and written in the session-1 additions table.
+- Module fact sheets are baseline-grounded, often titled with commit 988c38c.
+  Some line references and bug lists predate the polish commits. Treat them
+  as discovery context, not current HEAD truth, unless re-verified.
+
 This is a multi-session campaign in two macro-stages:
   STAGE 1 — PLANNING: produce numbered .md plan documents and work packages
             in this folder. NO source code is modified in Stage 1.

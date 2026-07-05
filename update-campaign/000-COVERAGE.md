@@ -50,7 +50,7 @@ Polish = overnight identical-functionality pass: [ ] pending | [x] committed | [
 | openvpn | 7 | 371 | 0 | deprecate (G8) | [x] | [x] | zerotier replaces |
 | password | 3 | 70 | 0 | keep-port | [x] | [x] | |
 | perdition | 9 | 134 | 0 | deprecate (G9) | [x] | [x] | mail proxy replaces |
-| postfix | 10 | 173 | 0 | keep-port | [x] | [ ] | |
+| postfix | 10 | 173 | 0 | keep-port | [x] | [x] | conf/ templates untouched |
 | saslauthd | 7 | 111 | 2 | keep-port | [x] | [x] | |
 | srvctl | 19 | 994 | 7 | keep-port | [x] | [x] | self-management module |
 | ssh | 8 | 197 | 0 | keep-port | [x] | [x] | |
