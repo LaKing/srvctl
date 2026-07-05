@@ -38,24 +38,24 @@ Polish = overnight identical-functionality pass: [ ] pending | [x] committed | [
 | ftp | 3 | 9 | 0 | undecided | [x] | [x] | tiny |
 | gluster | 5 | 424 | 0 | deprecate (G4) | [x] | [x] | polish minimal |
 | gui | 4 | 141 | 0 | deprecate (G5) | [x] | [x] | cockpit replaces |
-| haproxy | 9 | 333 | 2 | keep-port | [x] | [ ] | |
-| letsencrypt | 5 | 100 | 0 | keep-port | [x] | [ ] | G7 wildcard later |
+| haproxy | 9 | 333 | 2 | keep-port | [x] | [x] | |
+| letsencrypt | 5 | 100 | 0 | keep-port | [x] | [x] | G7 wildcard later |
 | mariadb | 3 | 288 | 0 | keep-port | [x] | [x] | |
 | mozilla | 3 | 42 | 0 | undecided | [x] | [x] | |
-| named | 10 | 326 | 1 | keep-port | [x] | [ ] | G7 DNS-01 later |
-| nfs | 5 | 70 | 0 | keep-port | [x] | [ ] | |
+| named | 10 | 326 | 1 | keep-port | [x] | [x] | G7 DNS-01 later |
+| nfs | 5 | 70 | 0 | keep-port | [x] | [x] | |
 | ntp | 2 | 8 | 0 | keep-port | [x] | [x] | tiny |
-| odoo | 2 | 384 | 1 | keep-port | [x] | [ ] | |
-| opendkim | 7 | 128 | 0 | keep-port | [x] | [ ] | |
-| openvpn | 7 | 371 | 0 | deprecate (G8) | [x] | [ ] | zerotier replaces |
-| password | 3 | 70 | 0 | keep-port | [x] | [ ] | |
-| perdition | 9 | 134 | 0 | deprecate (G9) | [x] | [ ] | mail proxy replaces |
+| odoo | 2 | 384 | 1 | keep-port | [x] | [x] | |
+| opendkim | 7 | 128 | 0 | keep-port | [x] | [x] | |
+| openvpn | 7 | 371 | 0 | deprecate (G8) | [x] | [x] | zerotier replaces |
+| password | 3 | 70 | 0 | keep-port | [x] | [x] | |
+| perdition | 9 | 134 | 0 | deprecate (G9) | [x] | [x] | mail proxy replaces |
 | postfix | 10 | 173 | 0 | keep-port | [x] | [ ] | |
-| saslauthd | 7 | 111 | 2 | keep-port | [x] | [ ] | |
+| saslauthd | 7 | 111 | 2 | keep-port | [x] | [x] | |
 | srvctl | 19 | 994 | 7 | keep-port | [x] | [ ] | self-management module |
 | ssh | 8 | 197 | 0 | keep-port | [x] | [ ] | |
-| sshpiperd | 5 | 95 | 0 | keep-port | [x] | [ ] | |
-| static | 5 | 69 | 0 | keep-port | [x] | [ ] | |
+| sshpiperd | 5 | 95 | 0 | keep-port | [x] | [x] | |
+| static | 5 | 69 | 0 | keep-port | [x] | [x] | |
 | usersonhost | 9 | 306 | 4 | keep-port | [x] | [ ] | G6 resellers later |
 | usersonve | 7 | 445 | 5 | keep-port | [x] | [ ] | add-zerotier.sh untouched (user WIP) |
 | ve | 3 | 37 | 1 | keep-port | [x] | [ ] | |
