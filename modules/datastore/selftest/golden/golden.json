@@ -1,0 +1,550 @@
+{
+  "get-container-exist-true": {
+    "argv": [
+      "get",
+      "container",
+      "site.example.com",
+      "exist"
+    ],
+    "stdout": "true\n",
+    "stderr": "",
+    "exitCode": 0
+  },
+  "get-container-exist-false": {
+    "argv": [
+      "get",
+      "container",
+      "nope",
+      "exist"
+    ],
+    "stdout": "false\n",
+    "stderr": "",
+    "exitCode": 0
+  },
+  "get-container-user": {
+    "argv": [
+      "get",
+      "container",
+      "site.example.com",
+      "user"
+    ],
+    "stdout": "alice\n",
+    "stderr": "",
+    "exitCode": 0
+  },
+  "get-container-uid": {
+    "argv": [
+      "get",
+      "container",
+      "site.example.com",
+      "uid"
+    ],
+    "stdout": "17039360\n",
+    "stderr": "",
+    "exitCode": 0
+  },
+  "get-container-br": {
+    "argv": [
+      "get",
+      "container",
+      "site.example.com",
+      "br"
+    ],
+    "stdout": "10.20.1.x\n",
+    "stderr": "",
+    "exitCode": 0
+  },
+  "get-container-gw": {
+    "argv": [
+      "get",
+      "container",
+      "site.example.com",
+      "gw"
+    ],
+    "stdout": "10.20.1.1\n",
+    "stderr": "",
+    "exitCode": 0
+  },
+  "get-container-interface": {
+    "argv": [
+      "get",
+      "container",
+      "site.example.com",
+      "interface"
+    ],
+    "stdout": "20-1-5\n",
+    "stderr": "",
+    "exitCode": 0
+  },
+  "get-container-host": {
+    "argv": [
+      "get",
+      "container",
+      "site.example.com",
+      "host"
+    ],
+    "stdout": "node1\n",
+    "stderr": "",
+    "exitCode": 0
+  },
+  "get-container-host_ip": {
+    "argv": [
+      "get",
+      "container",
+      "site.example.com",
+      "host_ip"
+    ],
+    "stdout": "10.16.20.1\n",
+    "stderr": "",
+    "exitCode": 0
+  },
+  "get-container-reseller": {
+    "argv": [
+      "get",
+      "container",
+      "site.example.com",
+      "reseller"
+    ],
+    "stdout": "alice\n",
+    "stderr": "",
+    "exitCode": 0
+  },
+  "get-container-http_port": {
+    "argv": [
+      "get",
+      "container",
+      "site.example.com",
+      "http_port"
+    ],
+    "stdout": "80\n",
+    "stderr": "",
+    "exitCode": 0
+  },
+  "get-container-hostnet": {
+    "argv": [
+      "get",
+      "container",
+      "site.example.com",
+      "hostnet"
+    ],
+    "stdout": "20\n",
+    "stderr": "",
+    "exitCode": 0
+  },
+  "get-container-undefined-field": {
+    "argv": [
+      "get",
+      "container",
+      "site.example.com",
+      "no_such_field"
+    ],
+    "stdout": "",
+    "stderr": "",
+    "exitCode": 100
+  },
+  "get-container-missing": {
+    "argv": [
+      "get",
+      "container",
+      "ghost.example.com",
+      "user"
+    ],
+    "stdout": "",
+    "stderr": "MAIN-ERROR: CONTAINER ghost.example.com DONT EXISTS\n",
+    "exitCode": 110
+  },
+  "get-container-domains": {
+    "argv": [
+      "get",
+      "container",
+      "shop.example.com",
+      "domains"
+    ],
+    "stdout": "[\n  'shop.example.com',\n  'www.shop.example.com',\n  'store.example.com',\n  'www.store.example.com'\n]\n",
+    "stderr": "",
+    "exitCode": 0
+  },
+  "get-container-hosts": {
+    "argv": [
+      "get",
+      "container",
+      "site.example.com",
+      "hosts"
+    ],
+    "stdout": "## srvctl-generated for site.example.com\n127.0.0.1   localhost localhost.localdomain localhost4 localhost4.localdomain4 site.example.com\n::1         localhost localhost.localdomain localhost6 localhost6.localdomain6\n10.20.1.1 srvctl-gateway\n\n",
+    "stderr": "",
+    "exitCode": 0
+  },
+  "get-container-resolv_conf": {
+    "argv": [
+      "get",
+      "container",
+      "site.example.com",
+      "resolv_conf"
+    ],
+    "stdout": "",
+    "stderr": "/srv/srvctl/modules/datastore/lib.js:329\n    if (hosts[HOSTNAME].dns1) str += \"nameserver \" + hosts[HOSTNAME].dns1 + br;\n                        ^\n\nTypeError: Cannot read properties of undefined (reading 'dns1')\n    at Object.container_resolv_conf (/srv/srvctl/modules/datastore/lib.js:329:25)\n    at Object.<anonymous> (/srv/srvctl/modules/datastore/main.js:211:47)\n    at Module._compile (node:internal/modules/cjs/loader:1706:14)\n    at Module._extensions..js (node:internal/modules/cjs/loader:1839:10)\n    at Module.load (node:internal/modules/cjs/loader:1441:32)\n    at Module._load (node:internal/modules/cjs/loader:1263:12)\n    at TracingChannel.traceSync (node:diagnostics_channel:328:14)\n    at wrapModuleLoad (node:internal/modules/cjs/loader:237:24)\n    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:171:5)\n    at node:internal/main/run_main_module:36:49\n\nNode.js v22.22.0\n",
+    "exitCode": 1
+  },
+  "out-container": {
+    "argv": [
+      "out",
+      "container",
+      "site.example.com"
+    ],
+    "stdout": "C='site.example.com'\nuser='alice'\nip='10.20.1.5'\n",
+    "stderr": "",
+    "exitCode": 0
+  },
+  "out-container-aliases": {
+    "argv": [
+      "out",
+      "container",
+      "shop.example.com"
+    ],
+    "stdout": "C='shop.example.com'\nuser='bob'\nip='10.20.2.6'\naliases='[\"store.example.com\"]'\n",
+    "stderr": "",
+    "exitCode": 0
+  },
+  "out-container-json": {
+    "argv": [
+      "out",
+      "container",
+      "site.example.com",
+      "json"
+    ],
+    "stdout": "{\n    \"user\": \"alice\",\n    \"ip\": \"10.20.1.5\"\n}\n",
+    "stderr": "",
+    "exitCode": 0
+  },
+  "get-user-exist-true": {
+    "argv": [
+      "get",
+      "user",
+      "alice",
+      "exist"
+    ],
+    "stdout": "true\n",
+    "stderr": "",
+    "exitCode": 0
+  },
+  "get-user-exist-false": {
+    "argv": [
+      "get",
+      "user",
+      "nobody",
+      "exist"
+    ],
+    "stdout": "false\n",
+    "stderr": "",
+    "exitCode": 0
+  },
+  "get-user-uid": {
+    "argv": [
+      "get",
+      "user",
+      "alice",
+      "uid"
+    ],
+    "stdout": "1001\n",
+    "stderr": "",
+    "exitCode": 0
+  },
+  "get-user-undefined-field": {
+    "argv": [
+      "get",
+      "user",
+      "alice",
+      "reseller"
+    ],
+    "stdout": "",
+    "stderr": "",
+    "exitCode": 100
+  },
+  "out-user": {
+    "argv": [
+      "out",
+      "user",
+      "alice"
+    ],
+    "stdout": "U='alice'\nreseller_id='1'\nuser_id='1'\nuid='1001'\nname='Alice'\n",
+    "stderr": "",
+    "exitCode": 0
+  },
+  "cfg-user-container_list": {
+    "argv": [
+      "cfg",
+      "user",
+      "container_list"
+    ],
+    "stdout": " \n",
+    "stderr": "",
+    "exitCode": 0
+  },
+  "get-user-missing": {
+    "argv": [
+      "get",
+      "user",
+      "nobody",
+      "name"
+    ],
+    "stdout": "",
+    "stderr": "MAIN-ERROR: USER DONT EXISTS\n",
+    "exitCode": 110
+  },
+  "get-host-host_ip": {
+    "argv": [
+      "get",
+      "host",
+      "node1",
+      "host_ip"
+    ],
+    "stdout": "10.16.20.1\n",
+    "stderr": "",
+    "exitCode": 0
+  },
+  "get-host-hostnet": {
+    "argv": [
+      "get",
+      "host",
+      "node1",
+      "hostnet"
+    ],
+    "stdout": "20\n",
+    "stderr": "",
+    "exitCode": 0
+  },
+  "out-host": {
+    "argv": [
+      "out",
+      "host",
+      "node1"
+    ],
+    "stdout": "SC_HOSTNAME='node1'\nSC_HOSTNET='20'\nSC_HOST_IP='10.16.20.1'\nSC_HOST_KEY_RSA='AAAAnode1rsakey'\n",
+    "stderr": "",
+    "exitCode": 0
+  },
+  "get-host-missing": {
+    "argv": [
+      "get",
+      "host",
+      "node9",
+      "host_ip"
+    ],
+    "stdout": "",
+    "stderr": "MAIN-ERROR: HOST node9 DONT EXISTS [\"node1\",\"node2\"]\n",
+    "exitCode": 110
+  },
+  "get-cluster-host_list": {
+    "argv": [
+      "get",
+      "cluster",
+      "host_list"
+    ],
+    "stdout": "node1 node2 \n",
+    "stderr": "",
+    "exitCode": 0
+  },
+  "get-cluster-host_ip_list": {
+    "argv": [
+      "get",
+      "cluster",
+      "host_ip_list"
+    ],
+    "stdout": "10.16.20.1 10.16.21.1 \n",
+    "stderr": "",
+    "exitCode": 0
+  },
+  "get-cluster-user_list": {
+    "argv": [
+      "get",
+      "cluster",
+      "user_list"
+    ],
+    "stdout": "root alice bob \n",
+    "stderr": "",
+    "exitCode": 0
+  },
+  "get-cluster-container_list": {
+    "argv": [
+      "get",
+      "cluster",
+      "container_list"
+    ],
+    "stdout": "site.example.com shop.example.com mail.site.example.com \n",
+    "stderr": "",
+    "exitCode": 0
+  },
+  "get-cluster-etc_hosts": {
+    "argv": [
+      "get",
+      "cluster",
+      "etc_hosts"
+    ],
+    "stdout": "## $SRVCTL generated\n127.0.0.1    localhost.localdomain localhost <HOST>\n::1    localhost6.localdomain6 localhost6\n## hosts\n10.16.20.1    node1\n10.15.20.0    node1\n10.16.21.1    node2\n10.15.21.0    node2\n## containers\n10.20.1.5    site.example.com\n10.20.2.6    shop.example.com\n10.20.2.6    mail.shop.example.com\n10.20.2.6    mail.shop.example.com.example.com\n10.20.2.6    store.example.com\n10.20.2.6    mail.store.example.com\n10.20.1.9    mail.site.example.com\n10.20.1.9    mail.mail.site.example.com\n10.20.1.9    mail.mail.site.example.com.example.com\n\n",
+    "stderr": "",
+    "exitCode": 0
+  },
+  "get-cluster-postfix_relaydomains": {
+    "argv": [
+      "get",
+      "cluster",
+      "postfix_relaydomains"
+    ],
+    "stdout": "node1\tOK\nnode2\tOK\nsite.example.com\tOK\nshop.example.com\tOK\nstore.example.com\tOK\n\n",
+    "stderr": "",
+    "exitCode": 0
+  },
+  "get-cluster-host_keys": {
+    "argv": [
+      "get",
+      "cluster",
+      "host_keys"
+    ],
+    "stdout": "AAAAnode1rsakey\n\n",
+    "stderr": "",
+    "exitCode": 0
+  },
+  "err-no-args": {
+    "argv": [],
+    "stdout": "",
+    "stderr": "MAIN-ERROR: MISSING CMD ARGUMENT: get | put | out | cfg | del | new | add\n",
+    "exitCode": 110
+  },
+  "err-missing-dat": {
+    "argv": [
+      "get"
+    ],
+    "stdout": "",
+    "stderr": "MAIN-ERROR: MISSING DAT ARGUMENT: cluster | user | reseller | container | host\n",
+    "exitCode": 110
+  },
+  "err-missing-arg": {
+    "argv": [
+      "get",
+      "container"
+    ],
+    "stdout": "",
+    "stderr": "MAIN-ERROR: MISSING ARG ARGUMENT: containername / username / hostname / query\n",
+    "exitCode": 110
+  },
+  "err-invalid-cmd": {
+    "argv": [
+      "frob",
+      "container",
+      "site.example.com"
+    ],
+    "stdout": "",
+    "stderr": "MAIN-ERROR: INVALID CMD ARGUMENT: frob\n",
+    "exitCode": 110
+  },
+  "err-invalid-dat": {
+    "argv": [
+      "get",
+      "widget",
+      "x"
+    ],
+    "stdout": "",
+    "stderr": "MAIN-ERROR: INVALID DAT ARGUMENT: widget\n",
+    "exitCode": 110
+  },
+  "put-container-field": {
+    "argv": [
+      "put",
+      "container",
+      "site.example.com",
+      "note",
+      "hello world"
+    ],
+    "stdout": "\u001b[34m[ <HOST> ]\u001b[32m wrote containers.json \u001b[0m\n",
+    "stderr": "",
+    "exitCode": 0,
+    "files": {
+      "hosts.json": "{\n  \"node1\": {\n    \"hostnet\": 20,\n    \"host_ip\": \"10.16.20.1\",\n    \"host-key-rsa\": \"AAAAnode1rsakey\"\n  },\n  \"node2\": {\n    \"hostnet\": 21,\n    \"host_ip\": \"10.16.21.1\"\n  }\n}\n",
+      "users.json": "{\n  \"root\": {\n    \"reseller_id\": 0,\n    \"user_id\": 0,\n    \"uid\": 0,\n    \"name\": \"root\"\n  },\n  \"alice\": {\n    \"reseller_id\": 1,\n    \"user_id\": 1,\n    \"uid\": 1001,\n    \"name\": \"Alice\"\n  },\n  \"bob\": {\n    \"user_id\": 2,\n    \"uid\": 1002,\n    \"reseller\": \"alice\",\n    \"name\": \"Bob\"\n  }\n}\n",
+      "containers.json": "{\n  \"site.example.com\": {\n    \"user\": \"alice\",\n    \"ip\": \"10.20.1.5\",\n    \"note\": \"hello world\"\n  },\n  \"shop.example.com\": {\n    \"user\": \"bob\",\n    \"ip\": \"10.20.2.6\",\n    \"aliases\": [\n      \"store.example.com\"\n    ]\n  },\n  \"mail.site.example.com\": {\n    \"user\": \"alice\",\n    \"ip\": \"10.20.1.9\"\n  }\n}"
+    }
+  },
+  "put-container-bool": {
+    "argv": [
+      "put",
+      "container",
+      "site.example.com",
+      "is_mail",
+      "true"
+    ],
+    "stdout": "\u001b[34m[ <HOST> ]\u001b[32m wrote containers.json \u001b[0m\n",
+    "stderr": "",
+    "exitCode": 0,
+    "files": {
+      "hosts.json": "{\n  \"node1\": {\n    \"hostnet\": 20,\n    \"host_ip\": \"10.16.20.1\",\n    \"host-key-rsa\": \"AAAAnode1rsakey\"\n  },\n  \"node2\": {\n    \"hostnet\": 21,\n    \"host_ip\": \"10.16.21.1\"\n  }\n}\n",
+      "users.json": "{\n  \"root\": {\n    \"reseller_id\": 0,\n    \"user_id\": 0,\n    \"uid\": 0,\n    \"name\": \"root\"\n  },\n  \"alice\": {\n    \"reseller_id\": 1,\n    \"user_id\": 1,\n    \"uid\": 1001,\n    \"name\": \"Alice\"\n  },\n  \"bob\": {\n    \"user_id\": 2,\n    \"uid\": 1002,\n    \"reseller\": \"alice\",\n    \"name\": \"Bob\"\n  }\n}\n",
+      "containers.json": "{\n  \"site.example.com\": {\n    \"user\": \"alice\",\n    \"ip\": \"10.20.1.5\",\n    \"is_mail\": true\n  },\n  \"shop.example.com\": {\n    \"user\": \"bob\",\n    \"ip\": \"10.20.2.6\",\n    \"aliases\": [\n      \"store.example.com\"\n    ]\n  },\n  \"mail.site.example.com\": {\n    \"user\": \"alice\",\n    \"ip\": \"10.20.1.9\"\n  }\n}"
+    }
+  },
+  "put-container-delete-field": {
+    "argv": [
+      "put",
+      "container",
+      "shop.example.com",
+      "aliases"
+    ],
+    "stdout": "\u001b[34m[ <HOST> ]\u001b[32m wrote containers.json \u001b[0m\n",
+    "stderr": "",
+    "exitCode": 0,
+    "files": {
+      "hosts.json": "{\n  \"node1\": {\n    \"hostnet\": 20,\n    \"host_ip\": \"10.16.20.1\",\n    \"host-key-rsa\": \"AAAAnode1rsakey\"\n  },\n  \"node2\": {\n    \"hostnet\": 21,\n    \"host_ip\": \"10.16.21.1\"\n  }\n}\n",
+      "users.json": "{\n  \"root\": {\n    \"reseller_id\": 0,\n    \"user_id\": 0,\n    \"uid\": 0,\n    \"name\": \"root\"\n  },\n  \"alice\": {\n    \"reseller_id\": 1,\n    \"user_id\": 1,\n    \"uid\": 1001,\n    \"name\": \"Alice\"\n  },\n  \"bob\": {\n    \"user_id\": 2,\n    \"uid\": 1002,\n    \"reseller\": \"alice\",\n    \"name\": \"Bob\"\n  }\n}\n",
+      "containers.json": "{\n  \"site.example.com\": {\n    \"user\": \"alice\",\n    \"ip\": \"10.20.1.5\"\n  },\n  \"shop.example.com\": {\n    \"user\": \"bob\",\n    \"ip\": \"10.20.2.6\"\n  },\n  \"mail.site.example.com\": {\n    \"user\": \"alice\",\n    \"ip\": \"10.20.1.9\"\n  }\n}"
+    }
+  },
+  "del-container": {
+    "argv": [
+      "del",
+      "container",
+      "mail.site.example.com"
+    ],
+    "stdout": "\u001b[34m[ <HOST> ]\u001b[32m wrote containers.json \u001b[0m\n",
+    "stderr": "",
+    "exitCode": 0,
+    "files": {
+      "hosts.json": "{\n  \"node1\": {\n    \"hostnet\": 20,\n    \"host_ip\": \"10.16.20.1\",\n    \"host-key-rsa\": \"AAAAnode1rsakey\"\n  },\n  \"node2\": {\n    \"hostnet\": 21,\n    \"host_ip\": \"10.16.21.1\"\n  }\n}\n",
+      "users.json": "{\n  \"root\": {\n    \"reseller_id\": 0,\n    \"user_id\": 0,\n    \"uid\": 0,\n    \"name\": \"root\"\n  },\n  \"alice\": {\n    \"reseller_id\": 1,\n    \"user_id\": 1,\n    \"uid\": 1001,\n    \"name\": \"Alice\"\n  },\n  \"bob\": {\n    \"user_id\": 2,\n    \"uid\": 1002,\n    \"reseller\": \"alice\",\n    \"name\": \"Bob\"\n  }\n}\n",
+      "containers.json": "{\n  \"site.example.com\": {\n    \"user\": \"alice\",\n    \"ip\": \"10.20.1.5\"\n  },\n  \"shop.example.com\": {\n    \"user\": \"bob\",\n    \"ip\": \"10.20.2.6\",\n    \"aliases\": [\n      \"store.example.com\"\n    ]\n  }\n}"
+    }
+  },
+  "add-container-user": {
+    "argv": [
+      "add",
+      "container",
+      "site.example.com",
+      "user",
+      "carol"
+    ],
+    "stdout": "[ 'carol' ]\n\u001b[34m[ <HOST> ]\u001b[32m wrote containers.json \u001b[0m\n\u001b[34m[ <HOST> ]\u001b[32m wrote containers.json \u001b[0m\n",
+    "stderr": "",
+    "exitCode": 0,
+    "files": {
+      "hosts.json": "{\n  \"node1\": {\n    \"hostnet\": 20,\n    \"host_ip\": \"10.16.20.1\",\n    \"host-key-rsa\": \"AAAAnode1rsakey\"\n  },\n  \"node2\": {\n    \"hostnet\": 21,\n    \"host_ip\": \"10.16.21.1\"\n  }\n}\n",
+      "users.json": "{\n  \"root\": {\n    \"reseller_id\": 0,\n    \"user_id\": 0,\n    \"uid\": 0,\n    \"name\": \"root\"\n  },\n  \"alice\": {\n    \"reseller_id\": 1,\n    \"user_id\": 1,\n    \"uid\": 1001,\n    \"name\": \"Alice\"\n  },\n  \"bob\": {\n    \"user_id\": 2,\n    \"uid\": 1002,\n    \"reseller\": \"alice\",\n    \"name\": \"Bob\"\n  }\n}\n",
+      "containers.json": "{\n  \"site.example.com\": {\n    \"user\": \"alice\",\n    \"ip\": \"10.20.1.5\",\n    \"users\": [\n      \"carol\"\n    ]\n  },\n  \"shop.example.com\": {\n    \"user\": \"bob\",\n    \"ip\": \"10.20.2.6\",\n    \"aliases\": [\n      \"store.example.com\"\n    ]\n  },\n  \"mail.site.example.com\": {\n    \"user\": \"alice\",\n    \"ip\": \"10.20.1.9\"\n  }\n}"
+    }
+  },
+  "put-user-field": {
+    "argv": [
+      "put",
+      "user",
+      "alice",
+      "note",
+      "vip"
+    ],
+    "stdout": "\u001b[34m[ <HOST> ]\u001b[32m wrote users.json \u001b[0m\n",
+    "stderr": "",
+    "exitCode": 0,
+    "files": {
+      "hosts.json": "{\n  \"node1\": {\n    \"hostnet\": 20,\n    \"host_ip\": \"10.16.20.1\",\n    \"host-key-rsa\": \"AAAAnode1rsakey\"\n  },\n  \"node2\": {\n    \"hostnet\": 21,\n    \"host_ip\": \"10.16.21.1\"\n  }\n}\n",
+      "users.json": "{\n  \"root\": {\n    \"reseller_id\": 0,\n    \"user_id\": 0,\n    \"uid\": 0,\n    \"name\": \"root\"\n  },\n  \"alice\": {\n    \"reseller_id\": 1,\n    \"user_id\": 1,\n    \"uid\": 1001,\n    \"name\": \"Alice\",\n    \"note\": \"vip\"\n  },\n  \"bob\": {\n    \"user_id\": 2,\n    \"uid\": 1002,\n    \"reseller\": \"alice\",\n    \"name\": \"Bob\"\n  }\n}",
+      "containers.json": "{\n  \"site.example.com\": {\n    \"user\": \"alice\",\n    \"ip\": \"10.20.1.5\"\n  },\n  \"shop.example.com\": {\n    \"user\": \"bob\",\n    \"ip\": \"10.20.2.6\",\n    \"aliases\": [\"store.example.com\"]\n  },\n  \"mail.site.example.com\": {\n    \"user\": \"alice\",\n    \"ip\": \"10.20.1.9\"\n  }\n}\n"
+    }
+  }
+}

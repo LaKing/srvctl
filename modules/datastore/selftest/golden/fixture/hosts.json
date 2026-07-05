@@ -1,0 +1,11 @@
+{
+  "node1": {
+    "hostnet": 20,
+    "host_ip": "10.16.20.1",
+    "host-key-rsa": "AAAAnode1rsakey"
+  },
+  "node2": {
+    "hostnet": 21,
+    "host_ip": "10.16.21.1"
+  }
+}

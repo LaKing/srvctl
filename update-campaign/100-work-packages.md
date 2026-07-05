@@ -27,10 +27,17 @@ Execution rules (from 000-PROMPT + the Stage-2 preconditions in 000-INDEX):
   - **WP-B — part 2 (pending)**: config-string generators (resolv_conf,
     /etc/hosts, nspawn, firewall, mapped_ports, relaydomains) — snapshot vs
     v3 output; folds into WP-C wiring.
-- **WP-C** — wire the VERB API (get/put/out/cfg/del/new/add) + derivations
-  onto the engine; byte-identical output + exit codes (main.js contract);
-  run the datastore on file-per-entity behind the existing bash wrappers.
-  Fixes the duplicate-ADD race and the dead RO guard in the process.
+- **WP-C — golden-master harness ✅ DONE** (precondition, per user):
+  selftest/verbapi.test.mjs + golden/fixture/*.json + golden/golden.json
+  freeze the live v3 main.js verb contract — 49 cases (get/out/cfg/del/put/
+  add across container/user/host/cluster + arg/dispatch errors + mutation
+  file-effects), stdout+stderr+exit pinned, os.hostname() normalized,
+  deterministic (verified twice). Cross-checks WP-B: golden derivation
+  outputs match derive.mjs exactly.
+  - **WP-C — wiring (next)**: reimplement main.js internals on store.mjs +
+    derive.mjs (+ WP-B part 2 text generators); the golden must stay 49/49.
+    Fixes the duplicate-ADD race and the dead RO guard. Then run the
+    datastore on file-per-entity behind the bash wrappers.
 - **WP-D** — bash FRONT DOOR + command index: light srvctl.sh/init.sh/
   commonlib.sh; node builds a cached command/help index (kills the
   hint_on_file grep storm) — the G1 dispatch win. Preserve hook contract

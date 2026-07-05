@@ -1,0 +1,15 @@
+{
+  "site.example.com": {
+    "user": "alice",
+    "ip": "10.20.1.5"
+  },
+  "shop.example.com": {
+    "user": "bob",
+    "ip": "10.20.2.6",
+    "aliases": ["store.example.com"]
+  },
+  "mail.site.example.com": {
+    "user": "alice",
+    "ip": "10.20.1.9"
+  }
+}

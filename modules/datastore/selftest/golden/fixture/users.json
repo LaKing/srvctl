@@ -1,0 +1,20 @@
+{
+  "root": {
+    "reseller_id": 0,
+    "user_id": 0,
+    "uid": 0,
+    "name": "root"
+  },
+  "alice": {
+    "reseller_id": 1,
+    "user_id": 1,
+    "uid": 1001,
+    "name": "Alice"
+  },
+  "bob": {
+    "user_id": 2,
+    "uid": 1002,
+    "reseller": "alice",
+    "name": "Bob"
+  }
+}
