@@ -2,6 +2,14 @@
 
 /*srvctl */
 
+// password/lib.js - Node password generator: get_password() returns one
+// pronounceable Word-Word password (same alphabets/pattern as the bash
+// libs/get-password.sh). Consumed via require() by get-password.js and
+// modules/usersonhost/main.js.
+// FIXME(v4): Math.random() is not cryptographically secure and pattern
+// entropy is ~39 bits, yet outputs become user/SSL credentials; use
+// crypto.randomInt() in v4.
+
 function random(items) {
     return items[Math.floor(Math.random() * items.length)];
 }
