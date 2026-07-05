@@ -21,14 +21,32 @@ fi
 
 echo "PUSH $HOSTNAME:$wd $(date +%Y.%m.%d-%H:%M:%S)"
 
+branch="$(git branch --show-current)"
+
+## development stays on the master branch
+if [ "$branch" != master ]
+then
+    echo "NOTICE: working on branch $branch - not master."
+fi
+
 ## lint report - informational only, the push itself is not blocked
+## scope: only the .sh files this push will commit, not the whole repo
 if command -v shellcheck > /dev/null
 then
-    git ls-files '*.sh' | while read -r file
-    do
-        shellcheck -x "$file"
-    done
-    echo "## shellcheck report done"
+    changed="$( { git diff --name-only HEAD -- '*.sh'; git ls-files --others --exclude-standard -- '*.sh'; } | sort -u)"
+    if [ -n "$changed" ]
+    then
+        while read -r file
+        do
+            ## deleted files show up in the diff but can not be linted
+            [ -f "$file" ] || continue
+            echo "## shellcheck $file"
+            shellcheck -x "$file"
+        done <<< "$changed"
+        echo "## shellcheck report done"
+    else
+        echo "## no shell files changed - nothing to lint"
+    fi
 else
     echo "## shellcheck not installed - lint skipped"
     exit 112
@@ -69,12 +87,12 @@ then
     exit 5
 fi
 
-echo "Committed version $cv on branch $(git branch --show-current)."
+echo "Committed version $cv on branch $branch."
 
 ## push if a remote exists - a push failure must not hide behind the commit success
 if git remote | grep -q .
 then
-    if git push --set-upstream origin "$(git branch --show-current)"
+    if git push --set-upstream origin "$branch"
     then
         echo "PUSH $cv - OK."
     else
