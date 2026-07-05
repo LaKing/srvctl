@@ -48,7 +48,11 @@ exports.get = function get(cmd) {
         var result = execSync(cmd,{shell: "/bin/bash"}).toString();
         if (result.length > 0) return result;
     } catch (e) {
-        console.log($RED +'JS-ERROR in get: ', e.stderr.toString(), $CLEAR);
+        // bugfix(v4-polish): guard e.stderr like run() does — on spawn-level
+        // failures stderr is undefined and the handler itself threw.
+        var stderr = '';
+        if (e.stderr !== undefined) stderr = e.stderr.toString();
+        console.log($RED +'JS-ERROR in get: ', stderr, $CLEAR);
     }
 };
 

@@ -1,5 +1,18 @@
 #!/bin/bash
 
+##
+##   init.sh — srvctl initialization, sourced by srvctl.sh on every run.
+##
+##   Order of operations:
+##     1. debug.conf, /bin symlink bootstrap, load lablib + commonlib
+##     2. update-install/test-modules only: node+git presence,
+##        /etc/srvctl/data materialization (cluster bootstrap)
+##     3. source every /etc/srvctl/*.conf, resolve SC_USER/SC_UID0/SC_HOME
+##     4. test_srvctl_modules (cached SC_USE_* flags)
+##     5. hooks: pre-init-$CMD, pre-init; help breakout; load_libs;
+##        init; post-init; post-init-$CMD
+##
+
 # shellcheck disable=SC2034
 ## dynamic source
 # shellcheck disable=SC1091
@@ -12,6 +25,8 @@ then
 fi
 
 ## create startup symlinks for sc and srvctl commands if installed on the standard path
+## FIXME(v4): for a non-root user on a box missing these symlinks, every
+## invocation attempts 'sudo ln -s' and may hang on a password prompt.
 if [[ -f /usr/local/share/srvctl/srvctl.sh ]]
 then
     if [[ ! -e /bin/sc ]]
@@ -53,13 +68,16 @@ mkdir -p ~/.srvctl
 source "$SC_INSTALL_DIR/lablib.sh" || echo "lablib could not be loaded!" 1>&2
 
 ## init main lib
-# shellcheck source=/usr/local/share/srvctl//lablib.sh
+# shellcheck source=/usr/local/share/srvctl/commonlib.sh
 source "$SC_INSTALL_DIR/commonlib.sh" || echo "commonlib could not be loaded!" 1>&2
 
 ## logging related
 readonly NOW=$(date +%Y.%m.%d-%H:%M:%S)
 export NOW
 
+## Bootstrap path, only for update-install / test-modules: make sure node
+## and git exist, then materialize /etc/srvctl from /etc/srvctl/data
+## (cluster-wide config seed) before the module system initializes.
 if [[ $CMD == update-install ]] || [[ $CMD == test-modules ]]
 then
     if [[ -f /bin/node ]]

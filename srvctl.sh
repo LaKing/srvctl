@@ -7,6 +7,12 @@
 ###   Author: István király
 ###   LaKing@D250.hu
 ###
+###   Entry point (installed as /bin/sc and /bin/srvctl).
+###   Collects the module list into SC_MODULES (root custom modules from
+###   /root/srvctl-includes/modules first, then the installed modules/),
+###   parses the command line into CMD/ARG/ARGS/OPA/OPAS, sources init.sh
+###   (config + hooks), and dispatches via run_command (commonlib.sh).
+###
 
 ###
 ###  trying to be compatible with
@@ -27,6 +33,8 @@ fi
 if [[ $UID == 0 ]]
 then
     ## okay THIS IS REALLY only for development.
+    ## Dev-box auto-resync: when /bin/pop exists, EVERY root TTY invocation
+    ## runs it before dispatch. Never present on production installs.
     [[ -f /bin/pop ]] && "$SC_TTY" && /bin/pop
 fi
 
@@ -47,6 +55,7 @@ DEBUG=false
 readonly SC_STARTTIME="$(date +%s%3N)"
 # shellcheck disable=SC2128
 readonly SC_INSTALL_BIN="$(realpath "$BASH_SOURCE")"
+## strip the trailing "/srvctl.sh" (10 chars) to get the install dir
 readonly SC_INSTALL_DIR="${SC_INSTALL_BIN:0:-10}"
 readonly SC_COMMAND_ARGUMENTS="$*"
 
@@ -103,8 +112,10 @@ OPAS="${@:2}"
 SRVCTL="srvctl-$(cat "$SC_INSTALL_DIR/version")"
 readonly SRVCTL
 
+## bugfix(v4-polish): abort hard when init fails — continuing without init
+## used to cascade into "command not found" noise before exiting 1 anyway.
 # shellcheck source=/usr/local/share/srvctl/init.sh
-source "$SC_INSTALL_DIR/init.sh" || echo "Init could not be loaded!" 1>&2
+source "$SC_INSTALL_DIR/init.sh" || { echo "Init could not be loaded!" 1>&2; exit 1; }
 debug " => $1 $2 $3"
 debug " == run_command srvctl $CMD $ARG == "
 

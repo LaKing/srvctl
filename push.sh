@@ -2,6 +2,9 @@
 
 ##
 ## This script is NOT part of the srvctl functions, it is used for development of srvctl.
+## Dev workflow on the codepad box: bumps the version, shellchecks and
+## beautifies every .sh, regenerates README.md, and with 'push publish'
+## commits and pushes the repo. Paths are hardcoded to /srv/codepad-project.
 ##
 
 ## get project directory - this file should reside in the project root folder
@@ -93,6 +96,9 @@ function linkin() {
 find "$wd" > /tmp/srvctl-bash-beautify
 while read -r file
 do
+    ## NB: "${file:0, -3 }" works by accident-of-design — the offset is an
+    ## arithmetic expression, the comma operator yields -3, so this is the
+    ## last 3 characters of the filename (".sh").
     if [[ "${file:0, -3 }" == ".sh" ]]
     then
         #echo "@ $file" >> $log

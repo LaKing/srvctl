@@ -1,6 +1,18 @@
 #!/bin/bash
 
-## constants for use everywhere
+##
+##   lablib.sh — low-level output, logging and error helpers for srvctl.
+##
+##   Sourced by init.sh before commonlib.sh; every function here may be
+##   used by any module script. No srvctl state is required except the
+##   variables noted per function (SC_LOG, NOW, DEBUG, SC_TTY, SRVCTL).
+##
+##   Color/output contract (do not change formats — parsed downstream):
+##     msg/ntc/err print "[ shorthostname ] text" (blue prefix),
+##     err additionally logs to $SC_LOG and writes to stderr.
+##
+
+## color constants for use everywhere
 readonly RED='\e[31m'
 readonly GREEN='\e[32m'
 readonly YELLOW='\e[33m'
@@ -90,6 +102,9 @@ function err {
     echo -e "${BLUE}[ ${HOSTNAME%%.*} ] ${RED}$*${CLEAR}" >&2
 }
 
+## echo a shell-prompt-style line, then execute the arguments as a command.
+## Returns the command's exit code. Word-splitting of $* is intentional
+## (callers pass whole command lines); arguments with spaces cannot be used.
 function run {
     local signum='$'
     local __exitcode
@@ -100,20 +115,26 @@ function run {
     local WDIR
     WDIR="$(basename "$PWD")"
     echo -e "${BLUE}[$USER@${HOSTNAME%%.*} ${WDIR/#$HOME/\~}]$signum ${YELLOW}$*${CLEAR}"
-    
+
     # shellcheck disable=SC2048
     $*
     __exitcode=$?
-    
+
+    ## FIXME(v4): this warning can never print — eyif is called from the
+    ## then-branch, so it captures $? of the just-evaluated [[ ]] condition
+    ## (always 0) instead of $__exitcode. The exemption logic is also
+    ## inverted (intended: don't warn for 'systemctl * status' returning 3).
+    ## Kept as-is: fixing it would surface new warnings in many commands.
     if [[ $1 != systemctl ]] && [[ $2 != status ]] && [[ $__exitcode != 3 ]]
     then
         eyif "command '$*' returned with an error $__exitcode"
     fi
-    
+
     return $__exitcode
 }
 
-## a kind of run, but without running anything
+## a kind of run, but without running anything — prints the prompt-style
+## line only. Used to show a command to the user instead of executing it.
 function nur {
     local signum='$'
     local __exitcode
@@ -127,7 +148,8 @@ function nur {
 }
 
 
-## exit if failed
+## exit if failed — call directly after a command; exits the whole CLI with
+## that command's exact code, printing $* (or a located error in DEBUG mode).
 function exif {
     local exif_code="$?"
     if [ "$exif_code" != "0" ]
@@ -144,7 +166,7 @@ function exif {
     fi
 }
 
-## extra yell if failed
+## extra yell if failed — like exif but only warns; returns the original code.
 function eyif {
     local eyif_code="$?"
     if [ "$eyif_code" != "0" ]
@@ -161,13 +183,15 @@ function eyif {
 }
 
 function exit_0() {
-    ## exit normally, without error
+    ## exit normally, without error, printing the "## srvctl-x.y.z.w" trailer.
+    ## The trailer is suppressed for exec-function on purpose: machine
+    ## consumers (lablib.js exec_function) parse that output.
     if $DEBUG && $SC_TTY
     then
         debug "$SRVCTL"
         exit 0
     fi
-    
+
     [[ $CMD != "exec-function" ]] &&  msg "## $SRVCTL"
     exit 0
 }

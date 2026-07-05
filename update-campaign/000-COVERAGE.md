@@ -11,14 +11,14 @@ Polish = overnight identical-functionality pass: [ ] pending | [x] committed | [
 
 | Unit | Lines | Fact | Polish | Notes |
 |------|-------|------|--------|-------|
-| srvctl.sh | 135 | [x] | [ ] | entry point |
-| init.sh | 192 | [x] | [ ] | module loading, config sourcing |
-| commonlib.sh | 506 | [x] | [ ] | core functions |
-| lablib.sh | 196 | [x] | [ ] | color/output helpers |
-| push.sh | 113 | [x] | [ ] | dev workflow script |
-| claude.sh | 2 | [x] | [ ] | trivial |
-| server.js, lablib.js, encode.mjs | - | [x] | [ ] | legacy JS, inventory in discovery |
-| example-conf/ | - | [x] | [ ] | templates |
+| srvctl.sh | 135 | [x] | [x] | entry point |
+| init.sh | 192 | [x] | [x] | module loading, config sourcing |
+| commonlib.sh | 506 | [x] | [x] | core functions |
+| lablib.sh | 196 | [x] | [x] | color/output helpers |
+| push.sh | 113 | [x] | [x] | dev workflow script |
+| claude.sh | 2 | [x] | [-] | trivial |
+| server.js, lablib.js, encode.mjs | - | [x] | [x] | legacy JS, inventory in discovery |
+| example-conf/ | - | [x] | [-] | templates |
 
 ## Modules (37)
 
