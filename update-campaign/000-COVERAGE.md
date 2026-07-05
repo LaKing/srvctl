@@ -24,18 +24,18 @@ Polish = overnight identical-functionality pass: [ ] pending | [x] committed | [
 
 | Module | sh files | sh lines | cmds | Disposition | Fact | Polish | Notes |
 |--------------|-----|------|----|------------------|------|--------|-------|
-| backup | 3 | 413 | 0 | keep-port | [x] | [ ] | |
-| backupdb | 2 | 38 | 0 | keep-port | [x] | [ ] | |
-| branding | 6 | 158 | 0 | keep-port | [x] | [ ] | |
-| ca | 6 | 271 | 0 | keep-port | [x] | [ ] | |
-| certificates | 6 | 445 | 0 | keep-port | [x] | [ ] | G7 wildcard later |
-| codepad | 12 | 324 | 1 | keep-port | [x] | [ ] | |
+| backup | 3 | 413 | 0 | keep-port | [x] | [x] | |
+| backupdb | 2 | 38 | 0 | keep-port | [x] | [x] | |
+| branding | 6 | 158 | 0 | keep-port | [x] | [x] | |
+| ca | 6 | 271 | 0 | keep-port | [x] | [x] | |
+| certificates | 6 | 445 | 0 | keep-port | [x] | [x] | G7 wildcard later |
+| codepad | 12 | 324 | 1 | keep-port | [x] | [x] | |
 | containers | 41 | 2309 | 12 | keep-port | [x] | [ ] | biggest module |
 | datastore | 9 | 328 | 0 | rewrite (G2, later) | [x] | [ ] | polish now, boilerplate move later |
-| default | 2 | 26 | 0 | keep-port | [x] | [ ] | |
+| default | 2 | 26 | 0 | keep-port | [x] | [x] | |
 | dns | 4 | 22 | 0 | keep-port | [x] | [ ] | |
 | firewalld | 7 | 230 | 0 | keep-port | [x] | [ ] | |
-| ftp | 3 | 9 | 0 | undecided | [x] | [ ] | tiny |
+| ftp | 3 | 9 | 0 | undecided | [x] | [x] | tiny |
 | gluster | 5 | 424 | 0 | deprecate (G4) | [x] | [ ] | polish minimal |
 | gui | 4 | 141 | 0 | deprecate (G5) | [x] | [ ] | cockpit replaces |
 | haproxy | 9 | 333 | 2 | keep-port | [x] | [ ] | |
