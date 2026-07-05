@@ -2,6 +2,23 @@
 
 /*srvctl */
 
+/*
+ * vncproxy.js — regenerate /var/vncproxy/records from the datastore.
+ * Invoked by vncproxycfg (libs/bashlib.sh) as:
+ *     node vncproxy.js CONTAINER VNCUSER
+ * For every (container, vncuser) pair in containers.json it derives the
+ * deterministic 8-char forward key with hash() and writes one
+ * record "KEY" "CONTAINER:5900" "null" "VNCUSER @ CONTAINER"
+ * line; start.sh sources that file as bash to rebuild the sqlite db.
+ * Finally prints the 'User added ... password: ...' line for the two
+ * CLI arguments — the only place the password is ever shown.
+ * Exit codes: 0 on success, 111 (DATA-ERROR) on write failure.
+ *
+ * FIXME(v4): ~80% of this file is dead code copied from datastore tooling
+ * (unused hosts/users/resellers/use_codepad/out/CMD, return_value/output
+ * helpers); the live core is hash() + the records loop + writeFile.
+ */
+
 const lablib = "../../lablib.js";
 const msg = require(lablib).msg;
 const ntc = require(lablib).ntc;
@@ -19,7 +36,7 @@ var fs = require("fs");
 var datastore = require("../datastore/lib.js");
 
 const CMD = process.argv[2];
-// constatnts
+// constants
 
 const SRVCTL = process.env.SRVCTL;
 const SC_UID0 = process.env.SC_UID0;
@@ -57,15 +74,20 @@ function output(variable, value) {
 var hosts = datastore.hosts;
 var users = datastore.users;
 var resellers = datastore.resellers;
-//var containers = {};
-//var user = '';
-//var container = '';
 
 var use_codepad = false;
 if (process.env.SC_USE_CODEPAD === "true") use_codepad = true;
 
 const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!#*+-.,:;<=>_?@".split("");
 
+/*
+ * FROZEN ALGORITHM — every deployed VNC password is hash(container, user);
+ * any change (chars string, seed, imul constant, substring offsets)
+ * invalidates all of them.
+ * FIXME(v4): deterministic, non-cryptographic, unsalted derivation from two
+ * effectively public strings — anyone with this source can compute any
+ * user's VNC password offline; rotation is impossible by design.
+ */
 function hash(...strings) {
     const blocks = [];
     for (const s of strings) {
@@ -97,6 +119,12 @@ for (const C in containers) {
 }
 
 
+/*
+ * Async-write the records file that start.sh sources as bash.
+ * The exact line format is load-bearing (executed as bash, hand-editable).
+ * FIXME(v4): written with default 0644 in a 0755 dir — every local user can
+ * read all plaintext forward keys (the VNC passwords).
+ */
 function write_proxy_cfg() {
     fs.writeFile("/var/vncproxy/records", records.join('\n'), function (err) {
         if (err) return_error("WRITEFILE " + err);
@@ -109,6 +137,9 @@ write_proxy_cfg();
 const arg_container = process.argv[2];
 const arg_vncuser = process.argv[3];
 
+// FIXME(v4): runs unconditionally — invoked with no arguments hash()
+// throws TypeError on undefined.length, so the script cannot be used
+// standalone to merely regenerate the records file.
 msg("User added. container: " + arg_container + " vncuser: " + arg_vncuser + " host: " + HOSTNAME + " password: " + hash(arg_container, arg_vncuser));
 
 process.exitCode = 0;
