@@ -2,6 +2,30 @@
 
 /*srvctl */
 
+/*
+ *  modules/datastore/main.js — the datastore CLI dispatcher.
+ *
+ *  Invoked as:  /bin/node main.js <cmd> <dat> <arg> [opa] [val]
+ *  by the bash verb wrappers in libs/bashlib.sh, where
+ *    cmd = get | put | out | cfg | del | new | add
+ *    dat = cluster | user | reseller | container | host
+ *  Reads and writes the json files under $SC_DATASTORE_DIR through lib.js.
+ *
+ *  Exit-code contract (parsed by bashlib.sh — do not change):
+ *    0    value returned / operation done
+ *    100  requested optional value is not defined (empty get)
+ *    110  MAIN-ERROR printed on stderr (bad arguments, missing record)
+ *    112  LIB-ERROR raised inside lib.js
+ *    99   fell through without matching any command
+ *
+ *  Output formats (captured/sourced by callers — do not change):
+ *    get: the bare value.  out: VAR='value' lines, "-" replaced by "_" in
+ *    names, object values JSON.stringify'd; "out container X json" prints
+ *    pretty JSON with 4-space indent; "out host X" prefixes keys with SC_.
+ *
+ *  Scheduled for a full .mjs rewrite in v4; this pass is comments only.
+ */
+
 function log(msg) {
     console.log(msg);
 }
@@ -24,8 +48,11 @@ const OPA = process.argv[5];
 // value
 const VAL = process.argv[6];
 
-// constatnts
+// constants
 
+// FIXME(v4): SC_HOSTS_DATA_FILE, SC_USERS_DATA_FILE, SC_CONTAINERS_DATA_FILE,
+// SC_DATASTORE_RO and SC_RESELLER_USER are unused in this file (lib.js reads
+// its own copies) — dead constants; drop them in the mjs rewrite.
 const SC_HOSTS_DATA_FILE = process.env.SC_DATASTORE_DIR + "/hosts.json";
 
 const SC_USERS_DATA_FILE = process.env.SC_DATASTORE_DIR + "/users.json";
@@ -33,6 +60,8 @@ const SC_CONTAINERS_DATA_FILE = process.env.SC_DATASTORE_DIR + "/containers.json
 const SC_DATASTORE_RO = process.env.SC_DATASTORE_RO;
 const SC_RESELLER_USER = process.env.SC_RESELLER_USER;
 
+// FIXME(v4): SC_USER is an implicit global (no var/const/let declaration);
+// would throw a ReferenceError under strict mode / ES modules.
 if (process.env.SC_USER !== undefined) SC_USER = process.env.SC_USER;
 else SC_USER = process.env.USER;
 
@@ -96,9 +125,6 @@ if (DAT !== "cluster" && DAT !== "user" && DAT != "container" && DAT != "host" &
 var user = "";
 var container = "";
 
-//if (DAT === 'container') container = ARG;
-//if (DAT === 'user') user = ARG;
-
 var hosts = datastore.hosts;
 var users = datastore.users;
 var resellers = datastore.resellers;
@@ -154,6 +180,12 @@ if (DAT === "container") {
                 datastore.write_containers();
                 exit();
             }
+            // FIXME(v4): duplicate ADD blocks — for `add container X vncuser Y`
+            // this first block calls write_containers() BEFORE the vncuser is
+            // pushed (persisting a stale file), then the second block pushes
+            // and writes again: two racing async fs.writeFile calls on
+            // containers.json, and exit()/write_containers() run twice per
+            // ADD. Merge into a single block with one write in the rewrite.
             if (CMD === ADD) {
                 if (OPA === 'user' && VAL) {
                 	if (!container.users) container.users = [];
@@ -266,4 +298,4 @@ if (DAT === "cluster") {
     }
 }
 
-//return_error("EXIT on data.js EOF :: CMD:" + CMD + " ARG:" + ARG + " OPA:" + OPA);
+// no match above leaves the default process.exitCode = 99

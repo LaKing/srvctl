@@ -2,6 +2,31 @@
 
 /*srvctl */
 
+/*
+ *  modules/datastore/lib.js — the datastore model / derivation library.
+ *
+ *  Loads hosts.json, users.json and containers.json from $SC_DATASTORE_DIR
+ *  at require() time and exports:
+ *    - pure derivations: container uid/br/gw/interface/host/reseller/ports/
+ *      quota, user_uid, the cluster_* list functions
+ *    - text generators: nspawn/network/hosts/resolv.conf/firewall snippets,
+ *      cluster-wide /etc/hosts, postfix relaydomains, ssh known_hosts
+ *    - mutators: new_user/new_reseller/new_container, container_update_ip,
+ *      container_add_mapped_port, write_users/write_containers
+ *  Consumed only by main.js (one node process per verb call from
+ *  libs/bashlib.sh).
+ *
+ *  Conventions relied on farm-wide (do not change):
+ *    - container ip scheme 10.<SC_HOSTNET>.<user_id>.<c>, c starts at 2,
+ *      above 250 is fatal;  container_uid = 65536 * (user_id * 255 + c)
+ *    - interface naming by first octet: 192.a.b.c -> a_b_c, 172 -> a+b+c,
+ *      otherwise b-c-d;  default bridge name 10.<b>.<c>.x
+ *    - errors print "LIB-ERROR:" on stderr and exit 112; an empty value
+ *      sets exit code 100 (the "optional value missing" signal)
+ *
+ *  Scheduled for a full .mjs rewrite in v4; this pass is comments only.
+ */
+
 const lablib = "../../lablib.js";
 const msg = require(lablib).msg;
 const ntc = require(lablib).ntc;
@@ -13,12 +38,21 @@ const rok = require(lablib).rok;
 const SC_HOSTS_DATA_FILE = process.env.SC_DATASTORE_DIR + "/hosts.json";
 const SC_USERS_DATA_FILE = process.env.SC_DATASTORE_DIR + "/users.json";
 const SC_CONTAINERS_DATA_FILE = process.env.SC_DATASTORE_DIR + "/containers.json";
+// FIXME(v4): dead readonly guard — SC_DATASTORE_RO is never exported anywhere
+// in the repo (bash uses the unexported SC_DATASTORE_RO_USE), so the readonly
+// check in write_users/write_containers below never fires: in readonly mode
+// put/new/del/add/cfg still write the json files into the RO datastore and
+// only the git commit is skipped (libs/gitlib.sh). Unify on one variable and
+// enforce it here in the rewrite.
 const SC_DATASTORE_RO = process.env.SC_DATASTORE_RO;
 const SC_COMPANY_DOMAIN = process.env.SC_COMPANY_DOMAIN;
 const dot = ".";
 const root = "root";
 const br = "\n";
 
+// FIXME(v4): SC_USER, NOW and ON_HS are implicit globals (no var/const/let);
+// they would throw under strict mode. SC_ON_HS/ON_HS are computed but never
+// used (and the ON_HS branch tests SC_ON_HS yet reads ON_HS) — dead code.
 if (process.env.SC_USER !== undefined) SC_USER = process.env.SC_USER;
 else SC_USER = process.env.USER;
 
@@ -67,20 +101,12 @@ function load_hosts() {
     return results;
 }
 
-//exports.load_hosts = function() { load_hosts(); };
 var hosts = load_hosts();
 exports.hosts = hosts;
 
 function load_users() {
     try {
         return JSON.parse(fs.readFileSync(SC_USERS_DATA_FILE));
-        //if (users.root === undefined) {
-        //    users.root = {};
-        //    users.root.id = 0;
-        //    users.root.uid = 0;
-        //    users.root.reseller = 'root';
-        //    users.root.reseller_id = 0;
-        //}
     } catch (err) {
         return_error("READFILE " + SC_USERS_DATA_FILE + " " + err);
     }
@@ -266,6 +292,9 @@ function container_reseller(C) {
 
 exports.container_reseller = container_reseller;
 
+// FIXME(v4): dead code — container_user is not exported and has no callers
+// (it also compares the numeric users[i].id against a string ip octet, so it
+// could never match); drop it in the rewrite.
 function container_user(C) {
     var container = containers[C];
     var cipa = container.ip.split(dot);
@@ -324,7 +353,6 @@ function container_ethernet(C) {
 
     var str = "#!/bin/bash" + br;
     str += br;
-    //str += "ip link del " + interface + br;
     str += "if ip link set dev " + interface + " up" + br;
     str += "then" + br;
     str += "    echo '[ OK ] ip link set dev " + interface + " up'" + br;
@@ -449,6 +477,10 @@ function container_add_mapped_port(C) {
     o.comment = process.argv.slice(7).join(" ");
 
     // TODO .. fix this fix
+    // FIXME(v4): when no port argument is given, port_arg stays undefined and
+    // the .indexOf call below throws an uncaught TypeError instead of a clean
+    // return_error; the argv juggling should become an explicit
+    // {proto, port, comment} argument in the rewrite.
 
     // sc cfg container container2 add_mapped_port udp 22 testing adding a mapped port
     if (process.argv[6] === "udp" || process.argv[6] === "tcp") o.proto = process.argv[6];
@@ -755,25 +787,7 @@ function find_next_cip_for_container_on_network(network) {
     return c;
 }
 
-/*
-function get_reseller_id(user) {
-    
-    //var user_id = Number(user.user_id);
-    //var reseller_id = 0; 
-    //if (user.reseller === undefined) user.reseller = root;
-    //if (resellers[user.reseller] === undefined) return_error(user.reseller + " could not be located under the list of resellers");
-    //if (resellers[user.reseller].reseller_id === undefined) return_error(user.reseller + " RESELLER_ID could not be located.");
-    //reseller_id = Number(resellers[user.reseller].reseller_id);
-    
-    if (users[user].reseller === undefined) return 0;
-    var n = Number(resellers[users[user].reseller].reseller_id);
-    if (n >= 0) return n;
-    else return_error("failed to find reseller id");
-}
-*/
-
 function get_user_id() {
-    //if (users[SC_USER].reseller_id !== undefined) return_error("Could not find reseller_id for " + SC_USER);
     var ret = Number(users[SC_USER].user_id);
     if (ret === undefined) return_error("failed to find user id");
     return ret;
@@ -854,21 +868,20 @@ function new_container(C, T, B) {
 
     var container = {};
 
+    // FIXME(v4): stray debug output on every container creation (captured
+    // into the bashlib `new` error variable via 2>&1, but still noise).
     console.log(C, T, B);
 
     container.user = SC_USER;
 
-    // bridge is defined or get a new ip for the default?
+    // an ip is always allocated, even when a custom bridge is given
     if (B) container.bridge = B;
-    //else
     container.ip = find_ip_for_container();
 
     container.creation_time = NOW;
-    //container.creation_host = HOSTNAME;
     container.type = T;
 
     containers[C] = container;
-    //save_containers = true;
     write_containers();
 }
 
@@ -923,10 +936,6 @@ function cluster_etc_hosts() {
             }
         }
     });
-    //fs.writeFile("/etc/hosts", str, function(err) {
-    //    if (err) return_error("WRITEFILE " + err);
-    //    else msg("wrote /etc/hosts");
-    //});
     return str;
 }
 
@@ -950,10 +959,6 @@ function cluster_postfix_relaydomains() {
         str += i + "\tOK" + br;
     });
 
-    //fs.writeFile("/etc/postfix/relaydomains", str, function(err) {
-    //    if (err) return_error("WRITEFILE " + err);
-    //    else msg("datastore -> postfix relaydomains");
-    //});
     return str;
 }
 
@@ -971,10 +976,6 @@ function cluster_host_keys() {
             if (j.substring(0, 8) === "host-key") str += containers[i][j] + br;
         });
     });
-    //fs.writeFile("/etc/ssh/ssh_known_hosts", str, function(err) {
-    //    if (err) return_error("WRITEFILE " + err);
-    //    else console.log("[ OK ] ssh known_hosts");
-    //});
     return str;
 }
 
@@ -1030,9 +1031,3 @@ function cluster_host_ip_list() {
 }
 
 exports.cluster_host_ip_list = cluster_host_ip_list;
-
-/*
-exports.# = function() {
-    return #();
-};
-*/
