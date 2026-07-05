@@ -41,12 +41,13 @@ sourced by root shells, execing system tools interactively).
 - Hooks — CORRECTED CONTRACT (per Codex audit; earlier draft was wrong):
   v3 does NOT wrap every command in pre-$CMD/$CMD/post-$CMD. The actual v3
   contract is two distinct things and v4 must preserve BOTH exactly:
-    1. STARTUP sequence, fixed, from init.sh:163-186, run on every
-       invocation in this order: `run_hook pre-init-$CMD`, `run_hook
-       pre-init`, (help breakout), `load_libs`, `run_hook init`, `run_hook
-       post-init`, `run_hook post-init-$CMD`.
+    1. STARTUP sequence, fixed, from init.sh:181-204 (HEAD; verify per
+       package — line refs are baseline-fragile), run on every invocation in
+       this order: `run_hook pre-init-$CMD`, `run_hook pre-init`, (help
+       breakout), `load_libs`, `run_hook init`, `run_hook post-init`,
+       `run_hook post-init-$CMD`.
     2. EXPLICIT hook groups: `run_hooks X` (= pre-X, X, post-X) fired only at
-       specific call sites (commonlib.sh:110-114) — e.g. update-install-host,
+       specific call sites (commonlib.sh:111-116) — e.g. update-install-host,
        update-install-ve, regenerate, diagnose, adjust-service, add-ve. There
        is NO implicit wrapper around arbitrary command dispatch.
   Each `run_hook` iterates enabled modules in SC_MODULES order and SOURCES
