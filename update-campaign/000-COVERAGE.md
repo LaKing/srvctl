@@ -53,14 +53,14 @@ Polish = overnight identical-functionality pass: [ ] pending | [x] committed | [
 | postfix | 10 | 173 | 0 | keep-port | [x] | [ ] | |
 | saslauthd | 7 | 111 | 2 | keep-port | [x] | [x] | |
 | srvctl | 19 | 994 | 7 | keep-port | [x] | [ ] | self-management module |
-| ssh | 8 | 197 | 0 | keep-port | [x] | [ ] | |
+| ssh | 8 | 197 | 0 | keep-port | [x] | [x] | |
 | sshpiperd | 5 | 95 | 0 | keep-port | [x] | [x] | |
 | static | 5 | 69 | 0 | keep-port | [x] | [x] | |
-| usersonhost | 9 | 306 | 4 | keep-port | [x] | [ ] | G6 resellers later |
-| usersonve | 7 | 445 | 5 | keep-port | [x] | [ ] | add-zerotier.sh untouched (user WIP) |
-| ve | 3 | 37 | 1 | keep-port | [x] | [ ] | |
-| vncproxy | 23 | 271 | 1 | keep-port | [x] | [ ] | waf/ + demos/ are VENDORED — do not touch |
-| wordpress | 3 | 263 | 1 | keep-port | [x] | [ ] | |
+| usersonhost | 9 | 306 | 4 | keep-port | [x] | [x] | G6 resellers later |
+| usersonve | 7 | 445 | 5 | keep-port | [x] | [x] | add-zerotier.sh untouched (user WIP) |
+| ve | 3 | 37 | 1 | keep-port | [x] | [x] | |
+| vncproxy | 23 | 271 | 1 | keep-port | [x] | [x] | waf/ + demos/ are VENDORED — do not touch |
+| wordpress | 3 | 263 | 1 | keep-port | [x] | [x] | |
 
 Deprecation dispositions are provisional (G-numbers per 000-PROMPT); final
 call is the user's. Tonight's polish covers ALL modules uniformly per the
