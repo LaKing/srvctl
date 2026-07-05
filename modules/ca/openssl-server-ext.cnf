@@ -1,5 +1,10 @@
 ## here we add some additional things needed by srvctl
 ## openvpn warns to make server certs with this extension
+##
+## FIXME(v4): this file is UNREFERENCED — create_ca_certificate (libs/calib.sh)
+## uses the byte-identical copy in modules/certificates/openssl-server-ext.cnf
+## (a third identical copy lives in modules/letsencrypt/). Deduplicate in v4
+## and make the ca module reference its own asset.
 [ server ]
 
 # Make a cert with nsCertType set to "server"
