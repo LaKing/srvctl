@@ -9,9 +9,17 @@ reseller_only
 sudomize
 argument container
 
-#local C username reseller
-# shellcheck disable=SC2034
+##
+##   STUB — validates its arguments, reports the target user's reseller,
+##   then errors out with "not implemented". The intent is to reassign
+##   container VE to USERNAME, which implies a new (uid-derived) IP
+##   address and a container restart. Gated to resellers/root like the
+##   rest of the reseller mechanics — deprecation candidate for v4 (G6),
+##   but the command surface must stay until the migration.
+##
 
+# shellcheck disable=SC2034
+## C stays unused until the stub is implemented
 C="$ARG"
 username="$OPA"
 
@@ -28,6 +36,7 @@ then
     exit 23
 fi
 
+## users without a reseller in the datastore belong to root
 reseller="$(get user "$username" reseller)"
 if [[ -z $reseller ]]
 then
@@ -35,5 +44,6 @@ then
 fi
 ntc "Reseller for $username is: $reseller"
 
-#TODO implement it
+## FIXME(v4): unimplemented stub — implement the reassignment (datastore
+## user change, IP/uid update, container restart) or drop the command
 err "DEV (not implemented - yet.)"

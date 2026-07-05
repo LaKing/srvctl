@@ -3,6 +3,29 @@
 /*srvctl */
 
 // regenerate users
+//
+// modules/usersonhost/main.js — the user-reconciliation engine of the
+// usersonhost module. Run (with no arguments) by the userscfg wrapper in
+// libs/bashlib.sh, from hooks/regenerate.sh and from regenerate_users
+// (add-user / add-reseller / add-ve-user).
+//
+// For every user in the datastore it ensures, in order:
+//   - the system account (adduser with the datastore uid; the gecos
+//     comment carries "<reseller> - <name>" for reseller-owned users —
+//     reseller mechanics are a v4 deprecation candidate, G6),
+//   - ssh keys in $SC_DATASTORE_DIR/users/<user>/ (id_ecdsa[.pub],
+//     srvctl_id_ecdsa[.pub]) plus a copy in ~/.ssh, and for reseller-owned
+//     users the reseller_id_ecdsa.pub / srvctl_reseller_id_ecdsa.pub
+//     symlinks to the reseller's keys,
+//   - the client p12 certificate in the home directory, minted on/fetched
+//     from SC_ROOTCA_HOST via the ca module,
+//   - the login password (datastore .password/.hash and ~/.password).
+// Then for every container it bindfs-mounts the rootfs (and, except for
+// mail.* containers, /var/www/html with uid+48 = apache) into the homes
+// of the owner, users[] and readers[] (read-only).
+//
+// Exit codes: starts at 99, exit()->0 on the normal path, 111 via
+// return_error.
 
 function out(msg) {
     console.log(msg);
@@ -87,6 +110,11 @@ function crate_user_password(user) {
 
     if (password !== passwork) {
         if (passwork === undefined) passwork = password;
+        // FIXME(v4): [high] plaintext password disclosure — this msg() and
+        // the run() banner below both print the password to stdout (and any
+        // srvctl log) on every password change; the bash twin of this line
+        // (userlib.sh crate_user_password) is commented out, only this JS
+        // path leaks. Behavior-preserving tonight, must be silenced in v4.
         msg("Password-update for user: " + user + " password: " + password);
         run("echo " + password + " | passwd " + user + " --stdin 2> /dev/null 1> /dev/null");
 
@@ -110,6 +138,9 @@ function create_user_ssh(user) {
 
     var dir = SC_DATASTORE_DIR + "/users/" + user;
     if (!fs.existsSync(dir)) fs.mkdirSync(dir);
+    // FIXME(v4): mode 0600 on a directory drops the traverse bit — root is
+    // unaffected, but any non-root consumer (e.g. an AuthorizedKeysCommand
+    // user) cannot reach the *.pub files inside; 0700 was likely meant.
     fs.chmodSync(dir, 0600);
 
     /// the id_ecdsa (without prefix) will be placed in the users home directory.
@@ -175,6 +206,10 @@ function create_user_ssh(user) {
         var reseller = users[user].reseller;
         if (reseller === root) return;
         if (!fs.existsSync(SC_DATASTORE_DIR + "/users/" + user + "/reseller_id_ecdsa.pub")) {
+            // FIXME(v4): symlink name diverges from the bash twin — here
+            // "srvctl_reseller_id_ecdsa.pub", ssh/libs/userlib.sh writes
+            // "reseller_srvctl_id_ecdsa.pub"; no consumer today, but pick
+            // one name when the implementations are merged.
             run("ln -s ../" + reseller + "/id_ecdsa.pub " + SC_DATASTORE_DIR + "/users/" + user + "/reseller_id_ecdsa.pub");
             run("ln -s ../" + reseller + "/srvctl_id_ecdsa.pub " + SC_DATASTORE_DIR + "/users/" + user + "/srvctl_reseller_id_ecdsa.pub");
         }
@@ -260,6 +295,10 @@ Object.keys(users).forEach(function (u) {
     if (!rok("id " + u)) {
         if (users[u].uid === undefined) return err("No UID for " + u);
         if (users[u].name === undefined) users[u].name = u;
+        // FIXME(v4): shell injection — the datastore-supplied name (and
+        // reseller) is interpolated into a single-quoted shell string with
+        // no escaping; a name containing ' breaks out of the quotes in a
+        // root shell. Pass an argv array instead of a command string in v4.
         if (users[u].reseller === undefined) run("adduser -U -c '" + users[u].name + "' -u " + users[u].uid + " " + u);
         else run("adduser -U -c '" + users[u].reseller + " - " + users[u].name + "' -u " + users[u].uid + " " + u);
     }

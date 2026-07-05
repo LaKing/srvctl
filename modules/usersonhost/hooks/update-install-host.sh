@@ -1,7 +1,21 @@
 #!/bin/bash
 
+##
+##   modules/usersonhost/hooks/update-install-host.sh — sudo wiring and
+##   host user tools.
+##
+##   Fired by "run_hooks update-install-host" from modules/srvctl/
+##   commands/update-install.sh on cluster hosts. Writes the srvctl
+##   sudoers drop-in, then installs the interactive tools users expect
+##   on a host (vnc, mercurial, mail, firefox, ...); each install is
+##   guarded by a /usr/bin binary check so re-runs are cheap no-ops.
+##
+
 ## srvctl3 sudo functions
 sc_install sudo
+## FIXME(v4): security review — "ALL ALL=(ALL) NOPASSWD: srvctl.sh *" lets
+## every account on the host run srvctl as root with arbitrary arguments;
+## srvctl's own authorization (authlib) is the only remaining boundary.
 echo "## srvctl v3 sudo file" > /etc/sudoers.d/srvctl
 echo "ALL ALL=(ALL) NOPASSWD: $SC_INSTALL_DIR/srvctl.sh *" >> /etc/sudoers.d/srvctl
 
@@ -22,7 +36,7 @@ msg "installing User tools"
 ## mail
 [[ ! -f /usr/bin/mailx ]] && sc_install mailx
 
-## ratposion
+## ratpoison
 [[ ! -f /usr/bin/ratpoison ]] && sc_install ratpoison
 
 ## firefox
@@ -32,6 +46,9 @@ msg "installing User tools"
 
 [[ ! -f /usr/bin/7z ]] && sc_install p7zip-plugins
 
+## template for further tools:
 ## [[ ! -f ]] && sc_install
 
+## the last guard above evaluates false when the tool is already present;
+## return 0 keeps that from becoming the hook's exit status
 return 0
