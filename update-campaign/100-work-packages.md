@@ -29,15 +29,19 @@ Execution rules (from 000-PROMPT + the Stage-2 preconditions in 000-INDEX):
     v3 output; folds into WP-C wiring.
 - **WP-C — golden-master harness ✅ DONE** (precondition, per user):
   selftest/verbapi.test.mjs + golden/fixture/*.json + golden/golden.json
-  freeze the live v3 main.js verb contract — 62 cases (get/out/cfg/del/put/
+  freeze the live v3 main.js verb contract — 61 cases (get/out/cfg/del/put/
   add/new across container/user/reseller/host/cluster + arg/dispatch errors
   + mutation file-effects), stdout+stderr+exit pinned, os.hostname()
   normalized, and child-spawn failures hard-fail instead of recording empty
   output. Deterministic (full suite + 3 direct repeats). Cross-checks WP-B:
   golden derivation outputs match derive.mjs exactly. Full datastore suite:
-  106 checks.
+  105 checks. `get container C resolv_conf` is intentionally excluded from
+  the v3 golden: v3 hardcodes os.hostname() and crashes under a portable
+  fixture whose host list does not include the test machine, pinning a
+  fixture artifact rather than a production contract. Cover resolv_conf in
+  the generator snapshots with explicit ctx.HOSTNAME.
   - **WP-C — wiring (next)**: reimplement main.js internals on store.mjs +
-    derive.mjs (+ WP-B part 2 text generators); the golden must stay 62/62.
+    derive.mjs (+ WP-B part 2 text generators); the golden must stay 61/61.
     Fixes the duplicate-ADD race and the dead RO guard. Then run the
     datastore on file-per-entity behind the bash wrappers.
 - **WP-D** — bash FRONT DOOR + command index: light srvctl.sh/init.sh/

@@ -71,7 +71,10 @@ const CASES = [
   // ---- container: text generators (multi-line) ----
   ["get-container-domains", ["get", "container", "shop.example.com", "domains"]],
   ["get-container-hosts", ["get", "container", "site.example.com", "hosts"]],
-  ["get-container-resolv_conf", ["get", "container", "site.example.com", "resolv_conf"]],
+  // Deliberately not covered here: resolv_conf. v3 hardcodes os.hostname()
+  // and dereferences hosts[HOSTNAME], so a portable fixture whose host list
+  // does not include the test machine pins a fixture crash, not a live
+  // contract. Cover it in derivation/generator tests with explicit HOSTNAME.
   // ---- container: cfg mutators and errors ----
   ["cfg-container-update_ip", ["cfg", "container", "shop.example.com", "update_ip"], true],
   ["cfg-container-add_mapped_port", ["cfg", "container", "site.example.com", "add_mapped_port", "udp", "22", "ssh access"], true],
