@@ -1,17 +1,19 @@
-// modules/datastore/selftest/mutators.test.mjs — differential test for the v4
-// pure mutators (mutators.mjs) against the live v3 lib.js.
+// modules/datastore/selftest/mutators.test.mjs — golden test for the v4 pure
+// mutators (mutators.mjs) against a frozen v3 capture.
 //
-// Group A (differential): for each mutation, capture v3's resulting record via
-//   capture-mutators.cjs over a fixture, apply the v4 pure mutator to the same
-//   state, assert deep-equal. Covers new_user, new_reseller, new_container
-//   (plain + bridge), container_update_ip.
+// Group A (golden): compare pure mutators against checked-in v3 resulting
+//   records captured via capture-mutators.cjs over a fixture. Covers new_user,
+//   new_reseller, new_container (plain + bridge), container_update_ip.
 // Group B (v4-only): container_add_mapped_port allocation logic (the argv
 //   juggling + end-to-end is covered by the verb golden's
 //   cfg-container-add_mapped_port case).
 //
 // Run: node modules/datastore/selftest/mutators.test.mjs  (exit != 0 on fail)
-// NB: Group A is a LIVE DIFFERENTIAL against v3 lib.js (present until WP-C
-// cutover). The verb golden already freezes the same mutations end-to-end.
+// Re-record while v3 lib.js still exists:
+//      node modules/datastore/selftest/mutators.test.mjs --record
+//
+// NOTE: --record depends on modules/datastore/lib.js. Normal verification does
+// not, so WP-C can replace lib.js after this golden exists.
 
 import fs from "node:fs";
 import os from "node:os";
@@ -25,6 +27,7 @@ import {
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const CAPTURE = path.join(HERE, "capture-mutators.cjs");
+const GOLDEN_FILE = path.join(HERE, "golden", "mutators.json");
 const NOW = "2026-01-01T00:00:00.000Z";
 
 const USERS = {
@@ -70,18 +73,35 @@ function v3(op, ...args) {
 
 const freshState = () => ({ users: structuredClone(USERS), containers: structuredClone(CONTAINERS) });
 
-// ---- Group A: differential vs live v3 -------------------------------------
-// Skipped once WP-C removes lib.js — the verb golden then covers these
-// mutations end-to-end (new-user/new-reseller/new-container/cfg-update_ip).
+function captureV3Golden() {
+  return {
+    new_user: v3("new_user", "carol"),
+    new_reseller: v3("new_reseller", "agency"),
+    new_container: v3("new_container", "new.example.com", "fedora"),
+    "new_container bridge": v3("new_container", "bridged.example.com", "fedora", "br-test"),
+    update_ip: v3("update_ip", "shop.example.com"),
+  };
+}
 
-if (fs.existsSync(path.join(HERE, "..", "lib.js"))) {
-  check("new_user", newUser(freshState(), "carol", { SC_USER: "root", NOW }), v3("new_user", "carol"));
-  check("new_reseller", newReseller(freshState(), "agency", { SC_USER: "root", NOW }), v3("new_reseller", "agency"));
-  check("new_container", newContainer(freshState(), "new.example.com", "fedora", undefined, { SC_USER: "root", NOW, SC_HOSTNET: "20" }), v3("new_container", "new.example.com", "fedora"));
-  check("new_container bridge", newContainer(freshState(), "bridged.example.com", "fedora", "br-test", { SC_USER: "root", NOW, SC_HOSTNET: "20" }), v3("new_container", "bridged.example.com", "fedora", "br-test"));
-  check("update_ip", containerUpdateIp(freshState(), "shop.example.com", { SC_HOSTNET: "20" }), v3("update_ip", "shop.example.com"));
-} else {
-  console.log("  SKIP Group A differential (lib.js absent — verb golden covers mutations)");
+// ---- Group A: checked-in v3 capture ---------------------------------------
+
+{
+  const record = process.argv.includes("--record");
+  if (record) {
+    const captured = captureV3Golden();
+    fs.mkdirSync(path.dirname(GOLDEN_FILE), { recursive: true });
+    fs.writeFileSync(GOLDEN_FILE, JSON.stringify(captured, null, 2) + "\n");
+    console.log(`recorded ${Object.keys(captured).length} mutator entries -> ${path.relative(process.cwd(), GOLDEN_FILE)}`);
+  }
+  if (!fs.existsSync(GOLDEN_FILE)) {
+    throw new Error("missing mutator golden; run mutators.test.mjs --record while v3 lib.js exists");
+  }
+  const v3Golden = JSON.parse(fs.readFileSync(GOLDEN_FILE, "utf8"));
+  check("new_user", newUser(freshState(), "carol", { SC_USER: "root", NOW }), v3Golden.new_user);
+  check("new_reseller", newReseller(freshState(), "agency", { SC_USER: "root", NOW }), v3Golden.new_reseller);
+  check("new_container", newContainer(freshState(), "new.example.com", "fedora", undefined, { SC_USER: "root", NOW, SC_HOSTNET: "20" }), v3Golden.new_container);
+  check("new_container bridge", newContainer(freshState(), "bridged.example.com", "fedora", "br-test", { SC_USER: "root", NOW, SC_HOSTNET: "20" }), v3Golden["new_container bridge"]);
+  check("update_ip", containerUpdateIp(freshState(), "shop.example.com", { SC_HOSTNET: "20" }), v3Golden.update_ip);
 }
 
 // ---- Group B: add_mapped_port allocation (v4-only) ------------------------

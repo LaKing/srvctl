@@ -33,12 +33,9 @@ Execution rules (from 000-PROMPT + the Stage-2 preconditions in 000-INDEX):
     mapped_ports/dotless/gsuite/mail), + resolv_conf with controlled HOSTNAME,
     + useruids over injected passwd/group. Found+preserved v3 quirks (uid-0
     root skipped in useruids; hardcoded 10.15 in etc_hosts) as FIXME(v4).
-    Datastore suite now 182 checks. The v3 reference is frozen in
+    Datastore suite reached 182 checks. The v3 reference is frozen in
     selftest/golden/generators.json (71 normalized entries); normal
     verification no longer depends on lib.js, only `--record` does.
-    - Remaining for WP-C write path: mutators (new_user/reseller/container,
-      container_update_ip, container_add_mapped_port) + ip allocation helpers
-      — argv-coupled + write, belong with the verb dispatcher rewrite.
 - **WP-C — golden-master harness ✅ DONE** (precondition, per user):
   selftest/verbapi.test.mjs + golden/fixture/*.json + golden/golden.json
   freeze the live v3 main.js verb contract — 61 cases (get/out/cfg/del/put/
@@ -52,10 +49,21 @@ Execution rules (from 000-PROMPT + the Stage-2 preconditions in 000-INDEX):
   fixture whose host list does not include the test machine, pinning a
   fixture artifact rather than a production contract. Cover resolv_conf in
   the generator snapshots with explicit ctx.HOSTNAME.
+- **WP-C — mutator pure port ✅ DONE**: mutators.mjs covers the write
+  state-transitions and allocation helpers (new_user/reseller/container,
+  container_update_ip, container_add_mapped_port, next user/ip/uid/host-port)
+  as pure functions that return records/values for the dispatcher to persist.
+  mutators.test.mjs = 8 checks, including five frozen v3 resulting records in
+  selftest/golden/mutators.json plus v4-only mapped-port allocation edge cases.
+  Full datastore suite now 190 checks. Normal verification no longer depends
+  on lib.js; only `--record` does while v3 is still present.
   - **WP-C — wiring (next)**: reimplement main.js internals on store.mjs +
-    derive.mjs (+ WP-B part 2 text generators); the golden must stay 61/61.
-    Fixes the duplicate-ADD race and the dead RO guard. Then run the
-    datastore on file-per-entity behind the bash wrappers.
+    derive.mjs + generators.mjs + mutators.mjs. First wire against the
+    monolithic three-file datastore and keep the 61-case verb golden byte-exact
+    (stdout/stderr/exit/mutation files), while fixing the duplicate-ADD race
+    and dead RO guard without changing net effects. Then swap the backend to
+    store.mjs's file-per-entity layout and adapt mutation comparison from raw
+    monolithic files to semantic entity maps; stdout/exit stay byte-exact.
 - **WP-D** — bash FRONT DOOR + command index: light srvctl.sh/init.sh/
   commonlib.sh; node builds a cached command/help index (kills the
   hint_on_file grep storm) — the G1 dispatch win. Preserve hook contract
