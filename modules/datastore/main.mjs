@@ -99,26 +99,42 @@ try {
 }
 if (Object.keys(hosts).length < 1) lib_error("READFILE hosts has no hosts defined. Eventually run: srvctl update-install");
 
-// Per-entity write helpers. v3's write emitted "wrote X.json" from the ASYNC
-// fs.writeFile callback, so all "wrote" lines come AFTER synchronous output —
-// reproduced by DEFERRING them to a flush after dispatch. The label stays
-// "wrote users.json"/"wrote containers.json" (byte-exact stdout) even though
-// the write now targets a per-entity file. Readonly / write failure → the v3
-// LIB-ERROR 112 contract.
+// SERIALIZED read-modify-write for every mutating verb. The WHOLE
+// read → existence-check → allocate/mutate → write runs under ONE store lock
+// (store.transaction), re-reading FRESH state inside the lock — so concurrent
+// allocations (container ip, user_id/uid, host_port) and same-entity updates
+// cannot race. Reads (get/out/exist/cfg-read) stay lock-free on the top-level
+// snapshot loaded above.
+//
+// Error mapping (v3 contract): a MutatorError (or a dispatch-level "DONT
+// EXISTS") propagates out of the transaction (lock released by its finally) to
+// the outer handler → return_error 110. A readonly store → LIB-ERROR 112
+// "Readonly datastore."; a write/parse failure → LIB-ERROR 112.
+//
+// v3 emitted "wrote X.json" from the ASYNC fs.writeFile callback, so those
+// lines come AFTER synchronous output — reproduced by DEFERRING them to a
+// flush after dispatch. The label stays "wrote users.json"/"wrote
+// containers.json" (byte-exact stdout) though the write targets a per-entity
+// file.
 const pendingWrites = [];
-function persist(fn, type, id, wroteMsg) {
+function runMutation(message, fn) {
   try {
-    fn();
+    store.transaction(message, (tx) => {
+      const st = {
+        hosts: tx.readAll("hosts"),
+        users: tx.readAll("users"),
+        containers: tx.readAll("containers"),
+      };
+      fn(tx, st);
+    });
   } catch (err) {
+    if (err instanceof MutatorError) throw err; // -> outer handler -> return_error 110
     if (err instanceof StoreError && err.code === "READONLY") return lib_error("Readonly datastore.");
-    return lib_error("WRITEFILE " + type + "/" + id + ".json " + err);
+    return lib_error("WRITEFILE " + err);
   }
-  pendingWrites.push(wroteMsg);
 }
-function writeContainer(id) { persist(() => store.write("containers", id, containers[id]), "containers", id, "wrote containers.json"); }
-function writeUser(id) { persist(() => store.write("users", id, users[id]), "users", id, "wrote users.json"); }
-function removeContainer(id) { persist(() => store.remove("containers", id), "containers", id, "wrote containers.json"); }
-function removeUser(id) { persist(() => store.remove("users", id), "users", id, "wrote users.json"); }
+function txWrite(tx, type, id, record, wroteMsg) { tx.write(type, id, record); pendingWrites.push(wroteMsg); }
+function txRemove(tx, type, id, wroteMsg) { tx.remove(type, id); pendingWrites.push(wroteMsg); }
 
 // ---- derivation / generator context ---------------------------------------
 const ctx = {
@@ -183,72 +199,93 @@ for (const w of pendingWrites) msg(w);
 function dispatch() {
   // ---------------------------------------------------------------- container
   if (DAT === "container") {
+    // --- mutating verbs: fresh read + mutate + write, all under one lock ---
     if (CMD === "new") {
-      const rec = newContainer({ containers, users }, ARG, OPA, VAL, { SC_USER, NOW, SC_HOSTNET: ctx.SC_HOSTNET });
-      console.log(ARG, OPA, VAL);           // v3 new_container stray debug line
-      containers[ARG] = rec;
-      writeContainer(ARG);
-      return exit0();
+      return runMutation("new container " + ARG, (tx, st) => {
+        const rec = newContainer({ containers: st.containers, users: st.users }, ARG, OPA, VAL, { SC_USER, NOW, SC_HOSTNET: ctx.SC_HOSTNET });
+        console.log(ARG, OPA, VAL); // v3 new_container stray debug line
+        txWrite(tx, "containers", ARG, rec, "wrote containers.json");
+        exit0();
+      });
     }
+    if (CMD === "put") {
+      return runMutation("put container " + ARG, (tx, st) => {
+        const container = st.containers[ARG];
+        if (container === undefined) throw new MutatorError("CONTAINER " + ARG + " DONT EXISTS");
+        if (VAL === undefined) delete container[OPA];
+        else if (VAL === "true") container[OPA] = true;
+        else if (VAL === "false") container[OPA] = false;
+        else container[OPA] = VAL;
+        txWrite(tx, "containers", ARG, container, "wrote containers.json");
+        exit0();
+      });
+    }
+    if (CMD === "cfg") {
+      return runMutation("cfg container " + ARG, (tx, st) => {
+        const container = st.containers[ARG];
+        if (container === undefined) throw new MutatorError("CONTAINER " + ARG + " DONT EXISTS");
+        const C = ARG;
+        // v3: `return_value(fn())` then a trailing `exit()` — the fns return
+        // undefined (return_value sets 100), the trailing exit() forces 0.
+        if (OPA === "update_ip") {
+          container.ip = containerUpdateIp({ containers: st.containers, users: st.users }, C, { SC_HOSTNET: ctx.SC_HOSTNET });
+          txWrite(tx, "containers", C, container, "wrote containers.json");
+          msg("Update container " + C + " ip " + container.ip); // v3 msg (sync)
+          return_value(undefined);
+        } else if (OPA === "add_mapped_port") {
+          const parsed = parseMappedPortArgs();
+          const entry = containerAddMappedPort({ containers: st.containers, users: st.users }, C, { ...parsed, SC_USER, NOW });
+          if (!container.mapped_ports) container.mapped_ports = [];
+          container.mapped_ports.push(entry);
+          msg("Registering " + entry.proto + " port " + entry.host_port + " for " + C + ":" + entry.container_port); // v3 msg (sync)
+          txWrite(tx, "containers", C, container, "wrote containers.json");
+          return_value(undefined);
+        } else {
+          throw new MutatorError("INTERNAL CFG FUNCTION DONT EXISTS");
+        }
+        exit0(); // v3's trailing exit() -> exitCode 0
+      });
+    }
+    if (CMD === "del") {
+      return runMutation("del container " + ARG, (tx, st) => {
+        if (st.containers[ARG] === undefined) throw new MutatorError("CONTAINER " + ARG + " DONT EXISTS");
+        txRemove(tx, "containers", ARG, "wrote containers.json");
+        exit0();
+      });
+    }
+    if (CMD === "add") {
+      return runMutation("add container " + ARG, (tx, st) => {
+        const container = st.containers[ARG];
+        if (container === undefined) throw new MutatorError("CONTAINER " + ARG + " DONT EXISTS");
+        const C = ARG;
+        // v3 has TWO sequential `if (CMD===ADD)` blocks, each ending in
+        // write_containers()+exit(), so BOTH writes run on every add (the
+        // duplicate-ADD FIXME → two "wrote containers.json" lines). Reproduced
+        // for byte-exact stdout; the transaction dedups to a single file write.
+        if (OPA === "user" && VAL) {
+          if (!container.users) container.users = [];
+          if (container.users.indexOf(VAL) < 0) container.users.push(VAL);
+          return_value(container.users);
+        }
+        txWrite(tx, "containers", C, container, "wrote containers.json");
+        if (OPA === "vncuser" && VAL) {
+          if (!container.vncusers) container.vncusers = [];
+          if (container.vncusers.indexOf(VAL) < 0) container.vncusers.push(VAL);
+          return_value(container.vncusers);
+        }
+        txWrite(tx, "containers", C, container, "wrote containers.json");
+        exit0();
+      });
+    }
+    // --- reading verbs: lock-free on the top-level snapshot ---
     if (CMD === "get" && OPA === "exist") return return_value(containers[ARG] !== undefined ? "true" : "false");
     if (containers[ARG] === undefined) return return_error("CONTAINER " + ARG + " DONT EXISTS");
     const container = containers[ARG];
     const C = ARG;
-    if (CMD === "put") {
-      if (VAL === undefined) delete container[OPA];
-      else if (VAL === "true") container[OPA] = true;
-      else if (VAL === "false") container[OPA] = false;
-      else container[OPA] = VAL;
-      writeContainer(C);
-      return exit0();
-    }
-    if (CMD === "cfg") {
-      // v3: `return_value(fn())` then a trailing `exit()` — the update_ip /
-      // add_mapped_port fns return undefined (→ return_value sets exit 100),
-      // but the trailing exit() overrides exitCode back to 0.
-      if (OPA === "update_ip") {
-        container.ip = containerUpdateIp({ containers, users }, C, { SC_HOSTNET: ctx.SC_HOSTNET });
-        writeContainer(C);
-        msg("Update container " + C + " ip " + container.ip); // v3 container_update_ip msg (sync)
-        return_value(undefined);
-      } else if (OPA === "add_mapped_port") {
-        const parsed = parseMappedPortArgs();
-        const entry = containerAddMappedPort({ containers, users }, C, { ...parsed, SC_USER, NOW });
-        if (!container.mapped_ports) container.mapped_ports = [];
-        container.mapped_ports.push(entry);
-        msg("Registering " + entry.proto + " port " + entry.host_port + " for " + C + ":" + entry.container_port); // v3 msg (sync)
-        writeContainer(C);
-        return_value(undefined);
-      } else {
-        return return_error("INTERNAL CFG FUNCTION DONT EXISTS");
-      }
-      return exit0(); // v3's trailing exit() -> exitCode 0
-    }
     if (CMD === "out") {
       if (OPA === "json") return output_json(container);
       output("C", ARG);
       Object.keys(container).forEach((j) => output(j, container[j]));
-      return exit0();
-    }
-    if (CMD === "del") { delete containers[ARG]; removeContainer(ARG); return exit0(); }
-    if (CMD === "add") {
-      // v3 has TWO sequential `if (CMD===ADD)` blocks, each ending in
-      // write_containers()+exit() with no process.exit, so BOTH writes run on
-      // every add (the duplicate-ADD FIXME). Reproduced verbatim: two writes →
-      // two "wrote containers.json" lines. (A future step may collapse this to
-      // one write; that changes output and will update the golden explicitly.)
-      if (OPA === "user" && VAL) {
-        if (!container.users) container.users = [];
-        if (container.users.indexOf(VAL) < 0) container.users.push(VAL);
-        return_value(container.users);
-      }
-      writeContainer(C);
-      if (OPA === "vncuser" && VAL) {
-        if (!container.vncusers) container.vncusers = [];
-        if (container.vncusers.indexOf(VAL) < 0) container.vncusers.push(VAL);
-        return_value(container.vncusers);
-      }
-      writeContainer(C);
       return exit0();
     }
     if (CMD === "get") return return_value(containerGet(C, OPA));
@@ -256,30 +293,44 @@ function dispatch() {
   }
   // --------------------------------------------------------------------- user
   if (DAT === "user") {
+    // --- mutating verbs under one lock ---
     if (CMD === "new") {
-      users[ARG] = newUser({ containers, users }, ARG, { SC_USER, NOW });
-      writeUser(ARG);
-      return exit0();
+      return runMutation("new user " + ARG, (tx, st) => {
+        const rec = newUser({ containers: st.containers, users: st.users }, ARG, { SC_USER, NOW });
+        txWrite(tx, "users", ARG, rec, "wrote users.json");
+        exit0();
+      });
     }
     if (CMD === "get" && OPA === "exist") return return_value(users[ARG] !== undefined ? "true" : "false");
     if (CMD === "cfg" && ARG === "container_list") return return_value(g.user_container_list(SC_USER));
+    if (CMD === "put") {
+      return runMutation("put user " + ARG, (tx, st) => {
+        const user = st.users[ARG];
+        if (user === undefined) throw new MutatorError("USER DONT EXISTS");
+        if (VAL === undefined) delete user[OPA];
+        else if (VAL === "true") user[OPA] = true;
+        else if (VAL === "false") user[OPA] = false;
+        else user[OPA] = VAL;
+        txWrite(tx, "users", ARG, user, "wrote users.json");
+        exit0();
+      });
+    }
+    if (CMD === "del") {
+      return runMutation("del user " + ARG, (tx, st) => {
+        if (st.users[ARG] === undefined) throw new MutatorError("USER DONT EXISTS");
+        txRemove(tx, "users", ARG, "wrote users.json");
+        exit0();
+      });
+    }
+    // --- reading verbs: lock-free ---
     if (users[ARG] === undefined) return return_error("USER DONT EXISTS");
     const user = users[ARG];
     const U = ARG;
-    if (CMD === "put") {
-      if (VAL === undefined) delete user[OPA];
-      else if (VAL === "true") user[OPA] = true;
-      else if (VAL === "false") user[OPA] = false;
-      else user[OPA] = VAL;
-      writeUser(U);
-      return exit0();
-    }
     if (CMD === "out") {
       output("U", ARG);
       Object.keys(user).forEach((j) => output(j, user[j]));
       return exit0();
     }
-    if (CMD === "del") { delete users[ARG]; removeUser(ARG); return exit0(); }
     if (CMD === "get") {
       if (OPA === "uid") return return_value(g.user_uid(U));
       if (OPA === "container_list") return return_value(g.user_container_list(SC_USER));
@@ -290,9 +341,11 @@ function dispatch() {
   // ----------------------------------------------------------------- reseller
   if (DAT === "reseller") {
     if (CMD === "new") {
-      users[ARG] = newReseller({ containers, users }, ARG, { SC_USER, NOW });
-      writeUser(ARG);
-      return exit0();
+      return runMutation("new reseller " + ARG, (tx, st) => {
+        const rec = newReseller({ containers: st.containers, users: st.users }, ARG, { SC_USER, NOW });
+        txWrite(tx, "users", ARG, rec, "wrote users.json");
+        exit0();
+      });
     }
     return;
   }

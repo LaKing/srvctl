@@ -98,6 +98,14 @@ Execution rules (from 000-PROMPT + the Stage-2 preconditions in 000-INDEX):
         is normally irrelevant, but DUPLICATE generated hostnames/aliases can
         make order observable. Treat duplicate generated hostnames as a v4
         validation/data-quality check, not an ordering mechanism.
+      - CONCURRENCY FIX (Codex finding, high): the pre-lock snapshot let
+        concurrent mutating verbs allocate duplicate ips/user_ids/uids/
+        host_ports (reproduced: 20 parallel new-container → 10.20.0.2 ×8).
+        Fixed — every mutating verb now runs fresh-read + allocate + write
+        inside ONE store.transaction() lock (reads stay lock-free).
+        selftest/concurrency.test.mjs proves it: 20 parallel new-container /
+        new-user / add_mapped_port → zero duplicate allocations, no lost
+        writes. Datastore suite now 197 checks.
       - Still bash-side (WP-C step 2b): gitlib.sh `git add ./*.json` → per-
         entity paths; datalib.sh seeding/RO-dir; wire migrate.mjs (monolithic
         → per-entity) into update-install for live servers; export
