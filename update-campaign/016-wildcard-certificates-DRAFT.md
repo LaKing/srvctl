@@ -39,10 +39,25 @@ Status: DRAFT written session 1 (autonomous). Not approved.
    renewals running until each domain's consumers are switched; then
    disable per-domain issuance.
 
-## Open questions (for the user)
+## Decisions folded (D18, D19, D20)
 
-1. Inventory: which of the ~5 servers' hosted domains are subdomain-based
-   (wildcard-eligible) vs customer-owned domains?
-2. Rate limits/SAN strategy: one wildcard per domain, or combined SANs?
-3. Where should the single renewal authority live — one host per domain
-   (the DNS master) distributing bundles cluster-wide?
+- **D18** — **every certificate is a wildcard** (`*.domain` + `domain`), not
+  just subdomain-based sites. Uniform issuance path; no per-microsite certs.
+  This simplifies the model: one wildcard per hosting domain covers all its
+  containers/subdomains.
+- **D19** — **one wildcard per hosting domain**. Per-customer (vanity)
+  domains each get their own wildcard too (D18 = all wildcard). No giant
+  combined-SAN certs.
+- **D20** — the cluster runs **two DNS servers: one primary + one secondary,
+  for ALL clusters** (not a per-domain master). DNS-01 challenge records are
+  written on the primary (which the secondary mirrors); the primary is the
+  renewal authority and distributes the wildcard bundles cluster-wide. This
+  couples to the named module redesign — plan named as exactly two
+  authoritative servers (primary/secondary) serving every cluster's domains.
+
+## Consequence
+- All-wildcard means the acme-server.js http-01 path (port 1028) retires
+  entirely; issuance is DNS-01 only, via RFC2136/TSIG against the primary
+  DNS server (16's design section).
+- Bundle format/locations stay as v3 (drop the expired static CA append the
+  letsencrypt fact sheet flagged) so haproxy/containers consume unchanged.

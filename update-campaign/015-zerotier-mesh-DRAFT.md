@@ -42,10 +42,25 @@ User WIP exists: modules/usersonve/commands/add-zerotier.sh (uncommitted)
 3. Soak; then disable OpenVPN mesh units host by host; remove module last.
    Never leave a host with neither mesh up (checklist gate per host).
 
-## Open questions (for the user)
+## Decisions folded (D15, D16, D17)
 
-1. Controller: self-hosted (ztncui/zerotier controller on a cluster host)
-   or my.zerotier.com? Self-hosted keeps the farm self-contained.
-2. Reuse 10.15.x.y addressing inside ZeroTier, or a fresh range?
-3. Scope of the user WIP add-zerotier.sh: is ZeroTier also the planned
-   user/container access path (usernet successor), one network per user?
+- **D15** — a fully **srvctl-managed, self-contained ZeroTier controller** on
+  a cluster host (ztncui/zerotier controller). No my.zerotier.com dependency;
+  srvctl provisions the network and members.
+- **D16** — addressing: reuse 10.15.x.y, or possibly move to **10.16.x.y**
+  (tentative). Either way, one deterministic per-host address mapped from
+  HOSTNET id; the migration repoints nfs/ssh/datastore/named consumers to it.
+  (Pick 10.15 vs 10.16 in the work package — 10.16 gives a clean break from
+  the OpenVPN range during the parallel-run window, avoiding any overlap.)
+- **D17** — ZeroTier replaces BOTH v3 mesh networks: the OpenVPN **hostnet**
+  (host-to-host mesh) AND the **usernet** (the never-finished user/container
+  access path). `add-zerotier.sh` (user WIP) is for containers and external
+  services — i.e. the usernet successor lives on ZeroTier too. So: internal
+  ZeroTier = hostnet successor; add-zerotier = usernet/container/external
+  successor. Decide in the work package whether these are one network with
+  managed routes/rules or two networks (host mesh vs user/container access).
+
+## Consequence for the openvpn deprecation
+Because ZeroTier now subsumes usernet as well, the openvpn module's dormant
+usernet TODO (certs minted, no server) is NOT revived — it's retired with the
+rest of openvpn. The G8 removal covers both hostnet and usernet in one go.

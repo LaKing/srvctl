@@ -72,12 +72,24 @@ sourced by root shells, execing system tools interactively).
 - Root/user custom includes (/root/srvctl-includes, ~/srvctl-includes)
   keep working (sourced via the bash child path).
 
-## Open questions (for the user)
+## Decisions folded (D1, D2, D3, D5)
 
-1. Node runtime: rely on distro nodejs (v3 already dnf-installs it) — ok?
-   Minimum version to pin (host currently has v22)?
-2. Is in-process .mjs execution for commands acceptable for root-privileged
-   operations, or should each command run in a fresh node child (slower,
-   more isolated)?
-3. Where does the v4 code live: same repo/branch v4 (current setup), new
-   repo, or /usr/local/share/srvctl4 side-by-side install (G13)?
+- **D1** — v4 continues in the SAME repo (/srv/srvctl-project), version
+  **4.0.0.0**, the SAME entry point (`/bin/sc`). No side-by-side install, no
+  v3/v4 coexistence — in-place step-by-step upgrade (see 013).
+- **D5 + D2** — the ENTRY POINT for everything stays **bash**: `sc` is a
+  bash script that dispatches, and invokes node only when a command's logic
+  needs it. So the shape is bash-shim → (node when needed), not node-first.
+  On startup the shim CHECKS Node ≥ 20 and exits with a clear error if it's
+  missing/older (D2). Distro nodejs; no bundled runtime.
+- **D3** — commands run **in-process** in the one node invocation (the G1
+  fast path; srvctl is short-lived), WITH progress indication for anything
+  slow so the user sees work happening. No fresh-child-per-command.
+- **D4 (see 011)** — minimize dependencies; own the code. The "merged
+  trimmed runtime.mjs" above is built from srvctl's own extracted helpers,
+  not a framework import.
+
+Consequence for the shape above: the process model is `sc` (bash) → for a
+.mjs command, one `node core/srvctl.mjs <cmd>` child that does the work
+in-process and streams progress; for a legacy .sh command, one bash child
+sourcing runtime.sh. The 50ms/30ms targets stand.

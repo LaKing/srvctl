@@ -1,6 +1,20 @@
-# 018 — Cockpit as the srvctl GUI (G5) — DRAFT for review
+# 018 — Cockpit as the srvctl GUI (G5) — POSTPONED
 
-Status: DRAFT written session 1 (autonomous). Not approved.
+Status: POSTPONED 2026-07-05 (D24, D25). Cockpit implementation is deferred;
+NOT in the current v4 work scope. Two things still hold from the decisions:
+1. The v3 gui daemon module is RETIRED regardless (D7 — "nuke the gui
+   module"); only make_commands_spec (JSON command metadata) survives, and
+   with the D10 permission model, `sc` itself is the interface (plain `sc`
+   shows role-available commands). So no GUI is required for v4.
+2. When cockpit is revisited, exposure (D24) and build priority (D25) are the
+   open calls — kept below as reference, not active work.
+
+The rest of this doc is retained as reference for the eventual cockpit work;
+it is not part of the approved plan set.
+
+---
+
+## (reference only — original draft)
 
 ## v3 reality (from modules/gui.md fact sheet)
 

@@ -1,6 +1,10 @@
-# 019 — Gluster removal (G4) — DRAFT for review
+# 019 — Gluster removal (G4) — CONFIRMED
 
-Status: DRAFT written session 1 (autonomous). Not approved.
+Status: CONFIRMED 2026-07-05 (D8 — "nuke gluster, nothing uses it"). The
+removal proceeds; the only remaining safety item is the G4 ORDERING
+CONSTRAINT below (de-gluster the datastore+static hooks BEFORE dropping the
+module). Nothing replaces gluster's shared-storage role (datastore
+replication → G2; static is single-host + backups).
 
 ## v3 reality (from modules/gluster.md fact sheet)
 

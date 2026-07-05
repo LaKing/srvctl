@@ -31,7 +31,8 @@ Blocks: everything — the repo/install shape.
   never mutated; rollback = repoint symlinks.
 - Alt: brand-new repo (clean history, but loses the polish commits' context
   and the fact-sheet cross-refs).
-Decision:
+Decision: keep developing on /srv/srvctl-project. Set version to 4.0.0.0, and continue in the same repo. 
+The entry point shall be the same, so there are no showstoppers here. v3 and v4 do not need to coexist.
 
 ### D2 [CHOICE] Node runtime + minimum version (010 Q1)
 Blocks: runtime.mjs, the whole .mjs core.
@@ -39,7 +40,7 @@ Blocks: runtime.mjs, the whole .mjs core.
   **Node ≥ 20** (LTS). This host has v22; boilerplate presumably wants
   modern node too, so ≥20 is safe and avoids bundling a runtime.
 - Alt: pin ≥22, or bundle a fixed node (heavier, but removes distro drift).
-Decision:
+Decision: check for Node ≥ 20, and exit with an error if unavailable
 
 ### D3 [CHOICE] Command execution model (010 Q2)
 Blocks: the dispatcher design (G1 performance).
@@ -50,7 +51,7 @@ Blocks: the dispatcher design (G1 performance).
   child.
 - Alt: fresh node child per command (more isolation, slower — only worth it
   if we later add a persistent daemon).
-Decision:
+Decision: in-process with some progress indication is fine
 
 ### D4 [CHOICE] mjs dependency layout (011 Q2)
 Blocks: module contract.
@@ -59,14 +60,15 @@ Blocks: module contract.
   node_modules solves a scale problem srvctl doesn't have. Add a per-module
   dep only if one module genuinely needs it.
 - Alt: per-module node_modules (boilerplate-style).
-Decision:
+Decision: Try to avoid external dependencies. If there is code that needs to imported, it shall stay in the module. 
+We want maximum modularity and minimum dependencies. Extract relevant code and make it your own, everywhere possible.
 
 ### D5 [CONFIRM] User custom commands: mjs lane or bash-only? (011 Q1)
 Blocks: module contract; couples to G11.
 - **REC**: **bash-only** for `~/srvctl-includes` in v4.0. Running
   in-process node code from user home dirs is a privilege question that
   needs the G11 permission answer first. Revisit after permissions land.
-Decision:
+Decision: bash scripts shall be the entry point for any code. node is then invoked over bash if needed.
 
 ### D6 [CHOICE] update-install side effects: keep or split? (013)
 Blocks: the update-install rewrite; this is a behavior change needing your
@@ -78,7 +80,10 @@ sign-off.
   behavior change, hence your call.
 - Alt: keep v3 behavior (no surprises for existing muscle memory, but keeps
   the footguns).
-Decision:
+Decision: update-install should check if dnf has updated all the packages in prior. 
+If not, it can exit with an error message, that dnf needs to be up to date.
+For now we can require SELINUX to be disabled, and once the whole project is stable we can try switching it on.
+Make sure all will work once we switch SELINUX on. 
 
 ### D7 [CONFIRM] Retire the v3 GUI daemon module (018 Q1, G5)
 Blocks: nothing risky — the module's install hook is already `if false`
@@ -86,7 +91,7 @@ Blocks: nothing risky — the module's install hook is already `if false`
 - **REC**: **yes, retire it**; keep only `make_commands_spec` (the JSON
   command metadata, reused by cockpit). Any running srvctl-gui is
   srvctl2-era leftover, handled per-server in rollout.
-Decision:
+Decision: nuke the current gui module.
 
 ### D8 [CONFIRM] Gluster: confirm nothing to preserve (019, G4)
 Blocks: the G4 removal package (which already has the hook-ordering
@@ -96,14 +101,14 @@ constraint baked in).
   single-host + backups. Need your confirm that no host was manually
   re-enabled for gluster outside srvctl (the per-server inventory step
   double-checks; non-empty bricks → stop and ask).
-Decision:
+Decision: nuke gluster, nothing uses it.
 
 ### D9 [FACT] Are there non-root human admins on the ~5 servers? (012 Q1)
 Blocks: the G11 permission model (roles).
 - Context: v3's `authorize` is a stub; effectively it's root + end-users
   today. If there are human operators who are neither root nor end-users, the
   model needs an `operator` role.
-Decision:
+Decision: We can introduce operators role, operators could be co-workers employed by root, a bit limited in capacity and with their own usernames.
 
 ### D10 [CHOICE] Can end users run `sc` on the HOST in v4? (012 Q2)
 Blocks: G11 model + cockpit scope (G5).
@@ -112,7 +117,8 @@ Blocks: G11 model + cockpit scope (G5).
   boundary and it lets G11 stay simple.
 - Alt: keep host `sc` for users with per-resource ownership checks (more
   code, bigger attack surface).
-Decision:
+Decision: sc is the cli command, more important then gui/cockpit. Users as wel as root and operators must be able to call sc anywhere, in containers and on the host.
+Plain sc should display all the commands available to them. Keep the root_only and add an operators_only routine that check for violations.
 
 ### D11 [FACT] Is per-user ownership recorded authoritatively today? (012 Q3)
 Blocks: G11 enforcement + migration.
@@ -120,7 +126,7 @@ Blocks: G11 enforcement + migration.
   (`containers.json`, `users.json`, `default-users.json`). Confirm that's
   the source of truth (so v4 enforces from it), or note what must be
   reconstructed during migration.
-Decision:
+Decision: We will keep the datastore, see 014-datastore-boilerplate
 
 ---
 
@@ -131,72 +137,86 @@ Decision:
   **file-sync compatible** (keep the 3 JSON files, in-process mjs reads,
   rsync as today) so no new failure modes; add an authenticated HTTP API
   (over the zerotier mesh) for the admin UI as a *later* package.
-  Decision:
+  Decision: OK. see 014-datastore-boilerplate - we can share the srvctl owned JSON files so that boilerplate D250 app can read it, and boilerplate then can run sc commands or have a direct API to srvctl.
+
+  
 - **D13 [FACT] Reuse d250 app models or build fresh?** Needs a look at
   `/srv/v4-devel-project` d250 app. REC: fresh `srvctl-modules/datastore` on
   boilerplate conventions, reusing d250 models only where they already fit.
-  Decision:
+  Decision:  fresh `srvctl-modules/datastore`
+  
 - **D14 [CHOICE] Topology: one cluster instance vs per-host.** REC: one
   boilerplate instance (d250.hu) as source-of-truth + per-host read cache
   (works during bootstrap / when the container is down).
-  Decision:
+  Decision: one boilerplate app instance (d250.hu) as governor, top level admin tool. 
+  But even with d250.hu container beeing down, srvctl needs to be fully functional. d250.hu is basically a buisness administration top layer for all clusters, 
+  while srvctl is a system managment layer, with multiple tools per modules.
+  
 
 ### ZeroTier mesh (G8, doc 015)
 - **D15 [CHOICE] Controller: self-hosted vs my.zerotier.com.** REC:
   **self-hosted** (ztncui/zerotier controller on a cluster host) — keeps the
   farm self-contained, matches the srvctl ethos.
-  Decision:
+  Decision: Fully srvctl managed self-contained zerotier controller on a cluster host
+  
 - **D16 [CHOICE] Addressing: reuse 10.15.x.y inside ZeroTier or fresh
   range.** REC: **reuse 10.15.x.y** — avoids config churn across nfs, ssh
   known-hosts, datastore sync, named that all reference those addresses.
-  Decision:
+  Decision: ~Ok, (maybe use 10.16.x.y ?)
+  
 - **D17 [FACT] Scope of your add-zerotier.sh WIP.** Is ZeroTier also the
   user/container access path (the usernet successor), or only the host mesh?
   One network or two? You know the intent behind the WIP.
-  Decision:
+  Decision: add-zerotier.sh is for containers, and external services. Internal zerotier should replace the openvpn hostnet, and the usernet.
 
 ### Wildcard certificates (G7, doc 016)
 - **D18 [FACT] Domain inventory.** Which hosted domains are subdomain-based
   (wildcard-eligible) vs customer-owned? Needs a per-server look; feeds the
   issuance plan.
-  Decision:
+  Decision: every certificate should be a wildcard certifcate
+  
 - **D19 [CHOICE] SAN strategy.** REC: one wildcard per hosting domain
   (`*.domain` + `domain`); per-customer-domain certs kept separately.
-  Decision:
+  Decision: one wildcard per hosting domain
+  
 - **D20 [CHOICE] Renewal authority location.** REC: the DNS **master** per
   domain runs renewal (it owns DNS-01) and distributes bundles cluster-wide.
-  Decision:
+  Decision: we will be running two DNS servers, one primary and one secondary - for all clusters.
 
 ### Mail proxy (G9, doc 017)
 - **D21 [CHOICE] Proxy pick.** REC: **nginx mail proxy** (auth_http routes
   by `user@domain`, TLS with the wildcard cert, tiny config from
   containers.json). Alt: haproxy SNI passthrough (fewer new components, but
   no login-based routing).
-  Decision:
+  Decision: We need pop3s and imap4s reverse proxies, to retire perdition. nginx and haproxy are only proxies on paper, we need something that is protocol aware. I imagine dovecot could be a good fit but I could not write a working config for it yet.
+  
 - **D22 [FACT] Plaintext IMAP4 (143/STARTTLS) still needed, or S-ports
   only?** You know the client base.
-  Decision:
+  Decision: only secure ports.
+  
 - **D23 [FACT] Do all mail containers run dovecot with user@domain logins?
   Any POP3 (110) legacy clients?** Confirms the routing assumption perdition
   made.
-  Decision:
+  Decision: all containers that have mailboxes shall have dovecot
 
 ### Cockpit (G5, doc 018)
 - **D24 [CHOICE] Exposure.** REC: bind cockpit to the **mesh/VPN only**
   (or public 9090 behind strong auth); authenticate as Unix users via PAM.
-  Decision:
+  Decision: To be decided and implemented later
+  
 - **D25 [CHOICE] Build priority.** REC: **host-admin package first** (needs
   no full G11), user-facing in-container management after G11 lands.
-  Decision:
+  Decision: To be decided and implemented later
 
 ### Rollout (G13, doc 013)
 - **D26 [FACT/CHOICE] Server order + soak time.** REC: least-critical host
   first, then one at a time with a multi-day soak each. You pick the order.
-  Decision:
+  Decision: Do all implementations, then we will run some virtual tests, and apply on live servers thereafter.
+  
 - **D27 [CHOICE] When to delete v3 from a cut-over server.** REC: only after
   **all** servers run v4 through a full backup cycle; keep `/bin/sc3` for
   instant rollback until then.
-  Decision:
+  Decision: we will have one sc, and upgrade it step by step.
 
 ---
 

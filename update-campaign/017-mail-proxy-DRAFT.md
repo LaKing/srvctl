@@ -1,47 +1,57 @@
-# 017 — POP3S/IMAP4S reverse proxy replacing perdition (G9) — DRAFT for review
+# 017 — POP3S/IMAP4S proxy replacing perdition (G9) — decisions folded (D21, D22, D23)
 
-Status: DRAFT written session 1 (autonomous). Not approved.
+Status: direction DECIDED 2026-07-05 — protocol-aware proxy, NOT a plain
+TCP/SNI proxy. The working config is the open risk (D21). Retires perdition.
 
-## v3 reality (from modules/perdition.md fact sheet)
+## Decision (D21, D22, D23)
 
-- Perdition proxies IMAP4/IMAP4S/POP3S on hosts, routing user logins to
-  the right mail.<domain> container's dovecot via popmap.re regenerated
-  from containers.json.
-- The module is HALF-ABANDONED in v3: install_perdition is disabled from
-  update-install-host, config contradictions (no_lookup vs popmap), dead
-  units — matching the deprecation decision (G9).
-- Routing key: the USER's login domain (user@domain), not SNI alone.
+- The proxy must be **protocol-aware** (authenticate the IMAP/POP3 login,
+  route by `user@domain` to the right backend). nginx mail-proxy and haproxy
+  are rejected: they proxy TCP/SNI, not the mail login — they can't route by
+  user, which is exactly perdition's job.
+- **Dovecot in proxy mode** is the chosen fit (D21). The user could not get a
+  working config yet — so a proof-of-concept config is the FIRST deliverable
+  of this work package, before any module wiring.
+- **Secure ports only** (D22): 993 (IMAPS), 995 (POP3S). No 143/110, no
+  STARTTLS on plaintext ports.
+- **Every mail container runs dovecot** (D23) — so backends speak the dovecot
+  proxy protocol natively (login can be forwarded without re-auth).
 
-## Candidates
+## Design
 
-1. nginx mail proxy (mail module + auth_http): mature, routes by login
-   (auth_http returns backend per user@domain), TLS termination with the
-   wildcard cert (G7 synergy), tiny config template from containers.json.
-   RECOMMENDED.
-2. haproxy SNI passthrough: no login-based routing; works only if every
-   mail domain has a distinct SNI name AND containers terminate TLS
-   themselves; haproxy already fronts the farm (module exists) — lowest
-   new-component count but couples mail routing to cert layout.
-3. dovecot proxy/director: full-featured but heaviest; introduces a host
-   dovecot instance just to proxy.
-4. sslh: protocol demultiplexer, not a mail router — not fit.
+Host-side dovecot as an authenticating proxy (perdition's replacement):
 
-## Proposed shape (pending user pick)
+- Host dovecot listens on 993/995, TLS-terminated with the **wildcard cert**
+  (G7, D18 — all certs are wildcard).
+- A **passdb** returns, per `user@domain`: `proxy=y`, `host=<backend
+  container IP>`, `port=`, and pass-through so the backend does the real auth
+  (dovecot proxy can forward credentials to the backend dovecot).
+- The user→backend map is GENERATED from the datastore (which mail container
+  serves which domain — `containers/*.json`), regenerated on the same
+  trigger perdition used (container regenerate). Concretely: a dovecot
+  `passwd-file` or a `checkpassword`/dict lookup emitted by the mail-proxy
+  module's regenerate hook — the srvctl-idiomatic "render config from the
+  datastore" pattern, replacing perdition's popmap.re.
+- Backend: each mail container's dovecot accepts the proxied connection
+  (D23), so no host-side mailbox access — the host only routes.
 
-- v4 module `mailproxy`: installs nginx (mail context only, distinct
-  ports/unit), renders upstream map from containers.json on regenerate
-  (same trigger as perdition's popmap hook), auth_http as a ~40-line
-  endpoint in the datastore service or a static map file generator.
-- TLS: wildcard bundle from G7; per-domain certs supported via SNI certs
-  directory as fallback.
-- Migration per 013: run on alternate ports first, verified with real
-  mailboxes, then swap the 993/995 (and 143 if kept) listeners from
-  perdition to mailproxy in one service window per host; perdition module
-  removed after all hosts switch.
+## Open RISK (must resolve first in the work package)
+- Produce a MINIMAL working dovecot proxy config: host dovecot 993/995 →
+  one test mail container's dovecot, routing by user@domain, TLS with the
+  wildcard cert, credentials forwarded (no double password prompt). This is
+  the exact thing that didn't work yet — nail it in isolation before
+  building the module around it. Decide passdb mechanism here (passwd-file
+  generated from datastore vs checkpassword script vs dict).
 
-## Open questions (for the user)
+## Module shape (after the PoC works)
+- v4 module `mailproxy` (replaces perdition): install host dovecot in
+  proxy-only mode; render the user→backend map from the datastore on
+  regenerate; TLS from the wildcard bundle; manage the 993/995 listeners.
+- Perdition module removed after the mailproxy passes on a live-equivalent
+  test (VM phase, D26), per the deprecation discipline in 013.
 
-1. Confirm candidate 1 (nginx mail proxy) or argue for haproxy-only.
-2. Is plaintext IMAP4 (143, STARTTLS?) still needed, or S-only ports?
-3. Do all mail containers run dovecot with user@domain logins as perdition
-   assumed? Any POP3 (110) legacy clients left?
+## Migration (per 013)
+- Stand up host dovecot proxy on the secure ports in the VM test cluster;
+  verify with real mailboxes across two mail containers; then, in the live
+  phase, cut the 993/995 listeners from perdition to dovecot-proxy per host
+  in one service window; remove perdition after.

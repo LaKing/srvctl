@@ -60,11 +60,20 @@ modules/<name>/
 4. Verification: side-by-side output comparison v3 vs v4 for each command
    (scripted where output is deterministic).
 
-## Open questions (for the user)
+## Decisions folded (D4, D5)
 
-1. Should user custom commands (~/srvctl-includes) also get an .mjs lane,
-   or stay bash-only? (Security: node in-process code from user homes needs
-   the G11 permission answer first — suggest bash-only until then.)
-2. One shared node_modules for the mjs core vs per-module (boilerplate
-   style)? srvctl is small; suggest a single core package.json, no
-   per-module deps unless a module truly needs one.
+- **D5** — bash is the entry point for ALL code. Every command/hook is a
+  bash script that invokes node only when its logic needs it. User custom
+  commands (~/srvctl-includes) are bash (they may shell out to node like any
+  other). No in-process node from user home dirs — the bash boundary is the
+  security seam (aligns with the G11 role gate in 012).
+- **D4** — minimize dependencies and OWN the code. Prefer extracting the
+  small piece you need into the module over adding an npm dependency. Rule:
+  code a module imports STAYS IN the module; shared helpers live in the mjs
+  core, extracted from srvctl's own code, not pulled from a package. Only add
+  an external dep when there is genuinely no reasonable owned alternative,
+  and then keep it local to the module that needs it. Maximum modularity,
+  minimum dependencies.
+  - Practical layout: a core has its dependency-free helpers; if some module
+    truly needs a vendored library, it carries it inside the module (module
+    owns its deps) rather than a repo-wide node_modules of conveniences.

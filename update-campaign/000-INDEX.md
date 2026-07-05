@@ -77,6 +77,38 @@ Codex reviewed the campaign against HEAD and filed an addendum in
   (v4, not master); fact-sheet status reconciled to "written" with a
   baseline-grounded (988c38c) caveat.
 
+### Session 1c — 2026-07-05 (decisions folded into plan docs)
+User answered the 022 decision brief; I propagated the answers into the plan
+docs. Notable divergences from the autonomous drafts, now authoritative:
+- D1/D27: NO v3/v4 coexistence. Same repo, version 4.0.0.0, one `sc`,
+  in-place step-by-step upgrade. 013 rewritten (side-by-side dropped).
+- D5/D2/D3: bash is the entry point for all code (invokes node when needed);
+  startup checks Node ≥ 20; commands run in-process with progress
+  indication. 010 updated.
+- D4: minimize deps, OWN the code; a module carries its own deps. 011 updated.
+- D9/D10: three roles (root, operator, user); `sc` runs everywhere for
+  everyone; plain `sc` shows role-available commands; keep root_only, add
+  operators_only + owner checks. 012 rewritten (earlier "users via cockpit"
+  reversed).
+- D11/D12/D13/D14: datastore stays srvctl-owned (file-per-entity storage
+  contract in 014); fresh srvctl-modules/datastore; d250.hu is the governor
+  but srvctl must run fully with it DOWN. 014 = storage contract DECIDED.
+- D15/D16/D17: self-hosted ZeroTier controller; reuse 10.15 or move to
+  10.16; ZeroTier replaces BOTH hostnet AND usernet. 015 updated.
+- D18/D19/D20: ALL certs wildcard, one per hosting domain; two DNS servers
+  (primary+secondary) for all clusters, primary = renewal authority. 016
+  updated.
+- D21/D22/D23: mail proxy must be protocol-aware → dovecot proxy (secure
+  ports only; all mail containers run dovecot). A working dovecot proxy
+  config is the OPEN RISK / first deliverable. 017 rewritten.
+- D7: nuke the gui module. D8: nuke gluster. D24/D25: cockpit POSTPONED
+  (018 marked postponed; `sc` is the interface, no GUI needed for v4).
+- D26: build everything, then VM-test, then live. 013 reflects this.
+Storage design was also drafted in response to a direct question ("light
+production-grade JSON storage keeping human-editable JSON") → file-per-
+entity + atomic rename + single locked writer + validate + git-versioned,
+in 014.
+
 ## Document table
 
 | ID | Title | Type | Status |
@@ -107,23 +139,35 @@ HEAD-accurate marker list is 021-fixme-inventory.md.
 | 003 | Discovery findings (301) | issues | filed |
 | 004 | Polish-risk register | fact | written |
 | 005 | Polish agent brief | contract | active |
-| 010–012 | Runtime / module contract / permissions | plan DRAFT | review |
-| 013–019 | Rollout, datastore, zerotier, certs, mail, cockpit, gluster | plan DRAFT | review |
+| 010 | Runtime architecture | plan | decisions folded (D1/2/3/5) |
+| 011 | Module contract | plan | decisions folded (D4/5) |
+| 012 | Permission model | plan | decisions folded (D9/10/11) |
+| 013 | Upgrade & rollout | plan | rewritten (D1/6/26/27); no coexistence |
+| 014 | Datastore: storage contract + boilerplate | plan | storage DECIDED; D12/13/14 folded |
+| 015 | ZeroTier mesh | plan | decisions folded (D15/16/17) |
+| 016 | Wildcard certificates | plan | decisions folded (D18/19/20) |
+| 017 | Mail proxy (dovecot) | plan | rewritten (D21/22/23); PoC = open risk |
+| 018 | Cockpit | plan | POSTPONED (D24/25); gui nuked (D7) |
+| 019 | Gluster removal | plan | CONFIRMED (D8) |
 | 020 | Session 1 report | report | written |
 | 021 | FIXME(v4) inventory (427, reconciled) | fact | written |
-| 022 | Decision brief (Stage 1→2 gate) | decisions | AWAITING USER |
+| 022 | Decision brief (answered) | decisions | answered; approval note pending |
 | core.md, modules/*.md | Fact sheets (baseline-grounded, see caveat) | fact | written |
 
 ## NEXT
 
-HUMAN REVIEW — the decision session is prepared: **022-decisions.md**
-collects all 27 open decisions (11 TIER-1 gate Stage 2, 16 TIER-2 defer to
-their work package), each with a recommendation and an answer line.
-1. Answer TIER 1 in 022 (and any TIER 2 you already know), then record
-   "plans approved" here to open Stage 2.
-2. On approval the orchestrator folds answers into the plan docs and
-   generates the ordered 100-series work packages (see 022 "After you
-   answer").
+DECISIONS ANSWERED (022) and FOLDED into 010–019 (session 1c above). The
+plan set now reflects the user's calls. Remaining before Stage 2:
+1. **User records "plans approved" here** to open Stage 2 (not yet done).
+2. Then the orchestrator generates the ordered 100-series work packages.
+
+Two plan items need explicit attention before/at approval:
+- **017 mail proxy** carries an OPEN RISK: a working dovecot proxy config
+  (993/995 → backend by user@domain, wildcard TLS, forwarded creds) is the
+  first deliverable — the exact thing that didn't work yet. Its work package
+  starts with an isolated proof-of-concept.
+- **016 D16** addressing: reuse 10.15.x.y vs move to 10.16.x.y is still a
+  coin-flip in the doc — pick one when the zerotier package is cut.
 
 STAGE-2 PRECONDITIONS carried from the Codex addendum (fold into 100-series
 work packages before executing them):
