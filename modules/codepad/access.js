@@ -2,6 +2,31 @@
 
 /*srvctl */
 
+/*
+    codepad/access.js — publish user credential files into the per-container
+    share tree.
+
+    Run by configure_codepad_access (this module's regenerate hook) as
+    /bin/node access.js. For every container in the datastore, copies each
+    authorized user's files matching *.hash, *.password and *.ip (in practice
+    the dotfiles .hash/.password/.ip written by the usersonhost module) from
+    $SC_DATASTORE_DIR/users/<u>/ into
+    /var/srvctl3/share/containers/<c>/users/<u>/, which is bind-mounted
+    read-only into the container so the in-container codepad server can
+    authenticate srvctl users. Authorized users are: every user with
+    access == "all", the container's primary user, each entry of the
+    container's users[] list, and the primary user's reseller. root is
+    always skipped.
+
+    Exits 0 printing 'codepad: user and users access keys configured';
+    a thrown error makes the wrapping exif abort the whole srvctl run.
+
+    FIXME(v4): much of the scaffolding below (CMD, SC_UID0, hosts, resellers,
+    out, return_value, return_error, output, the exitCode-99 dance) is unused
+    here; the live logic is a near-duplicate of the ssh module's share-tree
+    writer and should be unified in v4.
+*/
+
 function out(msg) {
     console.log(msg);
 }
@@ -23,7 +48,7 @@ const os =  require('os');
 const HOSTNAME = os.hostname();
 
 const CMD = process.argv[2];
-// constatnts
+// constants
 const SC_DATASTORE_DIR = process.env.SC_DATASTORE_DIR;
 
 const SC_HOSTS_DATA_FILE = process.env.SC_DATASTORE_DIR + '/hosts.json';
@@ -80,6 +105,9 @@ function copy_access_keys(c,u) {
         fs.mkdirSync(dir);
     }
     
+    // FIXME(v4): side effect — creates empty datastore user directories for
+    // any referenced user that has none (litter, and an unexpected write when
+    // SC_DATASTORE_DIR resolves to a read-only replica).
     dir = SC_DATASTORE_DIR + "/users/" + u;
     if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir);
@@ -104,6 +132,10 @@ function copy_access_keys(c,u) {
         }
     }
     
+    // FIXME(v4): high — this copies the user's PLAINTEXT .password file
+    // (also the user's host login password) into a share readable by every
+    // process inside the container; the .hash alone would suffice for
+    // codepad auth.
     var password;
     for (i = 0; i < files.length; i++) { 
         if (files[i].split('.')[1] === 'password') {
