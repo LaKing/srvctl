@@ -143,8 +143,10 @@ HEAD-accurate marker list is 021-fixme-inventory.md.
 
 ## Stage gate record
 
-- Stage 1→2 gate: NOT passed. Only the polish-pass scope amendment above is
-  authorized for execution. Everything else awaits "plans approved".
+- Stage 1→2 gate: **PASSED 2026-07-05**. User: "Start the campaign, plan and
+  execute as you see fit." = plans approved. Stage 2 (execution) is open.
+  Phase C backlog: 100-work-packages.md. Execution proceeds on branch v4,
+  in-place, verify-before-commit, build-all-then-VM-test-then-live (D26).
 
 ## Document table (session 1 additions)
 

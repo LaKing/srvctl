@@ -7,7 +7,7 @@ upgrade (D1, D27), not v3/v4 side-by-side.
 ## Decisions
 
 ### In-place, one `sc`, upgraded step by step (D1, D27)
-- v4 continues in the SAME repo at /srv/srvctl-project, **version 4.0.0.0**,
+- v4 continues in the SAME repo at /srv/srvctl-project, **version 4.x.y.z**,
   the SAME entry point (`/bin/sc`, `/bin/srvctl`). There is ONE `sc`.
 - v3 and v4 do NOT coexist. No `srvctl4` install dir, no `sc4`/`sc3`
   symlinks. The single install is upgraded incrementally: modules/commands
