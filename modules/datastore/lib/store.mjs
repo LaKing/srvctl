@@ -75,18 +75,20 @@ function atomicWrite(target, data) {
   // Unique temp name in the SAME directory (rename is only atomic within a fs).
   const tmp = path.join(dir, `.${path.basename(target)}.${process.pid}.${atomicWrite._n++}.tmp`);
   let fd;
+  let renamed = false;
   try {
     fd = fs.openSync(tmp, "wx", 0o600);
     fs.writeSync(fd, data);
     fs.fsyncSync(fd);
+    fs.closeSync(fd);
+    fd = undefined;
+    fs.renameSync(tmp, target);
+    renamed = true;
   } finally {
     if (fd !== undefined) fs.closeSync(fd);
-  }
-  try {
-    fs.renameSync(tmp, target);
-  } catch (err) {
-    try { fs.unlinkSync(tmp); } catch { /* best effort */ }
-    throw err;
+    if (!renamed) {
+      try { fs.unlinkSync(tmp); } catch { /* best effort */ }
+    }
   }
   // Durability of the rename: fsync the containing directory.
   try {
@@ -233,9 +235,9 @@ export function createStore(rootDir, options = {}) {
     guardWritable();
     assertType(type);
     assertId(id);
-    validate(type, record, id);
     acquireLock();
     try {
+      validate(type, record, id);
       atomicWrite(filePath(type, id), serialize(record));
       gitCommit(`write ${type}/${id}`);
     } finally {
@@ -268,21 +270,73 @@ export function createStore(rootDir, options = {}) {
     guardWritable();
     acquireLock();
     try {
+      const writes = new Map();
+      const removals = new Set();
+
+      function key(type, id) {
+        return `${assertType(type)}\0${assertId(id)}`;
+      }
+      function splitKey(k) {
+        const i = k.indexOf("\0");
+        return [k.slice(0, i), k.slice(i + 1)];
+      }
+      function stagedRead(type, id) {
+        const k = key(type, id);
+        if (writes.has(k)) return JSON.parse(writes.get(k));
+        if (removals.has(k)) return null;
+        return read(type, id);
+      }
+      function stagedHas(type, id) {
+        return stagedRead(type, id) !== null;
+      }
+      function stagedList(type) {
+        assertType(type);
+        const ids = new Set(list(type));
+        for (const k of writes.keys()) {
+          const [t, id] = splitKey(k);
+          if (t === type) ids.add(id);
+        }
+        for (const k of removals) {
+          const [t, id] = splitKey(k);
+          if (t === type) ids.delete(id);
+        }
+        return [...ids].sort();
+      }
+      function stagedReadAll(type) {
+        const out = {};
+        for (const id of stagedList(type)) out[id] = stagedRead(type, id);
+        return out;
+      }
+
       const tx = {
-        read,
-        list,
-        has,
-        readAll,
+        read: stagedRead,
+        list: stagedList,
+        has: stagedHas,
+        readAll: stagedReadAll,
         write(type, id, record) {
-          assertType(type); assertId(id); validate(type, record, id);
-          atomicWrite(filePath(type, id), serialize(record));
+          const k = key(type, id);
+          validate(type, record, id);
+          writes.set(k, serialize(record));
+          removals.delete(k);
         },
         remove(type, id) {
-          try { fs.unlinkSync(filePath(type, id)); return true; }
-          catch (err) { if (err.code === "ENOENT") return false; throw err; }
+          const k = key(type, id);
+          const existed = stagedHas(type, id);
+          writes.delete(k);
+          if (existed) removals.add(k);
+          return existed;
         },
       };
       const result = fn(tx);
+      for (const k of removals) {
+        const [type, id] = splitKey(k);
+        try { fs.unlinkSync(filePath(type, id)); }
+        catch (err) { if (err.code !== "ENOENT") throw err; }
+      }
+      for (const [k, data] of writes) {
+        const [type, id] = splitKey(k);
+        atomicWrite(filePath(type, id), data);
+      }
       gitCommit(message);
       return result;
     } finally {

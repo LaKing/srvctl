@@ -15,14 +15,15 @@ Execution rules (from 000-PROMPT + the Stage-2 preconditions in 000-INDEX):
 - **WP-A ✅ DONE (2026-07-05, commit 615f1f8)** — datastore STORAGE ENGINE:
   file-per-entity, atomic rename, single locked writer, validate-on-write,
   git-versioned (014). modules/datastore/lib/store.mjs + migrate.mjs +
-  selftest/store.test.mjs (12 tests pass incl. cross-process concurrency,
-  lossless migration round-trip, stale-lock steal). Additive — live verb
-  path untouched (that's WP-C).
+  selftest/store.test.mjs (15 tests pass incl. cross-process concurrency,
+  lossless migration round-trip, stale-lock steal, validate-under-lock, and
+  no partial writes / no post-validation mutation leaks from transactions).
+  Additive — live verb path untouched (that's WP-C).
 - **WP-B — part 1 ✅ DONE** (addressing/identity): derive.mjs = 14 pure
   functions (uid/br/gw/interface/br_host_ip/bridge/user_id/user_ip_match/
   hostnet/host/host_ip/reseller/http_port/https_port) over an explicit
   context, faithful v3 port (quirks preserved, FIXMEs marked). 29 snapshot
-  tests pass. selftest/run.sh runs the whole datastore suite (41 tests).
+  tests pass. selftest/run.sh runs the whole datastore suite (44 tests).
   - **WP-B — part 2 (pending)**: config-string generators (resolv_conf,
     /etc/hosts, nspawn, firewall, mapped_ports, relaydomains) — snapshot vs
     v3 output; folds into WP-C wiring.

@@ -77,6 +77,18 @@ test("validator rejects a bad record and preserves the old file", (dir) => {
   assert.deepEqual(s.read("users", "alice"), { uid: 1001, name: "Alice" });
 });
 
+test("validator runs while the datastore lock is held", (dir) => {
+  let sawLock = false;
+  const validators = {
+    users: () => {
+      sawLock = fs.existsSync(path.join(dir, ".lock"));
+    },
+  };
+  const s = createStore(dir, { git: false, validators });
+  s.write("users", "alice", {});
+  assert.equal(sawLock, true);
+});
+
 test("unsafe ids and types are rejected", (dir) => {
   const s = createStore(dir, { git: false });
   for (const bad of ["../etc/passwd", "a/b", "..", ".hidden", "", "a b"]) {
@@ -103,6 +115,38 @@ test("readOnly store refuses writes", (dir) => {
   assert.equal(ro.read("users", "alice").uid, 1); // reads OK
   assert.throws(() => ro.write("users", "alice", { uid: 2 }), /read-only/);
   assert.throws(() => ro.remove("users", "alice"), /read-only/);
+});
+
+test("failed transactions do not persist partial writes", (dir) => {
+  const validators = {
+    users: (rec) => {
+      if (rec.bad) throw new StoreError("SCHEMA", "bad user");
+    },
+  };
+  const s = createStore(dir, { git: false, validators });
+  assert.throws(() => {
+    s.transaction("bad transaction", (tx) => {
+      tx.write("users", "alice", { uid: 1 });
+      tx.write("users", "bob", { bad: true });
+    });
+  }, /bad user/);
+  assert.equal(s.read("users", "alice"), null);
+  assert.equal(s.read("users", "bob"), null);
+});
+
+test("transactions persist the validated snapshot, not later mutations", (dir) => {
+  const validators = {
+    users: (rec) => {
+      if (typeof rec.uid !== "number") throw new StoreError("SCHEMA", "uid must be a number");
+    },
+  };
+  const s = createStore(dir, { git: false, validators });
+  const rec = { uid: 1 };
+  s.transaction("snapshot", (tx) => {
+    tx.write("users", "alice", rec);
+    rec.uid = "mutated after validation";
+  });
+  assert.deepEqual(s.read("users", "alice"), { uid: 1 });
 });
 
 // ---- locking: stale steal + contended timeout -----------------------------
