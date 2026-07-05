@@ -111,16 +111,19 @@ HEAD-accurate marker list is 021-fixme-inventory.md.
 | 013–019 | Rollout, datastore, zerotier, certs, mail, cockpit, gluster | plan DRAFT | review |
 | 020 | Session 1 report | report | written |
 | 021 | FIXME(v4) inventory (427, reconciled) | fact | written |
+| 022 | Decision brief (Stage 1→2 gate) | decisions | AWAITING USER |
 | core.md, modules/*.md | Fact sheets (baseline-grounded, see caveat) | fact | written |
 
 ## NEXT
 
-HUMAN REVIEW. Two things need the user:
-1. Review the DRAFT plan set (010–019, now corrected per Codex) and the
-   disposition matrix (000-COVERAGE.md); record "plans approved" here to
-   open Stage 2.
-2. Decide the open questions in 020 (repo strategy, mail proxy, cockpit
-   scope, zerotier controller, gluster replacement, typo-fix batch).
+HUMAN REVIEW — the decision session is prepared: **022-decisions.md**
+collects all 27 open decisions (11 TIER-1 gate Stage 2, 16 TIER-2 defer to
+their work package), each with a recommendation and an answer line.
+1. Answer TIER 1 in 022 (and any TIER 2 you already know), then record
+   "plans approved" here to open Stage 2.
+2. On approval the orchestrator folds answers into the plan docs and
+   generates the ordered 100-series work packages (see 022 "After you
+   answer").
 
 STAGE-2 PRECONDITIONS carried from the Codex addendum (fold into 100-series
 work packages before executing them):
