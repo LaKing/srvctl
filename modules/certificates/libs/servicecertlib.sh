@@ -1,5 +1,23 @@
 #!/bin/bash
 
+##
+##   certificates/libs/servicecertlib.sh — host certificate for a local
+##   service directory (install_service_hostcertificate PATH).
+##
+##   Sourced by load_libs whenever the certificates module is enabled.
+##   Called by gui, postfix and perdition update-install code with e.g.
+##   /etc/postfix. Picks a certificate dir under /etc/srvctl/cert/ in this
+##   order (first hit wins):
+##     1. $SC_COMPANY_DOMAIN
+##     2. ${HOSTNAME:3}  (hostname with its two-character prefix stripped)
+##     3. $HOSTNAME
+##     4. first glob-ordered subdir that has matching pem+key
+##     5. freshly generated self-signed cert for $HOSTNAME
+##   Writes $PATH/crt.pem (pem with dhparam appended), $PATH/key.pem and,
+##   when present, $PATH/ca-bundle.pem — all chmod 400. The dhparam file
+##   is cached as $src/dhparam next to the source certificate.
+##
+
 function install_service_hostcertificate() { ## path
     ## create crt.key, pem, .. and bundle
     local path src dom found
@@ -32,7 +50,7 @@ function install_service_hostcertificate() { ## path
     
     if ! $found
     then
-        ## by convention multi-server configurations should prefix hostnames with two charcaters
+        ## by convention multi-server configurations should prefix hostnames with two characters
         src="/etc/srvctl/cert/${HOSTNAME:3}"
         dom="${HOSTNAME:3}"
         
@@ -94,9 +112,11 @@ function install_service_hostcertificate() { ## path
         
         ## some services - like perdition - may require dhparams added to the crt
         ssl_dhparams="$src/dhparam"
-        
+
         if [[ ! -f $ssl_dhparams ]]
         then
+            ## FIXME(v4): 1024-bit DH parameters are Logjam-weak and rejected
+            ## by modern TLS stacks; bump deliberately in v4 (cached file!).
             run openssl dhparam -out "$ssl_dhparams" 1024
         fi
         
@@ -112,6 +132,9 @@ function install_service_hostcertificate() { ## path
         
     else
         err "ERROR Could not locate a certificate for $path"
+        ## FIXME(v4): bare 'exit' exits with the status of err (0), so this
+        ## hard failure terminates the srvctl run with exit code 0, masking
+        ## the error from update-install wrappers and cron.
         exit
     fi
     

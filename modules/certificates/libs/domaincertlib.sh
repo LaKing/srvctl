@@ -1,16 +1,40 @@
 #!/bin/bash
 
-## unused
+##
+##   certificates/libs/domaincertlib.sh — per-domain certificate helpers.
+##
+##   Sourced by load_libs whenever the certificates module is enabled.
+##   Provides:
+##     check_pem PEM                              — expiry check + prune
+##     create_selfsigned_domain_certificate D P   — self-signed wildcard-SAN
+##
+##   Consumers: haproxy (check_pem via proxylib.sh), containers
+##   (create_selfsigned_domain_certificate for /srv/$C/cert) and
+##   servicecertlib.sh in this module (self-signed fallback).
+##
+##   The ssl_* variables are deliberately NOT local: the same global names
+##   are a shared convention with other modules (e.g. codepad), and a
+##   pre-set $ssl_password is honored on purpose.
+##
+
+## check_pem: if the pem expires within 7 days (604800 s), print its
+## details and DELETE the file. Always returns 0 — haproxy's
+## load_certificate_folder_files (proxylib.sh) relies on the deletion
+## side effect plus its own -f re-check, not on the return value.
+## Despite the historical "unused" annotation this function is load-bearing.
+## FIXME(v4): returns 0 unconditionally, so the caller's 'if check_pem' is
+## decorative; keep the delete-then-recheck semantics if this ever changes.
 function check_pem { ## file
-    
+
     local pem
+    local cert_subject cert_issuer cert_start cert_end reason
     pem="$1"
-    
+
     if [[ -f "$pem" ]]
     then
         if openssl x509 -checkend 604800 -noout -in "$pem" > /dev/null
         then
-            #dbg "$cert_pem OK"
+            ## certificate is valid long enough — deliberate no-op
             echo 0 > /dev/null
         else
             # Get details before removal
@@ -38,8 +62,15 @@ function check_pem { ## file
 }
 
 ## create selfsigned certificate the hard way
+## Layout produced in $2 (all names are API for haproxy/containers):
+##   $domain.key (unencrypted), $domain.key.org (encrypted), $domain.csr,
+##   $domain.crt, $domain.pem = key first then crt, cert.pem = copy of it,
+##   plus config.txt / extfile.txt / random.txt scratch files.
+## RSA 2048, 3650 days, CN=$domain, SAN DNS:$domain + DNS:*.$domain.
+## If a still-valid $domain.pem exists, it is kept (exit 46 when the cert
+## exists without its key file).
 function create_selfsigned_domain_certificate { ## for domain on path
-    
+
     msg "create_selfsigned_domain_certificate $1"
     
     local domain cert_path
@@ -83,18 +114,26 @@ function create_selfsigned_domain_certificate { ## for domain on path
     ## key
     ## CA signed crt
     ssl_pem="$cert_path/$domain.pem"
+
+    ## ca-bundle path — computed but not used anywhere in this function;
+    ## the global may be read by other code, so it is kept as-is (v4 decides).
     ssl_cab="$cert_path/ca-bundle.pem"
-    
+
     if [[ ! -f $ssl_cab ]]
     then
         ssl_cab=''
     fi
-    
+
     if [[ -f $ssl_pem ]] && [[ -n "$(cat "$ssl_pem")" ]]
     then
         
         if run openssl x509 -checkend 604800 -noout -in "$ssl_pem"
         then
+            ## FIXME(v4): "$ssl_pem $ssl_pem" only works because run
+            ## word-splits its arguments, and exit code 2 means verification
+            ## FAILED (e.g. a CA-signed leaf), not "self-signed": CA-signed
+            ## certs take this early return without refreshing cert.pem or
+            ## checking the key file, and log a spurious ERROR via run/eyif.
             run openssl verify -CAfile "$ssl_pem $ssl_pem" > /dev/null
             if [[ "$?" == "2" ]]
             then
@@ -127,16 +166,24 @@ function create_selfsigned_domain_certificate { ## for domain on path
         return
     fi
     
+    ## throwaway passphrase for the key (stripped again below); a pre-set
+    ## global ssl_password is honored on purpose
     if [[ -z "$ssl_password" ]]
     then
-        
+
         ssl_password="$(new_password)"
     fi
-    
+
     msg "Create certificate for $domain."
-    
+
     mkdir -p "$cert_path"
-    
+
+    ## Note: the heredoc bodies below keep their 8-space leading indentation
+    ## on purpose — the OpenSSL CONF parser tolerates it, and the generated
+    ## config.txt/extfile.txt bytes are part of the module's behavior.
+    ## FIXME(v4): the passphrase is persisted in config.txt (output_password)
+    ## and echoed on openssl command lines by run — secret-material leakage
+    ## into on-disk files, terminal scrollback and ps-visible argv.
         cat > "$ssl_config" << EOF
         ## $SRVCTL generated config file
 
@@ -193,15 +240,17 @@ EOF
     ## Self-Sign Certificate
     run openssl x509 -req -days "$ssl_days" -passin pass:"$ssl_password" -extensions v3_req -extfile "$ssl_extfile" -in "$ssl_csr" -signkey "$ssl_key" -out "$ssl_crt" 2> /dev/null
     
-    ## create a certificate chainfile in pem format
+    ## create a certificate chainfile in pem format — key first, then crt
+    ## (order matters: haproxy loads the combined pem)
+    ## FIXME(v4): both combined pems contain the private key but are created
+    ## with the default umask (0644, no chmod); confidentiality relies on
+    ## parent-directory modes set elsewhere (set_permissions at update-install).
     cat "$ssl_key" >  "$ssl_pem"
     cat "$ssl_crt" >> "$ssl_pem"
-    
+
     ## cert.pem - ready to use certificate chain for cert
     ## key
     ## CA signed crt
     ## ca-bundle
     cat "$ssl_pem" > "$cert_path/cert.pem"
 }
-
-

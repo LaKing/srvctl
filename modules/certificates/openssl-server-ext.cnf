@@ -1,5 +1,11 @@
 ## here we add some additional things needed by srvctl
 ## openvpn warns to make server certs with this extension
+##
+## Consumed in place by the ca module when signing server certificates for
+## openvpn and gluster (modules/ca/libs/calib.sh: -extfile
+## $SC_INSTALL_DIR/modules/certificates/openssl-server-ext.cnf -extensions
+## server). Path, section name and nsCertType=server are API — do not
+## move, rename or weaken.
 [ server ]
 
 # Make a cert with nsCertType set to "server"
