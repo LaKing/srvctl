@@ -1,3 +1,8 @@
+## FIXME(v4): dead asset — nothing references modules/letsencrypt/
+## openssl-server-ext.cnf; the ca module uses the certificates module's
+## copy of this file (calib.sh). Belongs to the OpenVPN/CA path, not to
+## letsencrypt — remove this copy in v4.
+
 ## here we add some additional things needed by srvctl
 ## openvpn warns to make server certs with this extension
 [ server ]
