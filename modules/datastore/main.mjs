@@ -16,6 +16,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { createStore, StoreError } from "./lib/store.mjs";
 import { derivations } from "./lib/derive.mjs";
 import { generators, container_useruids } from "./lib/generators.mjs";
 import {
@@ -64,61 +65,60 @@ function output_json(value) {
   process.exitCode = 0;
 }
 
-// ---- monolithic store (v3 format; file-per-entity is WP-C step 2) ----------
+// ---- file-per-entity store (store.mjs) — WP-C step 2 -----------------------
+// Storage is now one file per entity (<dir>/<type>/<id>.json), atomic +
+// locked + git-versionable (014). stdout/exit stay byte-identical to v3 (the
+// verb golden); only the on-disk layout changes.
 const DATASTORE_DIR = process.env.SC_DATASTORE_DIR;
 
-function loadJson(name, { required }) {
-  const p = path.join(DATASTORE_DIR, name);
-  let raw;
-  try {
-    raw = fs.readFileSync(p, "utf8");
-  } catch (err) {
-    if (required) lib_error("READFILE " + p + " " + err);
-    return {};
-  }
-  try {
-    return JSON.parse(raw);
-  } catch (err) {
-    lib_error("READFILE " + p + " " + err);
-  }
-}
-
-// v3 load_hosts/load_users/load_containers each JSON.parse(readFileSync(...))
-// and return_error (LIB-ERROR 112) on any read/parse failure — all three
-// files are REQUIRED. A missing users.json/containers.json is datastore loss
-// or an incomplete mount, NOT an empty datastore.
-const hosts = loadJson("hosts.json", { required: true });
-if (Object.keys(hosts).length < 1) lib_error("READFILE hosts.json has no hosts defined. Eventually run: srvctl update-install");
-const users = loadJson("users.json", { required: true });
-const containers = loadJson("containers.json", { required: true });
+// Effective readonly: v3's SC_DATASTORE_RO guard was dead (bash sets
+// SC_DATASTORE_RO_USE, never that). Enforce the EFFECTIVE variable HERE, in
+// the writer (store.mjs readOnly) — the fix deferred from step 1. git:false:
+// the bash datastore_push wrappers (libs/gitlib.sh) do the git commit, so the
+// store must not double-commit.
+const READONLY = process.env.SC_DATASTORE_RO_USE === "true";
+const store = createStore(DATASTORE_DIR, { readOnly: READONLY, git: false });
 
 // v3 lablib.js msg(): console.log($BLUE'[ 'shorthost' ]'$GREEN, text, $CLEAR)
 // — space-separated args, so the byte layout is exactly this.
 const $TAG = "\x1b[34m[ " + os.hostname().split(".")[0] + " ]";
 function msg(text) { console.log($TAG + "\x1b[32m", text, "\x1b[0m"); }
 
-// v3 write_users/write_containers: JSON.stringify(obj, null, 2) (no newline),
-// then msg("wrote X.json"). In v3 the write is ASYNC (fs.writeFile), so its
-// msg fires AFTER all synchronous output; we reproduce that ordering by
-// DEFERRING the "wrote" msg to a flush after dispatch (see below).
+// Derivations/generators iterate whole maps, so load each type in full.
+// Per-entity semantics vs v3's "3 required files": hosts must be non-empty
+// (the unmounted/empty-datastore signal, as v3's hosts length check); an
+// empty users/containers set is valid (there is no single file to be
+// "missing" per-entity). A corrupt entity file → LIB-ERROR 112.
+let hosts, users, containers;
+try {
+  hosts = store.readAll("hosts");
+  users = store.readAll("users");
+  containers = store.readAll("containers");
+} catch (err) {
+  lib_error("READFILE " + err);
+}
+if (Object.keys(hosts).length < 1) lib_error("READFILE hosts has no hosts defined. Eventually run: srvctl update-install");
+
+// Per-entity write helpers. v3's write emitted "wrote X.json" from the ASYNC
+// fs.writeFile callback, so all "wrote" lines come AFTER synchronous output —
+// reproduced by DEFERRING them to a flush after dispatch. The label stays
+// "wrote users.json"/"wrote containers.json" (byte-exact stdout) even though
+// the write now targets a per-entity file. Readonly / write failure → the v3
+// LIB-ERROR 112 contract.
 const pendingWrites = [];
-function writeMonolithic(name, obj, wroteMsg) {
-  // v3 write_users/write_containers: readonly guard first, then a wrapped
-  // write that raises LIB-ERROR 112 on failure (never a bare Node stack).
-  // NOTE: SC_DATASTORE_RO is v3's guard variable — dead in practice (bash
-  // sets SC_DATASTORE_RO_USE, never this); reproduced verbatim for step-1
-  // fidelity. Step 2 (store.mjs) enforces the EFFECTIVE readonly variable.
-  if (process.env.SC_DATASTORE_RO) return lib_error("Readonly datastore.");
-  const p = path.join(DATASTORE_DIR, name);
+function persist(fn, type, id, wroteMsg) {
   try {
-    fs.writeFileSync(p, JSON.stringify(obj, null, 2));
+    fn();
   } catch (err) {
-    return lib_error("WRITEFILE " + p + " " + err);
+    if (err instanceof StoreError && err.code === "READONLY") return lib_error("Readonly datastore.");
+    return lib_error("WRITEFILE " + type + "/" + id + ".json " + err);
   }
   pendingWrites.push(wroteMsg);
 }
-function writeUsers() { writeMonolithic("users.json", users, "wrote users.json"); }
-function writeContainers() { writeMonolithic("containers.json", containers, "wrote containers.json"); }
+function writeContainer(id) { persist(() => store.write("containers", id, containers[id]), "containers", id, "wrote containers.json"); }
+function writeUser(id) { persist(() => store.write("users", id, users[id]), "users", id, "wrote users.json"); }
+function removeContainer(id) { persist(() => store.remove("containers", id), "containers", id, "wrote containers.json"); }
+function removeUser(id) { persist(() => store.remove("users", id), "users", id, "wrote users.json"); }
 
 // ---- derivation / generator context ---------------------------------------
 const ctx = {
@@ -187,7 +187,7 @@ function dispatch() {
       const rec = newContainer({ containers, users }, ARG, OPA, VAL, { SC_USER, NOW, SC_HOSTNET: ctx.SC_HOSTNET });
       console.log(ARG, OPA, VAL);           // v3 new_container stray debug line
       containers[ARG] = rec;
-      writeContainers();
+      writeContainer(ARG);
       return exit0();
     }
     if (CMD === "get" && OPA === "exist") return return_value(containers[ARG] !== undefined ? "true" : "false");
@@ -199,7 +199,7 @@ function dispatch() {
       else if (VAL === "true") container[OPA] = true;
       else if (VAL === "false") container[OPA] = false;
       else container[OPA] = VAL;
-      writeContainers();
+      writeContainer(C);
       return exit0();
     }
     if (CMD === "cfg") {
@@ -208,7 +208,7 @@ function dispatch() {
       // but the trailing exit() overrides exitCode back to 0.
       if (OPA === "update_ip") {
         container.ip = containerUpdateIp({ containers, users }, C, { SC_HOSTNET: ctx.SC_HOSTNET });
-        writeContainers();
+        writeContainer(C);
         msg("Update container " + C + " ip " + container.ip); // v3 container_update_ip msg (sync)
         return_value(undefined);
       } else if (OPA === "add_mapped_port") {
@@ -217,7 +217,7 @@ function dispatch() {
         if (!container.mapped_ports) container.mapped_ports = [];
         container.mapped_ports.push(entry);
         msg("Registering " + entry.proto + " port " + entry.host_port + " for " + C + ":" + entry.container_port); // v3 msg (sync)
-        writeContainers();
+        writeContainer(C);
         return_value(undefined);
       } else {
         return return_error("INTERNAL CFG FUNCTION DONT EXISTS");
@@ -230,7 +230,7 @@ function dispatch() {
       Object.keys(container).forEach((j) => output(j, container[j]));
       return exit0();
     }
-    if (CMD === "del") { delete containers[ARG]; writeContainers(); return exit0(); }
+    if (CMD === "del") { delete containers[ARG]; removeContainer(ARG); return exit0(); }
     if (CMD === "add") {
       // v3 has TWO sequential `if (CMD===ADD)` blocks, each ending in
       // write_containers()+exit() with no process.exit, so BOTH writes run on
@@ -242,13 +242,13 @@ function dispatch() {
         if (container.users.indexOf(VAL) < 0) container.users.push(VAL);
         return_value(container.users);
       }
-      writeContainers();
+      writeContainer(C);
       if (OPA === "vncuser" && VAL) {
         if (!container.vncusers) container.vncusers = [];
         if (container.vncusers.indexOf(VAL) < 0) container.vncusers.push(VAL);
         return_value(container.vncusers);
       }
-      writeContainers();
+      writeContainer(C);
       return exit0();
     }
     if (CMD === "get") return return_value(containerGet(C, OPA));
@@ -258,7 +258,7 @@ function dispatch() {
   if (DAT === "user") {
     if (CMD === "new") {
       users[ARG] = newUser({ containers, users }, ARG, { SC_USER, NOW });
-      writeUsers();
+      writeUser(ARG);
       return exit0();
     }
     if (CMD === "get" && OPA === "exist") return return_value(users[ARG] !== undefined ? "true" : "false");
@@ -271,7 +271,7 @@ function dispatch() {
       else if (VAL === "true") user[OPA] = true;
       else if (VAL === "false") user[OPA] = false;
       else user[OPA] = VAL;
-      writeUsers();
+      writeUser(U);
       return exit0();
     }
     if (CMD === "out") {
@@ -279,7 +279,7 @@ function dispatch() {
       Object.keys(user).forEach((j) => output(j, user[j]));
       return exit0();
     }
-    if (CMD === "del") { delete users[ARG]; writeUsers(); return exit0(); }
+    if (CMD === "del") { delete users[ARG]; removeUser(ARG); return exit0(); }
     if (CMD === "get") {
       if (OPA === "uid") return return_value(g.user_uid(U));
       if (OPA === "container_list") return return_value(g.user_container_list(SC_USER));
@@ -291,7 +291,7 @@ function dispatch() {
   if (DAT === "reseller") {
     if (CMD === "new") {
       users[ARG] = newReseller({ containers, users }, ARG, { SC_USER, NOW });
-      writeUsers();
+      writeUser(ARG);
       return exit0();
     }
     return;

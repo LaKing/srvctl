@@ -75,12 +75,35 @@ Execution rules (from 000-PROMPT + the Stage-2 preconditions in 000-INDEX):
     NOT effectively enforced yet. Fixing the guard to the effective variable
     is deferred to step 2 (store.mjs's writer-level RO). Full datastore
     suite: 190 checks.
-    - **WP-C — dispatcher step 2 (next)**: swap main.mjs's monolithic backend
-      to store.mjs file-per-entity; adapt the verb harness's mutation
-      comparison from raw monolithic bytes to semantic entity maps (stdout/
-      exit stay byte-exact). Then optionally collapse the duplicate-ADD to a
-      single write as an EXPLICIT golden-updating change (it alters stdout:
-      two "wrote" lines -> one).
+    - **WP-C — dispatcher step 2 ✅ DONE**: main.mjs now reads/writes via
+      store.mjs (file-per-entity, atomic + locked). Readonly is enforced in
+      the writer on the EFFECTIVE variable SC_DATASTORE_RO_USE (the step-1
+      deferred fix); git:false (bash datastore_push still commits — libs/
+      gitlib.sh). The verb harness migrates its monolithic fixture to
+      per-entity and compares mutation effects SEMANTICALLY (entity maps,
+      order-independent); stdout/stderr/exit stay byte-exact.
+      - **v4 ITERATION CONTRACT (intentional, general — NOT just 3 cases):**
+        store.readAll() returns each type's keys **lexicographically sorted by
+        id**. This intentionally REPLACES v3's monolithic-JSON insertion order
+        for all entity-map iteration — cluster/user/container listings and
+        generated /etc/hosts ordering — and any FUTURE cluster generator/list
+        that iterates entity maps inherits it. v3's insertion order was
+        incidental storage behavior, not a domain contract. The current
+        fixture exposes exactly 3 stdout diffs (get-cluster user_list /
+        container_list / etc_hosts); those 3 golden cases were updated
+        explicitly to the sorted order. NO .order index was added (rejected:
+        a second state file + migration/maintenance/concurrency/drift surface
+        to preserve incidental order).
+      - Caveat (future data-quality check, not .order): /etc/hosts entry order
+        is normally irrelevant, but DUPLICATE generated hostnames/aliases can
+        make order observable. Treat duplicate generated hostnames as a v4
+        validation/data-quality check, not an ordering mechanism.
+      - Still bash-side (WP-C step 2b): gitlib.sh `git add ./*.json` → per-
+        entity paths; datalib.sh seeding/RO-dir; wire migrate.mjs (monolithic
+        → per-entity) into update-install for live servers; export
+        SC_DATASTORE_RO_USE so main.mjs's RO guard actually triggers.
+      - Deferred (explicit golden-updating): collapse the duplicate-ADD
+        double-write to a single write (alters stdout: two "wrote" lines → one).
 - **WP-D** — bash FRONT DOOR + command index: light srvctl.sh/init.sh/
   commonlib.sh; node builds a cached command/help index (kills the
   hint_on_file grep storm) — the G1 dispatch win. Preserve hook contract

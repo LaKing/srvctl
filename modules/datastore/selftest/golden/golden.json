@@ -459,7 +459,7 @@
       "cluster",
       "user_list"
     ],
-    "stdout": "root alice bob \n",
+    "stdout": "alice bob root \n",
     "stderr": "",
     "exitCode": 0
   },
@@ -469,7 +469,7 @@
       "cluster",
       "container_list"
     ],
-    "stdout": "site.example.com shop.example.com mail.site.example.com \n",
+    "stdout": "mail.site.example.com shop.example.com site.example.com \n",
     "stderr": "",
     "exitCode": 0
   },
@@ -479,7 +479,7 @@
       "cluster",
       "etc_hosts"
     ],
-    "stdout": "## $SRVCTL generated\n127.0.0.1    localhost.localdomain localhost <HOST>\n::1    localhost6.localdomain6 localhost6\n## hosts\n10.16.20.1    node1\n10.15.20.0    node1\n10.16.21.1    node2\n10.15.21.0    node2\n## containers\n10.20.1.5    site.example.com\n10.20.2.6    shop.example.com\n10.20.2.6    mail.shop.example.com\n10.20.2.6    mail.shop.example.com.example.com\n10.20.2.6    store.example.com\n10.20.2.6    mail.store.example.com\n10.20.1.9    mail.site.example.com\n10.20.1.9    mail.mail.site.example.com\n10.20.1.9    mail.mail.site.example.com.example.com\n\n",
+    "stdout": "## $SRVCTL generated\n127.0.0.1    localhost.localdomain localhost <HOST>\n::1    localhost6.localdomain6 localhost6\n## hosts\n10.16.20.1    node1\n10.15.20.0    node1\n10.16.21.1    node2\n10.15.21.0    node2\n## containers\n10.20.1.9    mail.site.example.com\n10.20.1.9    mail.mail.site.example.com\n10.20.1.9    mail.mail.site.example.com.example.com\n10.20.2.6    shop.example.com\n10.20.2.6    mail.shop.example.com\n10.20.2.6    mail.shop.example.com.example.com\n10.20.2.6    store.example.com\n10.20.2.6    mail.store.example.com\n10.20.1.5    site.example.com\n\n",
     "stderr": "",
     "exitCode": 0
   },
