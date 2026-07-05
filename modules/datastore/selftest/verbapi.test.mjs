@@ -72,10 +72,17 @@ const CASES = [
   ["get-container-domains", ["get", "container", "shop.example.com", "domains"]],
   ["get-container-hosts", ["get", "container", "site.example.com", "hosts"]],
   ["get-container-resolv_conf", ["get", "container", "site.example.com", "resolv_conf"]],
+  // ---- container: cfg mutators and errors ----
+  ["cfg-container-update_ip", ["cfg", "container", "shop.example.com", "update_ip"], true],
+  ["cfg-container-add_mapped_port", ["cfg", "container", "site.example.com", "add_mapped_port", "udp", "22", "ssh access"], true],
+  ["cfg-container-invalid", ["cfg", "container", "site.example.com", "no_such_cfg"]],
   // ---- container: out formats ----
   ["out-container", ["out", "container", "site.example.com"]],
   ["out-container-aliases", ["out", "container", "shop.example.com"]],
   ["out-container-json", ["out", "container", "site.example.com", "json"]],
+  // ---- container: new ----
+  ["new-container", ["new", "container", "newsite.example.com", "fedora"], true],
+  ["new-container-bridge", ["new", "container", "bridged.example.com", "fedora", "br-test"], true],
   // ---- user ----
   ["get-user-exist-true", ["get", "user", "alice", "exist"]],
   ["get-user-exist-false", ["get", "user", "nobody", "exist"]],
@@ -84,6 +91,8 @@ const CASES = [
   ["out-user", ["out", "user", "alice"]],
   ["cfg-user-container_list", ["cfg", "user", "container_list"]],
   ["get-user-missing", ["get", "user", "nobody", "name"]],
+  ["new-user", ["new", "user", "carol"], true],
+  ["new-reseller", ["new", "reseller", "agency"], true],
   // ---- host ----
   ["get-host-host_ip", ["get", "host", "node1", "host_ip"]],
   ["get-host-hostnet", ["get", "host", "node1", "hostnet"]],
@@ -97,6 +106,8 @@ const CASES = [
   ["get-cluster-etc_hosts", ["get", "cluster", "etc_hosts"]],
   ["get-cluster-postfix_relaydomains", ["get", "cluster", "postfix_relaydomains"]],
   ["get-cluster-host_keys", ["get", "cluster", "host_keys"]],
+  ["get-cluster-unknown", ["get", "cluster", "no_such_cluster_fn"]],
+  ["out-cluster-unsupported", ["out", "cluster", "host_list"]],
   // ---- argument / dispatch errors ----
   ["err-no-args", []],
   ["err-missing-dat", ["get"]],
@@ -109,7 +120,11 @@ const CASES = [
   ["put-container-delete-field", ["put", "container", "shop.example.com", "aliases"], true],
   ["del-container", ["del", "container", "mail.site.example.com"], true],
   ["add-container-user", ["add", "container", "site.example.com", "user", "carol"], true],
+  ["add-container-vncuser", ["add", "container", "site.example.com", "vncuser", "viewer"], true],
   ["put-user-field", ["put", "user", "alice", "note", "vip"], true],
+  ["put-user-bool", ["put", "user", "alice", "active", "false"], true],
+  ["put-user-delete-field", ["put", "user", "bob", "reseller"], true],
+  ["del-user", ["del", "user", "bob"], true],
 ];
 
 function freshDatastore() {
@@ -127,6 +142,9 @@ function runCase([name, argv, mutating]) {
       env: { ...ENV, SC_DATASTORE_DIR: dir },
       encoding: "utf8",
     });
+    if (r.error) {
+      throw new Error(`spawn main.js for ${name}: ${r.error.message}`);
+    }
     const record = {
       argv,
       stdout: norm(r.stdout),

@@ -186,6 +186,52 @@
     "stderr": "/srv/srvctl/modules/datastore/lib.js:329\n    if (hosts[HOSTNAME].dns1) str += \"nameserver \" + hosts[HOSTNAME].dns1 + br;\n                        ^\n\nTypeError: Cannot read properties of undefined (reading 'dns1')\n    at Object.container_resolv_conf (/srv/srvctl/modules/datastore/lib.js:329:25)\n    at Object.<anonymous> (/srv/srvctl/modules/datastore/main.js:211:47)\n    at Module._compile (node:internal/modules/cjs/loader:1706:14)\n    at Module._extensions..js (node:internal/modules/cjs/loader:1839:10)\n    at Module.load (node:internal/modules/cjs/loader:1441:32)\n    at Module._load (node:internal/modules/cjs/loader:1263:12)\n    at TracingChannel.traceSync (node:diagnostics_channel:328:14)\n    at wrapModuleLoad (node:internal/modules/cjs/loader:237:24)\n    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:171:5)\n    at node:internal/main/run_main_module:36:49\n\nNode.js v22.22.0\n",
     "exitCode": 1
   },
+  "cfg-container-update_ip": {
+    "argv": [
+      "cfg",
+      "container",
+      "shop.example.com",
+      "update_ip"
+    ],
+    "stdout": "\u001b[34m[ <HOST> ]\u001b[32m Update container shop.example.com ip 10.20.2.7 \u001b[0m\n\u001b[34m[ <HOST> ]\u001b[32m wrote containers.json \u001b[0m\n",
+    "stderr": "",
+    "exitCode": 0,
+    "files": {
+      "hosts.json": "{\n  \"node1\": {\n    \"hostnet\": 20,\n    \"host_ip\": \"10.16.20.1\",\n    \"host-key-rsa\": \"AAAAnode1rsakey\"\n  },\n  \"node2\": {\n    \"hostnet\": 21,\n    \"host_ip\": \"10.16.21.1\"\n  }\n}\n",
+      "users.json": "{\n  \"root\": {\n    \"reseller_id\": 0,\n    \"user_id\": 0,\n    \"uid\": 0,\n    \"name\": \"root\"\n  },\n  \"alice\": {\n    \"reseller_id\": 1,\n    \"user_id\": 1,\n    \"uid\": 1001,\n    \"name\": \"Alice\"\n  },\n  \"bob\": {\n    \"user_id\": 2,\n    \"uid\": 1002,\n    \"reseller\": \"alice\",\n    \"name\": \"Bob\"\n  }\n}\n",
+      "containers.json": "{\n  \"site.example.com\": {\n    \"user\": \"alice\",\n    \"ip\": \"10.20.1.5\"\n  },\n  \"shop.example.com\": {\n    \"user\": \"bob\",\n    \"ip\": \"10.20.2.7\",\n    \"aliases\": [\n      \"store.example.com\"\n    ]\n  },\n  \"mail.site.example.com\": {\n    \"user\": \"alice\",\n    \"ip\": \"10.20.1.9\"\n  }\n}"
+    }
+  },
+  "cfg-container-add_mapped_port": {
+    "argv": [
+      "cfg",
+      "container",
+      "site.example.com",
+      "add_mapped_port",
+      "udp",
+      "22",
+      "ssh access"
+    ],
+    "stdout": "\u001b[34m[ <HOST> ]\u001b[32m Registering udp port 2022 for site.example.com:22 \u001b[0m\n\u001b[34m[ <HOST> ]\u001b[32m wrote containers.json \u001b[0m\n",
+    "stderr": "",
+    "exitCode": 0,
+    "files": {
+      "hosts.json": "{\n  \"node1\": {\n    \"hostnet\": 20,\n    \"host_ip\": \"10.16.20.1\",\n    \"host-key-rsa\": \"AAAAnode1rsakey\"\n  },\n  \"node2\": {\n    \"hostnet\": 21,\n    \"host_ip\": \"10.16.21.1\"\n  }\n}\n",
+      "users.json": "{\n  \"root\": {\n    \"reseller_id\": 0,\n    \"user_id\": 0,\n    \"uid\": 0,\n    \"name\": \"root\"\n  },\n  \"alice\": {\n    \"reseller_id\": 1,\n    \"user_id\": 1,\n    \"uid\": 1001,\n    \"name\": \"Alice\"\n  },\n  \"bob\": {\n    \"user_id\": 2,\n    \"uid\": 1002,\n    \"reseller\": \"alice\",\n    \"name\": \"Bob\"\n  }\n}\n",
+      "containers.json": "{\n  \"site.example.com\": {\n    \"user\": \"alice\",\n    \"ip\": \"10.20.1.5\",\n    \"mapped_ports\": [\n      {\n        \"proto\": \"udp\",\n        \"comment\": \"22 ssh access\",\n        \"container_port\": 22,\n        \"user\": \"root\",\n        \"timestamp\": \"2026-01-01T00:00:00.000Z\",\n        \"host_port\": 2022\n      }\n    ]\n  },\n  \"shop.example.com\": {\n    \"user\": \"bob\",\n    \"ip\": \"10.20.2.6\",\n    \"aliases\": [\n      \"store.example.com\"\n    ]\n  },\n  \"mail.site.example.com\": {\n    \"user\": \"alice\",\n    \"ip\": \"10.20.1.9\"\n  }\n}"
+    }
+  },
+  "cfg-container-invalid": {
+    "argv": [
+      "cfg",
+      "container",
+      "site.example.com",
+      "no_such_cfg"
+    ],
+    "stdout": "",
+    "stderr": "MAIN-ERROR: INTERNAL CFG FUNCTION DONT EXISTS\n",
+    "exitCode": 110
+  },
   "out-container": {
     "argv": [
       "out",
@@ -216,6 +262,39 @@
     "stdout": "{\n    \"user\": \"alice\",\n    \"ip\": \"10.20.1.5\"\n}\n",
     "stderr": "",
     "exitCode": 0
+  },
+  "new-container": {
+    "argv": [
+      "new",
+      "container",
+      "newsite.example.com",
+      "fedora"
+    ],
+    "stdout": "newsite.example.com fedora undefined\n\u001b[34m[ <HOST> ]\u001b[32m wrote containers.json \u001b[0m\n",
+    "stderr": "",
+    "exitCode": 0,
+    "files": {
+      "hosts.json": "{\n  \"node1\": {\n    \"hostnet\": 20,\n    \"host_ip\": \"10.16.20.1\",\n    \"host-key-rsa\": \"AAAAnode1rsakey\"\n  },\n  \"node2\": {\n    \"hostnet\": 21,\n    \"host_ip\": \"10.16.21.1\"\n  }\n}\n",
+      "users.json": "{\n  \"root\": {\n    \"reseller_id\": 0,\n    \"user_id\": 0,\n    \"uid\": 0,\n    \"name\": \"root\"\n  },\n  \"alice\": {\n    \"reseller_id\": 1,\n    \"user_id\": 1,\n    \"uid\": 1001,\n    \"name\": \"Alice\"\n  },\n  \"bob\": {\n    \"user_id\": 2,\n    \"uid\": 1002,\n    \"reseller\": \"alice\",\n    \"name\": \"Bob\"\n  }\n}\n",
+      "containers.json": "{\n  \"site.example.com\": {\n    \"user\": \"alice\",\n    \"ip\": \"10.20.1.5\"\n  },\n  \"shop.example.com\": {\n    \"user\": \"bob\",\n    \"ip\": \"10.20.2.6\",\n    \"aliases\": [\n      \"store.example.com\"\n    ]\n  },\n  \"mail.site.example.com\": {\n    \"user\": \"alice\",\n    \"ip\": \"10.20.1.9\"\n  },\n  \"newsite.example.com\": {\n    \"user\": \"root\",\n    \"ip\": \"10.20.0.2\",\n    \"creation_time\": \"2026-01-01T00:00:00.000Z\",\n    \"type\": \"fedora\"\n  }\n}"
+    }
+  },
+  "new-container-bridge": {
+    "argv": [
+      "new",
+      "container",
+      "bridged.example.com",
+      "fedora",
+      "br-test"
+    ],
+    "stdout": "bridged.example.com fedora br-test\n\u001b[34m[ <HOST> ]\u001b[32m wrote containers.json \u001b[0m\n",
+    "stderr": "",
+    "exitCode": 0,
+    "files": {
+      "hosts.json": "{\n  \"node1\": {\n    \"hostnet\": 20,\n    \"host_ip\": \"10.16.20.1\",\n    \"host-key-rsa\": \"AAAAnode1rsakey\"\n  },\n  \"node2\": {\n    \"hostnet\": 21,\n    \"host_ip\": \"10.16.21.1\"\n  }\n}\n",
+      "users.json": "{\n  \"root\": {\n    \"reseller_id\": 0,\n    \"user_id\": 0,\n    \"uid\": 0,\n    \"name\": \"root\"\n  },\n  \"alice\": {\n    \"reseller_id\": 1,\n    \"user_id\": 1,\n    \"uid\": 1001,\n    \"name\": \"Alice\"\n  },\n  \"bob\": {\n    \"user_id\": 2,\n    \"uid\": 1002,\n    \"reseller\": \"alice\",\n    \"name\": \"Bob\"\n  }\n}\n",
+      "containers.json": "{\n  \"site.example.com\": {\n    \"user\": \"alice\",\n    \"ip\": \"10.20.1.5\"\n  },\n  \"shop.example.com\": {\n    \"user\": \"bob\",\n    \"ip\": \"10.20.2.6\",\n    \"aliases\": [\n      \"store.example.com\"\n    ]\n  },\n  \"mail.site.example.com\": {\n    \"user\": \"alice\",\n    \"ip\": \"10.20.1.9\"\n  },\n  \"bridged.example.com\": {\n    \"user\": \"root\",\n    \"bridge\": \"br-test\",\n    \"ip\": \"10.20.0.2\",\n    \"creation_time\": \"2026-01-01T00:00:00.000Z\",\n    \"type\": \"fedora\"\n  }\n}"
+    }
   },
   "get-user-exist-true": {
     "argv": [
@@ -291,6 +370,36 @@
     "stdout": "",
     "stderr": "MAIN-ERROR: USER DONT EXISTS\n",
     "exitCode": 110
+  },
+  "new-user": {
+    "argv": [
+      "new",
+      "user",
+      "carol"
+    ],
+    "stdout": "\u001b[34m[ <HOST> ]\u001b[32m wrote users.json \u001b[0m\n",
+    "stderr": "",
+    "exitCode": 0,
+    "files": {
+      "hosts.json": "{\n  \"node1\": {\n    \"hostnet\": 20,\n    \"host_ip\": \"10.16.20.1\",\n    \"host-key-rsa\": \"AAAAnode1rsakey\"\n  },\n  \"node2\": {\n    \"hostnet\": 21,\n    \"host_ip\": \"10.16.21.1\"\n  }\n}\n",
+      "users.json": "{\n  \"root\": {\n    \"reseller_id\": 0,\n    \"user_id\": 0,\n    \"uid\": 0,\n    \"name\": \"root\"\n  },\n  \"alice\": {\n    \"reseller_id\": 1,\n    \"user_id\": 1,\n    \"uid\": 1001,\n    \"name\": \"Alice\"\n  },\n  \"bob\": {\n    \"user_id\": 2,\n    \"uid\": 1002,\n    \"reseller\": \"alice\",\n    \"name\": \"Bob\"\n  },\n  \"carol\": {\n    \"added_by_username\": \"root\",\n    \"added_on_datestamp\": \"2026-01-01T00:00:00.000Z\",\n    \"reseller\": \"root\",\n    \"user_id\": 3,\n    \"uid\": 1003\n  }\n}",
+      "containers.json": "{\n  \"site.example.com\": {\n    \"user\": \"alice\",\n    \"ip\": \"10.20.1.5\"\n  },\n  \"shop.example.com\": {\n    \"user\": \"bob\",\n    \"ip\": \"10.20.2.6\",\n    \"aliases\": [\"store.example.com\"]\n  },\n  \"mail.site.example.com\": {\n    \"user\": \"alice\",\n    \"ip\": \"10.20.1.9\"\n  }\n}\n"
+    }
+  },
+  "new-reseller": {
+    "argv": [
+      "new",
+      "reseller",
+      "agency"
+    ],
+    "stdout": "\u001b[34m[ <HOST> ]\u001b[32m wrote users.json \u001b[0m\n",
+    "stderr": "",
+    "exitCode": 0,
+    "files": {
+      "hosts.json": "{\n  \"node1\": {\n    \"hostnet\": 20,\n    \"host_ip\": \"10.16.20.1\",\n    \"host-key-rsa\": \"AAAAnode1rsakey\"\n  },\n  \"node2\": {\n    \"hostnet\": 21,\n    \"host_ip\": \"10.16.21.1\"\n  }\n}\n",
+      "users.json": "{\n  \"root\": {\n    \"reseller_id\": 0,\n    \"user_id\": 0,\n    \"uid\": 0,\n    \"name\": \"root\"\n  },\n  \"alice\": {\n    \"reseller_id\": 1,\n    \"user_id\": 1,\n    \"uid\": 1001,\n    \"name\": \"Alice\"\n  },\n  \"bob\": {\n    \"user_id\": 2,\n    \"uid\": 1002,\n    \"reseller\": \"alice\",\n    \"name\": \"Bob\"\n  },\n  \"agency\": {\n    \"added_by_username\": \"root\",\n    \"added_on_datestamp\": \"2026-01-01T00:00:00.000Z\",\n    \"reseller\": \"agency\",\n    \"reseller_id\": 2,\n    \"uid\": 1003\n  }\n}",
+      "containers.json": "{\n  \"site.example.com\": {\n    \"user\": \"alice\",\n    \"ip\": \"10.20.1.5\"\n  },\n  \"shop.example.com\": {\n    \"user\": \"bob\",\n    \"ip\": \"10.20.2.6\",\n    \"aliases\": [\"store.example.com\"]\n  },\n  \"mail.site.example.com\": {\n    \"user\": \"alice\",\n    \"ip\": \"10.20.1.9\"\n  }\n}\n"
+    }
   },
   "get-host-host_ip": {
     "argv": [
@@ -404,6 +513,26 @@
     "stdout": "AAAAnode1rsakey\n\n",
     "stderr": "",
     "exitCode": 0
+  },
+  "get-cluster-unknown": {
+    "argv": [
+      "get",
+      "cluster",
+      "no_such_cluster_fn"
+    ],
+    "stdout": "",
+    "stderr": "",
+    "exitCode": 99
+  },
+  "out-cluster-unsupported": {
+    "argv": [
+      "out",
+      "cluster",
+      "host_list"
+    ],
+    "stdout": "",
+    "stderr": "",
+    "exitCode": 99
   },
   "err-no-args": {
     "argv": [],
@@ -530,6 +659,23 @@
       "containers.json": "{\n  \"site.example.com\": {\n    \"user\": \"alice\",\n    \"ip\": \"10.20.1.5\",\n    \"users\": [\n      \"carol\"\n    ]\n  },\n  \"shop.example.com\": {\n    \"user\": \"bob\",\n    \"ip\": \"10.20.2.6\",\n    \"aliases\": [\n      \"store.example.com\"\n    ]\n  },\n  \"mail.site.example.com\": {\n    \"user\": \"alice\",\n    \"ip\": \"10.20.1.9\"\n  }\n}"
     }
   },
+  "add-container-vncuser": {
+    "argv": [
+      "add",
+      "container",
+      "site.example.com",
+      "vncuser",
+      "viewer"
+    ],
+    "stdout": "[ 'viewer' ]\n\u001b[34m[ <HOST> ]\u001b[32m wrote containers.json \u001b[0m\n\u001b[34m[ <HOST> ]\u001b[32m wrote containers.json \u001b[0m\n",
+    "stderr": "",
+    "exitCode": 0,
+    "files": {
+      "hosts.json": "{\n  \"node1\": {\n    \"hostnet\": 20,\n    \"host_ip\": \"10.16.20.1\",\n    \"host-key-rsa\": \"AAAAnode1rsakey\"\n  },\n  \"node2\": {\n    \"hostnet\": 21,\n    \"host_ip\": \"10.16.21.1\"\n  }\n}\n",
+      "users.json": "{\n  \"root\": {\n    \"reseller_id\": 0,\n    \"user_id\": 0,\n    \"uid\": 0,\n    \"name\": \"root\"\n  },\n  \"alice\": {\n    \"reseller_id\": 1,\n    \"user_id\": 1,\n    \"uid\": 1001,\n    \"name\": \"Alice\"\n  },\n  \"bob\": {\n    \"user_id\": 2,\n    \"uid\": 1002,\n    \"reseller\": \"alice\",\n    \"name\": \"Bob\"\n  }\n}\n",
+      "containers.json": "{\n  \"site.example.com\": {\n    \"user\": \"alice\",\n    \"ip\": \"10.20.1.5\",\n    \"vncusers\": [\n      \"viewer\"\n    ]\n  },\n  \"shop.example.com\": {\n    \"user\": \"bob\",\n    \"ip\": \"10.20.2.6\",\n    \"aliases\": [\n      \"store.example.com\"\n    ]\n  },\n  \"mail.site.example.com\": {\n    \"user\": \"alice\",\n    \"ip\": \"10.20.1.9\"\n  }\n}"
+    }
+  },
   "put-user-field": {
     "argv": [
       "put",
@@ -544,6 +690,54 @@
     "files": {
       "hosts.json": "{\n  \"node1\": {\n    \"hostnet\": 20,\n    \"host_ip\": \"10.16.20.1\",\n    \"host-key-rsa\": \"AAAAnode1rsakey\"\n  },\n  \"node2\": {\n    \"hostnet\": 21,\n    \"host_ip\": \"10.16.21.1\"\n  }\n}\n",
       "users.json": "{\n  \"root\": {\n    \"reseller_id\": 0,\n    \"user_id\": 0,\n    \"uid\": 0,\n    \"name\": \"root\"\n  },\n  \"alice\": {\n    \"reseller_id\": 1,\n    \"user_id\": 1,\n    \"uid\": 1001,\n    \"name\": \"Alice\",\n    \"note\": \"vip\"\n  },\n  \"bob\": {\n    \"user_id\": 2,\n    \"uid\": 1002,\n    \"reseller\": \"alice\",\n    \"name\": \"Bob\"\n  }\n}",
+      "containers.json": "{\n  \"site.example.com\": {\n    \"user\": \"alice\",\n    \"ip\": \"10.20.1.5\"\n  },\n  \"shop.example.com\": {\n    \"user\": \"bob\",\n    \"ip\": \"10.20.2.6\",\n    \"aliases\": [\"store.example.com\"]\n  },\n  \"mail.site.example.com\": {\n    \"user\": \"alice\",\n    \"ip\": \"10.20.1.9\"\n  }\n}\n"
+    }
+  },
+  "put-user-bool": {
+    "argv": [
+      "put",
+      "user",
+      "alice",
+      "active",
+      "false"
+    ],
+    "stdout": "\u001b[34m[ <HOST> ]\u001b[32m wrote users.json \u001b[0m\n",
+    "stderr": "",
+    "exitCode": 0,
+    "files": {
+      "hosts.json": "{\n  \"node1\": {\n    \"hostnet\": 20,\n    \"host_ip\": \"10.16.20.1\",\n    \"host-key-rsa\": \"AAAAnode1rsakey\"\n  },\n  \"node2\": {\n    \"hostnet\": 21,\n    \"host_ip\": \"10.16.21.1\"\n  }\n}\n",
+      "users.json": "{\n  \"root\": {\n    \"reseller_id\": 0,\n    \"user_id\": 0,\n    \"uid\": 0,\n    \"name\": \"root\"\n  },\n  \"alice\": {\n    \"reseller_id\": 1,\n    \"user_id\": 1,\n    \"uid\": 1001,\n    \"name\": \"Alice\",\n    \"active\": false\n  },\n  \"bob\": {\n    \"user_id\": 2,\n    \"uid\": 1002,\n    \"reseller\": \"alice\",\n    \"name\": \"Bob\"\n  }\n}",
+      "containers.json": "{\n  \"site.example.com\": {\n    \"user\": \"alice\",\n    \"ip\": \"10.20.1.5\"\n  },\n  \"shop.example.com\": {\n    \"user\": \"bob\",\n    \"ip\": \"10.20.2.6\",\n    \"aliases\": [\"store.example.com\"]\n  },\n  \"mail.site.example.com\": {\n    \"user\": \"alice\",\n    \"ip\": \"10.20.1.9\"\n  }\n}\n"
+    }
+  },
+  "put-user-delete-field": {
+    "argv": [
+      "put",
+      "user",
+      "bob",
+      "reseller"
+    ],
+    "stdout": "\u001b[34m[ <HOST> ]\u001b[32m wrote users.json \u001b[0m\n",
+    "stderr": "",
+    "exitCode": 0,
+    "files": {
+      "hosts.json": "{\n  \"node1\": {\n    \"hostnet\": 20,\n    \"host_ip\": \"10.16.20.1\",\n    \"host-key-rsa\": \"AAAAnode1rsakey\"\n  },\n  \"node2\": {\n    \"hostnet\": 21,\n    \"host_ip\": \"10.16.21.1\"\n  }\n}\n",
+      "users.json": "{\n  \"root\": {\n    \"reseller_id\": 0,\n    \"user_id\": 0,\n    \"uid\": 0,\n    \"name\": \"root\"\n  },\n  \"alice\": {\n    \"reseller_id\": 1,\n    \"user_id\": 1,\n    \"uid\": 1001,\n    \"name\": \"Alice\"\n  },\n  \"bob\": {\n    \"user_id\": 2,\n    \"uid\": 1002,\n    \"name\": \"Bob\"\n  }\n}",
+      "containers.json": "{\n  \"site.example.com\": {\n    \"user\": \"alice\",\n    \"ip\": \"10.20.1.5\"\n  },\n  \"shop.example.com\": {\n    \"user\": \"bob\",\n    \"ip\": \"10.20.2.6\",\n    \"aliases\": [\"store.example.com\"]\n  },\n  \"mail.site.example.com\": {\n    \"user\": \"alice\",\n    \"ip\": \"10.20.1.9\"\n  }\n}\n"
+    }
+  },
+  "del-user": {
+    "argv": [
+      "del",
+      "user",
+      "bob"
+    ],
+    "stdout": "\u001b[34m[ <HOST> ]\u001b[32m wrote users.json \u001b[0m\n",
+    "stderr": "",
+    "exitCode": 0,
+    "files": {
+      "hosts.json": "{\n  \"node1\": {\n    \"hostnet\": 20,\n    \"host_ip\": \"10.16.20.1\",\n    \"host-key-rsa\": \"AAAAnode1rsakey\"\n  },\n  \"node2\": {\n    \"hostnet\": 21,\n    \"host_ip\": \"10.16.21.1\"\n  }\n}\n",
+      "users.json": "{\n  \"root\": {\n    \"reseller_id\": 0,\n    \"user_id\": 0,\n    \"uid\": 0,\n    \"name\": \"root\"\n  },\n  \"alice\": {\n    \"reseller_id\": 1,\n    \"user_id\": 1,\n    \"uid\": 1001,\n    \"name\": \"Alice\"\n  }\n}",
       "containers.json": "{\n  \"site.example.com\": {\n    \"user\": \"alice\",\n    \"ip\": \"10.20.1.5\"\n  },\n  \"shop.example.com\": {\n    \"user\": \"bob\",\n    \"ip\": \"10.20.2.6\",\n    \"aliases\": [\"store.example.com\"]\n  },\n  \"mail.site.example.com\": {\n    \"user\": \"alice\",\n    \"ip\": \"10.20.1.9\"\n  }\n}\n"
     }
   }

@@ -23,19 +23,21 @@ Execution rules (from 000-PROMPT + the Stage-2 preconditions in 000-INDEX):
   functions (uid/br/gw/interface/br_host_ip/bridge/user_id/user_ip_match/
   hostnet/host/host_ip/reseller/http_port/https_port) over an explicit
   context, faithful v3 port (quirks preserved, FIXMEs marked). 29 snapshot
-  tests pass. selftest/run.sh runs the whole datastore suite (44 tests).
+  tests pass. Store+derive subtotal: 44 checks.
   - **WP-B — part 2 (pending)**: config-string generators (resolv_conf,
     /etc/hosts, nspawn, firewall, mapped_ports, relaydomains) — snapshot vs
     v3 output; folds into WP-C wiring.
 - **WP-C — golden-master harness ✅ DONE** (precondition, per user):
   selftest/verbapi.test.mjs + golden/fixture/*.json + golden/golden.json
-  freeze the live v3 main.js verb contract — 49 cases (get/out/cfg/del/put/
-  add across container/user/host/cluster + arg/dispatch errors + mutation
-  file-effects), stdout+stderr+exit pinned, os.hostname() normalized,
-  deterministic (verified twice). Cross-checks WP-B: golden derivation
-  outputs match derive.mjs exactly.
+  freeze the live v3 main.js verb contract — 62 cases (get/out/cfg/del/put/
+  add/new across container/user/reseller/host/cluster + arg/dispatch errors
+  + mutation file-effects), stdout+stderr+exit pinned, os.hostname()
+  normalized, and child-spawn failures hard-fail instead of recording empty
+  output. Deterministic (full suite + 3 direct repeats). Cross-checks WP-B:
+  golden derivation outputs match derive.mjs exactly. Full datastore suite:
+  106 checks.
   - **WP-C — wiring (next)**: reimplement main.js internals on store.mjs +
-    derive.mjs (+ WP-B part 2 text generators); the golden must stay 49/49.
+    derive.mjs (+ WP-B part 2 text generators); the golden must stay 62/62.
     Fixes the duplicate-ADD race and the dead RO guard. Then run the
     datastore on file-per-entity behind the bash wrappers.
 - **WP-D** — bash FRONT DOOR + command index: light srvctl.sh/init.sh/
