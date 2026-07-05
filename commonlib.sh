@@ -529,10 +529,22 @@ function set_permissions() {
     chmod 644 /etc/srvctl/*.json
     
     chmod -R 600 "$SC_DATASTORE_RW_DIR"
-    
+
     chmod 755 "$SC_DATASTORE_RW_DIR"
-    chmod 644 "$SC_DATASTORE_RW_DIR"/*.json
-    
+    ## legacy monolithic datastore (pre-migration): world-readable json
+    chmod 644 "$SC_DATASTORE_RW_DIR"/*.json 2> /dev/null
+    ## v4 file-per-entity datastore: type dirs traversable, entity records
+    ## world-readable so non-root `sc get` can read them (as v3's *.json were).
+    ## NB: full per-entity permission model (keys under users/<u>/, cert/) is a
+    ## VM-test item before live rollout.
+    local dsdir
+    for dsdir in hosts users containers
+    do
+        [[ -d "$SC_DATASTORE_RW_DIR/$dsdir" ]] || continue
+        chmod 755 "$SC_DATASTORE_RW_DIR/$dsdir"
+        chmod 644 "$SC_DATASTORE_RW_DIR/$dsdir"/*.json 2> /dev/null
+    done
+
     [[ -d "$SC_MOUNTS_DIR" ]] && chmod 700 "$SC_MOUNTS_DIR"
     [[ -d "$SC_ROOTFS_DIR" ]] && chmod 700 "$SC_ROOTFS_DIR"
     

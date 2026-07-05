@@ -58,7 +58,8 @@ function grab_data() { ## from-host
 
 }
 
-## one-time (root) datastore setup: directories, json seeds, git init
+## one-time (root) datastore setup: directories, json seeds, git init, and
+## the v4 monolithic -> file-per-entity conversion.
 function init_datastore_install() {
 
     if [[ $USER != root ]]
@@ -73,32 +74,28 @@ function init_datastore_install() {
     mkdir -p "$SC_DATASTORE_RW_DIR"
     mkdir -p /etc/srvctl/data
 
-    ## hosts.json is more or less static data
-    if ! [[ -f "$SC_DATASTORE_DIR/hosts.json" ]]
+    ## Fresh install: seed the v3 monolithic source files ONLY when the RW
+    ## datastore has neither the per-entity dirs nor monolithic seeds yet.
+    ## They are converted to file-per-entity by migrate_datastore_to_per_entity.
+    if [[ ! -d "$SC_DATASTORE_RW_DIR/hosts" ]] && [[ ! -f "$SC_DATASTORE_RW_DIR/hosts.json" ]]
     then
-        cat /etc/srvctl/hosts.json > "$SC_DATASTORE_DIR/hosts.json"
-    fi
+        cat /etc/srvctl/hosts.json > "$SC_DATASTORE_RW_DIR/hosts.json"
 
-    if ! [[ -f "$SC_DATASTORE_DIR/containers.json" ]]
-    then
         if [[ -f /etc/srvctl/data/containers.json ]]
         then
-            cat /etc/srvctl/data/containers.json > "$SC_DATASTORE_DIR/containers.json"
+            cat /etc/srvctl/data/containers.json > "$SC_DATASTORE_RW_DIR/containers.json"
         else
             err "INITIALIZE-EMPTY srvctl data containers"
-            echo '{}' > "$SC_DATASTORE_DIR/containers.json"
+            echo '{}' > "$SC_DATASTORE_RW_DIR/containers.json"
         fi
-    fi
 
-    if ! [[ -f "$SC_DATASTORE_DIR/users.json" ]]
-    then
         if [[ -f /etc/srvctl/data/users.json ]]
         then
-            cat /etc/srvctl/data/users.json > "$SC_DATASTORE_DIR/users.json"
+            cat /etc/srvctl/data/users.json > "$SC_DATASTORE_RW_DIR/users.json"
         else
             ## seed table: root plus the single-letter resellers a-x
             err "INITIALIZE-DEFAULT srvctl data users"
-            cat "$SC_INSTALL_DIR/modules/datastore/default-users.json" > "$SC_DATASTORE_DIR/users.json"
+            cat "$SC_INSTALL_DIR/modules/datastore/default-users.json" > "$SC_DATASTORE_RW_DIR/users.json"
         fi
     fi
 
@@ -111,15 +108,39 @@ function init_datastore_install() {
 cat > "$SC_DATASTORE_RW_DIR/.gitignore" << EOF
 .git.log
 .gitignore
+.monolithic-backup
 EOF
     fi
 
+    ## per-entity user records live in users/<name>.json; the per-user key
+    ## dirs used by ssh/codepad share the same users/ dir and coexist (the
+    ## store only reads *.json). cert/ is unchanged.
     mkdir -p "$SC_DATASTORE_RW_DIR/users"
     mkdir -p "$SC_DATASTORE_RW_DIR/cert"
 
+    migrate_datastore_to_per_entity
 }
 
-## select the RO or RW directory, seed if incomplete, export SC_DATASTORE_DIR
+## Idempotent one-time conversion of the v3 monolithic RW datastore
+## (hosts.json/users.json/containers.json) to the v4 file-per-entity layout
+## (hosts/ users/ containers/). Skips once the monolithic files are archived.
+function migrate_datastore_to_per_entity() {
+
+    [[ -f "$SC_DATASTORE_RW_DIR/hosts.json" ]] || return 0
+
+    msg "Migrating datastore to file-per-entity layout"
+
+    if run /bin/node "$SC_INSTALL_DIR/modules/datastore/lib/migrate.mjs" "$SC_DATASTORE_RW_DIR" "$SC_DATASTORE_RW_DIR"
+    then
+        mkdir -p "$SC_DATASTORE_RW_DIR/.monolithic-backup"
+        mv "$SC_DATASTORE_RW_DIR/hosts.json" "$SC_DATASTORE_RW_DIR/users.json" "$SC_DATASTORE_RW_DIR/containers.json" "$SC_DATASTORE_RW_DIR/.monolithic-backup/" 2> /dev/null
+        msg "Datastore migrated; monolithic files archived to .monolithic-backup"
+    else
+        err "Datastore migration FAILED; monolithic files left in place"
+    fi
+}
+
+## select the RO or RW directory, ensure the per-entity layout, export vars
 function init_datastore() {
 
     if $SC_DATASTORE_RO_USE
@@ -130,10 +151,21 @@ function init_datastore() {
         SC_DATASTORE_DIR="$SC_DATASTORE_RW_DIR"
     fi
 
-    if [[ ! -f $SC_DATASTORE_DIR/hosts.json ]] || [[ ! -f $SC_DATASTORE_DIR/containers.json ]] || [[ ! -f $SC_DATASTORE_DIR/users.json ]]
+    ## Ensure the RW datastore is file-per-entity (fresh seed or one-time
+    ## migration). Only when writable and root — never mutate the RO copy.
+    ## Triggers when the per-entity dir is absent OR monolithic files remain
+    ## (a not-yet / partially migrated store); init_datastore_install is
+    ## idempotent and no-ops once fully migrated.
+    if ! $SC_DATASTORE_RO_USE && [[ $USER == root ]]
     then
-        init_datastore_install
+        if [[ ! -d "$SC_DATASTORE_DIR/hosts" ]] || [[ -f "$SC_DATASTORE_DIR/hosts.json" ]]
+        then
+            init_datastore_install
+        fi
     fi
 
+    ## export for main.mjs: the datastore dir AND the effective readonly flag
+    ## (v4 enforces readonly in the writer keyed on SC_DATASTORE_RO_USE).
     export SC_DATASTORE_DIR
+    export SC_DATASTORE_RO_USE
 }

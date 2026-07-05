@@ -106,10 +106,27 @@ Execution rules (from 000-PROMPT + the Stage-2 preconditions in 000-INDEX):
         selftest/concurrency.test.mjs proves it: 20 parallel new-container /
         new-user / add_mapped_port → zero duplicate allocations, no lost
         writes. Datastore suite now 197 checks.
-      - Still bash-side (WP-C step 2b): gitlib.sh `git add ./*.json` → per-
-        entity paths; datalib.sh seeding/RO-dir; wire migrate.mjs (monolithic
-        → per-entity) into update-install for live servers; export
-        SC_DATASTORE_RO_USE so main.mjs's RO guard actually triggers.
+    - **WP-C — step 2b (bash wiring) ✅ DONE (locally verified)**:
+      - gitlib.sh datastore_push: `git add ./*.json` → `git add -A` (commits
+        the per-entity tree; .gitignore adds .monolithic-backup).
+      - datalib.sh: init_datastore_install now seeds the v3 monolithic sources
+        then converts to per-entity; migrate_datastore_to_per_entity() runs
+        migrate.mjs in-place (idempotent; archives hosts/users/containers.json
+        to .monolithic-backup after success); init_datastore triggers it when
+        the per-entity dir is absent or monolithic files remain, RW+root only,
+        and EXPORTS SC_DATASTORE_DIR + SC_DATASTORE_RO_USE.
+      - migrate.mjs CLI now git:false (bash owns the commit).
+      - commonlib.sh set_permissions: per-entity type dirs → 755, entity json
+        → 644 (non-root `sc get` reads, as v3's *.json were).
+      - Verified locally: fabricated monolithic → migrate → per-entity →
+        main.mjs reads correctly; SC_DATASTORE_RO_USE=true → main.mjs refuses
+        writes (LIB-ERROR 112); users/<u>/ key dirs coexist (store reads only
+        *.json); bash -n + shellcheck clean; suite 197.
+      - NEEDS VM-TEST (D26) before live: end-to-end update-install migration on
+        a real server; the FULL per-entity permission model (keys under
+        users/<u>/, cert/); the RO_DIR=gluster coupling (pre-init.sh) — RO mode
+        + RO_DIR must be reworked with G4 (gluster removal), after which
+        SC_DATASTORE_RO_USE is effectively always false.
       - Deferred (explicit golden-updating): collapse the duplicate-ADD
         double-write to a single write (alters stdout: two "wrote" lines → one).
 - **WP-D** — bash FRONT DOOR + command index: light srvctl.sh/init.sh/

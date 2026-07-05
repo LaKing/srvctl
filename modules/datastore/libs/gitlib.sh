@@ -20,6 +20,9 @@ function datastore_push() {
     else
         ## no repository yet (init_datastore_install has not run): skip silently
         [[ ! -d $SC_DATASTORE_RW_DIR/.git ]] && return
-        echo "$NOW $SC_USER $(cd "$SC_DATASTORE_RW_DIR" && git add ./*.json && git commit -m "$SC_USER@$HOSTNAME $*") $*" >> "$SC_DATASTORE_RW_DIR/.git.log"
+        ## v4 datastore is file-per-entity (hosts/ users/ containers/), so add
+        ## the whole tree, not just top-level *.json (.gitignore excludes the
+        ## journal + the migration backup).
+        echo "$NOW $SC_USER $(cd "$SC_DATASTORE_RW_DIR" && git add -A && git commit -m "$SC_USER@$HOSTNAME $*") $*" >> "$SC_DATASTORE_RW_DIR/.git.log"
     fi
 }

@@ -78,7 +78,9 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     console.error("usage: node migrate.mjs <srcDir> <dstDir>");
     process.exit(2);
   }
-  const store = createStore(dstDir);
+  // git:false — the bash datastore layer (libs/gitlib.sh datastore_push)
+  // owns the git commit, so the migration must not double-commit.
+  const store = createStore(dstDir, { git: false });
   const counts = migrateToPerEntity(srcDir, store);
   console.log("migrated:", JSON.stringify(counts));
 }
