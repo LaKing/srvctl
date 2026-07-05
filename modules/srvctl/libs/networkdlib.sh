@@ -1,8 +1,18 @@
-## systemd-networkd functions
+#!/bin/bash
+
+##
+##   systemd-networkd host configuration, called by the containers module's
+##   pre-update-install-host hook (i.e. part of every host update-install).
+##   networkd_configure_interface writes /etc/systemd/network/IFACE.network
+##   (static for the datastore-defined primary interface, DHCP otherwise);
+##   networkd_configuration iterates the firewalld interface list, switches
+##   DNS resolution to systemd-resolved, enables networkd/resolved, DISABLES
+##   NetworkManager, and gates each step on a ping to 8.8.8.8.
+##
 
 function networkd_configure_interface {
-    
-    local f interface host_ip gateway prefix dns1 dns2
+
+    local f interface host_ip gateway prefix dns1 dns2 primary_interface
     interface="$1"
     
     f="/etc/systemd/network/$interface.network"
@@ -25,12 +35,12 @@ function networkd_configure_interface {
         dns2="$(get host "$HOSTNAME" dns2)"
     } 2> /dev/null
     
-    if [[ -n $host_ip ]] && [[ -n $gateway ]] && [[ -n $prefix ]] && [[ -n $primary_interface ]] && [[ $interface == $primary_interface ]]
+    if [[ -n $host_ip ]] && [[ -n $gateway ]] && [[ -n $prefix ]] && [[ -n $primary_interface ]] && [[ $interface == "$primary_interface" ]]
     then
-        
+
         msg "Configure primary interface $interface based on srvctl settings"
-        
-        
+
+
 cat > "$f" << EOF
 [Match]
 Name=$interface
@@ -75,21 +85,20 @@ function networkd_configuration {
     
     ## Okay some more clarification on this.
     ## Srvctl controlled hosts should have a public-facing static IP, that is considered to be the primary interface.
-    ## This is configured automatically, if the interface name is
-    
-    
-    msg "Network intefaces-list: $interfaces"
-    
-    [[ $interface ]] && msg "Srvctl inteface: $interface"
-    
+    ## This is configured automatically, if the interface name matches the
+    ## datastore-defined interface of this host (see networkd_configure_interface).
+
+
+    msg "Network interfaces-list: $interfaces"
+
+    [[ $interface ]] && msg "Srvctl interface: $interface"
+
     for i in $interfaces
     do
-        
         networkd_configure_interface "$i"
-        
     done
-    
-    
+
+
     if [[ "$(systemctl is-active systemd-networkd)" == active ]] && [[ "$(systemctl is-active systemd-resolved)" == active ]]
     then
         msg "systemd-network configuration seems OK"
@@ -108,9 +117,11 @@ function networkd_configuration {
         
         if [[ "$(systemctl is-active systemd-networkd)" == active ]] && [[ "$(systemctl is-active systemd-resolved)" == active ]]
         then
-            msg "systemd-networkd configuration succesful"
+            msg "systemd-networkd configuration successful"
         else
             err "systemd-networkd configuration failed. Exiting for now."
+            ## FIXME(v4): bare 'exit' after err exits with status 0, so the
+            ## caller cannot detect this failure (same at the two exits below).
             exit
         fi
     fi
@@ -126,9 +137,9 @@ function networkd_configuration {
         exit
     fi
     
-    if [[ "$(systemctl is-active NetworkManager)" == active ]] #&& [[ -z "$(networkctl | grep 'en' | grep ether | grep routable | grep unmanaged)" ]]
+    if [[ "$(systemctl is-active NetworkManager)" == active ]]
     then
-        ntc "NetworkManager is active, stoping / disabling it"
+        ntc "NetworkManager is active, stopping / disabling it"
         run systemctl disable NetworkManager
         run systemctl stop NetworkManager
     fi

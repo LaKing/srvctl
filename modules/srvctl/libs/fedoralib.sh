@@ -1,14 +1,19 @@
 #!/bin/bash
 
-[ "$ID" == fedora ] || return;
+##
+##   Fedora package helpers: sc_install / sc_update (dnf wrappers used by
+##   ~20 modules) and msg_version_installed (dnf info one-liner).
+##   The whole lib is skipped on non-fedora systems ($ID from /etc/os-release).
+##
 
+[[ $ID == fedora ]] || return
 
 function sc_install {
+    ## word-splitting of $* is intentional: callers pass package lists
     # shellcheck disable=SC2048
     # shellcheck disable=SC2086
-    #run dnf -y -q --releasever "$VERSION_ID" install $*
     run dnf -y -q install $*
-    
+
 }
 
 function sc_update {
@@ -30,8 +35,11 @@ function msg_version_installed {
     fi
 }
 
+## FIXME(v4): add_service/rm_service below are byte-identical duplicates of
+## libs/systemdlib.sh — that file is sourced later (alphabetical order), so
+## its copies silently win; collapse the duplication in v4.
 function add_service {
-    
+
     if [[ -f /usr/lib/systemd/system/$1.service ]]
     then
         msg "add_service $1.service"
@@ -66,7 +74,7 @@ function add_service {
 
 function rm_service {
     
-    if [[ -f /usr/lib/systemd/system/$1.service ]] ||  [[ -f /etc/systemd/system/$1.service ]]
+    if [[ -f /usr/lib/systemd/system/$1.service ]] || [[ -f /etc/systemd/system/$1.service ]]
     then
         msg "rm_service $1.service"
         

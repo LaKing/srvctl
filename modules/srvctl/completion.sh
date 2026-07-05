@@ -1,11 +1,23 @@
 #!/bin/bash
 
+##
+##   Bash completion for sc/srvctl — NOT run in srvctl context: this file is
+##   installed to /etc/bash_completion.d/srvctl-completion (symlinked by
+##   init.sh, copied by update-install) and sourced by every interactive
+##   bash. It completes from the per-user word lists that 'sc complicate'
+##   writes to /var/local/srvctl/completion/$USER.*, and at the end prints
+##   the user's hint list as a login message (display).
+##
+
+## regenerate the completion data in the background at every shell start
+## FIXME(v4): hardcoded install path, and a full background srvctl run on
+## every interactive shell — should be opt-in / event-driven in v4.
 (bash /usr/local/share/srvctl/srvctl.sh complicate &>/dev/null &)
 
 _fedora_srvctl_options() {
-    
+
     local SC_USER
-    
+
     ## determine the proper user
     if [[ -z $SUDO_USER ]]
     then
@@ -13,17 +25,13 @@ _fedora_srvctl_options() {
     else
         SC_USER="$SUDO_USER"
     fi
-    
-    #echo "SRVCTL_OPTIONS $SC_USER"
-    
+
     ## these are the current arguments while typing
-    local curr_arg;
+    local curr_arg
     curr_arg=${COMP_WORDS[COMP_CWORD]}
-    
-    #echo "@ ${#COMP_WORDS[@]} @"
-    
+
     ## the list will contain those words we can assume for now to be relevant
-    local list length command CMD arr argument
+    local list length command CMD arr argument sc_user
     list=""
     length=${#COMP_WORDS[@]}
     sc_user="/var/local/srvctl/completion/$SC_USER"
@@ -54,7 +62,12 @@ _fedora_srvctl_options() {
     then
         ## CMD is the srvctl-command we consider now
         CMD="${COMP_WORDS[1]}"
+        ## FIXME(v4): unanchored grep — substring-matches every arg-spec line
+        ## containing $CMD, not just the line for this command.
         command="$(grep "$CMD" "$sc_user".arguments)"
+        ## FIXME(v4): quoted assignment makes arr a ONE-element array, so
+        ## argument is empty for every position >= 1 and the per-argument
+        ## word lists ($sc_user.$argument) can never be selected.
         arr=("$command")
         argument=${arr[$length-2]}
         list="$list $(echo "$argument" | sed 's/[A-Z]//g' | tr '[' ' ' | tr ']' ' ' | tr '|' ' ' )"
@@ -71,6 +84,9 @@ _fedora_srvctl_options() {
 complete -F _fedora_srvctl_options sc
 complete -F _fedora_srvctl_options srvctl
 
+## print the user's srvctl hint list at every interactive shell start
+## FIXME(v4): a full-screen MOTD (plus a 1s sleep when the hints file is
+## missing) on every login should be opt-in.
 function display() {
     local hints
     if [[ -z $SUDO_USER ]]

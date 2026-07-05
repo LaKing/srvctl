@@ -1,5 +1,13 @@
 #!/bin/bash
 
+##
+##   generate_completion [USER] — write the per-user word lists that
+##   completion.sh reads: $USER.hints, .commands, .arguments, .units and .VE
+##   under /var/local/srvctl/completion (file names, list format and 660
+##   modes are load-bearing). Called from init.sh on 'sc complicate' and
+##   backgrounded from customize.sh.
+##
+
 ## invoke silently with:
 ## (generate_completion &>/dev/null &)
 
@@ -8,11 +16,15 @@ function generate_completion() {
     if $SC_UID0
     then
         mkdir -p /var/local/srvctl/completion
+        ## FIXME(v4): world-writable directory — any local user can replace
+        ## another user's (including root's) hints/commands/units files,
+        ## which are cat'ed into every interactive shell at login and fed
+        ## to compgen. Security concern, left unchanged for now.
         chmod 777 /var/local/srvctl/completion
     fi
-    
-    local complicated_commands sc_user
-    
+
+    local complicated_commands sc_user unitfiles i
+
     sc_user="$1"
     
     if [[ -z "$sc_user" ]]
@@ -23,7 +35,10 @@ function generate_completion() {
     
     complicated_commands="help man"
     rm -fr /var/local/srvctl/completion/"$sc_user".arguments
-    
+
+    ## redefine the commonlib no-op: hint_commands calls complicate for every
+    ## command it lists, and this version harvests the words into the files
+    # shellcheck disable=SC2329 # indirect
     function complicate() {
         local command
         command="$1"
@@ -54,7 +69,7 @@ function generate_completion() {
         msg "Wrote $sc_user.VE list"
     fi
     
-    for i in ~/.config/systemd/user/* /etc/systemd/user/* $XDG_RUNTIME_DIR/systemd/user/* /run/systemd/user/* ~/.local/share/systemd/user/* /usr/lib/systemd/user/*
+    for i in ~/.config/systemd/user/* /etc/systemd/user/* "$XDG_RUNTIME_DIR"/systemd/user/* /run/systemd/user/* ~/.local/share/systemd/user/* /usr/lib/systemd/user/*
     do
         if [[ -f $i ]]
         then

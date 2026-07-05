@@ -7,6 +7,14 @@
 
 ## interactive - disabled in gui frontpage.
 
+##
+##   Create or edit a custom command $SC_HOME/srvctl-includes/$ARG.sh:
+##   back up an existing file to .srvctl/srvctl-includes.bak/$ARG-$NOW.sh,
+##   otherwise seed it from a template, then open mcedit, reindent with the
+##   vendored beautify_bash.py, shellcheck it, and regenerate completion
+##   data in the background. Exit 23 when no name is given.
+##
+
 if [[ -z $ARG ]]
 then
     err "Please give your command a name."
@@ -15,7 +23,7 @@ fi
 
 mkdir -p "$SC_HOME/srvctl-includes"
 
-#local arg file
+## sourced at top level, so no 'local' here — arg and file stay global
 arg="${ARG,,}"
 file="$SC_HOME/srvctl-includes/$arg.sh"
 
@@ -27,7 +35,9 @@ fi
 
 if [[ ! -f $file ]]
 then
-    
+
+    ## FIXME(v4): dead v2 branch — $SC_INSTALL_DIR/commands/ does not exist
+    ## in v3, so this copy path can never trigger.
     if [[ -f $SC_INSTALL_DIR/commands/$arg.sh ]]
     then
         cat "$SC_INSTALL_DIR/commands/$arg.sh" > "$file"

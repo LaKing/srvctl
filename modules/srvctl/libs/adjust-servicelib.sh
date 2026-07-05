@@ -1,7 +1,20 @@
 #!/bin/bash
 
+##
+##   service_action SERVICE OP [XSWITCH] — the systemctl mapping behind the
+##   default command (command.sh), also called by containers status/update-ve
+##   and the openvpn adjust-service hook. Semantics (preserve!):
+##     status            -> systemctl status -n 30
+##     (empty op)        -> journalctl -u SERVICE --since yesterday
+##     start|restart|enable -> systemctl enable + restart + status
+##     kill              -> systemctl kill + status
+##     stop|disable      -> (disable only for op=disable) + stop + status
+##   Non-status ops need root, --user, or wheel membership (else return 66);
+##   an unknown op returns 223.
+##
+
 function service_action {
-    
+
     local service="$1"
     local op="$2"
     # extra switches for the commands
@@ -25,11 +38,11 @@ function service_action {
         fi
         
         
-        # if root privilegs given at start - or --user switch used, or user is in wheel
+        # if root privileges given at start - or --user switch used, or user is in wheel
         if $SC_UID0 || [[ -n "$xswitch" ]] || groups | grep wheel > /dev/null
         then
-            
-            ## yea, in sc we use simplified operations, use systemd for speceific ops
+
+            ## yea, in sc we use simplified operations, use systemd for specific ops
             if [[ $op == "start" ]] || [[ $op == "restart" ]] || [[ $op == "enable" ]]
             then
                 run systemctl enable  "$service" "$xswitch"

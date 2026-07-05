@@ -1,6 +1,6 @@
 #!/bin/bash
 
-## @en First-aid diagnoistic command.
+## @en First-aid diagnostic command.
 
 ## &en Set of troubleshooting commands, that include information about:
 ## &en
@@ -10,21 +10,25 @@
 ## &en     boot configs
 ## &en     inactive services listed in srvctl
 ## &en     postfix fatal errors since yesterday
-## &en     the mail que
+## &en     the mail queue
 ## &en     firewall settings
 ## &en     table of processes
 ## &en     connected shell users
 ## &en
 ## &en Notes
-## &en     To flush the mail que, use: postqueue -f
-## &en     To remove all mail from the mail que use: postsuper -d ALL
+## &en     To flush the mail queue, use: postqueue -f
+## &en     To remove all mail from the mail queue use: postsuper -d ALL
 
+##
+##   Read-only first-aid overview of the machine: version, variables,
+##   uptime, kernel/boot info, memory, disks, unit states, mail queue,
+##   firewall, processes and logged-in users, then every active module's
+##   diagnose hook. Runs status commands only, changes nothing.
+##
 
 msg "srvctl version $(cat "$SC_INSTALL_DIR/version")"
 
 diagnose_variables
-
-# printenv
 
 msg "-- Uptime: $(uptime) --"
 run uname -a
@@ -63,13 +67,12 @@ done
 
 run systemctl list-units --state=failed
 
-msg "-- mail que --"
+msg "-- mail queue --"
 run journalctl -u postfix --since yesterday | grep fatal
 run postqueue -p
 
 if [[ -f /usr/sbin/firewalld ]]
 then
-    ##local zone
     zone=$(firewall-cmd --get-default-zone)
     msg "-- Firewall $(firewall-cmd --state) - default zone: $zone"
     run firewall-cmd --zone="$zone" --list-services
@@ -84,14 +87,12 @@ msg "-- table of processes --"
 run top -n 1
 msg "-- shell users --"
 run w
-#msg "-- process tree --"
 msg "To see the process tree run: systemctl status --no-pager"
-#run systemctl status --no-pager
 
 run_hooks diagnose
 
 
-msg "To flush the mail que, use: postqueue -f"
-msg "To remove all mail from the mail que use: postsuper -d ALL"
+msg "To flush the mail queue, use: postqueue -f"
+msg "To remove all mail from the mail queue use: postsuper -d ALL"
 
 

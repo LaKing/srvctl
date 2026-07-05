@@ -21,6 +21,17 @@
 ## spec //services×status×status of a service×status SERVICE
 ## spec //services×kill×kill a service×kill SERVICE
 
+##
+##   Default command handler — sourced by run_command (commonlib.sh) only
+##   when no named command matched. Treats the command line as
+##   SERVICE OP or OP SERVICE and maps it onto systemctl via service_action
+##   (libs/adjust-servicelib.sh). If the unit is not active, the system and
+##   user unit directories are scanned for SERVICE with any unit-type suffix
+##   appended. When nothing matches, 'return 0' hands control back to the
+##   dispatcher, which ends with "Invalid command." and exit 1.
+##   Note: the short operators ? ! + - are already mapped to
+##   status/restart/start/stop by srvctl.sh before this file runs.
+##
 
 op=''
 service="$CMD"
@@ -32,7 +43,7 @@ then
     service="$CMD"
 fi
 
-## its the other way around
+## it's the other way around
 if [[ $CMD == "enable" ]] || [[ $CMD == "start" ]] || [[ $CMD == "restart" ]] || [[ $CMD == "stop" ]] || [[ $CMD == "status" ]] || [[ $CMD == "disable" ]] || [[ $CMD == "kill" ]]
 then
     op="$CMD"
@@ -52,9 +63,12 @@ else
     for i in /usr/lib/systemd/system/* /etc/systemd/system/* /etc/systemd/system/*/* /run/systemd/system/* /run/systemd/transient/*
     do
         [[ -f "$i" ]] || continue
-        #[[ $DEBUG == true ]] && ntc "@ $i"
         ck="$(basename "$i")"
         ## service.service, socket.socket, device.device, mount.mount, automount.automount, swap.swap, target.target, path.path, timer.timer, slice.slice, scope.scope
+        ## FIXME(v4): '$ck == $i' compares a basename to a full path and is never
+        ## true (likely intended '$ck == $service'), so a unit named with its
+        ## explicit suffix (e.g. 'sc foo.timer start' while inactive) is never
+        ## matched here and falls through to "Invalid command."
         if [[ "$ck" == "$i" ]] || [[ "$ck" == "$service.service" ]] || [[ "$ck" == "$service.socket" ]] || [[ "$ck" == "$service.device" ]] || [[ "$ck" == "$service.mount" ]] || [[ "$ck" == "$service.automount" ]] \
         || [[ "$ck" == "$service.swap" ]] || [[ "$ck" == "$service.target" ]] || [[ "$ck" == "$service.path" ]] || [[ "$ck" == "$service.timer" ]] || [[ "$ck" == "$service.slice" ]] || [[ "$ck" == "$service.scope" ]]
         then
@@ -65,12 +79,12 @@ else
         fi
     done
     
-    for i in ~/.config/systemd/user/* /etc/systemd/user/* $XDG_RUNTIME_DIR/systemd/user/* /run/systemd/user/* ~/.local/share/systemd/user/* /usr/lib/systemd/user/*
+    for i in ~/.config/systemd/user/* /etc/systemd/user/* "$XDG_RUNTIME_DIR"/systemd/user/* /run/systemd/user/* ~/.local/share/systemd/user/* /usr/lib/systemd/user/*
     do
         [[ -f "$i" ]] || continue
-        #[[ $DEBUG == true ]] && ntc "@ $i"
         ck="$(basename "$i")"
         ## service.service, socket.socket, device.device, mount.mount, automount.automount, swap.swap, target.target, path.path, timer.timer, slice.slice, scope.scope
+        ## FIXME(v4): same dead '$ck == $i' comparison as in the system-unit loop above.
         if [[ "$ck" == "$i" ]] || [[ "$ck" == "$service.service" ]] || [[ "$ck" == "$service.socket" ]] || [[ "$ck" == "$service.device" ]] || [[ "$ck" == "$service.mount" ]] || [[ "$ck" == "$service.automount" ]] \
         || [[ "$ck" == "$service.swap" ]] || [[ "$ck" == "$service.target" ]] || [[ "$ck" == "$service.path" ]] || [[ "$ck" == "$service.timer" ]] || [[ "$ck" == "$service.slice" ]] || [[ "$ck" == "$service.scope" ]]
         then
@@ -87,11 +101,12 @@ fi
 if [[ $ok == true ]]
 then
     service_action "$service" "$op" "$xswitch"
+    ## FIXME(v4): exit_0 runs unconditionally, so service_action failures
+    ## (return 66 for non-root/non-wheel, 223 for unknown op, systemctl
+    ## errors) all exit 0 — automation cannot detect a failed operation.
     exit_0
 fi
 
-
-
-
+## no unit matched: give control back to the dispatcher ("Invalid command.")
 return 0
 

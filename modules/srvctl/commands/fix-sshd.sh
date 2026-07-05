@@ -4,6 +4,10 @@
 ## @en Fixing sshd permissions on keyfiles.
 ## &en A temporary script to fix sshd permissions on keyfiles.
 
+##
+##   Maintenance command: restore ownership (root:ssh_keys) and mode (600)
+##   on the three ssh host key files, then restart sshd.
+##
 
 run chown root:ssh_keys /etc/ssh/ssh_host_ecdsa_key
 run chown root:ssh_keys /etc/ssh/ssh_host_ed25519_key
