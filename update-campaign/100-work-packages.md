@@ -12,13 +12,20 @@ Execution rules (from 000-PROMPT + the Stage-2 preconditions in 000-INDEX):
 ## Dependency-ordered sequence
 
 ### Foundation (datastore + runtime)
-- **WP-A (this session)** — datastore STORAGE ENGINE: file-per-entity,
-  atomic rename, single locked writer, validate-on-write, git-versioned
-  (014). Additive mjs (modules/datastore/lib/store.mjs) + one-shot migrator
-  + selftest. Does NOT yet replace the live verb path — proves the engine.
-- **WP-B** — port lib.js DERIVATIONS to pure mjs (uid/bridge/gateway/IP/
-  nspawn/hosts/resolv/firewall/mapped-ports/relaydomains). Snapshot-test
-  each against captured v3 output before switching. Resellers stay derived.
+- **WP-A ✅ DONE (2026-07-05, commit 615f1f8)** — datastore STORAGE ENGINE:
+  file-per-entity, atomic rename, single locked writer, validate-on-write,
+  git-versioned (014). modules/datastore/lib/store.mjs + migrate.mjs +
+  selftest/store.test.mjs (12 tests pass incl. cross-process concurrency,
+  lossless migration round-trip, stale-lock steal). Additive — live verb
+  path untouched (that's WP-C).
+- **WP-B — part 1 ✅ DONE** (addressing/identity): derive.mjs = 14 pure
+  functions (uid/br/gw/interface/br_host_ip/bridge/user_id/user_ip_match/
+  hostnet/host/host_ip/reseller/http_port/https_port) over an explicit
+  context, faithful v3 port (quirks preserved, FIXMEs marked). 29 snapshot
+  tests pass. selftest/run.sh runs the whole datastore suite (41 tests).
+  - **WP-B — part 2 (pending)**: config-string generators (resolv_conf,
+    /etc/hosts, nspawn, firewall, mapped_ports, relaydomains) — snapshot vs
+    v3 output; folds into WP-C wiring.
 - **WP-C** — wire the VERB API (get/put/out/cfg/del/new/add) + derivations
   onto the engine; byte-identical output + exit codes (main.js contract);
   run the datastore on file-per-entity behind the existing bash wrappers.
