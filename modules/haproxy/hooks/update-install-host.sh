@@ -2,6 +2,21 @@
 
 ## HAproxy is a reverse Proxy for http / https
 
+##
+##   haproxy/hooks/update-install-host.sh — host provisioning.
+##
+##   Runs on hosts during 'sc update-install'. Installs haproxy, socat
+##   (stats socket) and rsyslog; creates /var/haproxy (the certificate
+##   directory the generated config binds to); routes haproxy's local2
+##   syslog facility to /var/log/haproxy.log; and seeds /var/haproxy with
+##   any pre-provisioned /etc/srvctl/cert/<domain>/<domain>.pem.
+##
+##   Note: /etc/rsyslog.conf is replaced wholesale (stock Fedora content
+##   plus the UDP 514 input haproxy logs to) — the heredoc below is
+##   unquoted so the "srvctl modification" line embeds $SRVCTL; keep its
+##   content byte-identical.
+##
+
 msg "Installing HAproxy as the reverse proxy"
 
 sc_install haproxy
@@ -102,19 +117,19 @@ run systemctl restart rsyslog
 
 
 
-## Import wildcard and host-specidfic certificates from /etc/srvctl/cert
+## Import wildcard and host-specific certificates from /etc/srvctl/cert
 
 for dir in /etc/srvctl/cert/*
 do
-    
+    ## strip the '/etc/srvctl/cert/' prefix (17 chars) to get the domain;
+    ## on an empty dir the unmatched glob fails the -f test harmlessly
     d="${dir:17}"
-    
+
     if [[ -f $dir/$d.pem ]]
     then
         msg "Import Haproxy certificate $d"
         cat "$dir/$d.pem" > "/var/haproxy/$d.pem"
     fi
-    
-done
 
+done
 

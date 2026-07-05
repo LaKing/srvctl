@@ -2,6 +2,36 @@
 
 /*srvctl */
 
+/*
+   haproxy/haproxy.js — renders and writes /etc/haproxy/haproxy.cfg.
+
+   Invoked by the haproxycfg wrapper (libs/bashlib.sh) on every
+   regenerate_haproxy_conf run. Reads containers/hosts/users from
+   modules/datastore/lib.js and the env vars SRVCTL, SC_UID0,
+   SC_COMPANY_DOMAIN, SC_USE_CODEPAD.
+
+   Output structure (names are API — they appear in haproxy logs/stats):
+     frontends  http (*:80), https (*:443 ssl), port<N> for 9200/8080/8443
+                and, when SC_USE_CODEPAD=true, 9000/9001
+     backends   http:<ve>, https:<ve>, port<N>:<ve>, the well-known
+                helpers (letsencrypt 1028, thunderbird 1029, srvctl3data
+                1030) and 'backend default' -> localhost:1282
+
+   Container rules: 'mail.*' containers are excluded; containers are
+   ordered by descending domain-segment count so first-match ACLs prefer
+   the most specific name; 'static' containers keep backends/redirects but
+   get no use_backend ACLs; datastore keys read per container: aliases,
+   altnames, static, proxy_ports, http_port, https_port, and the
+   http-redirect/https-redirect keys set by the module's commands.
+
+   Exit codes: 0 success, 111 write error, 99 abnormal end (preset below).
+
+   FIXME(v4): unused imports/vars kept verbatim for the byte-identical
+   polish pass (ntc, run, rok, get, hosts, users, resellers, CMD,
+   HOSTNAME, SRVCTL, SC_UID0, localhost, out, exit, return_value, output);
+   prune them in the .mjs port.
+*/
+
 const lablib = "../../lablib.js";
 const msg = require(lablib).msg;
 const ntc = require(lablib).ntc;
@@ -19,7 +49,7 @@ var fs = require("fs");
 var datastore = require("../datastore/lib.js");
 
 const CMD = process.argv[2];
-// constatnts
+// constants
 
 const SRVCTL = process.env.SRVCTL;
 const SC_UID0 = process.env.SC_UID0;
@@ -85,10 +115,14 @@ for (var j = aa.length - 1; j > 0; j--) {
 
 // data functions
 
+// don: dots-to-dashes name, e.g. foo.bar -> foo-bar (currently unused)
 function don(d) {
     return d.replace(/\./g, "-");
 }
 
+// ddn: dashed dev name under the company domain, e.g. foo.bar -> foo-bar.<SC_COMPANY_DOMAIN>
+// FIXME(v4): no guard — with SC_COMPANY_DOMAIN unset this yields '<name>.undefined'
+// ACL hostnames (garbage but syntactically valid config).
 function ddn(d) {
     return d.replace(/\./g, "-") + "." + SC_COMPANY_DOMAIN;
 }
@@ -264,6 +298,8 @@ function get_frontend_http() {
     Object.keys(containers).forEach(function (c) {
         str += br + redirect("http", c, "www." + c);
         // handle aliases
+        // FIXME(v4): 'j' is an undeclared implicit global here and in every
+        // alias/altname loop below (shadows the module-level var j).
         if (containers[c].aliases) {
             for (j = 0; j < containers[c].aliases.length; j++) {
                 str += redirect("http", c, containers[c].aliases[j], true);
@@ -381,7 +417,7 @@ function get_frontend_port(n, ssl) {
 
     // USE BACKEND (no redirects)
     Object.keys(containers).forEach(function (c) {
-        // srvctl-releated port permissions based on configurations
+        // srvctl-related port permissions based on configurations
 
         // codepad reserved ports
         if (n === 9000 || n === 9001 || n === 24678) {
@@ -393,7 +429,7 @@ function get_frontend_port(n, ssl) {
 
     // subdomains
     Object.keys(containers).forEach(function (c) {
-        // srvctl-releated port permissions based on configurations
+        // srvctl-related port permissions based on configurations
 
         // codepad reserved ports
         if (n === 9000 || n === 9001 || n === 24678) {
@@ -453,7 +489,7 @@ function get_backends_for_https() {
 function get_backends_for_port(n, ssl) {
     var str = "";
     Object.keys(containers).forEach(function (c) {
-        // srvctl-releated port permissions based on configurations
+        // srvctl-related port permissions based on configurations
 
         // codepad reserved ports
         if (n === 9000 || n === 9001 || n === 24678) {
