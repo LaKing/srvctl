@@ -1,0 +1,42 @@
+# 019 — Gluster removal (G4) — DRAFT for review
+
+Status: DRAFT written session 1 (autonomous). Not approved.
+
+## v3 reality (from modules/gluster.md fact sheet)
+
+- The module is already HARD-DISABLED at baseline (module-condition.sh:39
+  — the enabling line is commented out), so no current v3 host should be
+  running srvctl-managed gluster. To confirm per server during the 013
+  inventory step: glusterd.service state, /glu/* bricks, fuse mounts on
+  /var/srvctl3/{datastore,storage}.
+- Residue in OTHER modules that removal must clean: SC_USE_GLUSTER
+  branches in datastore and static; the read-only brick bind-mount path
+  /var/srvctl3/gluster/srvctl-data consumed by ssh/sshpiperd as pubkey/
+  datastore RO fallback; CA gluster cert minting; firewalld glusterfs
+  service.
+
+## What (if anything) replaces it
+
+- Its two roles were: replicated datastore (srvctl-data) and replicated
+  static storage (srvctl-storage). The datastore's replication story in v4
+  is G2 (boilerplate source of truth + per-host cache sync) — no shared
+  filesystem needed. Static storage: if no production host actually uses
+  a replicated /var/srvctl3/storage today (inventory will confirm; module
+  is disabled, so presumably not), nothing replaces it; single-host
+  storage + the backup module remain.
+- The ssh/sshpiperd RO-fallback lookups repoint to the local datastore
+  cache path (G2 design keeps a local copy — same guarantee the RO brick
+  gave).
+
+## Removal steps (Stage 2 work package, per 013 discipline)
+
+1. Inventory confirms zero gluster usage on all servers (else STOP, ask).
+2. v4 code drops the module + SC_USE_GLUSTER branches + repoints the two
+   RO-fallback consumers; CA stops minting gluster certs.
+3. Per server after v4 cutover: remove leftover certs/symlinks under
+   /etc/ssl/gluster*, close firewalld glusterfs service, purge
+   glusterfs-server rpm if installed. No data migration expected (bricks
+   should not exist); if bricks ARE found non-empty, file -for-human.
+
+Open question: confirm no host was manually re-enabled for gluster outside
+srvctl (the inventory step checks this).
