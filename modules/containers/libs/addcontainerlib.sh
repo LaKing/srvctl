@@ -1,12 +1,21 @@
 #!/bin/bash
 
+##
+##   containers/libs/addcontainerlib.sh — container creation core.
+##
+##   add_ve builds a complete container from a base image; used by
+##   add-ve, add-network-ve and the codepad module's add-codepad. Exit
+##   codes are contracts: 10 no base image, 11 datastore record exists,
+##   12 /srv dir exists, 17 unit failed to start.
+##
+
 function add_ve() { ## type name [bridge]
-    
+
     local T C B
     T="$1"
     C="$2"
     B="$3"
-    
+
     if [[ ! -d $SC_ROOTFS_DIR/$T ]]
     then
         err "No base for rootfs $T. Please run: srvctl regenerate rootfs"
@@ -37,13 +46,15 @@ function add_ve() { ## type name [bridge]
     
     ## add to database
     ## TODO - implement with hooks
+    ## contract: type 'codepad' is stored as 'fedora' in the datastore
+    ## (codepad containers are fedora images customized by hooks)
     if [[ $T == codepad ]]
     then
         new container "$C" fedora "$B"
     else
         new container "$C" "$T" "$B"
     fi
-    
+
     exif "Could not add container to datastore."
     
     msg "$C added to the datastore."
@@ -56,18 +67,22 @@ function add_ve() { ## type name [bridge]
     create_nspawn_container_config "$C"
     
     add_ve_certificate "$C"
-    
+
     ## use a selfsigned certificate temporary
+    ## FIXME(v4): 'run cat X > Y' redirects run's ANSI banner into the
+    ## target file — the pem below and resolved.conf further down each get
+    ## a garbage first line (tolerated by openssl/systemd today, breaks
+    ## strict parsers); use plain cat.
     run cat "/srv/$C/cert/$C.pem" > "/var/srvctl3/datastore/cert/$C.pem"
-    
+
     setup_index_html "$C" "/srv/$C/rootfs/var/www/html"
     write_ve_postfix_conf "$C"
-    
+
     ln -s "/usr/lib/systemd/system/httpd.service" "/srv/$C/rootfs/etc/systemd/system/multi-user.target.wants/httpd.service"
-    
+
     ## there is a bug somehwere, this is a hotfix
     run cat "/usr/local/share/srvctl/modules/containers/conf/resolved.conf" > "/srv/$C/rootfs/etc/systemd/resolved.conf"
-    
+
     run systemctl enable "srvctl-nspawn@$C"
     if run systemctl start "srvctl-nspawn@$C" --no-pager
     then

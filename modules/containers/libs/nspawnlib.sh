@@ -1,13 +1,24 @@
 #!/bin/bash
 
+##
+##   containers/libs/nspawnlib.sh — dnf system-upgrade of a running
+##   container to the host's VERSION_ID.
+##
+##   FIXME(v4): dead code — update_nspawn_container has no callers and is
+##   marked "does not work well" by its author; delete or finish it
+##   (update-ve.sh is the stub command that would call something like
+##   this).
+##
+
 ## does not work well
 
 function update_nspawn_container { ## container
-    
+
     local C
     C="$1"
+    # shellcheck disable=SC1091 ## runtime-path
     source /etc/os-release
-    
+
     run ssh "$C" "dnf -y install kernel kernel-modules kernel-core kernel-headers dnf-plugin-system-upgrade"
     run ssh "$C" "dnf -y upgrade --refresh"
     run ssh "$C" "dnf -y system-upgrade download --refresh --releasever=$VERSION_ID"

@@ -1,5 +1,15 @@
 #!/bin/bash
 
+##
+##   containers/hooks/post-init.sh — finalize networking identity vars.
+##
+##   Runs via 'run_hooks post-init' from init.sh. Defaults SC_HOSTNET
+##   (unique per-host 10.x network id, 16-255) to 250 and SC_CLUSTERNAME
+##   to test_cluster when host.conf did not provide them, locks the
+##   module paths readonly, and exports what the node helpers
+##   (datastore/status.js/host-conf.js) need from the environment.
+##
+
 if [[ $SC_HOSTNET ]]
 then
     debug "SC_HOSTNET is $SC_HOSTNET"

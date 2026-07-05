@@ -1,21 +1,28 @@
 #!/bin/bash
 
+##
+##   containers/execstartpre.sh — ExecStartPre of srvctl-nspawn@.service.
+##
+##   NOT a srvctl hook: systemd runs it as 'execstartpre.sh %i' outside
+##   the srvctl environment, right before systemd-nspawn boots the
+##   container. Ensures the per-container share directory exists and that
+##   the nspawn config is fresh: /srv/$C/local.nspawn (manual override)
+##   is copied verbatim over $C.nspawn, otherwise the config is rendered
+##   from the datastore via 'srvctl exec-function
+##   create_nspawn_container_config' (exit 11 aborts the unit start).
+##   Exits 15 — also aborting the start — when the hosts file or the
+##   nspawn file is still missing afterwards.
+##
+##   (Historic note: rsync-ed containers used to need ssh host key
+##   chowns here, ssh_keys uid moved between fedora releases.)
+##
+
 ## this script can run outside of srvctl! It will get invoked over systemd units
 # shellcheck disable=SC2034
 C="$1"
 rootfs="/srv/$C/rootfs"
 
 mkdir -p /var/srvctl3/share/containers/"$C"
-
-## if containers are rsync-ed across hosts, ssh keys change users from ssh_keys to dovenull between fedora 27/28 and possibly others
-## fedora 28 uses uid 996 while previous versions used 995
-#chown 0:996 "$rootfs"/etc/ssh/ssh_host_ecdsa_key
-#chown 0:996 "$rootfs"/etc/ssh/ssh_host_ed25519_key
-#chown 0:996 "$rootfs"/etc/ssh/ssh_host_rsa_key
-## an additional chmod, so that only root is relevant
-#chmod 600 "$rootfs"/etc/ssh/ssh_host_ecdsa_key
-#chmod 600 "$rootfs"/etc/ssh/ssh_host_ed25519_key
-#chmod 600 "$rootfs"/etc/ssh/ssh_host_rsa_key
 
 if [[ -f /srv/$C/local.nspawn ]]
 then

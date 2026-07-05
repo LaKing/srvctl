@@ -9,6 +9,23 @@ hs_only
 ## run only with srvctl
 [[ $SRVCTL ]] || exit 4
 
+##
+##   containers/commands/remove-ve.sh — back up a container, then delete
+##   it. Identical to destroy-ve.sh except that backup_ve runs before
+##   'del container' (see destroy-ve.sh for the step-order rationale).
+##
+##   FIXME(v4): the multi-line help above still describes the old 7z
+##   archive into home/.srvctl; the actual backup is an rsync tree under
+##   $SC_BACKUP_PATH/srvctl-containers/$C/$NOW (backupcontainerlib.sh).
+##   FIXME(v4): 90% duplicate of destroy-ve.sh — collapse in v4.
+##
+##   Step order: unhook the unit from machines.target, stop a legacy v2
+##   unit if present, backup_ve (aborts the command on rsync failure —
+##   this is the point of no return), then datastore delete, static
+##   storage and /home mounts cleanup, machine terminate/kill, and the
+##   /srv/$C removal retry loop.
+##
+
 argument container
 authorize
 
@@ -23,47 +40,39 @@ container_reseller="$(get container "$ARG" reseller)"
 
 msg "Container $ARG - $container_user ($container_reseller)"
 
+## the container owner and its reseller may act as root
 if [[ $SC_USER == "$container_user" ]] || [[ $SC_USER == "$container_reseller" ]]
 then
     sudomize
 fi
 
+## FIXME(v4): broken root gate — SC_UID0 is always the string 'true' or
+## 'false' (never empty), so this test always passes and the deny branch
+## below is unreachable (correct form is 'if $SC_UID0'; same defect in
+## destroy-ve.sh and backupcontainerlib.sh).
 if [[ $SC_UID0 ]]
 then
-    
+
     C="$ARG"
-    
+
     rm -fr /etc/systemd/system/machines.target.wants/srvctl-nspawn@"$C".service
-    
+
+    ## legacy per-container unit from srvctl v2
     if [[ -f /etc/srvctl/containers/$C.service ]]
     then
         run systemctl stop "$C"
         run systemctl disable "$C"
         rm -f /etc/srvctl/containers/"$C".service
     fi
-    
-    #remove_path="$SC_BACKUP_PATH/srvctl-containers/$C"
-    #if [ -d "/home/$container_user" ]
-    #then
-    #	remove_path="/home/$container_user/srvctl-containers/$C"
-    #fi
-    
-    #if run 7z u -uq0 "$remove_path/$NOW.7z" "/srv/$C"
-    #then
-    #    msg "successfully created $remove_path/$NOW.7z "
-    #else
-    #    err "There was an error."
-    #    exit
-    #fi
-    
+
     backup_ve "$C"
-    
+
     del container "$C"
-    
+
     rm -fr /var/srvctl3/storage/static/"$C"
-    
+
     ## https://www.cyberciti.biz/tips/nfs-stale-file-handle-error-and-solution.html
-    
+
     for uh in /home/*
     do
         if [[ -d "$uh"/"$C" ]]
@@ -76,16 +85,19 @@ then
             run rm -fr "$uh"/"$C"
         fi
     done
-    
+
     run sleep 3
-    
+
     ## TODO check if it is running
     if run machinectl status "$C" 2> /dev/null
     then
         run machinectl terminate "$C"
         run machinectl kill "$C"
     fi
-    
+
+    ## FIXME(v4): unbounded loop — a busy or stale mount inside /srv/$C
+    ## retries forever at 3s intervals, and rm -fr may descend into
+    ## still-mounted data; bound the retries and umount first.
     while [[ -d /srv/$C ]]
     do
         rm -fr "/srv/$C"
@@ -95,11 +107,11 @@ then
             sleep 3
         fi
     done
-    
+
     msg "$C destroyed."
-    
-    
+
 else
     err "$SC_USER has no access to $ARG"
+    ## FIXME(v4): bare exit returns 0 — the access-denied path reports success.
     exit
 fi

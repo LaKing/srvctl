@@ -2,6 +2,30 @@
 
 /*srvctl */
 
+/*
+ *   containers/status.js — the 'sc status' container table.
+ *
+ *   Invoked by containers_status (libs/bashlib.sh). Reads the datastore
+ *   JSON via modules/datastore/lib.js (which also provides the SC_USER
+ *   implicit global used below) and prints one line per visible
+ *   container: unit enabled/active probes and a ping (0.2s timeouts),
+ *   os-release, bridge, DNS record flags, du, user and reseller.
+ *   Non-root callers only see their own / their resold containers.
+ *
+ *   Exit codes: 0 after a complete listing (exit() below), 99 if the
+ *   loop throws before completion.
+ *
+ *   FIXME(v4): per-container failures are not isolated — a deleted user
+ *   record (users[...].reseller at the bottom), a missing type key
+ *   (.type.tab) or an invoking user absent from users.json
+ *   (users[SC_USER].access) throws a TypeError that aborts the WHOLE
+ *   table with exit 99, hiding the remaining containers; wrap the
+ *   forEach body in try/catch per container.
+ *
+ *   FIXME(v4): monkey-patching Object.prototype.length (and
+ *   String.prototype.tab) is v3 legacy — drop in the .mjs port.
+ */
+
 function out(msg) {
     console.log(msg);
 }
@@ -147,6 +171,7 @@ Object.keys(containers).forEach(function (c) {
             }
         }
 
+    // FIXME(v4): throws when the container's user is missing from users.json
     var reseller = containers[c].user;
     if (users[containers[c].user].reseller !== undefined) reseller = users[containers[c].user].reseller;
 

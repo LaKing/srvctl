@@ -11,10 +11,23 @@ hs_only
 sudomize
 argument container-name
 
-#local username reseller
+##
+##   containers/commands/add-ve-user.sh — grant a (possibly new) user
+##   access to a container.
+##
+##   Reseller-gated, host-side. Lowercases USERNAME and validates it
+##   (exit 22 on mismatch). If the user does not exist in the datastore
+##   yet it is created ('new user') and system users are regenerated
+##   (usersonhost module). Then the user is appended to the container's
+##   users list and the regenerate hook rewrites all configs.
+##
+
 C="$ARG"
 username="${OPA,,}"
 
+## FIXME(v4): unanchored regex — =~ matches a substring, so any name
+## containing one lowercase letter passes (e.g. 'A!b'); anchor with ^...$
+## to actually enforce the 2-30 char pattern.
 if ! [[ "$username" =~ (([a-z]|[a-z_][a-z0-9_]{2,30})) ]]
 then
     err "Invalid username: $username"

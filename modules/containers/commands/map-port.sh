@@ -15,19 +15,34 @@ authorize
 sudomize
 C="$ARG"
 
+##
+##   containers/commands/map-port.sh — publish a container tcp/udp port
+##   on the host.
+##
+##   Stores the mapping in the datastore (cfg container add_mapped_port
+##   parses "$OPAS": optional 'udp', port number, free-form description);
+##   the nspawn config rendered from the datastore picks it up on the
+##   stop+start cycle below (nspawn units cannot restart, systemd#2809).
+##
+
 container_user="$(get container "$C" user)"
 exif
 container_reseller="$(get container "$C" reseller)"
 exif
 
+## only the container owner or its reseller may map ports
 if [[ $SC_USER == "$container_user" ]] || [[ $SC_USER == "$container_reseller" ]]
 then
-    
+
     cfg container "$C" add_mapped_port "$OPAS"
     run systemctl stop "srvctl-nspawn@$C.service" --no-pager
     sleep 2
     run systemctl start "srvctl-nspawn@$C.service" --no-pager
     run systemctl status "srvctl-nspawn@$C.service" --no-pager
 else
+    ## FIXME(v4): silent bare exit (status 0) — a non-owner gets no error
+    ## message and a success exit code. Note the gate compares SC_USER
+    ## after sudomize, so root (post-sudomize) is only allowed when it was
+    ## the owner/reseller before escalation.
     exit
 fi

@@ -1,15 +1,21 @@
 #!/bin/bash
 
-###
+##
+##   containers/hooks/update-install-host.sh — one-time/updating host
+##   setup for the container farm.
+##
+##   Runs via 'run_hooks update-install-host' from 'sc update-install'.
+##   Enforces the /srv 0750 contract, installs the limits/sysctl tuning
+##   from conf/, the container tooling packages, the
+##   srvctl-nspawn@.service template unit (libs/systemlib.sh), the
+##   share directories exposed to containers, and the hourly regenerate
+##   cron script (whose literal '#cron.hourly' argument triggers the
+##   quota check in hooks/regenerate.sh).
+##
+
 msg "Containerfarm host installation"
 
 chmod 750 /srv
-
-## this option allows machinectl to see our custom machines
-#if [[ ! -d /var/lib/containers ]] && [[ ! -f /var/lib/containers ]]
-#then
-#    run ln -s /srv /var/lib/container
-#fi
 
 ## set higher limit for using in containers
 cat "$SC_INSTALL_DIR/modules/containers/conf/srvctl-limits.conf" > /etc/security/limits.d/srvctl-limits.conf
@@ -27,6 +33,8 @@ create_srvctl_nspawn_service
 run systemctl enable machines.target
 
 mkdir -p /var/srvctl3/share/containers
+## FIXME(v4): 'chown 750' uses a mode as owner — the directory ends up
+## owned by nonexistent UID 750 instead of being chmod'ed 750.
 chown 750 /var/srvctl3/share/containers
 
 mkdir -p /var/srvctl3/share/common

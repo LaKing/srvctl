@@ -1,13 +1,19 @@
 #!/bin/bash
 
-#[[ $SRVCTL ]] || exit
-#[[ $SC_ROOTFS_DIR ]] || exit
+##
+##   containers/libs/mkrootfslib.sh — shared base-image helpers.
+##
+##   mkrootfs_root_ssh: grants the host's root key access to the image's
+##   root account and installs the ssh module's sshd_config; called by
+##   every mkrootfs_* builder. mkrootfs_adduser: dead code (no callers) —
+##   would add a uid/gid 1000 login user with root's bash profile.
+##
 
 function mkrootfs_root_ssh { ## rootfs
-    
+
     local rootfs
     rootfs="$1"
-    
+
     if [[ ! -d "$rootfs/root" ]]
     then
         err "No rootfs for setup_rootfs_ssh "
@@ -29,8 +35,9 @@ function mkrootfs_root_ssh { ## rootfs
     fi
 }
 
+## FIXME(v4): dead code — no callers anywhere; delete or wire up.
 function mkrootfs_adduser { ## name ## username
-    
+
     local rootfs_name rootfs_base rootfs_user
     
     rootfs_name="$1"

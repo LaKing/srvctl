@@ -7,6 +7,8 @@
 
 #### these specs are used in the gui
 ## spec //containers×status×get the container status×status VE
+## FIXME(v4): the 'show' spec below carries the action 'poweroff VE' — a GUI
+## executing these specs would power the container off on a 'show' click.
 ## spec //containers×show×show container parameters×poweroff VE
 ## spec //containers×reboot×reboot a container×reboot VE
 ## spec //containers×poweroff×poweroff a container×poweroff VE
@@ -15,12 +17,33 @@
 ## this is a special command, as it has several ways to be invoked
 ## we assume this as default command.
 
+##
+##   containers/command.sh — module default command: the 'sc VE op' /
+##   'sc op VE' shorthand for machinectl operations on a local container.
+##
+##   Sourced by run_commands (commonlib.sh) for every command word that did
+##   not match a named command file. It first delegates to the generic
+##   systemd service shorthand (modules/srvctl/command.sh), which runs the
+##   adjust-service hook — our hooks/adjust-service.sh rewrites container
+##   names to srvctl-nspawn@ units (stop+start instead of restart) and
+##   handles 'all-containers OP' there. If that returns without acting,
+##   this script maps reboot|poweroff|kill|login|show|status|shell (either
+##   word order: 'sc VE op' or 'sc op VE') onto machinectl, provided
+##   /srv/$C exists and the machine is running. 'shell' opens an
+##   interactive machinectl shell and exits. Anything else falls through
+##   with 'return' so dispatch can continue to other modules.
+##
+
 # shellcheck source=/usr/local/share/srvctl/modules/srvctl/command.sh
+# shellcheck disable=SC1091 ## runtime-path
 source "$SC_INSTALL_DIR/modules/srvctl/command.sh"
 
+## placeholder that never names an existing /srv directory
 C='?'
 
 ## for example, sc !
+## FIXME(v4): a bare 'sc restart' (no service resolved upstream) lands here
+## and prints the stray debug-style line "return from restart".
 if [[ $CMD == restart ]]
 then
     echo "return from $CMD"
@@ -38,11 +61,14 @@ then
     C="$ARG"
 fi
 
+## dead check: C defaults to '?', so it is never empty here;
+## the /srv/$C directory test below is the effective gate.
 if [[ -z $C ]]
 then
     return
 fi
 
+## cop = container operation; keeping cop == C marks "no operation found"
 cop="$C"
 
 if [[ $CMD == reboot ]] || [[ $CMD == poweroff ]] || [[ $CMD == kill ]] || [[ $CMD == login ]] || [[ $CMD == show ]] || [[ $CMD == status ]] || [[ $CMD == shell ]]
@@ -84,6 +110,11 @@ then
     exif
 	exit 0
 
+    ## FIXME(v4): everything from here to the end of this branch is
+    ## unreachable — the exif/exit 0 pair above always terminates. The
+    ## per-binary lookup and the mktemp exec workaround below (run cannot
+    ## pass quoted arguments; see all_containers_execute for the live twin)
+    ## are kept only as reference and are slated for deletion.
     if [[ -f /srv/$C/rootfs/usr/sbin/$ARG ]]
     then
         run machinectl -q --no-pager shell "$C" "/usr/sbin/$ARG $OPAS3"
@@ -118,6 +149,6 @@ else
     exit 0
 fi
 
+## unreachable tail: both branches above exit (kept for the exit 35 contract)
 err "Command could not be interpreted."
 exit 35
-#return 1

@@ -1,5 +1,14 @@
 #!/bin/bash
 
+##
+##   containers/libs/statuslib.sh — cluster-wide container operations and
+##   a legacy bash status table.
+##
+##   all_containers backs 'sc all-containers OP' (dispatched from
+##   hooks/adjust-service.sh); everything below it is dead code, kept
+##   only until v4: the bash status table was superseded by status.js.
+##
+
 function all_containers() { ## op
     local list cop host
     cop="$1"
@@ -9,7 +18,12 @@ function all_containers() { ## op
     else
         list="$(cfg user container_list)" || exit 15
     fi
-    
+
+    ## FIXME(v4): HIGH — any op other than 'start' falls through to
+    ## 'machinectl $cop', but machinectl has no stop/restart verb:
+    ## 'sc all-containers stop' stops nothing, and 'restart' (after the
+    ## systemctl stop below) leaves every container stopped with only a
+    ## machinectl usage error.
     for C in $list
     do
         if [[ -d /srv/$C ]]
@@ -19,7 +33,7 @@ function all_containers() { ## op
                 run "systemctl --no-pager stop srvctl-nspawn@$C"
                 run sleep 1
             fi
-            
+
             if [[ $cop == start ]]
             then
                 run "systemctl --no-pager start srvctl-nspawn@$C"
@@ -28,24 +42,26 @@ function all_containers() { ## op
             fi
         else
             host="$(get container "$C" host)"
-            
+
             if [[ $cop == restart ]]
             then
                 run "ssh $host systemctl --no-pager stop srvctl-nspawn@$C"
                 run sleep 1
             fi
-            
+
             if [[ $cop == start ]]
             then
                 run "ssh $host systemctl --no-pager start srvctl-nspawn@$C"
             else
                 run "ssh $host machinectl --no-pager $cop $C"
             fi
-            
+
         fi
-        
+
     done
 }
+
+## ---- dead code below: no callers anywhere (superseded by status.js) ----
 
 function get_disk_usage {
     du -hs "/srv/$1" | head -c 4
@@ -103,6 +119,8 @@ function bash_containers_status() {
     
     for C in $list
     do
+        ## FIXME(v4): undefined function — the definition above is named
+        ## bash_container_status; dead today, breaks if ever wired up.
         container_status "$C"
     done
     

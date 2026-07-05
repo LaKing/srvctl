@@ -1,13 +1,17 @@
 #!/bin/bash
 
-#[[ $SRVCTL ]] || exit
-#[[ $SC_ROOTFS_DIR ]] || exit
+##
+##   containers/libs/mkrootfs_debian.sh — build a debian base image via
+##   debootstrap (stable). Same contract as mkrootfs_fedora.sh minus the
+##   fedora-specific users/mail setup. No live caller — only reachable
+##   through commented-out lines in hooks/regenerate_rootfs.sh.
+##
 
 function mkrootfs_debian_base { ## name
-    
+
     ## this is my own version for rootfs creation
     local rootfs_name rootfs_base
-    
+
     if [[ $1 ]]
     then
         rootfs_name="$1"
@@ -22,14 +26,13 @@ function mkrootfs_debian_base { ## name
     run rm -rf "$rootfs_base"
     mkdir -p "$rootfs_base"
     
-    run debootstrap --include=ssh,systemd,dbus,libpam-systemd,mc,nodejs stable "$rootfs_base"
-    if [ "$?" != "0" ]
+    if ! run debootstrap --include=ssh,systemd,dbus,libpam-systemd,mc,nodejs stable "$rootfs_base"
     then
         rm -fr "$rootfs_base"
         err "Failed to create $rootfs_name"
         return
     fi
-    
+
     mkrootfs_root_ssh "$rootfs_base"
     
     ln -s /usr/local/share/srvctl/srvctl.sh "$rootfs_base"/bin/sc

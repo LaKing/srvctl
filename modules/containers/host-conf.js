@@ -2,6 +2,24 @@
 
 /*srvctl */
 
+/*
+ *   containers/host-conf.js — cluster -> host.conf bootstrap.
+ *
+ *   Invoked inline by core init.sh (NOT via module hooks — it runs even
+ *   when the containers module is disabled) whenever the cluster data
+ *   file exists. Reads /etc/srvctl/clusters.json, locates the cluster
+ *   containing this HOSTNAME, and writes:
+ *     - /etc/srvctl/host.conf  — SC_HOSTNAME, SC_CLUSTERNAME plus an
+ *       SC_<KEY>=<value> line for every scalar key of this host's record
+ *       (sourced by init.sh as shell config)
+ *     - /etc/srvctl/hosts.json — this cluster's host map (consumed by
+ *       module-condition.sh and the datastore)
+ *
+ *   Exit 113 (DATA-ERROR) on read/write failure is a contract with
+ *   init.sh. Note: an unknown HOSTNAME writes an empty hosts.json and a
+ *   host.conf without SC_CLUSTERNAME — silently, by design.
+ */
+
 // includes
 const fs = require('fs');
 const os = require('os');
