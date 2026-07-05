@@ -9,9 +9,24 @@ hs_only
 ## run only with srvctl
 [[ $SRVCTL ]] || exit 4
 
+##
+##   modules/named/commands/override-in-address.sh — point a container's
+##   wildcard/apex A records (and the reverse proxies) at another IP.
+##
+##   Host-server-only command. Writes the container datastore key
+##   override_in_a_ip ("none" clears the override), then triggers the
+##   regenerate_certificates hook and regenerate_haproxy_conf so the
+##   reverse proxies pick the new address up. named.js consumes the key
+##   at the NEXT full regenerate; this command does not run namedcfg or
+##   restart_named itself (see the FIXME below).
+##
+##   Authorization is manual here instead of the standard authorize
+##   helper: the container's owner or reseller is re-executed via
+##   sudomize, then the root check gates the datastore write.
+##
+
 argument container
 C="$ARG"
-#authorize
 container_user="$(get container "$C" user)"
 exif
 container_reseller="$(get container "$C" reseller)"
@@ -23,11 +38,18 @@ then
     sudomize
 fi
 
+## FIXME(v4): high — SC_UID0 is always the literal string 'true' or 'false'
+## (init.sh), so this non-emptiness test is always true and the denial
+## branch below is unreachable; any non-owner user reaches the put and only
+## datastore file permissions stop the write. Intended test is 'if $SC_UID0'.
 if [[ $SC_UID0 ]]
 then
     put container "$C" override_in_a_ip "$OPA"
     run_hook regenerate_certificates
     regenerate_haproxy_conf
+    ## FIXME(v4): low — despite the help text, the named zone file is not
+    ## regenerated here (no namedcfg/restart_named); the DNS change only
+    ## materializes at the next full regenerate.
 else
     err "$SC_USER has no access to $C"
     exit

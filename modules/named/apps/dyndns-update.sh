@@ -1,5 +1,16 @@
 #!/bin/bash
 
+##
+##   modules/named/apps/dyndns-update.sh — DEAD CODE (dormant dyndns).
+##
+##   Only ever invoked by apps/dyndns-server.js, which is itself never
+##   installed (install_dyndns is disabled); see that file's header for
+##   the subsystem's known security issues. Would nsupdate an A record on
+##   the local BIND: $1 is the dyndns host name, the client IP is read
+##   from /var/dyndns/$1.ip (IPv4-mapped ::ffff: form only), and
+##   /var/dyndns/$1.lock caches the last applied IP to skip no-op runs.
+##
+
 ## argument host
 #local D IP
 

@@ -1,6 +1,27 @@
 #!/bin/node
 
-/*srvctl */
+/* srvctl — modules/named/named.js
+ *
+ * Authoritative-DNS generator, run by namedcfg (libs/bashlib.sh) at every
+ * 'sc regenerate'. It aggregates containers.json from every cluster host
+ * (local datastore file for this host, HTTPS fetch from peers, cached under
+ * /var/srvctl3/named/<host>.json), then writes:
+ *   - /var/named/srvctl.conf                zone declarations (master or
+ *                                           slave, per this host's role)
+ *   - /var/named/srvctl/<domain>.zone       full zone content, masters only
+ *                                           (aliases share the primary's file)
+ * Zone content (SOA serial = epoch seconds, NS ns1/ns2.$SC_COMPANY_DOMAIN,
+ * wildcard/apex A, SPF/DKIM/DMARC/MX assembly, custom dns_records) is
+ * public production DNS — any byte change here changes the farm's DNS.
+ *
+ * Exit-code protocol (relied on by exif in namedcfg): starts at 99,
+ * success 0, DATA-ERROR 111 with a "DATA-ERROR:" line on stderr.
+ *
+ * Flow trick: the peer fetches are async and there is no await here, so
+ * the config is assembled in a process.on("exit") handler after the event
+ * loop drains — meaning each run uses the peer caches written by the
+ * PREVIOUS run. See the FIXME notes at the exit handler.
+ */
 
 // TODO: in case of duplicate containers, dns should priorize
 
@@ -102,6 +123,9 @@ if (master_servers === "") {
     return_error("could not locate master servers in the cluster configuration");
 } else msg("master servers: " + master_servers);
 
+// split a DKIM key into 33-char quoted chunks for the zone-file TXT record
+// FIXME(v4): low — 'r = br' creates an implicit global (no var); works only
+// because this script runs non-strict.
 function splitstring(s) {
     const re = new RegExp(".{1,33}", "g");
     r = br;
@@ -249,6 +273,9 @@ function get_container_zone(cluster, host, hostdata, containers, name, alias) {
     else {
         if (container.dns_records !== undefined) if (container.dns_records.some((e) => e.name === "_dmarc")) return zone;
         zone += ";; DMARC" + br;
+        // FIXME(v4): low — for a use_gsuite domain missing its google
+        // domainkey the DMARC record is silently omitted (err only prints,
+        // to stdout via lablib.js); mail policy weakens without failing.
         if (container.use_gsuite && container["dkim-google-domainkey"] === undefined) err("Missing DKIM google-domainkey in datastore for domain " + name);
         else zone += '_dmarc   TXT ( "v=DMARC1;p=reject;sp=reject;pct=100;adkim=r;aspf=r;fo=1;ri=86400;rua=mailto:webmaster@' + name + '")' + br;
 
@@ -316,6 +343,14 @@ function make_conf() {
 }
 
 // ---------
+// fetch a peer's containers.json over HTTPS (self-signed certs accepted;
+// endpoint served by modules/datastore/apps/datastore-server.js behind the
+// haproxy ACL) and cache it under /var/srvctl3/named/<host>.json for the
+// NEXT run's make_conf.
+// FIXME(v4): medium — no effective timeout: the https.Agent timeout only
+// arms a socket timeout with no 'timeout' listener and the request is never
+// destroyed, so one unresponsive peer can stall this script (and thus
+// 'sc regenerate') indefinitely.
 function get_host_containers(cluster, host) {
     var ip = clusters[cluster][host].host_ip;
     console.log("get_host_containers", host, ip);
@@ -370,6 +405,8 @@ function get_host_containers(cluster, host) {
 
 //---------
 // A little trick here. As there is no real sync version of http.get, we will process the data when the event loop completes - on exit
+// FIXME(v4): the local host is fetched over HTTPS too, although get_conf
+// reads the local datastore file directly — one request per run is wasted.
 
 Object.keys(clusters).forEach(function (i) {
     //if (i !== SC_CLUSTERNAME)
@@ -378,6 +415,17 @@ Object.keys(clusters).forEach(function (i) {
         //console.log(clusters[i][j].host_ip);
     });
 });
+
+// FIXME(v4): medium — this exit handler also runs after return_error's
+// process.exit(111): 'exit' listeners still fire and exit() resets
+// process.exitCode to 0, which Node re-reads. Concrete case: no master
+// with a host_ip triggers return_error above, yet a broken srvctl.conf
+// (slave zones with empty 'masters {};') is still written and exif in
+// namedcfg sees success, so restart_named reloads BIND on a config that
+// fails to load. Related: if clusters.json was unreadable, make_conf
+// throws a TypeError on the undefined 'clusters' during exit instead of
+// the clean DATA-ERROR path. v4: rewrite with async/await and explicit
+// exit paths.
 
 process.on("exit", function () {
     var conf = make_conf();

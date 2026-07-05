@@ -1,3 +1,27 @@
+/* srvctl — modules/named/apps/dyndns-server.js
+ *
+ * DEAD CODE — the dormant dyndns subsystem. Never installed or started:
+ * install_dyndns (libs/install.sh) returns before doing any work, and the
+ * dormant systemd unit's ExecStart points at a wrong path (hs-apps/)
+ * anyway. Kept only as a reference for a possible v4 rebuild.
+ *
+ * What it would do: HTTPS POST server on port 855 (cert/key paths from
+ * argv); the request path names the dyndns host, the POSTed 'auth' value
+ * is compared against /var/dyndns/<host>.auth, then the client IP is
+ * written to /var/dyndns/<host>.ip and dyndns-update.sh runs nsupdate on
+ * the local BIND.
+ *
+ * KNOWN SECURITY ISSUES — DO NOT REVIVE AS-IS:
+ *   - shell command injection: the URL-derived host name is concatenated
+ *     unquoted into the exec() command line below
+ *   - path traversal: the same unvalidated name is concatenated into the
+ *     /var/dyndns/<host>.auth and .ip file paths
+ *   - non-constant-time, plaintext-file auth compare
+ *   - hard-coded uid 103 in setuid; HMAC-MD5 TSIG key material
+ * A v4 rebuild needs strict input validation, execFile with arguments,
+ * tsig-keygen based keys and a named service user.
+ */
+
 console.log('Starting dyndns-server.js');
 
 var https = require('https');
