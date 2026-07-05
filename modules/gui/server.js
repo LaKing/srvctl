@@ -1,5 +1,21 @@
 #!/usr/bin/env node
 
+// modules/gui/server.js - the srvctl-gui web daemon (DORMANT in v3).
+//
+// Root Node.js HTTPS server on port 250 (systemd unit srvctl-gui.service)
+// that authenticates browsers by TLS client certificate (CN = srvctl
+// username, signed by the usernet CA), serves the Angular 1.x app in
+// ./srvctl-gui/ plus an hterm web terminal, and executes srvctl commands
+// on hosts and containers over ssh with the user's internal key
+// (srvctl_id_ecdsa). The command menu comes from
+// /var/local/srvctl/commands.spec, built by libs/spec.sh.
+//
+// Nothing in this codebase installs or starts this daemon: the install hook
+// is disabled (see hooks/update-install-host.sh). It only runs on hosts
+// with leftover srvctl2-era setup; slated for retirement in v4 (cockpit).
+
+// FIXME(v4): strict mode disabled; e.g. the spec parser's loop index i is
+// an implicit global.
 //'use strict';
 
 /*srvctl */
@@ -9,6 +25,8 @@ const port = 250;
 
 //const SC_DATASTORE_DIR = process.env.SC_DATASTORE_DIR;
 // okay, this is not visible here .. TODO, make it so, ...
+// FIXME(v4): SC_DATASTORE_DIR and SC_INSTALL_DIR hardcoded; a non-standard
+// install path breaks the datastore reads and the category parser below.
 const SC_DATASTORE_DIR = '/var/srvctl3/datastore';
 const SC_INSTALL_DIR = '/usr/local/share/srvctl';
 
@@ -48,6 +66,8 @@ app.use('/angular', express.static(global_install_prefix + 'angular'));
 app.use('/bootstrap', express.static(global_install_prefix + 'bootstrap/dist'));
 app.use('/angular-ui-bootstrap', express.static(global_install_prefix + 'angular-ui-bootstrap/dist'));
 app.use('/angular-sanitize', express.static(global_install_prefix + 'angular-sanitize'));
+// FIXME(v4): dead mount - nothing installs the wetty npm package, and
+// wetty.html loads the module's own /hterm_all.js instead.
 app.use('/wetty', express.static(global_install_prefix + 'wetty/public/wetty'));
 
 app.get('/ssh/:user', function(req, res) {
@@ -56,11 +76,19 @@ app.get('/ssh/:user', function(req, res) {
 
 
 
+// FIXME(v4): datastore JSONs (and commands.spec below) are read once at
+// startup; new or removed containers/users/commands stay invisible in the
+// GUI until the service is restarted.
 const containers = JSON.parse(fs.readFileSync(SC_DATASTORE_DIR + '/containers.json'));
 const users = JSON.parse(fs.readFileSync(SC_DATASTORE_DIR + '/users.json'));
 const hosts = JSON.parse(fs.readFileSync(SC_DATASTORE_DIR + '/hosts.json'));
 
 
+// Parse /var/local/srvctl/commands.spec (records: 4 fields joined by the
+// multiplication sign U+00D7, see libs/spec.sh) into {category: {command:
+// {hint, args}}}. The category is the module name for files under
+// SC_INSTALL_DIR, otherwise the record's third path segment - which is what
+// makes the raw passthrough records (leading "## spec //cat") work.
 function process_commands_spec() {
     var commands_spec = fs.readFileSync('/var/local/srvctl/commands.spec', 'UTF8');
     var r = {};
@@ -92,6 +120,8 @@ function process_commands_spec() {
 const spec = process_commands_spec();
 console.log(spec);
 
+// Push the dashboard model (hosts, users, command spec, own containers)
+// to one client. The container filter below is display-only.
 function send_main(socket) {
 
     var main = {};
@@ -99,6 +129,8 @@ function send_main(socket) {
     main.containers = {};
     main.hosts = hosts;
     main.users = users;
+    // FIXME(v4): the spec includes every user's ~/srvctl-includes commands,
+    // so users see each other's private command names and hints.
     main.spec = spec;
     main.services = {};
     
@@ -125,6 +157,11 @@ function run_command(socket, cmd) {
     var command = cmd.command;
     //socket.host = command.host;
     if (cmd.host === 'localhost') host = HOSTNAME;
+    // FIXME(v4): host/container are client-supplied and there is no check
+    // that the container belongs to socket.user (the send_main filter is
+    // display-only); authorization rests solely on whether root@<target>
+    // accepts the user's key - the GUI attempts root ssh anywhere on the
+    // mesh on behalf of any cert holder.
     if (cmd.selected === 'container') {
         host = cmd.container;
         user = "root";
@@ -137,6 +174,8 @@ function run_command(socket, cmd) {
         var adat = '[' + user + '@' + host + ']$ ' + command + '\n';
         console.log('command:', adat);
         conn.exec(command + ' 2>&1', function(err, stream) {
+            // FIXME(v4): throw inside an async callback - any exec-channel
+            // failure crashes the whole daemon for all users.
             if (err) throw err;
             stream.on('close', function(code, signal) {
                 conn.end();
@@ -164,6 +203,9 @@ function run_command(socket, cmd) {
         port: 22,
         username: user,
         privateKey: socket.key,
+        // FIXME(v4): 500 ms connect timeout is routinely exceeded on hosts
+        // reached over the OpenVPN mesh, yielding only "client-timeout
+        // error." in the terminal pane.
         readyTimeout: 500
     });
 
@@ -186,6 +228,9 @@ io.on('connection', function(socket) {
         }
         socket.key = data;
 
+        // FIXME(v4): no guard on the Referer header - a socket.io client
+        // without one (non-browser client, strict referrer policy) throws a
+        // TypeError here and the uncaught exception kills the daemon.
         if (socket.request.headers.referer.split('/')[3] === 'ssh') {
 
             var ssh_user = socket.request.headers.referer.split('/')[4];
@@ -247,6 +292,10 @@ console.log("Srvctl-gui version 3.0");
 
 
 
+// Partial ANSI-to-HTML converter for command output shown in the GUI pane.
+// FIXME(v4): only text captured inside SGR color sequences is HTML-escaped;
+// plain un-colored output containing & or < reaches the client raw (relying
+// on Angular ngSanitize) and legitimate output containing < gets garbled.
 function term2html(text) {
     // TODO add to theme
     var colors = ['#000', '#D00', '#00CF12', '#C2CB00', '#3100CA',

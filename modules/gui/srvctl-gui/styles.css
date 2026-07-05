@@ -1,3 +1,6 @@
+/* modules/gui/srvctl-gui/styles.css - leftover navbar/footer styles
+   (DORMANT module). FIXME(v4): dead file - referenced by no page (index.html
+   loads index.css only); remove with the module retirement. */
 .navbar-static-top {
   margin-bottom:20px;
 }

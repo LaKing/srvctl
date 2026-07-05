@@ -1,3 +1,6 @@
+/* modules/gui/srvctl-gui/index.css - dark theme for the srvctl-gui
+   dashboard (DORMANT module); loaded by index.html. The .log_N classes
+   match the ANSI color classes emitted by term2html in server.js. */
  body {
      display: block;
      background-color: #333;

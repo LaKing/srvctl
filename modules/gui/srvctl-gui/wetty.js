@@ -1,3 +1,7 @@
+// modules/gui/srvctl-gui/wetty.js - browser side of the web terminal
+// (DORMANT module). Bridges the vendored hterm emulator (hterm_all.js) to
+// the daemon's socket.io 'input'/'output'/'resize' events; loaded by
+// wetty.html, which server.js serves for /ssh/:user.
 var term;
 var socket = io(location.origin)
 var buf = '';

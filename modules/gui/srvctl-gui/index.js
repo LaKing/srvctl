@@ -1,3 +1,7 @@
+// modules/gui/srvctl-gui/index.js - Angular 1.x app of the srvctl-gui
+// dashboard (DORMANT module, see ../server.js). Talks to the daemon over
+// socket.io: receives 'main' (dashboard model) and 'terminal' (rendered
+// command output, trusted via ngSanitize in index.html), emits 'command'.
 (function() {
 
 
