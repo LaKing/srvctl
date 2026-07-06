@@ -201,6 +201,9 @@ Execution rules (from 000-PROMPT + the Stage-2 preconditions in 000-INDEX):
       SC_UID0=false (non-root) which the userns can't provide (uid 0); the
       booleans are proven == grep by commandindex.test, and the filter is a
       mechanical substitution — empirical non-root run is a VM-cluster item.
+      Audit follow-up: commandindex.test now includes module `command.sh`
+      default-command files too (bare `sc` indexes them); this closes the
+      committed regression-test gap left by the initial 38-file parser pass.
   - **WP-D — remaining**: optional persisted/cached index (mtime-keyed) so the
     node call is amortized across invocations; light srvctl.sh/init.sh
     dispatch. Per-command perf timing on real hardware (VM cluster, WP-M/D26).

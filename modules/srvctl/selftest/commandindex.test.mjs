@@ -1,6 +1,7 @@
 // modules/srvctl/selftest/commandindex.test.mjs — differential test for the
 // command-index parser (lib/commandindex.mjs) against the ACTUAL bash grep
-// logic from commonlib.sh, run over every real command file in the repo.
+// logic from commonlib.sh, run over every real command/default-command file in
+// the repo.
 //
 // For each command file we run the exact shell pipelines the bash help path
 // uses (head|grep -m1 '## @en'; grep -m1 '## @@@' file; grep -m1 '## &&&'
@@ -19,10 +20,15 @@ import { parseCommandFile } from "../lib/commandindex.mjs";
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(HERE, "..", "..", "..");
 
-// Every module command file (the bash help path iterates these).
+// Every module command file plus module default command.sh files. Bare `sc`
+// indexes both: commands/*.sh for normal command hints and command.sh for
+// default-command hints.
 const files = [];
 for (const mod of fs.readdirSync(path.join(REPO, "modules"))) {
-  const cdir = path.join(REPO, "modules", mod, "commands");
+  const mdir = path.join(REPO, "modules", mod);
+  const defaultCommand = path.join(mdir, "command.sh");
+  if (fs.existsSync(defaultCommand)) files.push(defaultCommand);
+  const cdir = path.join(mdir, "commands");
   if (!fs.existsSync(cdir)) continue;
   for (const f of fs.readdirSync(cdir)) if (f.endsWith(".sh")) files.push(path.join(cdir, f));
 }
