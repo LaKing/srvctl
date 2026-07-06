@@ -147,9 +147,16 @@ function migrate_datastore_to_per_entity() {
         mkdir -p "$SC_DATASTORE_RW_DIR/.monolithic-backup"
         mv "$SC_DATASTORE_RW_DIR/hosts.json" "$SC_DATASTORE_RW_DIR/users.json" "$SC_DATASTORE_RW_DIR/containers.json" "$SC_DATASTORE_RW_DIR/.monolithic-backup/" 2> /dev/null
         msg "Datastore migrated; monolithic files archived to .monolithic-backup"
-    else
-        err "Datastore migration FAILED; monolithic files left in place"
+        return 0
     fi
+
+    ## migrate.mjs exited non-zero (e.g. a partial store — data loss). The
+    ## transaction rolled back (no per-entity written) and the monolithic files
+    ## are left in place. RETURN NON-ZERO so init_datastore aborts the command
+    ## rather than operating on a broken/empty datastore. (err only prints; it
+    ## does not set the exit status.)
+    err "Datastore migration FAILED; monolithic files left in place — aborting"
+    return 1
 }
 
 ## select the RO or RW directory, ensure the per-entity layout, export vars
@@ -172,7 +179,12 @@ function init_datastore() {
     then
         if [[ ! -d "$SC_DATASTORE_DIR/hosts" ]] || [[ -f "$SC_DATASTORE_DIR/hosts.json" ]]
         then
+            ## init_datastore_install ends in migrate_datastore_to_per_entity;
+            ## a migration failure (partial store / data loss) must STOP the
+            ## command before it runs against a broken datastore. exif exits
+            ## with the failing status if init_datastore_install returned != 0.
             init_datastore_install
+            exif "datastore init/migration failed"
         fi
     fi
 

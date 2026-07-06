@@ -123,8 +123,9 @@ Execution rules (from 000-PROMPT + the Stage-2 preconditions in 000-INDEX):
       - Verified: pathspec+gitignore stage only entity json (no secrets/
         backup); partial store fails clean; suite 197.
     - **WP-C — step 2b (bash wiring) ✅ DONE (locally verified)**:
-      - gitlib.sh datastore_push: `git add ./*.json` → `git add -A` (commits
-        the per-entity tree; .gitignore adds .monolithic-backup).
+      - gitlib.sh datastore_push: `git add ./*.json` → `git add -A -- hosts
+        users containers` (constrained pathspec — see the hardening bullet
+        above; commits the entity tree, never secrets/cert/backup).
       - datalib.sh: init_datastore_install now seeds the v3 monolithic sources
         then converts to per-entity; migrate_datastore_to_per_entity() runs
         migrate.mjs in-place (idempotent; archives hosts/users/containers.json
