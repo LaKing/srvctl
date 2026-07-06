@@ -59,10 +59,10 @@ Execution rules (from 000-PROMPT + the Stage-2 preconditions in 000-INDEX):
   on lib.js; only `--record` does while v3 is still present.
   - **WP-C — dispatcher step 1 ✅ DONE**: main.mjs reimplements the v3
     verb API on derive/generators/mutators, reading/writing the MONOLITHIC
-    three-file datastore. main.js is now a CJS cutover shim that
-    dynamic-imports main.mjs (bashlib + the verb harness keep running
-    unchanged); v3 dispatcher logic is preserved in git history, lib.js kept
-    for --record. The 61-case verb golden is byte-exact (61/61):
+    three-file datastore. (Follow-up: the CJS cutover shim main.js was
+    REMOVED — bashlib.sh + the verb harness now spawn `node main.mjs`
+    directly. v3 dispatcher logic is preserved in git history; lib.js kept as
+    the v3 --record oracle only.) The 61-case verb golden is byte-exact (61/61):
     stdout/stderr/exit AND mutation file contents. Reproduced v3's async
     write-msg ordering (deferred "wrote X.json" flush after sync output) and
     the cfg trailing-exit() (return_value undefined -> exit()=0). The

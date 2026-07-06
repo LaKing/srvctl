@@ -18,7 +18,7 @@
 
 ## FIXME(v4): SC_RESELLER_USER is defaulted here but never exported
 ## (post-init.sh exports only the SC_COMPANY variables), so its sole
-## consumer modules/datastore/main.js reads process.env.SC_RESELLER_USER
+## consumer modules/datastore/main.mjs reads process.env.SC_RESELLER_USER
 ## as undefined — dead plumbing until it is exported or removed.
 # shellcheck disable=SC2034
 [[ $SC_RESELLER_USER ]] || SC_RESELLER_USER=root

@@ -10,7 +10,7 @@
 ##   directories, seeds hosts/containers/users json and git-inits the RW
 ##   directory. init_datastore, called from hooks/init.sh, picks the RO or
 ##   RW directory, seeds missing files and exports SC_DATASTORE_DIR for
-##   main.js / lib.js.
+##   main.mjs / lib.js.
 ##
 
 ## sc exec-function publish_data

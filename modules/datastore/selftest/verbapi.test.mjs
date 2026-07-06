@@ -1,13 +1,13 @@
 // modules/datastore/selftest/verbapi.test.mjs — GOLDEN-MASTER harness for the
-// datastore verb API (modules/datastore/main.js).
+// datastore verb API (modules/datastore/main.mjs).
 //
 // Purpose (WP-C precondition): freeze the EXACT output + exit-code + on-disk
 // effect of the current (v3) verb API, so the v4 reimplementation can be
 // proven byte-identical before any live path is replaced. ~159 call sites
-// depend on this contract (see main.js header).
+// depend on this contract (see main.mjs header).
 //
 // Modes:
-//   node verbapi.test.mjs --record   # run cases vs the live main.js, write golden.json
+//   node verbapi.test.mjs --record   # run cases vs the live main.mjs, write golden.json
 //   node verbapi.test.mjs            # VERIFY: run cases, diff against golden.json (exit!=0 on mismatch)
 //
 // Determinism: env is pinned (NOW/SC_HOSTNET/SC_COMPANY_DOMAIN/...); the one
@@ -25,7 +25,7 @@ import { createStore } from "../lib/store.mjs";
 import { migrateToPerEntity } from "../lib/migrate.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
-const MAIN = path.join(HERE, "..", "main.js");
+const MAIN = path.join(HERE, "..", "main.mjs");
 const FIXTURE = path.join(HERE, "golden", "fixture");
 const GOLDEN_FILE = path.join(HERE, "golden", "golden.json");
 const HOSTNAME = os.hostname();
@@ -154,7 +154,7 @@ function runCase([name, argv, mutating]) {
       encoding: "utf8",
     });
     if (r.error) {
-      throw new Error(`spawn main.js for ${name}: ${r.error.message}`);
+      throw new Error(`spawn main.mjs for ${name}: ${r.error.message}`);
     }
     const record = {
       argv,

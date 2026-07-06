@@ -1,12 +1,12 @@
 // modules/datastore/main.mjs — srvctl v4 datastore verb dispatcher.
 //
-// Reimplements the v3 modules/datastore/main.js verb API on the pure v4
-// modules (derive.mjs / generators.mjs / mutators.mjs). WP-C step 1: still
-// reads/writes the MONOLITHIC hosts.json/users.json/containers.json format so
-// it is byte-identical to v3 (proven by selftest/verbapi.test.mjs, 61/61).
-// The file-per-entity swap (store.mjs) is WP-C step 2.
+// THE datastore entry point: libs/bashlib.sh spawns `node main.mjs CMD DAT
+// ARG ...` directly (no .js shim). Reimplements the v3 verb API on the pure
+// v4 modules (derive.mjs / generators.mjs / mutators.mjs) over the
+// file-per-entity store (store.mjs); byte-identical to v3 (proven by
+// selftest/verbapi.test.mjs, 61/61).
 //
-// Contract preserved verbatim (main.js header + the verb golden):
+// Contract preserved verbatim (v3 main.js + the verb golden):
 //   argv:  CMD DAT ARG [OPA] [VAL]
 //   exit:  0 done/value · 100 empty optional get · 110 MAIN-ERROR ·
 //          112 LIB-ERROR · 99 fall-through
