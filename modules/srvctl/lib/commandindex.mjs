@@ -70,14 +70,43 @@ export function buildIndex(files, readFile) {
   return index;
 }
 
-// CLI: node commandindex.mjs <command-file.sh> ...  ->  JSON index on stdout.
+// Emit the index in a tab-delimited, path-keyed form for bash to read in ONE
+// node call (replacing commonlib.sh's per-file grep storm). One "F" line of
+// scalar metadata per file, then one "H" line per help line, in file order:
+//   F\t<path>\t<hint>\t<syntax>\t<dynamic>\t<root_only>\t<hs_only>\t<reseller_only>
+//   H\t<path>\t<help-line>
+// Scalars are empty when the marker is absent; booleans are "1"/"". Command
+// files never contain tabs in these markers, so tab is a safe delimiter.
+export function formatBash(index) {
+  const out = [];
+  const b = (v) => (v ? "1" : "");
+  for (const path of Object.keys(index)) {
+    const m = index[path];
+    out.push(["F", path, m.hint ?? "", m.syntax ?? "", m.dynamic ?? "", b(m.root_only), b(m.hs_only), b(m.reseller_only)].join("\t"));
+    for (const h of m.help) out.push(["H", path, h].join("\t"));
+  }
+  return out.join("\n") + (out.length ? "\n" : "");
+}
+
+// CLI:
+//   node commandindex.mjs --bash <file.sh> ...   -> tab-delimited (bash reader)
+//   node commandindex.mjs <file.sh> ...          -> JSON (keyed by command name)
 if (import.meta.url === `file://${process.argv[1]}`) {
   const fs = await import("node:fs");
-  const files = process.argv.slice(2);
+  const argv = process.argv.slice(2);
+  const bash = argv[0] === "--bash";
+  const files = bash ? argv.slice(1) : argv;
   if (!files.length) {
-    console.error("usage: node commandindex.mjs <command-file.sh> ...");
+    console.error("usage: node commandindex.mjs [--bash] <command-file.sh> ...");
     process.exit(2);
   }
-  const index = buildIndex(files, (p) => fs.readFileSync(p, "utf8"));
-  process.stdout.write(JSON.stringify(index, null, 2) + "\n");
+  const read = (p) => fs.readFileSync(p, "utf8");
+  if (bash) {
+    // path-keyed index preserving argv order
+    const index = {};
+    for (const p of files) index[p] = parseCommandFile(read(p));
+    process.stdout.write(formatBash(index));
+  } else {
+    process.stdout.write(JSON.stringify(buildIndex(files, read), null, 2) + "\n");
+  }
 }

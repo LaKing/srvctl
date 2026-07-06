@@ -339,12 +339,61 @@ function hint_commands {
 ## print the multi-line help block of one command file
 ## (multiple '## @en' lines render with raw markers — customize.sh has two;
 ## kept as-is, output-identical)
+## ---- command index (WP-D): parse all command-file help metadata in ONE
+## node call instead of grepping each file 4-5 times. commandindex.mjs is a
+## faithful match of the $HINT/$HEMP/$HEXE/$HELP grep semantics (proven by
+## modules/srvctl/selftest/commandindex.test.mjs, 190/190 over the real files);
+## help_on_file/hint_on_file read these arrays, falling back to grep when the
+## index was not built (e.g. single-command `sc help CMD`) or a path is absent.
+## help_on_file consumes hint + help; the F line's remaining fields (syntax/
+## dynamic/root_only/hs_only/reseller_only) are for the future hint_on_file
+## wiring (bare `sc`) and are ignored here.
+declare -A SC_IDX_HINT SC_IDX_HELP
+SC_IDX_BUILT=false
+
+function build_command_index() {
+    ## $@ = command-file paths. Populate SC_IDX_HINT / SC_IDX_HELP keyed by path.
+    SC_IDX_HINT=(); SC_IDX_HELP=()
+    SC_IDX_BUILT=false
+    [[ $# -gt 0 ]] || return 0
+    local tag path val
+    while IFS=$'\t' read -r tag path val _
+    do
+        if [[ $tag == F ]]
+        then
+            SC_IDX_HINT[$path]="$val"
+            [[ -n ${SC_IDX_HELP[$path]+x} ]] || SC_IDX_HELP[$path]=""
+        elif [[ $tag == H ]]
+        then
+            if [[ -n ${SC_IDX_HELP[$path]:-} ]]
+            then SC_IDX_HELP[$path]="${SC_IDX_HELP[$path]}"$'\n'"$val"
+            else SC_IDX_HELP[$path]="$val"
+            fi
+        fi
+    done < <(/bin/node "$SC_INSTALL_DIR/modules/srvctl/lib/commandindex.mjs" --bash "$@" 2> /dev/null)
+    ## only trust the index if node actually produced entries for the inputs
+    [[ ${#SC_IDX_HINT[@]} -gt 0 ]] && SC_IDX_BUILT=true
+}
+
 function help_on_file {
     [[ -f "$1" ]] || return 133
 
-    local hintstr command
+    local command hintstr
+    command="${1##*/}"   # basename, no fork
+
+    if $SC_IDX_BUILT && [[ -n ${SC_IDX_HINT[$1]+x} ]]
+    then
+        hint "${command:0: -3}" "${SC_IDX_HINT[$1]}" "$1"
+        printf "${YELLOW}%-4s" ""
+        echo ''
+        [[ -n ${SC_IDX_HELP[$1]:-} ]] && printf '%s\n' "${SC_IDX_HELP[$1]}"
+        printf "${CLEAR}%-4s" ""
+        echo ""
+        return 0
+    fi
+
+    ## fallback: original per-file grep
     hintstr="$(head "$1" | grep "$HINT")"
-    command="$(basename "$1")"
     hint "${command:0: -3}" "${hintstr:7}" "$1"
     printf "${YELLOW}%-4s" ""
     echo ''
@@ -361,6 +410,22 @@ function help_commands {
 
     if [[ -z $ARG ]]
     then
+
+        ## WP-D: parse every command file's help metadata in ONE node call, so
+        ## the help_on_file calls below read the index instead of re-grepping
+        ## each file. Collect exactly the paths the loops will render, in order.
+        local -a idx_paths=()
+        local p
+        if [[ -d /root/srvctl-includes ]]
+        then for p in /root/srvctl-includes/*.sh; do [[ -f $p ]] && idx_paths+=("$p"); done
+        fi
+        for dir in $SC_MODULES
+        do for p in "$dir"/commands/*.sh; do [[ -f $p ]] && idx_paths+=("$p"); done
+        done
+        if [[ -d $SC_HOME/srvctl-includes ]] && [[ $SC_HOME != /root ]]
+        then for p in "$SC_HOME"/srvctl-includes/*.sh; do [[ -f $p ]] && idx_paths+=("$p"); done
+        fi
+        build_command_index "${idx_paths[@]}"
 
         if [[ -d /root/srvctl-includes ]]
         then

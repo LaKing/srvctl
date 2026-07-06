@@ -160,13 +160,31 @@ Execution rules (from 000-PROMPT + the Stage-2 preconditions in 000-INDEX):
     the actual commonlib.sh grep pipelines over all 38 real command files:
     190/190 identical, incl. the load-bearing whole-file `## &&&` (add-ve at
     line 13) and head-10/head-20 window semantics.
-  - **WP-D — bash help-path wiring (VM-TEST ONLY)**: rendering the index in
-    hint_on_file/help_on_file to eliminate the grep storm CANNOT be validated
-    on this dev box — running srvctl here triggers init_datastore ->
-    migrate on the LIVE /var/srvctl3/datastore (unsafe), and byte-identical
-    `sc help` output can only be checked by actually running srvctl. Do the
-    wiring + perf measurement in the VM-test cluster (WP-M/D26). The parser
-    is the correctness-critical part and is already proven.
+  - **WP-D — SANDBOX HARNESS ✅ DONE** (modules/srvctl/selftest/sandbox/):
+    runs the REAL srvctl.sh help path inside an unprivileged user+mount+uts
+    namespace with every live srvctl path (/etc/srvctl, /var/local/srvctl,
+    /var/srvctl3, /root, /var/log) bind-shadowed by sandbox temp dirs +
+    checksum guard. This is what lets bash/runtime changes be tested on the
+    dev box safely (the datastore-migration hazard that blocked it is now
+    physically impossible in-namespace). Deterministic fixture modules;
+    committed golden (golden/help.txt); skips cleanly where ns unavailable.
+  - **WP-D — help-path wiring ✅ DONE (`sc help`)**: commandindex.mjs gains a
+    `--bash` mode; commonlib.sh build_command_index() parses ALL command
+    files in ONE node call into SC_IDX_HINT/SC_IDX_HELP; help_on_file reads
+    the index (grep fallback for single `sc help CMD` / unindexed paths);
+    help_commands builds it once for the full listing. PROVEN:
+      · harness golden byte-identical (fixtures)
+      · real-module DIFFERENTIAL byte-identical — `sc help` grep-path (git
+        HEAD) vs index-path over ALL 38 real command files: 240/240 lines
+        identical (in-sandbox, both commonlib versions)
+      · fork storm eliminated: 190 external procs (76 grep+38 sed+38 head+38
+        basename) → 0 of those + 1 node call (shim-measured in-sandbox)
+      · shellcheck unchanged (8); hint_on_file (bare `sc`) left on grep.
+  - **WP-D — remaining**: wire hint_on_file (bare `sc`, needs runtime dynamic
+    `## &&&` exec + permission filter kept; the F-line syntax/dynamic/perms
+    fields already emitted); optional persisted/cached index (mtime-keyed)
+    so the node call is amortized; light srvctl.sh/init.sh dispatch. Do
+    per-command perf timing on real hardware in the VM cluster (WP-M/D26).
 
 ### Permissions & user model
 - **WP-E** — G11 permission model: roles root/operator/user; `sc` everywhere
