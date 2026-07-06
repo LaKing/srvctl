@@ -132,13 +132,21 @@ function run_command {
         return
     fi
 
-    ## call a srvctl data function
-    ## FIXME(v4): operator precedence — && binds tighter than ||, so the
-    ## root-with-arguments guard applies to 'new' only; get/put/out/cfg/del/
-    ## add match for ANY user with any argument count. Not changed tonight:
-    ## non-root reads via 'sc get ...' may be in real use; the v4 dispatcher
-    ## must gate these verbs by declared policy instead (012-permission plan).
-    if [[ $UID == 0 ]] && [[ $OPAS ]] && [[ $CMD == 'new' ]] ||  [[ $CMD == 'get' ]] ||  [[ $CMD == 'put' ]] ||  [[ $CMD == 'out' ]] ||  [[ $CMD == 'cfg' ]] ||  [[ $CMD == 'del' ]]  ||  [[ $CMD == 'add' ]]
+    ## Raw datastore verbs typed as `sc <verb> ...`. WP-E.1: WRITES
+    ## (new/put/cfg/del/add) require root + arguments; READS (get/out) stay
+    ## open to any caller. Internal non-root reads (e.g. `cfg user
+    ## container_list`) go through the bash verb wrappers in bashlib.sh, not
+    ## this dispatch path, so they are unaffected. Previously '&&' bound
+    ## tighter than '||', so only 'new' was root-gated and every other verb
+    ## dispatched for ANY user. Full role-based gating is WP-E.2 (012 plan).
+    if [[ $UID == 0 ]] && [[ $OPAS ]] && { [[ $CMD == 'new' ]] || [[ $CMD == 'put' ]] || [[ $CMD == 'cfg' ]] || [[ $CMD == 'del' ]] || [[ $CMD == 'add' ]]; }
+    then
+        # shellcheck disable=SC2086
+        $CMD $OPAS
+        exif "failed to exec '$CMD $OPAS'"
+        return
+    fi
+    if [[ $CMD == 'get' ]] || [[ $CMD == 'out' ]]
     then
         # shellcheck disable=SC2086
         $CMD $OPAS

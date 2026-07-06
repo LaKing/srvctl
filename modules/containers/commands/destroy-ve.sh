@@ -51,12 +51,10 @@ then
     sudomize
 fi
 
-## FIXME(v4): broken root gate — SC_UID0 is always the string 'true' or
-## 'false' (never empty), so this test always passes and the deny branch
-## below is unreachable; non-sudomized users fall into the root code path
-## (correct form is 'if $SC_UID0'; same defect in remove-ve.sh and
-## backupcontainerlib.sh).
-if [[ $SC_UID0 ]]
+## Owner/reseller escalated to root via sudomize above; a non-owner non-root
+## caller reaches the deny branch below (WP-E.1: was the always-true string
+## gate '[[ $SC_UID0 ]]').
+if $SC_UID0
 then
 
     C="$ARG"
@@ -118,6 +116,5 @@ then
 
 else
     err "$SC_USER has no access to $ARG"
-    ## FIXME(v4): bare exit returns 0 — the access-denied path reports success.
-    exit
+    exit 44
 fi

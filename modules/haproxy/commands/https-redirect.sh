@@ -53,8 +53,10 @@ then
     regenerate_haproxy_conf
 else
     err "$SC_USER has no access to $ARG"
-    ## FIXME(v4): bare exit returns 0 — the access-denied path reports success.
-    exit
+    ## WP-E.1: was a bare exit (status 0). The gate ([[ $USER == root ]]) is
+    ## the working twin of http-redirect; unifying the pair on one auth helper
+    ## is WP-E.2.
+    exit 44
 fi
 
 ## this is actually a setting for all reverse proxies

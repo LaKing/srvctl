@@ -43,21 +43,16 @@ then
     sudomize
 fi
 
-## FIXME(v4): broken root gate — SC_UID0 is always the string 'true' or
-## 'false' (never empty), so this test always passes and the deny branch is
-## unreachable; unauthorized users fall through to a DATASTORE-ERROR from
-## 'put' instead of the access-denied message (twin https-redirect.sh uses
-## '[[ $USER == root ]]', which works; same defect class in
-## named/override-in-address.sh).
-if [[ $SC_UID0 ]]
+## Owner/reseller escalated via sudomize above; a non-owner non-root caller
+## reaches the deny branch below (WP-E.1: was the always-true '[[ $SC_UID0 ]]').
+if $SC_UID0
 then
     put container "$C" http-redirect "$OPA"
     run_hook regenerate_certificates
     regenerate_haproxy_conf
 else
     err "$SC_USER has no access to $C"
-    ## FIXME(v4): bare exit returns 0 — the access-denied path reports success.
-    exit
+    exit 44
 fi
 
 ## this is actually a setting for all reverse proxies

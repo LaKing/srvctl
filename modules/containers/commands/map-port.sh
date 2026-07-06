@@ -40,9 +40,9 @@ then
     run systemctl start "srvctl-nspawn@$C.service" --no-pager
     run systemctl status "srvctl-nspawn@$C.service" --no-pager
 else
-    ## FIXME(v4): silent bare exit (status 0) — a non-owner gets no error
-    ## message and a success exit code. Note the gate compares SC_USER
-    ## after sudomize, so root (post-sudomize) is only allowed when it was
-    ## the owner/reseller before escalation.
-    exit
+    ## WP-E.1: was a silent bare exit (status 0). The owner-check compares
+    ## SC_USER (preserved across sudomize), so a root-but-not-owner caller
+    ## (post-escalation) is denied here too.
+    err "$SC_USER has no access to $C"
+    exit 44
 fi

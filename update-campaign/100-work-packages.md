@@ -213,6 +213,35 @@ Execution rules (from 000-PROMPT + the Stage-2 preconditions in 000-INDEX):
   for everyone; role-filtered `sc` listing; root_only + operators_only +
   owner checks; fix the always-true [[ $SC_UID0 ]] gates. Role/owner from
   the datastore.
+  - **WP-E.1 — mechanical security correctness ✅ DONE** (user-scoped: NO
+    role model, NO authorize-deny, NO hs_only/ve_only patch — those are
+    WP-E.2). A permission-model map (Explore agent) found 12 latent bugs;
+    E.1 fixes the mechanical ones, enforcing for real:
+      · 5 always-true `[[ $SC_UID0 ]]` gates → `$SC_UID0` (destroy-ve,
+        remove-ve, backupcontainerlib, http-redirect, override-in-address) —
+        their "access denied" branches were dead code.
+      · run_command dispatch precedence (commonlib.sh): `&&` bound tighter
+        than `||` so only `new` was root-gated; now WRITES (new/put/cfg/del/
+        add) require root, READS (get/out) stay open (internal non-root reads
+        use the bashlib wrappers, not this path).
+      · access-denied bare `exit` (status 0) → `exit 44` in all of the above
+        + https-redirect + map-port (finding #8 class).
+      · removed the `root_only` `echo "SC_UID0 true"` stdout leak.
+    PROOF: selftest/authgate.test.sh — a deny/allow probe (must run non-root)
+    with datastore verbs + destructive ops stubbed, so it runs safely against
+    the pre-fix tree and shows the bugs. 27/27 after fixes (non-owner DENIED
+    exit 44 + no action for all 7 commands; owner escalates; non-root raw
+    writes blocked, reads open). Harness + datastore suites green; shellcheck
+    unchanged. reseller_only kept transitional (removed in WP-F).
+  - **WP-E.2 (next)** — the root/operator/user model on top: SC_ROLE resolved
+    once from the datastore (uid0→root; users/<name>.json role:operator→
+    operator; else user), operators_only + owner_only guards, unify the
+    listing filter with the guards, sudomize argv-as-array. CAVEAT (user):
+    hs_only/ve_only need a CENTRALIZED, always-loaded auth signal — ve_only
+    lives in containers/libs but `containers` is disabled inside a VE while
+    `usersonve` is enabled there, so VE commands can call a guard from an
+    unloaded module. Centralize the guards in srvctl auth (or load explicitly).
+    Twin http/https-redirect should share one auth helper.
 - **WP-F** — G6 reseller removal: drop reseller_only, the a..z pre-created
   accounts, reseller_id derivation; per-server user inventory first.
 

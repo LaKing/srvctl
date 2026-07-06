@@ -11,10 +11,6 @@
 function root_only {
     if $SC_UID0
     then
-        ## FIXME(v4): debug leftover — this echo puts "SC_UID0 true" on
-        ## stdout of every root-only command, polluting captured output.
-        ## Preserved: scripts may already expect the line.
-        echo "SC_UID0 $SC_UID0"
         return 0
     else
         err "Authorization failure. (root_only)"

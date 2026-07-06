@@ -38,11 +38,9 @@ then
     sudomize
 fi
 
-## FIXME(v4): high — SC_UID0 is always the literal string 'true' or 'false'
-## (init.sh), so this non-emptiness test is always true and the denial
-## branch below is unreachable; any non-owner user reaches the put and only
-## datastore file permissions stop the write. Intended test is 'if $SC_UID0'.
-if [[ $SC_UID0 ]]
+## Owner/reseller escalated via sudomize above; a non-owner non-root caller
+## reaches the deny branch below (WP-E.1: was the always-true '[[ $SC_UID0 ]]').
+if $SC_UID0
 then
     put container "$C" override_in_a_ip "$OPA"
     run_hook regenerate_certificates
@@ -52,7 +50,7 @@ then
     ## materializes at the next full regenerate.
 else
     err "$SC_USER has no access to $C"
-    exit
+    exit 44
 fi
 
 ## this is actually a setting for all reverse proxies

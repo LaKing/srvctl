@@ -18,10 +18,9 @@ function backup_ve() { #C
 
     [[ $SC_BACKUP_PATH ]] || SC_BACKUP_PATH=/backup
 
-    ## FIXME(v4): broken root gate — SC_UID0 is the string 'true'/'false',
-    ## never empty, so this always passes and the deny branch is dead
-    ## (correct form is 'if $SC_UID0').
-    if [[ $SC_UID0 ]]
+    ## backup_ve runs as root (its callers sudomize first); a non-root caller
+    ## is denied below (WP-E.1: was the always-true '[[ $SC_UID0 ]]').
+    if $SC_UID0
     then
 
         out container "$C" json > /srv/"$C"/container.json
@@ -62,9 +61,7 @@ function backup_ve() { #C
 
     else
         err "$SC_USER has no access to $ARG"
-        ## FIXME(v4): bare exit returns 0 — the (dead) deny path would
-        ## report success.
-        exit
+        exit 44
     fi
 
 }
