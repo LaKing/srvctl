@@ -72,7 +72,11 @@ BEFORE="$(livesum)"
 run_sc() {
   unshare -Urmu bash -c '
     set -e
-    hostname sc-sandbox   # UTS ns: fixed hostname -> portable golden
+    hostname sc-sandbox   # UTS ns kernel hostname -> deterministic os.hostname()
+    # Bash captures HOSTNAME at startup and only re-reads gethostname() when it
+    # is NOT inherited; an exported HOSTNAME in the caller would otherwise leak
+    # the real host name into srvctl output (lablib.sh msg/err). Force it.
+    export HOSTNAME=sc-sandbox
     mount --bind "'"$SB"'/etc"          /etc/srvctl
     mount --bind "'"$SB"'/var-local"    /var/local/srvctl
     mount --bind "'"$SB"'/var-srvctl3"  /var/srvctl3

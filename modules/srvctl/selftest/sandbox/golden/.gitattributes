@@ -1,0 +1,3 @@
+# sandbox harness goldens are byte-exact (padded help output); do not flag
+# or strip trailing whitespace.
+modules/srvctl/selftest/sandbox/golden/** -whitespace
