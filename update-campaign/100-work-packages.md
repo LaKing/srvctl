@@ -241,7 +241,13 @@ Execution rules (from 000-PROMPT + the Stage-2 preconditions in 000-INDEX):
     lives in containers/libs but `containers` is disabled inside a VE while
     `usersonve` is enabled there, so VE commands can call a guard from an
     unloaded module. Centralize the guards in srvctl auth (or load explicitly).
-    Twin http/https-redirect should share one auth helper.
+    Twin http/https-redirect should share one auth helper. Audit follow-up:
+    do not treat E.1 as complete authorization. The non-denying `authorize`
+    stub still lets some commands run preliminary work before a later guard;
+    concrete case: non-owner `recreate-ve` reaches `systemctl stop` before
+    `backup_ve` can deny. Also, `map-port` still denies direct root unless
+    `SC_USER` is the container owner/reseller; E.1 only made that denial
+    nonzero. WP-E.2's root/operator/user + owner_only helpers must fix both.
 - **WP-F** — G6 reseller removal: drop reseller_only, the a..z pre-created
   accounts, reseller_id derivation; per-server user inventory first.
 
