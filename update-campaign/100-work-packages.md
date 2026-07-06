@@ -180,11 +180,30 @@ Execution rules (from 000-PROMPT + the Stage-2 preconditions in 000-INDEX):
       · fork storm eliminated: 190 external procs (76 grep+38 sed+38 head+38
         basename) → 0 of those + 1 node call (shim-measured in-sandbox)
       · shellcheck unchanged (8); hint_on_file (bare `sc`) left on grep.
-  - **WP-D — remaining**: wire hint_on_file (bare `sc`, needs runtime dynamic
-    `## &&&` exec + permission filter kept; the F-line syntax/dynamic/perms
-    fields already emitted); optional persisted/cached index (mtime-keyed)
-    so the node call is amortized; light srvctl.sh/init.sh dispatch. Do
-    per-command perf timing on real hardware in the VM cluster (WP-M/D26).
+  - **WP-D — hint_on_file wiring ✅ DONE (bare `sc`)**: build_command_index
+    now fills SC_IDX_SYNTAX/DYNAMIC/ROOT/HS/RES too; hint_on_file reads them
+    (permission filter from the booleans; `## &&&` still executed at runtime),
+    grep fallback kept; hint_commands builds the index once (mirroring its
+    SC_USE filter + command.sh). Two bugs the harness caught + fixed:
+      · fixture module names with HYPHENS → invalid SC_USE_<NAME> identifiers
+        → hint_commands' `${!tvhc}` filter silently listed nothing (real
+        modules have no hyphens; `sc help` hid it by skipping the filter).
+        Renamed harness-a/b → harnessa/b.
+      · the `F` line was TAB-delimited; `read` collapses consecutive tabs
+        (IFS-whitespace), shifting empty syntax/dynamic fields → wrong labels.
+        Switched to `\x1f` (non-whitespace). Parser test now enforces the
+        "present @@@/&&& ⇒ non-empty value" invariant (266 checks).
+      PROVEN byte-identical: bare-`sc` fixture differential 2/2 (SC_HOSTNET
+      set: dynamic exec + all shown; unset: hs_only filtered) AND real-module
+      bare-`sc` differential (82/82 lines, incl. add-ve's live `## &&&`).
+      Forks: 280 (120 head+120 grep+40 basename) → 0 + 1 node call.
+      Committed golden/bare.txt. root_only/reseller_only FILTER firing needs
+      SC_UID0=false (non-root) which the userns can't provide (uid 0); the
+      booleans are proven == grep by commandindex.test, and the filter is a
+      mechanical substitution — empirical non-root run is a VM-cluster item.
+  - **WP-D — remaining**: optional persisted/cached index (mtime-keyed) so the
+    node call is amortized across invocations; light srvctl.sh/init.sh
+    dispatch. Per-command perf timing on real hardware (VM cluster, WP-M/D26).
 
 ### Permissions & user model
 - **WP-E** — G11 permission model: roles root/operator/user; `sc` everywhere

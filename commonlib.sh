@@ -227,14 +227,43 @@ function hint_on_file {
     file="$1"
 
     [[ -f $file ]] || return 132
+
+    local hintstr command hintcmd hintexec data
+
+    ## indexed path: permission filter + metadata from the SC_IDX_* arrays,
+    ## no per-file greps. Byte-identical to the grep path below (proven by the
+    ## bare-`sc` sandbox differential); the '## &&&' command is still executed
+    ## at runtime, exactly as before.
+    if $SC_IDX_BUILT && [[ -n ${SC_IDX_HINT[$file]+x} ]]
+    then
+        ! $SC_UID0 && [[ ${SC_IDX_ROOT[$file]} ]] && return 133
+        ! [[ $SC_HOSTNET ]] && [[ ${SC_IDX_HS[$file]} ]] && return 134
+        ! $SC_UID0 && ! [[ "${#SC_USER}" == 1 ]] && [[ ${SC_IDX_RES[$file]} ]] && return 134
+
+        command="${file##*/}"
+        hintstr="${SC_IDX_HINT[$file]}"
+        hintcmd="${SC_IDX_SYNTAX[$file]}"   # empty == no '## @@@' (invariant)
+        hintexec="${SC_IDX_DYNAMIC[$file]}" # empty == no '## &&&' (invariant)
+        data=""
+        [[ $hintexec ]] && data="[$(${hintexec} | tr '\n' '|')]"
+        if [[ -z $hintcmd ]]
+        then
+            hint "${command:0: -3}" "$hintstr $data" "$file"
+            complicate "${command:0: -3}"
+        else
+            hint "$hintcmd" "$hintstr $data" "$file"
+            complicate "$hintcmd"
+        fi
+        return 0
+    fi
+
+    ## fallback (no index built, e.g. completion / single lookups): original greps
     ## root_only: if not root, and file marked as root_only skip this item
     ! $SC_UID0 && head -n 20 "$file" | grep -q 'root_only' && return 133
     ## if not on a containerfarm host
     ! [[ $SC_HOSTNET ]] && head -n 20 "$file" | grep -q 'hs_only' && return 134
     ## is user is not a reseller
     ! $SC_UID0 && ! [[ "${#SC_USER}" == 1 ]] && head -n 20 "$file" | grep -q 'reseller_only' && return 134
-
-    local hintstr command hintcmd hintexec data
 
     ## NOTE: for HEMP and HEXE below, grep receives "$file" as an operand,
     ## so the head-limited stdin is ignored and the WHOLE file is searched.
@@ -278,6 +307,28 @@ function hint_commands {
         echo ""
     fi
     
+    ## WP-D: parse every command file this listing will show in ONE node call,
+    ## mirroring the loops below EXACTLY (custom root includes, enabled-module
+    ## commands/*.sh, user includes, enabled-module command.sh). hint_on_file
+    ## then reads the index instead of re-grepping each file 5+ times.
+    local tvhc module
+    local -a idx_paths=()
+    local p
+    if [[ -d /root/srvctl-includes ]]
+    then for p in /root/srvctl-includes/*.sh; do [[ -f $p ]] && idx_paths+=("$p"); done
+    fi
+    for dir in $SC_MODULES
+    do
+        module="${dir##*/}"; tvhc="SC_USE_${module^^}"
+        [[ ${!tvhc} == true ]] || continue
+        for p in "$dir"/commands/*.sh; do [[ -f $p ]] && idx_paths+=("$p"); done
+        [[ -f "$dir/command.sh" ]] && idx_paths+=("$dir/command.sh")
+    done
+    if [[ -d $SC_HOME/srvctl-includes ]] && [[ $SC_HOME != /root ]]
+    then for p in "$SC_HOME"/srvctl-includes/*.sh; do [[ -f $p ]] && idx_paths+=("$p"); done
+    fi
+    build_command_index "${idx_paths[@]}"
+
     if [ -d /root/srvctl-includes ]
     then
         title "COMMAND - from root"
@@ -287,14 +338,13 @@ function hint_commands {
         done
         title "COMMAND - from srvctl"
     fi
-    
-    local tvhc module
+
     for dir in $SC_MODULES
     do
-        
+
         module="${dir##*/}"
         tvhc="SC_USE_${module^^}"
-        
+
         if [[ ${!tvhc} == true ]]
         then
             for sourcefile in $dir/commands/*.sh
@@ -345,29 +395,35 @@ function hint_commands {
 ## modules/srvctl/selftest/commandindex.test.mjs, 190/190 over the real files);
 ## help_on_file/hint_on_file read these arrays, falling back to grep when the
 ## index was not built (e.g. single-command `sc help CMD`) or a path is absent.
-## help_on_file consumes hint + help; the F line's remaining fields (syntax/
-## dynamic/root_only/hs_only/reseller_only) are for the future hint_on_file
-## wiring (bare `sc`) and are ignored here.
-declare -A SC_IDX_HINT SC_IDX_HELP
+## help_on_file consumes HINT+HELP; hint_on_file also consumes SYNTAX (@@@),
+## DYNAMIC (&&&) and the ROOT/HS/RES permission booleans. commandindex.mjs
+## guarantees @@@/&&& values are non-empty when present (parser test enforces
+## it), so an EMPTY SC_IDX_SYNTAX/SC_IDX_DYNAMIC means the marker is ABSENT —
+## the presence test the grep path did with `[[ -z $hintcmd ]]`.
+declare -A SC_IDX_HINT SC_IDX_HELP SC_IDX_SYNTAX SC_IDX_DYNAMIC SC_IDX_ROOT SC_IDX_HS SC_IDX_RES
 SC_IDX_BUILT=false
 
 function build_command_index() {
-    ## $@ = command-file paths. Populate SC_IDX_HINT / SC_IDX_HELP keyed by path.
-    SC_IDX_HINT=(); SC_IDX_HELP=()
+    ## $@ = command-file paths. Populate the SC_IDX_* arrays keyed by path.
+    SC_IDX_HINT=(); SC_IDX_HELP=(); SC_IDX_SYNTAX=(); SC_IDX_DYNAMIC=()
+    SC_IDX_ROOT=(); SC_IDX_HS=(); SC_IDX_RES=()
     SC_IDX_BUILT=false
     [[ $# -gt 0 ]] || return 0
-    local tag path val
-    while IFS=$'\t' read -r tag path val _
+    local tag path f1 f2 f3 f4 f5 f6
+    ## \x1f (US) delimiter, NOT tab: read collapses consecutive IFS-whitespace
+    ## (tab), which would shift empty syntax/dynamic fields. See commandindex.mjs.
+    while IFS=$'\x1f' read -r tag path f1 f2 f3 f4 f5 f6
     do
         if [[ $tag == F ]]
         then
-            SC_IDX_HINT[$path]="$val"
+            SC_IDX_HINT[$path]="$f1"; SC_IDX_SYNTAX[$path]="$f2"; SC_IDX_DYNAMIC[$path]="$f3"
+            SC_IDX_ROOT[$path]="$f4"; SC_IDX_HS[$path]="$f5"; SC_IDX_RES[$path]="$f6"
             [[ -n ${SC_IDX_HELP[$path]+x} ]] || SC_IDX_HELP[$path]=""
         elif [[ $tag == H ]]
         then
             if [[ -n ${SC_IDX_HELP[$path]:-} ]]
-            then SC_IDX_HELP[$path]="${SC_IDX_HELP[$path]}"$'\n'"$val"
-            else SC_IDX_HELP[$path]="$val"
+            then SC_IDX_HELP[$path]="${SC_IDX_HELP[$path]}"$'\n'"$f1"
+            else SC_IDX_HELP[$path]="$f1"
             fi
         fi
     done < <(/bin/node "$SC_INSTALL_DIR/modules/srvctl/lib/commandindex.mjs" --bash "$@" 2> /dev/null)

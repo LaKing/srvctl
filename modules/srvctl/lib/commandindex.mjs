@@ -70,20 +70,24 @@ export function buildIndex(files, readFile) {
   return index;
 }
 
-// Emit the index in a tab-delimited, path-keyed form for bash to read in ONE
-// node call (replacing commonlib.sh's per-file grep storm). One "F" line of
+// Emit the index in a \x1f(US)-delimited, path-keyed form for bash to read in
+// ONE node call (replacing commonlib.sh's per-file grep storm). One "F" line of
 // scalar metadata per file, then one "H" line per help line, in file order:
-//   F\t<path>\t<hint>\t<syntax>\t<dynamic>\t<root_only>\t<hs_only>\t<reseller_only>
-//   H\t<path>\t<help-line>
-// Scalars are empty when the marker is absent; booleans are "1"/"". Command
-// files never contain tabs in these markers, so tab is a safe delimiter.
+//   F <path> <hint> <syntax> <dynamic> <root_only> <hs_only> <reseller_only>
+//   H <path> <help-line>                     (fields joined by \x1f)
+// Scalars are empty when the marker is absent; booleans are "1"/"". The
+// delimiter is \x1f (unit separator), NOT tab: `read` treats tab as IFS
+// whitespace and would COLLAPSE consecutive tabs, shifting empty fields; \x1f
+// is non-whitespace so empty fields are preserved. \x1f never appears in
+// command-file help text (a control char), so it is a safe delimiter.
+const SEP = "\x1f";
 export function formatBash(index) {
   const out = [];
   const b = (v) => (v ? "1" : "");
   for (const path of Object.keys(index)) {
     const m = index[path];
-    out.push(["F", path, m.hint ?? "", m.syntax ?? "", m.dynamic ?? "", b(m.root_only), b(m.hs_only), b(m.reseller_only)].join("\t"));
-    for (const h of m.help) out.push(["H", path, h].join("\t"));
+    out.push(["F", path, m.hint ?? "", m.syntax ?? "", m.dynamic ?? "", b(m.root_only), b(m.hs_only), b(m.reseller_only)].join(SEP));
+    for (const h of m.help) out.push(["H", path, h].join(SEP));
   }
   return out.join("\n") + (out.length ? "\n" : "");
 }

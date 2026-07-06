@@ -1,6 +1,6 @@
 [ sc-sandbox ] Srvctl modules configuration
-[ sc-sandbox ] tested module: SC_USE_HARNESS-A=true
-[ sc-sandbox ] tested module: SC_USE_HARNESS-B=true
+[ sc-sandbox ] tested module: SC_USE_HARNESSA=true
+[ sc-sandbox ] tested module: SC_USE_HARNESSB=true
 [ sc-sandbox ] tested module: SC_USE_SRVCTL=true
 
 srvctl COMMAND [arguments]              
@@ -16,6 +16,10 @@ COMMAND
    harness-secret                        Root-only fixture command.                     
     
      Only root may run this one (permission-marker coverage).
+    
+   harness-hostonly                      Container-host-only fixture command (hs_only filter coverage).
+    
+     Shown only when SC_HOSTNET is set.
     
    harness-pick                          Pick an option (dynamic-help fixture).         
     

@@ -77,6 +77,12 @@ for (const file of files) {
   eq(`dynamic ${rel}`, parsed.dynamic, ref.dynamic);
   eq(`help ${rel}`, parsed.help, ref.help);
   eq(`perms ${rel}`, [parsed.root_only, parsed.hs_only, parsed.reseller_only], [ref.root_only, ref.hs_only, ref.reseller_only]);
+  // Invariant the bash wiring relies on (commonlib.sh hint_on_file): a PRESENT
+  // ## @@@ / ## &&& always has a NON-EMPTY value, so bash can treat an empty
+  // SC_IDX_SYNTAX/SC_IDX_DYNAMIC as "marker absent" (the grep path's
+  // `[[ -z $hintcmd ]]`). A "## @@@" with no value would break that.
+  eq(`syntax non-empty-if-present ${rel}`, parsed.syntax === null || parsed.syntax.length > 0, true);
+  eq(`dynamic non-empty-if-present ${rel}`, parsed.dynamic === null || parsed.dynamic.length > 0, true);
 }
 
 console.log(`commandindex.test: ${passed} checks passed over ${files.length} command files, ${failures.length} failed`);

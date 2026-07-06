@@ -1,0 +1,9 @@
+Usage: srvctl command [argument]
+  currently available commands for root
+
+   harness-greet NAME                    Greet someone (harness fixture).               
+   harness-secret                        Root-only fixture command.                     
+   harness-hostonly                      Container-host-only fixture command (hs_only filter coverage). 
+   harness-pick [OPTION]                 Pick an option (dynamic-help fixture). [alpha beta gamma|]
+
+   help [COMMAND]                        See more detailed descriptions about COMMAND or about all commands.

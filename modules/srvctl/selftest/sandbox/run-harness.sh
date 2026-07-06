@@ -92,7 +92,8 @@ run_sc() {
 # strip ANSI colour so the golden is stable across TTY/no-TTY
 strip_ansi() { sed $'s/\x1b\\[[0-9;]*m//g'; }
 
-HELP_OUT="$(run_sc help | strip_ansi || true)"
+HELP_OUT="$(run_sc help | strip_ansi || true)"   # help_commands (sc help)
+BARE_OUT="$(run_sc '' | strip_ansi || true)"     # hint_commands (bare sc, exits 1)
 
 # ---- guard: live paths must be UNCHANGED ------------------------------------
 AFTER="$(livesum)"
@@ -101,22 +102,24 @@ if [[ "$BEFORE" != "$AFTER" ]]; then
   exit 2
 fi
 
-# ---- compare / record -------------------------------------------------------
-GOLDEN="$GOLDEN_DIR/help.txt"
+# ---- compare / record (help_commands + hint_commands) -----------------------
 if $RECORD; then
-  printf '%s\n' "$HELP_OUT" > "$GOLDEN"
-  echo "recorded golden: $GOLDEN ($(wc -l < "$GOLDEN") lines)"
+  printf '%s\n' "$HELP_OUT" > "$GOLDEN_DIR/help.txt"
+  printf '%s\n' "$BARE_OUT" > "$GOLDEN_DIR/bare.txt"
+  echo "recorded goldens: help.txt ($(wc -l < "$GOLDEN_DIR/help.txt") lines), bare.txt ($(wc -l < "$GOLDEN_DIR/bare.txt") lines)"
   exit 0
 fi
 
-if [[ ! -f "$GOLDEN" ]]; then
-  echo "no golden yet — run with --record first" >&2
-  exit 3
-fi
-
-if diff -u "$GOLDEN" <(printf '%s\n' "$HELP_OUT"); then
-  echo "sandbox-harness: sc help matches golden ($(wc -l < "$GOLDEN") lines), live paths untouched"
-else
-  echo "sandbox-harness: sc help DIFFERS from golden" >&2
-  exit 1
-fi
+rc=0
+for pair in "help.txt:$HELP_OUT" "bare.txt:$BARE_OUT"; do
+  name="${pair%%:*}"; out="${pair#*:}"
+  golden="$GOLDEN_DIR/$name"
+  if [[ ! -f "$golden" ]]; then echo "no golden $name — run with --record first" >&2; exit 3; fi
+  if diff -u "$golden" <(printf '%s\n' "$out"); then
+    echo "sandbox-harness: $name matches golden ($(wc -l < "$golden") lines)"
+  else
+    echo "sandbox-harness: $name DIFFERS from golden" >&2; rc=1
+  fi
+done
+[[ $rc -eq 0 ]] && echo "sandbox-harness: all goldens match, live paths untouched"
+exit $rc
