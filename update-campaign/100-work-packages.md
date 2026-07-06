@@ -150,6 +150,23 @@ Execution rules (from 000-PROMPT + the Stage-2 preconditions in 000-INDEX):
   commonlib.sh; node builds a cached command/help index (kills the
   hint_on_file grep storm) — the G1 dispatch win. Preserve hook contract
   (010/011): fixed startup sequence + explicit run_hooks; sourced scope.
+  - Measured baseline (dev box, warm): `sc help` = ~0.125s and forks ~190
+    external procs (76 grep + 38 sed + 38 head + 38 basename) — 4-5 per
+    command file × 38 files; bare `sc` dispatch ~0.087s.
+  - **WP-D — parser ✅ DONE (isolated, tested)**: modules/srvctl/lib/
+    commandindex.mjs parses a command file's help metadata (hint/@en,
+    syntax/@@@, dynamic/&&&, help/&en lines, root_only/hs_only/reseller_only)
+    + buildIndex() CLI. selftest/commandindex.test.mjs is a DIFFERENTIAL vs
+    the actual commonlib.sh grep pipelines over all 38 real command files:
+    190/190 identical, incl. the load-bearing whole-file `## &&&` (add-ve at
+    line 13) and head-10/head-20 window semantics.
+  - **WP-D — bash help-path wiring (VM-TEST ONLY)**: rendering the index in
+    hint_on_file/help_on_file to eliminate the grep storm CANNOT be validated
+    on this dev box — running srvctl here triggers init_datastore ->
+    migrate on the LIVE /var/srvctl3/datastore (unsafe), and byte-identical
+    `sc help` output can only be checked by actually running srvctl. Do the
+    wiring + perf measurement in the VM-test cluster (WP-M/D26). The parser
+    is the correctness-critical part and is already proven.
 
 ### Permissions & user model
 - **WP-E** — G11 permission model: roles root/operator/user; `sc` everywhere
