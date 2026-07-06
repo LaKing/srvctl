@@ -51,6 +51,10 @@ probe() { # $1 = shell snippet   $2 SC_USER   $3 SC_UID0
     export MARKFILE="$mf" SRVCTL=1 SC_INSTALL_DIR="$REPO" ARG="site.example.com" OPA="none" \
       C="site.example.com" NOW="x" HOSTNAME="testhost" OWNER="alice" RESELLER="bob" \
       SC_USER="$2" SC_UID0="$3" USER="$2"
+    # real guards (owner_only/root_only) with their deps (get/sudomize/err)
+    # stubbed by STUBS, which is sourced AFTER so its stubs win.
+    # shellcheck disable=SC1090
+    source "$REPO/modules/srvctl/libs/authlib.sh"
     # shellcheck disable=SC1090
     source "$STUBS"
     eval "$1"
@@ -66,15 +70,25 @@ CMDS_removeve="source $REPO/modules/containers/commands/remove-ve.sh"
 CMDS_httpredir="source $REPO/modules/haproxy/commands/http-redirect.sh"
 CMDS_override="source $REPO/modules/named/commands/override-in-address.sh"
 CMDS_httpsredir="source $REPO/modules/haproxy/commands/https-redirect.sh"
+CMDS_recreate="source $REPO/modules/containers/commands/recreate-ve.sh"   # WP-E.2 owner_only
+CMDS_mapport="source $REPO/modules/containers/commands/map-port.sh"       # WP-E.2 owner_only
 CMDS_backup="source $REPO/modules/containers/libs/backupcontainerlib.sh; backup_ve site.example.com"
 
-for pair in "destroy-ve:$CMDS_destroyve" "remove-ve:$CMDS_removeve" "http-redirect:$CMDS_httpredir" "override-in-address:$CMDS_override" "https-redirect:$CMDS_httpsredir"; do
+for pair in "destroy-ve:$CMDS_destroyve" "remove-ve:$CMDS_removeve" "http-redirect:$CMDS_httpredir" "override-in-address:$CMDS_override" "https-redirect:$CMDS_httpsredir" "recreate-ve:$CMDS_recreate" "map-port:$CMDS_mapport"; do
   name="${pair%%:*}"; snippet="${pair#*:}"
   probe "$snippet" mallory false      # non-owner, non-root
   ok "$name: non-owner DENIED (exit 44)" "$RC" "44"
-  ok "$name: non-owner ran NO action"    "$(has_action "$MARKS")" "no"
+  ok "$name: non-owner ran NO action"    "$(has_action "$MARKS")" "no"   # check-before-act
   probe "$snippet" alice false         # owner, non-root
   ok "$name: owner ESCALATES (sudomize)" "$([[ ",$MARKS," == *",sudomize,"* ]] && echo yes || echo no)" "yes"
+done
+
+# WP-E.2 owner_only: root may act on everything for everyone, even a container
+# it does not own (fixes map-port's old root-not-owner denial).
+for pair in "recreate-ve:$CMDS_recreate" "map-port:$CMDS_mapport"; do
+  name="${pair%%:*}"; snippet="${pair#*:}"
+  probe "$snippet" mallory true        # root, but NOT the owner
+  ok "$name: root (non-owner) ALLOWED" "$(has_action "$MARKS")" "yes"
 done
 
 # backup_ve: the owner-check is in its CALLER; the lib gate itself just needs
@@ -82,16 +96,6 @@ done
 probe "$CMDS_backup" mallory false
 ok "backup_ve: non-root DENIED (exit 44)" "$RC" "44"
 ok "backup_ve: non-root ran NO action"    "$(has_action "$MARKS")" "no"
-
-# map-port sudomizes UNCONDITIONALLY before the owner-check, so its real deny
-# is in the post-escalation root-but-not-owner state (SC_UID0=true, SC_USER is
-# the preserved non-owner).
-MP="source $REPO/modules/containers/commands/map-port.sh"
-probe "$MP" mallory true                 # root-but-not-owner
-ok "map-port: non-owner (post-sudo) DENIED (exit 44)" "$RC" "44"
-ok "map-port: non-owner ran NO action"               "$(has_action "$MARKS")" "no"
-probe "$MP" alice true                    # owner (post-sudo)
-ok "map-port: owner reaches action"                  "$(has_action "$MARKS")" "yes"
 
 echo "== (B) raw verb dispatch (non-root): writes blocked, reads open =="
 verbcheck() { # $1 CMD  -> echoes verbs run_command invoked

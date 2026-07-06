@@ -28,6 +28,39 @@ function reseller_only {
     fi
 }
 
+## owner_only <type> <id> — resource-ownership guard (WP-E.2).
+##
+##   MUST be called BEFORE any state change (check-before-act): it either
+##   returns (authorized) or exits. Policy:
+##     - root (SC_UID0) may act on everything for everyone -> return 0.
+##     - the resource owner, or (transitionally, until WP-F) its reseller,
+##       escalates to root via sudomize -> the command re-runs as root and
+##       passes the SC_UID0 check above.
+##     - anyone else is denied (exit 44).
+##
+##   Replaces the per-command 'authorize + owner-check + [[ $SC_UID0 ]]'
+##   pattern. Lives here (always-loaded srvctl authlib) so every module,
+##   host- or VE-side, shares one guard.
+function owner_only { # $1 type  $2 id
+    $SC_UID0 && return 0
+
+    local _owner _reseller
+    _owner="$(get "$1" "$2" user)"
+    _reseller="$(get "$1" "$2" reseller)"
+
+    if [[ $SC_USER == "$_owner" ]] || [[ $SC_USER == "$_reseller" ]]
+    then
+        ## owner but not root: re-exec through sudo, then the whole command
+        ## re-runs and hits the SC_UID0 fast-path above.
+        sudomize
+    fi
+
+    ## reached only by a non-root, non-owner caller (the owner branch above
+    ## exits via sudomize's re-exec).
+    err "$SC_USER has no access to $2"
+    exit 44
+}
+
 function argument {
     if [[ -z $ARG ]]
     then

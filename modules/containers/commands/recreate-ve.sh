@@ -33,7 +33,6 @@ hs_only
 ##
 
 argument container
-authorize
 
 if [[ "$(get container "$ARG" exist)" == false ]]
 then
@@ -41,16 +40,12 @@ then
     exit 0
 fi
 
-container_user="$(get container "$ARG" user)"
-container_reseller="$(get container "$ARG" reseller)"
+msg "Container $ARG - $(get container "$ARG" user) ($(get container "$ARG" reseller))"
 
-msg "Container $ARG - $container_user ($container_reseller)"
-
-## the container owner and its reseller may act as root
-if [[ $SC_USER == "$container_user" ]] || [[ $SC_USER == "$container_reseller" ]]
-then
-    sudomize
-fi
+## WP-E.2: deny (or escalate the owner to root) BEFORE any state change — this
+## command previously ran ssh mongodump + `systemctl stop` before backup_ve's
+## later denial, so a non-owner could stop a container they had no access to.
+owner_only container "$ARG"
 
 C="$ARG"
 
