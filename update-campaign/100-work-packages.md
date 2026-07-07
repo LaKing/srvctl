@@ -287,6 +287,23 @@ Execution rules (from 000-PROMPT + the Stage-2 preconditions in 000-INDEX):
     (112) PROPAGATES as 112 with no action; a 100 (optional-absent reseller)
     stays a clean 44 deny. Verified the test fails pre-fix (got 44, want 112).
     With this, E.2.a is complete pending the user's SC_ARGV line.
+  - **WP-E.2.a — DONE**; SC_ARGV=("$@") added to srvctl.sh (left UNCOMMITTED,
+    user's WIP) so sudomize's faithful-argv path is now live.
+  - **WP-E.2.b MODEL (agreed with user)**: explicit per-command class marker,
+    proven per role×class (no name-inference). Classes: root_only / owner_only
+    <res> / operators_only / everyone(default). Access: root=all;
+    operator=operators_only+everyone (does NOT bypass owner_only); user=
+    everyone+owned owner_only; non-owner denied owner_only. Host-scoped role.
+  - **WP-E.2.b-1 — role MECHANISM ✅ (enforcement proven)**: authlib.sh gains
+    sc_role (memoized SC_ROLE: uid0→root; local datastore role=operator→
+    operator; else user — absent/error→user, never escalates) and
+    operators_only (root+operator, exit 44). selftest/authfixtures/{everyone,
+    rootonly,operatorsonly,owneronly}.sh = one command per class; authgate.test
+    Part D proves the full role×class ENFORCEMENT matrix (61/61 total,
+    verified a broken guard fails the matrix). Strict shellcheck clean.
+    NEXT: E.2.b-1b unify the sc/sc-help LISTING filter with these guards
+    (visibility == runnability); E.2.b-2 propose the explicit classification of
+    the ~40 real commands for user review, then tag + prove.
 - **WP-F** — G6 reseller removal: drop reseller_only, the a..z pre-created
   accounts, reseller_id derivation; per-server user inventory first.
 

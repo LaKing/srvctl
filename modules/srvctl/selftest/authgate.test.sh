@@ -32,7 +32,7 @@ fi
 STUBS="$(mktemp)"
 cat > "$STUBS" << 'STUB'
 mark() { echo "$1" >> "$MARKFILE"; }
-get() { case "$*" in *" exist") echo true;; *" user") echo "$OWNER";; *" reseller") echo "$RESELLER";; *) echo "";; esac; return "${GET_RC:-0}"; }
+get() { case "$*" in *" exist") echo true;; *" user") echo "$OWNER";; *" reseller") echo "$RESELLER";; *" role") echo "${ROLE_FIELD:-}";; *) echo "";; esac; return "${GET_RC:-0}"; }
 put() { mark put; } ; out() { mark out; } ; add() { mark add; } ; del() { mark del; } ; new() { mark new; } ; cfg() { mark cfg; }
 sudomize() { if ! $SC_UID0; then mark sudomize; exit 0; fi; }   # like the real one: only re-execs when non-root
 argument() { :; } ; authorize() { :; } ; hs_only() { :; } ; ve_only() { :; }
@@ -50,7 +50,7 @@ probe() { # $1 = shell snippet   $2 SC_USER   $3 SC_UID0
     set +u   # real srvctl commands reference optional vars unquoted; not nounset-safe
     export MARKFILE="$mf" SRVCTL=1 SC_INSTALL_DIR="$REPO" ARG="site.example.com" OPA="none" \
       C="site.example.com" NOW="x" HOSTNAME="testhost" OWNER="alice" RESELLER="bob" \
-      SC_USER="$2" SC_UID0="$3" USER="$2" GET_RC="${GET_RC:-0}"
+      SC_USER="$2" SC_UID0="$3" USER="$2" GET_RC="${GET_RC:-0}" ROLE_FIELD="${ROLE_FIELD:-}" SC_ROLE=""
     # real guards (owner_only/root_only) with their deps (get/sudomize/err)
     # stubbed by STUBS, which is sourced AFTER so its stubs win.
     # shellcheck disable=SC1090,SC1091
@@ -176,6 +176,30 @@ command rm -f "$ARGFILE"
 sudo_probe 'FAKE_SUDO_RC=0; SC_COMMAND_ARGUMENTS="version"'
 ok "sudomize: fallback re-execs"       "$(grep -Fq 'version' "$ARGFILE" && echo yes || echo no)" "yes"
 command rm -f "$ARGFILE"
+
+echo "== (D) role x class ENFORCEMENT matrix (WP-E.2.b) =="
+FXD="$REPO/modules/srvctl/selftest/authfixtures"
+FX_every="source $FXD/everyone.sh"; FX_root="source $FXD/rootonly.sh"
+FX_ops="source $FXD/operatorsonly.sh"; FX_owner="source $FXD/owneronly.sh"
+
+# EVERYONE: every role runs it
+probe "$FX_every" root true                              ; ok "root: everyone RUN"       "$(has_action "$MARKS")" "yes"
+ROLE_FIELD=operator probe "$FX_every" op false           ; ok "operator: everyone RUN"   "$(has_action "$MARKS")" "yes"
+probe "$FX_every" bob false                              ; ok "user: everyone RUN"       "$(has_action "$MARKS")" "yes"
+# ROOT_ONLY: only root
+probe "$FX_root" root true                               ; ok "root: root_only RUN"      "$(has_action "$MARKS")" "yes"
+ROLE_FIELD=operator probe "$FX_root" op false            ; ok "operator: root_only DENY" "$RC" "44"
+probe "$FX_root" bob false                               ; ok "user: root_only DENY"     "$RC" "44"
+# OPERATORS_ONLY: root + operator
+probe "$FX_ops" root true                                ; ok "root: operators_only RUN" "$(has_action "$MARKS")" "yes"
+ROLE_FIELD=operator probe "$FX_ops" op false             ; ok "operator: operators_only RUN" "$(has_action "$MARKS")" "yes"
+probe "$FX_ops" bob false                                ; ok "user: operators_only DENY"    "$RC" "44"
+# OWNER_ONLY: root (any), owner escalates, non-owner denied — INCLUDING an
+# operator who is not the owner (operators do NOT bypass ownership)
+probe "$FX_owner" root true                              ; ok "root: owner_only(non-owner) RUN" "$(has_action "$MARKS")" "yes"
+probe "$FX_owner" alice false                            ; ok "owner: owner_only ESCALATES"  "$([[ ",$MARKS," == *",sudomize,"* ]] && echo yes || echo no)" "yes"
+ROLE_FIELD=operator probe "$FX_owner" op false           ; ok "operator(non-owner): owner_only DENY" "$RC" "44"
+probe "$FX_owner" mallory false                          ; ok "user(non-owner): owner_only DENY"     "$RC" "44"
 
 command rm -f "$STUBS"
 echo ""

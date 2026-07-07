@@ -18,6 +18,44 @@ function root_only {
     fi
 }
 
+## sc_role — resolve the caller's role, memoized in SC_ROLE. Echoes it too.
+##   root      : uid 0 (SC_UID0).
+##   operator  : the LOCAL datastore user record has role=operator (WP-E.2).
+##   user      : everyone else — the safe default. An absent role (get 100) or
+##               a datastore error is treated as an ordinary user, never
+##               escalated to operator.
+## Host-scoped by design: the role comes from THIS host's user record, so an
+## operator here is a plain user on a host whose record does not say operator.
+function sc_role {
+    if [[ -z ${SC_ROLE:-} ]]
+    then
+        if $SC_UID0
+        then
+            SC_ROLE=root
+        else
+            local _r _rc
+            _r="$(get user "$SC_USER" role)"; _rc=$?
+            if [[ $_rc == 0 && $_r == operator ]]
+            then
+                SC_ROLE=operator
+            else
+                SC_ROLE=user
+            fi
+        fi
+    fi
+    echo "$SC_ROLE"
+}
+
+## operators_only — passes for root and operator, denies an ordinary user.
+## Symmetric with root_only; exit 44 = authorization failure. MUST be called
+## before any state change.
+function operators_only {
+    case "$(sc_role)" in
+        root | operator) return 0 ;;
+        *) err "Operators only."; exit 44 ;;
+    esac
+}
+
 function reseller_only {
     if [[ "${#SC_USER}" == 1 ]] || $SC_UID0
     then
