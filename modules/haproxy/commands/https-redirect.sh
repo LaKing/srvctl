@@ -36,27 +36,13 @@ container_reseller="$(get container "$ARG" reseller)"
 exif
 msg "Container $ARG - $container_user ($container_reseller) - $OPA"
 
-## the container owner and its reseller may act as root
-if [[ $SC_USER == "$container_user" ]] || [[ $SC_USER == "$container_reseller" ]]
-then
-    sudomize
-fi
+## WP-E.2: root passes, owner/reseller escalates, else denied — before the
+## write. Now shares owner_only with its twin http-redirect (was a divergent
+## '[[ $USER == root ]]' gate).
+owner_only container "$ARG"
 
-## FIXME(v4): inconsistent root gate — twin http-redirect.sh tests the
-## always-true '[[ $SC_UID0 ]]'; this one checks the ambient $USER instead
-## of the srvctl convention '$SC_UID0 == true'. It works, but the pair
-## should share one real authorization helper.
-if [[ $USER == root ]]
-then
-    put container "$ARG" https-redirect "$OPA"
-    run_hook regenerate_certificates
-    regenerate_haproxy_conf
-else
-    err "$SC_USER has no access to $ARG"
-    ## WP-E.1: was a bare exit (status 0). The gate ([[ $USER == root ]]) is
-    ## the working twin of http-redirect; unifying the pair on one auth helper
-    ## is WP-E.2.
-    exit 44
-fi
+put container "$ARG" https-redirect "$OPA"
+run_hook regenerate_certificates
+regenerate_haproxy_conf
 
 ## this is actually a setting for all reverse proxies

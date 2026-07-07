@@ -53,7 +53,7 @@ probe() { # $1 = shell snippet   $2 SC_USER   $3 SC_UID0
       SC_USER="$2" SC_UID0="$3" USER="$2"
     # real guards (owner_only/root_only) with their deps (get/sudomize/err)
     # stubbed by STUBS, which is sourced AFTER so its stubs win.
-    # shellcheck disable=SC1090
+    # shellcheck disable=SC1090,SC1091
     source "$REPO/modules/srvctl/libs/authlib.sh"
     # shellcheck disable=SC1090
     source "$STUBS"
@@ -70,11 +70,18 @@ CMDS_removeve="source $REPO/modules/containers/commands/remove-ve.sh"
 CMDS_httpredir="source $REPO/modules/haproxy/commands/http-redirect.sh"
 CMDS_override="source $REPO/modules/named/commands/override-in-address.sh"
 CMDS_httpsredir="source $REPO/modules/haproxy/commands/https-redirect.sh"
-CMDS_recreate="source $REPO/modules/containers/commands/recreate-ve.sh"   # WP-E.2 owner_only
-CMDS_mapport="source $REPO/modules/containers/commands/map-port.sh"       # WP-E.2 owner_only
+CMDS_recreate="source $REPO/modules/containers/commands/recreate-ve.sh"
+CMDS_mapport="source $REPO/modules/containers/commands/map-port.sh"
+CMDS_backupcmd="source $REPO/modules/containers/commands/backup-ve.sh"
 CMDS_backup="source $REPO/modules/containers/libs/backupcontainerlib.sh; backup_ve site.example.com"
 
-for pair in "destroy-ve:$CMDS_destroyve" "remove-ve:$CMDS_removeve" "http-redirect:$CMDS_httpredir" "override-in-address:$CMDS_override" "https-redirect:$CMDS_httpsredir" "recreate-ve:$CMDS_recreate" "map-port:$CMDS_mapport"; do
+# All eight owner commands now share owner_only.
+OWNER_CMDS=(
+  "destroy-ve:$CMDS_destroyve" "remove-ve:$CMDS_removeve" "http-redirect:$CMDS_httpredir"
+  "override-in-address:$CMDS_override" "https-redirect:$CMDS_httpsredir"
+  "recreate-ve:$CMDS_recreate" "map-port:$CMDS_mapport" "backup-ve:$CMDS_backupcmd"
+)
+for pair in "${OWNER_CMDS[@]}"; do
   name="${pair%%:*}"; snippet="${pair#*:}"
   probe "$snippet" mallory false      # non-owner, non-root
   ok "$name: non-owner DENIED (exit 44)" "$RC" "44"
@@ -84,8 +91,9 @@ for pair in "destroy-ve:$CMDS_destroyve" "remove-ve:$CMDS_removeve" "http-redire
 done
 
 # WP-E.2 owner_only: root may act on everything for everyone, even a container
-# it does not own (fixes map-port's old root-not-owner denial).
-for pair in "recreate-ve:$CMDS_recreate" "map-port:$CMDS_mapport"; do
+# it does not own. (backup-ve excluded: its action's `out > /srv/$C/...`
+# redirect fails before the stub records, so has_action is unreliable there.)
+for pair in "destroy-ve:$CMDS_destroyve" "remove-ve:$CMDS_removeve" "http-redirect:$CMDS_httpredir" "override-in-address:$CMDS_override" "https-redirect:$CMDS_httpsredir" "recreate-ve:$CMDS_recreate" "map-port:$CMDS_mapport"; do
   name="${pair%%:*}"; snippet="${pair#*:}"
   probe "$snippet" mallory true        # root, but NOT the owner
   ok "$name: root (non-owner) ALLOWED" "$(has_action "$MARKS")" "yes"

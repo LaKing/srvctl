@@ -256,10 +256,18 @@ Execution rules (from 000-PROMPT + the Stage-2 preconditions in 000-INDEX):
     + `systemctl stop`) and map-port (root now allowed regardless of
     ownership; dropped the unconditional sudomize). authgate.test.sh extended
     to 32/32 — for both: non-owner DENIED with NO action (check-before-act),
-    owner escalates, root-non-owner ALLOWED. NEXT (E.2.a cont.): rewire the
-    other six owner commands (destroy-ve, remove-ve, backup-ve, http-redirect,
-    https-redirect, override-in-address) to owner_only, replacing their inline
-    `if $SC_UID0` gates; then E.2.b (SC_ROLE/operators_only/listing unify).
+    owner escalates, root-non-owner ALLOWED.
+  - **WP-E.2.a — owner_only rewire COMPLETE (all 8 owner commands) ✅**: the
+    other six now use owner_only too — http-redirect, https-redirect (twins
+    now share owner_only, dropping the divergent `[[ $USER == root ]]`),
+    override-in-address, backup-ve, destroy-ve, remove-ve. The two large ones
+    had their action dedented out of the old `if $SC_UID0` wrapper (functional
+    edit, then a range `sed` dedent, bash -n after each). authgate.test.sh at
+    40/40: for every owner command non-owner DENIED (exit 44) with NO action
+    (check-before-act), owner ESCALATES, root-non-owner ALLOWED; + dispatch
+    + backup_ve lib gate. Strict shellcheck (no -x) clean on all touched files.
+    NEXT: sudomize argv/status (owner_only now depends on it), then E.2.b
+    (SC_ROLE/operators_only/listing unify).
 - **WP-F** — G6 reseller removal: drop reseller_only, the a..z pre-created
   accounts, reseller_id derivation; per-server user inventory first.
 

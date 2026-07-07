@@ -37,22 +37,11 @@ container_reseller="$(get container "$C" reseller)"
 exif
 msg "Container $ARG - $container_user ($container_reseller) - $OPA"
 
-## the container owner and its reseller may act as root
-if [[ $SC_USER == "$container_user" ]] || [[ $SC_USER == "$container_reseller" ]]
-then
-    sudomize
-fi
+## WP-E.2: root passes, owner/reseller escalates, else denied — before the write.
+owner_only container "$C"
 
-## Owner/reseller escalated via sudomize above; a non-owner non-root caller
-## reaches the deny branch below (WP-E.1: was the always-true '[[ $SC_UID0 ]]').
-if $SC_UID0
-then
-    put container "$C" http-redirect "$OPA"
-    run_hook regenerate_certificates
-    regenerate_haproxy_conf
-else
-    err "$SC_USER has no access to $C"
-    exit 44
-fi
+put container "$C" http-redirect "$OPA"
+run_hook regenerate_certificates
+regenerate_haproxy_conf
 
 ## this is actually a setting for all reverse proxies

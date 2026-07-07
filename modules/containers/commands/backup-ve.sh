@@ -21,7 +21,6 @@ hs_only
 ##
 
 argument container
-authorize
 
 if [[ "$(get container "$ARG" exist)" == false ]]
 then
@@ -29,15 +28,11 @@ then
     exit 0
 fi
 
-container_user="$(get container "$ARG" user)"
-container_reseller="$(get container "$ARG" reseller)"
+msg "Container $ARG - $(get container "$ARG" user) ($(get container "$ARG" reseller))"
 
-msg "Container $ARG - $container_user ($container_reseller)"
-
-## the container owner and its reseller may act as root
-if [[ $SC_USER == "$container_user" ]] || [[ $SC_USER == "$container_reseller" ]]
-then
-    sudomize
-fi
+## WP-E.2: root passes, owner/reseller escalates, else denied — before
+## backup_ve does any work. (backup_ve keeps its own SC_UID0 guard as
+## defense-in-depth; it is also called by recreate-ve.)
+owner_only container "$ARG"
 
 backup_ve "$ARG"

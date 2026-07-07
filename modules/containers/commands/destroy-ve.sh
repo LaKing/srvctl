@@ -45,76 +45,63 @@ container_reseller="$(get container "$ARG" reseller)"
 
 msg "Container $ARG - $container_user ($container_reseller)"
 
-## the container owner and its reseller may act as root
-if [[ $SC_USER == "$container_user" ]] || [[ $SC_USER == "$container_reseller" ]]
+## WP-E.2: root passes, owner/reseller escalates, else denied — before any
+## file is removed.
+owner_only container "$ARG"
+
+C="$ARG"
+
+rm -fr /etc/systemd/system/machines.target.wants/srvctl-nspawn@"$C".service
+
+## legacy per-container unit from srvctl v2
+if [[ -f /etc/srvctl/containers/$C.service ]]
 then
-    sudomize
+    run systemctl stop "$C"
+    run systemctl disable "$C"
+    rm -f /etc/srvctl/containers/"$C".service
 fi
 
-## Owner/reseller escalated to root via sudomize above; a non-owner non-root
-## caller reaches the deny branch below (WP-E.1: was the always-true string
-## gate '[[ $SC_UID0 ]]').
-if $SC_UID0
+del container "$C"
+
+rm -fr /var/srvctl3/storage/static/"$C"
+
+## https://www.cyberciti.biz/tips/nfs-stale-file-handle-error-and-solution.html
+
+for uh in /home/*
+do
+    if [[ -d "$uh"/"$C" ]]
+    then
+        for mp in "$uh"/"$C"/*
+        do
+            run umount -f "$mp"
+            run rm -fr "$mp"
+        done
+        run rm -fr "$uh"/"$C"
+    fi
+done
+
+run sleep 3
+
+## TODO check if it is running
+if run machinectl status "$C" 2> /dev/null
 then
-
-    C="$ARG"
-
-    rm -fr /etc/systemd/system/machines.target.wants/srvctl-nspawn@"$C".service
-
-    ## legacy per-container unit from srvctl v2
-    if [[ -f /etc/srvctl/containers/$C.service ]]
-    then
-        run systemctl stop "$C"
-        run systemctl disable "$C"
-        rm -f /etc/srvctl/containers/"$C".service
-    fi
-
-    del container "$C"
-
-    rm -fr /var/srvctl3/storage/static/"$C"
-
-    ## https://www.cyberciti.biz/tips/nfs-stale-file-handle-error-and-solution.html
-
-    for uh in /home/*
-    do
-        if [[ -d "$uh"/"$C" ]]
-        then
-            for mp in "$uh"/"$C"/*
-            do
-                run umount -f "$mp"
-                run rm -fr "$mp"
-            done
-            run rm -fr "$uh"/"$C"
-        fi
-    done
-
-    run sleep 3
-
-    ## TODO check if it is running
-    if run machinectl status "$C" 2> /dev/null
-    then
-        run machinectl terminate "$C"
-        run machinectl kill "$C"
-    fi
-
-    ## FIXME(v4): unbounded loop — a busy or stale mount inside /srv/$C
-    ## retries forever at 3s intervals, and rm -fr may descend into
-    ## still-mounted data; bound the retries and umount first.
-    while [[ -d /srv/$C ]]
-    do
-        rm -fr "/srv/$C"
-        if [[ -d /srv/$C ]]
-        then
-            ntc "$C has still a folder ..."
-            sleep 3
-        fi
-    done
-
-    msg "$C destroyed."
-    ## sourced context: leave the (now possibly deleted) cwd
-    cd /srv || return
-
-else
-    err "$SC_USER has no access to $ARG"
-    exit 44
+    run machinectl terminate "$C"
+    run machinectl kill "$C"
 fi
+
+## FIXME(v4): unbounded loop — a busy or stale mount inside /srv/$C
+## retries forever at 3s intervals, and rm -fr may descend into
+## still-mounted data; bound the retries and umount first.
+while [[ -d /srv/$C ]]
+do
+    rm -fr "/srv/$C"
+    if [[ -d /srv/$C ]]
+    then
+        ntc "$C has still a folder ..."
+        sleep 3
+    fi
+done
+
+msg "$C destroyed."
+## sourced context: leave the (now possibly deleted) cwd
+cd /srv || return
