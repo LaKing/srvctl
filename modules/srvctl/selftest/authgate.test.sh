@@ -103,14 +103,22 @@ verbcheck() { # $1 CMD  -> echoes verbs run_command invoked
   (
     set +u
     export MARKFILE="$mf" SRVCTL=1   # commonlib.sh guards on [[ $SRVCTL ]]
-    # shellcheck disable=SC1090
+    # shellcheck disable=SC1090,SC1091
     source "$REPO/commonlib.sh"
     # override verb wrappers + fall-through helpers AFTER sourcing commonlib
     for v in new put cfg del add get out; do eval "$v() { echo $v >> \"\$MARKFILE\"; }"; done
     exif() { :; } ; err() { :; } ; hint() { :; } ; complicate() { :; } ; title() { :; }
     msg() { :; } ; ntc() { :; } ; prg() { :; } ; debug() { :; }
-    CMD="$1" ; OPAS="container site.example.com x" ; ARG="site.example.com"
-    SC_MODULES="" ; SC_HOME="/nonexistent-$$"
+    # ShellCheck cannot see these are consumed by run_command from commonlib.sh.
+    # shellcheck disable=SC2034
+    CMD="$1"
+    # shellcheck disable=SC2034
+    OPAS="container site.example.com x"
+    ARG="site.example.com"
+    # shellcheck disable=SC2034
+    SC_MODULES=""
+    # shellcheck disable=SC2034
+    SC_HOME="/nonexistent-$$"
     run_command
   ) > /dev/null 2>&1
   paste -sd, "$mf" 2> /dev/null
