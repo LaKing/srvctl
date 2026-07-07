@@ -135,6 +135,37 @@ verbcheck() { # $1 CMD  -> echoes verbs run_command invoked
 for v in new put cfg del add; do ok "non-root raw '$v' BLOCKED" "$(verbcheck "$v")" ""; done
 for v in get out; do ok "non-root raw '$v' allowed" "$(verbcheck "$v")" "$v"; done
 
+echo "== (C) sudomize: faithful argv (SC_ARGV) + real exit status =="
+ARGFILE=""
+sudo_probe() { # $1 = setup snippet (sets SC_ARGV/SC_COMMAND_ARGUMENTS + FAKE_SUDO_RC)
+  ARGFILE="$(mktemp)"
+  (
+    set +u
+    export SRVCTL=1 SC_INSTALL_DIR="/opt/sc" SC_UID0=false ARGFILE_E="$ARGFILE"
+    # shellcheck disable=SC1090,SC1091
+    source "$REPO/modules/srvctl/libs/authlib.sh"   # real sudomize under test
+    sudo() { local a; for a in "$@"; do echo "$a" >> "$ARGFILE_E"; done; return "${FAKE_SUDO_RC:-0}"; }
+    debug() { :; }
+    eval "$1"
+    sudomize
+  ) > /dev/null 2>&1
+  RC=$?
+}
+# faithful argv: an argument containing spaces stays ONE argument (one line)
+sudo_probe 'FAKE_SUDO_RC=0; SC_ARGV=(new container "site with space" fedora)'
+ok "sudomize: passes srvctl.sh path"   "$(grep -Fxq '/opt/sc/srvctl.sh' "$ARGFILE" && echo yes || echo no)" "yes"
+ok "sudomize: preserves spaced arg"    "$(grep -Fxq 'site with space' "$ARGFILE" && echo yes || echo no)" "yes"
+ok "sudomize: exit 0 on sudo success"  "$RC" "0"
+command rm -f "$ARGFILE"
+# real exit status propagates (was masked to 0)
+sudo_probe 'FAKE_SUDO_RC=7; SC_ARGV=(version)'
+ok "sudomize: propagates sudo status"  "$RC" "7"
+command rm -f "$ARGFILE"
+# fallback path (no SC_ARGV) still re-execs
+sudo_probe 'FAKE_SUDO_RC=0; SC_COMMAND_ARGUMENTS="version"'
+ok "sudomize: fallback re-execs"       "$(grep -Fq 'version' "$ARGFILE" && echo yes || echo no)" "yes"
+command rm -f "$ARGFILE"
+
 command rm -f "$STUBS"
 echo ""
 echo "authgate.test: $pass passed, $fail failed"

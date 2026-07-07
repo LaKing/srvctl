@@ -268,6 +268,16 @@ Execution rules (from 000-PROMPT + the Stage-2 preconditions in 000-INDEX):
     + backup_ve lib gate. Strict shellcheck (no -x) clean on all touched files.
     NEXT: sudomize argv/status (owner_only now depends on it), then E.2.b
     (SC_ROLE/operators_only/listing unify).
+  - **WP-E.2.a — sudomize argv/status ✅ (status active; argv ready)**:
+    authlib.sh sudomize now (a) exits with sudo's REAL status — was
+    `exit $?` after a `debug`, always 0, masking failed re-execs — and (b)
+    calls sudo DIRECTLY (not via `run`, whose unquoted $* re-split argv) with
+    `"${SC_ARGV[@]}"` when set, else the old space-joined SC_COMMAND_ARGUMENTS.
+    authgate.test.sh Part C (45/45 total): spaced arg preserved, sudo status
+    propagated (7→7), fallback re-execs. The status fix is LIVE now; the argv
+    fix is INERT until srvctl.sh exposes `SC_ARGV=("$@")` — one line I did NOT
+    add because srvctl.sh is the user's WIP. **ACTION for user: add
+    `SC_ARGV=("$@")` in srvctl.sh (next to `SC_COMMAND_ARGUMENTS="$*"`).**
 - **WP-F** — G6 reseller removal: drop reseller_only, the a..z pre-created
   accounts, reseller_id derivation; per-server user inventory first.
 

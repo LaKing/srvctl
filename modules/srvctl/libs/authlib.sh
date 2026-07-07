@@ -91,17 +91,25 @@ function sudomize {
     if ! $SC_UID0
     then
         debug "@sudomize"
-        ## FIXME(v4): $SC_COMMAND_ARGUMENTS is passed as ONE word here and
-        ## then re-split by run's unquoted expansion — the original argv
-        ## boundaries are lost, so arguments containing spaces collapse.
-        if run sudo "$SC_INSTALL_DIR/srvctl.sh" "$SC_COMMAND_ARGUMENTS"
+        ## Re-exec through sudo, preserving the ORIGINAL argv so arguments
+        ## containing spaces survive. srvctl.sh exposes the untouched argv as
+        ## the array SC_ARGV=("$@"); callers that predate that fall back to the
+        ## space-joined SC_COMMAND_ARGUMENTS. sudo is invoked DIRECTLY, not via
+        ## `run` (whose unquoted $* would re-split the arguments).
+        ## NOTE: activating faithful argv needs `SC_ARGV=("$@")` in srvctl.sh
+        ## (currently WIP); until then the fallback runs (as before).
+        local _rc
+        if [[ ${SC_ARGV+set} ]]
         then
-            exit
+            sudo "$SC_INSTALL_DIR/srvctl.sh" "${SC_ARGV[@]}"
+            _rc=$?
         else
-            debug "Error $? in srvctl-sudo"
-            ## FIXME(v4): 'exit $?' takes the exit status of debug (0), not
-            ## of the failed sudo re-exec — failures are masked to exit 0.
-            exit $?
+            # shellcheck disable=SC2086
+            sudo "$SC_INSTALL_DIR/srvctl.sh" $SC_COMMAND_ARGUMENTS
+            _rc=$?
         fi
+        ## exit with sudo's REAL status (was 'exit $?' after debug -> always 0).
+        [[ $_rc == 0 ]] || debug "Error $_rc in srvctl-sudo"
+        exit "$_rc"
     fi
 }
