@@ -227,14 +227,27 @@ function complicate() {
     echo "$1" > /dev/null
 }
 
-## print the one-line hint for a command file, honoring its permission
-## markers (root_only/hs_only/reseller_only within the first 20 lines).
+## print the one-line hint for a command file, honoring its permission markers.
+## VISIBILITY MIRRORS ENFORCEMENT (WP-E.2.b): the caller sees only what their
+## role can run — root everything; operator operators_only + everyone; user
+## everyone (+ owner_only, which is resource-scoped so always listed). hs_only
+## is environment (SC_HOSTNET); reseller_only is transitional (removed in WP-F).
 function hint_on_file {
 
     local file
     file="$1"
 
     [[ -f $file ]] || return 132
+
+    ## resolve the caller's role once, memoized in SC_ROLE. Prefer sc_role
+    ## (authlib.sh — gives the operator distinction from the datastore); if it
+    ## is not loaded (early/completion paths), fall back to the root/non-root
+    ## split from SC_UID0 so the listing still filters safely.
+    if [[ -z ${SC_ROLE:-} ]]
+    then
+        command -v sc_role > /dev/null 2>&1 && sc_role > /dev/null 2>&1
+        [[ ${SC_ROLE:-} ]] || if $SC_UID0; then SC_ROLE=root; else SC_ROLE=user; fi
+    fi
 
     local hintstr command hintcmd hintexec data
 
@@ -244,9 +257,13 @@ function hint_on_file {
     ## at runtime, exactly as before.
     if $SC_IDX_BUILT && [[ -n ${SC_IDX_HINT[$file]+x} ]]
     then
-        ! $SC_UID0 && [[ ${SC_IDX_ROOT[$file]} ]] && return 133
+        if [[ $SC_ROLE != root ]]
+        then
+            [[ ${SC_IDX_ROOT[$file]} ]] && return 133                              # root_only
+            [[ ${SC_IDX_OPS[$file]} ]] && [[ $SC_ROLE != operator ]] && return 134 # operators_only -> hide from user
+        fi
         ! [[ $SC_HOSTNET ]] && [[ ${SC_IDX_HS[$file]} ]] && return 134
-        ! $SC_UID0 && ! [[ "${#SC_USER}" == 1 ]] && [[ ${SC_IDX_RES[$file]} ]] && return 134
+        [[ $SC_ROLE != root ]] && ! [[ "${#SC_USER}" == 1 ]] && [[ ${SC_IDX_RES[$file]} ]] && return 134
 
         command="${file##*/}"
         hintstr="${SC_IDX_HINT[$file]}"
@@ -265,13 +282,15 @@ function hint_on_file {
         return 0
     fi
 
-    ## fallback (no index built, e.g. completion / single lookups): original greps
-    ## root_only: if not root, and file marked as root_only skip this item
-    ! $SC_UID0 && head -n 20 "$file" | grep -q 'root_only' && return 133
-    ## if not on a containerfarm host
+    ## fallback (no index built, e.g. completion / single lookups): grep the
+    ## markers directly, same role visibility as the indexed path above.
+    if [[ $SC_ROLE != root ]]
+    then
+        head -n 20 "$file" | grep -q 'root_only' && return 133
+        head -n 20 "$file" | grep -q 'operators_only' && [[ $SC_ROLE != operator ]] && return 134
+    fi
     ! [[ $SC_HOSTNET ]] && head -n 20 "$file" | grep -q 'hs_only' && return 134
-    ## is user is not a reseller
-    ! $SC_UID0 && ! [[ "${#SC_USER}" == 1 ]] && head -n 20 "$file" | grep -q 'reseller_only' && return 134
+    [[ $SC_ROLE != root ]] && ! [[ "${#SC_USER}" == 1 ]] && head -n 20 "$file" | grep -q 'reseller_only' && return 134
 
     ## NOTE: for HEMP and HEXE below, grep receives "$file" as an operand,
     ## so the head-limited stdin is ignored and the WHOLE file is searched.
@@ -408,24 +427,25 @@ function hint_commands {
 ## guarantees @@@/&&& values are non-empty when present (parser test enforces
 ## it), so an EMPTY SC_IDX_SYNTAX/SC_IDX_DYNAMIC means the marker is ABSENT —
 ## the presence test the grep path did with `[[ -z $hintcmd ]]`.
-declare -A SC_IDX_HINT SC_IDX_HELP SC_IDX_SYNTAX SC_IDX_DYNAMIC SC_IDX_ROOT SC_IDX_HS SC_IDX_RES
+declare -A SC_IDX_HINT SC_IDX_HELP SC_IDX_SYNTAX SC_IDX_DYNAMIC SC_IDX_ROOT SC_IDX_HS SC_IDX_RES SC_IDX_OPS
 SC_IDX_BUILT=false
 
 function build_command_index() {
     ## $@ = command-file paths. Populate the SC_IDX_* arrays keyed by path.
     SC_IDX_HINT=(); SC_IDX_HELP=(); SC_IDX_SYNTAX=(); SC_IDX_DYNAMIC=()
-    SC_IDX_ROOT=(); SC_IDX_HS=(); SC_IDX_RES=()
+    SC_IDX_ROOT=(); SC_IDX_HS=(); SC_IDX_RES=(); SC_IDX_OPS=()
     SC_IDX_BUILT=false
     [[ $# -gt 0 ]] || return 0
-    local tag path f1 f2 f3 f4 f5 f6
+    local tag path f1 f2 f3 f4 f5 f6 f7
     ## \x1f (US) delimiter, NOT tab: read collapses consecutive IFS-whitespace
     ## (tab), which would shift empty syntax/dynamic fields. See commandindex.mjs.
-    while IFS=$'\x1f' read -r tag path f1 f2 f3 f4 f5 f6
+    ## Field order: hint syntax dynamic root_only hs_only reseller_only operators_only.
+    while IFS=$'\x1f' read -r tag path f1 f2 f3 f4 f5 f6 f7
     do
         if [[ $tag == F ]]
         then
             SC_IDX_HINT[$path]="$f1"; SC_IDX_SYNTAX[$path]="$f2"; SC_IDX_DYNAMIC[$path]="$f3"
-            SC_IDX_ROOT[$path]="$f4"; SC_IDX_HS[$path]="$f5"; SC_IDX_RES[$path]="$f6"
+            SC_IDX_ROOT[$path]="$f4"; SC_IDX_HS[$path]="$f5"; SC_IDX_RES[$path]="$f6"; SC_IDX_OPS[$path]="$f7"
             [[ -n ${SC_IDX_HELP[$path]+x} ]] || SC_IDX_HELP[$path]=""
         elif [[ $tag == H ]]
         then

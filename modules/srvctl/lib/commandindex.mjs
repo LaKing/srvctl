@@ -53,6 +53,7 @@ export function parseCommandFile(content) {
     root_only: headText.includes("root_only"),
     hs_only: headText.includes("hs_only"),
     reseller_only: headText.includes("reseller_only"),
+    operators_only: headText.includes("operators_only"),
   };
 }
 
@@ -73,7 +74,7 @@ export function buildIndex(files, readFile) {
 // Emit the index in a \x1f(US)-delimited, path-keyed form for bash to read in
 // ONE node call (replacing commonlib.sh's per-file grep storm). One "F" line of
 // scalar metadata per file, then one "H" line per help line, in file order:
-//   F <path> <hint> <syntax> <dynamic> <root_only> <hs_only> <reseller_only>
+//   F <path> <hint> <syntax> <dynamic> <root_only> <hs_only> <reseller_only> <operators_only>
 //   H <path> <help-line>                     (fields joined by \x1f)
 // Scalars are empty when the marker is absent; booleans are "1"/"". The
 // delimiter is \x1f (unit separator), NOT tab: `read` treats tab as IFS
@@ -86,7 +87,7 @@ export function formatBash(index) {
   const b = (v) => (v ? "1" : "");
   for (const path of Object.keys(index)) {
     const m = index[path];
-    out.push(["F", path, m.hint ?? "", m.syntax ?? "", m.dynamic ?? "", b(m.root_only), b(m.hs_only), b(m.reseller_only)].join(SEP));
+    out.push(["F", path, m.hint ?? "", m.syntax ?? "", m.dynamic ?? "", b(m.root_only), b(m.hs_only), b(m.reseller_only), b(m.operators_only)].join(SEP));
     for (const h of m.help) out.push(["H", path, h].join(SEP));
   }
   return out.join("\n") + (out.length ? "\n" : "");

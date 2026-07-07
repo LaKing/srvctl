@@ -54,9 +54,10 @@ function bashRef(file) {
     head -n 20 "$f" | grep -q 'root_only' && echo 'ROOT_ONLY' || true
     head -n 20 "$f" | grep -q 'hs_only' && echo 'HS_ONLY' || true
     head -n 20 "$f" | grep -q 'reseller_only' && echo 'RESELLER_ONLY' || true
+    head -n 20 "$f" | grep -q 'operators_only' && echo 'OPERATORS_ONLY' || true
   `;
   const out = execFileSync("bash", ["-c", sh], { encoding: "utf8" });
-  const ref = { hint: null, syntax: null, dynamic: null, help: [], root_only: false, hs_only: false, reseller_only: false };
+  const ref = { hint: null, syntax: null, dynamic: null, help: [], root_only: false, hs_only: false, reseller_only: false, operators_only: false };
   for (const line of out.split("\n")) {
     if (line.startsWith("HINT\t")) ref.hint = line.slice(5) || null;
     else if (line.startsWith("SYN\t")) ref.syntax = line.slice(4) || null;
@@ -65,6 +66,7 @@ function bashRef(file) {
     else if (line === "ROOT_ONLY") ref.root_only = true;
     else if (line === "HS_ONLY") ref.hs_only = true;
     else if (line === "RESELLER_ONLY") ref.reseller_only = true;
+    else if (line === "OPERATORS_ONLY") ref.operators_only = true;
   }
   // bash's `${var:7}` on an empty (unmatched) grep yields "" -> our parser
   // returns null; normalize "" to null so absent markers compare equal.
@@ -82,7 +84,7 @@ for (const file of files) {
   eq(`syntax ${rel}`, parsed.syntax, ref.syntax);
   eq(`dynamic ${rel}`, parsed.dynamic, ref.dynamic);
   eq(`help ${rel}`, parsed.help, ref.help);
-  eq(`perms ${rel}`, [parsed.root_only, parsed.hs_only, parsed.reseller_only], [ref.root_only, ref.hs_only, ref.reseller_only]);
+  eq(`perms ${rel}`, [parsed.root_only, parsed.hs_only, parsed.reseller_only, parsed.operators_only], [ref.root_only, ref.hs_only, ref.reseller_only, ref.operators_only]);
   // Invariant the bash wiring relies on (commonlib.sh hint_on_file): a PRESENT
   // ## @@@ / ## &&& always has a NON-EMPTY value, so bash can treat an empty
   // SC_IDX_SYNTAX/SC_IDX_DYNAMIC as "marker absent" (the grep path's

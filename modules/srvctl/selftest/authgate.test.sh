@@ -203,6 +203,45 @@ probe "$FX_owner" alice false                            ; ok "owner: owner_only
 ROLE_FIELD=operator probe "$FX_owner" op false           ; ok "operator(non-owner): owner_only DENY" "$RC" "44"
 probe "$FX_owner" mallory false                          ; ok "user(non-owner): owner_only DENY"     "$RC" "44"
 
+echo "== (E) role x class VISIBILITY (hint_on_file listing filter, WP-E.2.b) =="
+shown() { [[ $1 == 0 ]] && echo shown || echo hidden; }   # hint_on_file: 0=render, 133/134=hidden
+VISRC=0
+vis() { # $1 fixture basename  $2 SC_USER  $3 SC_UID0
+  (
+    set +u
+    export SRVCTL=1 SC_INSTALL_DIR="$REPO" SC_USER="$2" SC_UID0="$3" SC_HOSTNET=42 \
+      OWNER=alice RESELLER=bob GET_RC=0 ROLE_FIELD="${ROLE_FIELD:-}" MARKFILE=/dev/null SC_ROLE=""
+    # shellcheck disable=SC1090,SC1091
+    source "$REPO/modules/srvctl/libs/authlib.sh"   # real sc_role
+    # shellcheck disable=SC1090
+    source "$STUBS"                                  # get returns ROLE_FIELD for 'role'
+    # shellcheck disable=SC1090,SC1091
+    source "$REPO/commonlib.sh"                      # real hint_on_file
+    hint() { :; } ; complicate() { :; } ; title() { :; }
+    # consumed by hint_on_file (sourced commonlib.sh); shellcheck can't see it
+    # shellcheck disable=SC2034
+    SC_IDX_BUILT=false                               # exercise the grep fallback filter
+    hint_on_file "$REPO/modules/srvctl/selftest/authfixtures/$1.sh"
+  ) > /dev/null 2>&1
+  VISRC=$?
+}
+# everyone: visible to every role
+vis everyone root true                 ; ok "root sees everyone"        "$(shown "$VISRC")" "shown"
+ROLE_FIELD=operator vis everyone op false ; ok "operator sees everyone" "$(shown "$VISRC")" "shown"
+vis everyone bob false                 ; ok "user sees everyone"        "$(shown "$VISRC")" "shown"
+# root_only: only root
+vis rootonly root true                 ; ok "root sees root_only"       "$(shown "$VISRC")" "shown"
+ROLE_FIELD=operator vis rootonly op false ; ok "operator HIDDEN root_only" "$(shown "$VISRC")" "hidden"
+vis rootonly bob false                 ; ok "user HIDDEN root_only"     "$(shown "$VISRC")" "hidden"
+# operators_only: root + operator
+vis operatorsonly root true            ; ok "root sees operators_only"  "$(shown "$VISRC")" "shown"
+ROLE_FIELD=operator vis operatorsonly op false ; ok "operator sees operators_only" "$(shown "$VISRC")" "shown"
+vis operatorsonly bob false            ; ok "user HIDDEN operators_only" "$(shown "$VISRC")" "hidden"
+# owner_only: resource-scoped, always LISTED (enforced per-resource at run time)
+vis owneronly root true                ; ok "root sees owner_only"      "$(shown "$VISRC")" "shown"
+ROLE_FIELD=operator vis owneronly op false ; ok "operator sees owner_only" "$(shown "$VISRC")" "shown"
+vis owneronly bob false                ; ok "user sees owner_only"      "$(shown "$VISRC")" "shown"
+
 command rm -f "$STUBS"
 echo ""
 echo "authgate.test: $pass passed, $fail failed"
