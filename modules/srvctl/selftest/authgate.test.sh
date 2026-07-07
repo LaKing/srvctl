@@ -32,7 +32,7 @@ fi
 STUBS="$(mktemp)"
 cat > "$STUBS" << 'STUB'
 mark() { echo "$1" >> "$MARKFILE"; }
-get() { case "$*" in *" exist") echo true;; *" user") echo "$OWNER";; *" reseller") echo "$RESELLER";; *) echo "";; esac; }
+get() { case "$*" in *" exist") echo true;; *" user") echo "$OWNER";; *" reseller") echo "$RESELLER";; *) echo "";; esac; return "${GET_RC:-0}"; }
 put() { mark put; } ; out() { mark out; } ; add() { mark add; } ; del() { mark del; } ; new() { mark new; } ; cfg() { mark cfg; }
 sudomize() { if ! $SC_UID0; then mark sudomize; exit 0; fi; }   # like the real one: only re-execs when non-root
 argument() { :; } ; authorize() { :; } ; hs_only() { :; } ; ve_only() { :; }
@@ -50,7 +50,7 @@ probe() { # $1 = shell snippet   $2 SC_USER   $3 SC_UID0
     set +u   # real srvctl commands reference optional vars unquoted; not nounset-safe
     export MARKFILE="$mf" SRVCTL=1 SC_INSTALL_DIR="$REPO" ARG="site.example.com" OPA="none" \
       C="site.example.com" NOW="x" HOSTNAME="testhost" OWNER="alice" RESELLER="bob" \
-      SC_USER="$2" SC_UID0="$3" USER="$2"
+      SC_USER="$2" SC_UID0="$3" USER="$2" GET_RC="${GET_RC:-0}"
     # real guards (owner_only/root_only) with their deps (get/sudomize/err)
     # stubbed by STUBS, which is sourced AFTER so its stubs win.
     # shellcheck disable=SC1090,SC1091
@@ -98,6 +98,17 @@ for pair in "destroy-ve:$CMDS_destroyve" "remove-ve:$CMDS_removeve" "http-redire
   probe "$snippet" mallory true        # root, but NOT the owner
   ok "$name: root (non-owner) ALLOWED" "$(has_action "$MARKS")" "yes"
 done
+
+# owner_only lookup-error propagation: a DATASTORE ERROR from `get` (exit != 0
+# and != 100) must NOT be reported as a "no access" 44 denial — it must
+# propagate the datastore/lookup failure. (get 112 = LIB-ERROR.)
+GET_RC=112 probe "$CMDS_mapport" mallory false
+ok "owner_only: datastore error propagates (not 44)"  "$RC" "112"
+ok "owner_only: datastore error ran NO action"        "$(has_action "$MARKS")" "no"
+# a legitimate 'optional absent' (100) on the reseller field is NOT an error:
+# with no owner match it is still a normal 44 denial.
+GET_RC=100 probe "$CMDS_mapport" mallory false
+ok "owner_only: 100 (optional absent) still a clean 44 deny" "$RC" "44"
 
 # backup_ve: the owner-check is in its CALLER; the lib gate itself just needs
 # non-root to be denied.

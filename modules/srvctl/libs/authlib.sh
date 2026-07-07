@@ -44,9 +44,26 @@ function reseller_only {
 function owner_only { # $1 type  $2 id
     $SC_UID0 && return 0
 
-    local _owner _reseller
-    _owner="$(get "$1" "$2" user)"
-    _reseller="$(get "$1" "$2" reseller)"
+    local _owner _reseller _rc
+
+    ## The datastore verb 'get' exits 0 (value), 100 (optional value absent),
+    ## or an error code (DATASTORE-ERROR). A failed lookup must NOT be reported
+    ## as "no access" — that would turn a datastore/entity-missing error into a
+    ## bogus authorization denial. Treat only 0/100 as a usable answer;
+    ## propagate anything else as the datastore/lookup failure it is.
+    _owner="$(get "$1" "$2" user)"; _rc=$?
+    if [[ $_rc != 0 && $_rc != 100 ]]
+    then
+        err "Cannot verify ownership of $2 — datastore lookup failed ($_rc)"
+        exit "$_rc"
+    fi
+
+    _reseller="$(get "$1" "$2" reseller)"; _rc=$?
+    if [[ $_rc != 0 && $_rc != 100 ]]
+    then
+        err "Cannot verify ownership of $2 — datastore lookup failed ($_rc)"
+        exit "$_rc"
+    fi
 
     if [[ $SC_USER == "$_owner" ]] || [[ $SC_USER == "$_reseller" ]]
     then
@@ -55,8 +72,8 @@ function owner_only { # $1 type  $2 id
         sudomize
     fi
 
-    ## reached only by a non-root, non-owner caller (the owner branch above
-    ## exits via sudomize's re-exec).
+    ## reached only by a non-root, non-owner caller whose ownership lookup
+    ## SUCCEEDED (the owner branch above exits via sudomize's re-exec).
     err "$SC_USER has no access to $2"
     exit 44
 }

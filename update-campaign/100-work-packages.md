@@ -278,6 +278,15 @@ Execution rules (from 000-PROMPT + the Stage-2 preconditions in 000-INDEX):
     fix is INERT until srvctl.sh exposes `SC_ARGV=("$@")` — one line I did NOT
     add because srvctl.sh is the user's WIP. **ACTION for user: add
     `SC_ARGV=("$@")` in srvctl.sh (next to `SC_COMMAND_ARGUMENTS="$*"`).**
+  - **WP-E.2.a — owner_only lookup-error propagation ✅ (audit fix)**: owner_only
+    ignored `get`'s exit status, so a DATASTORE ERROR (or entity-missing) on the
+    user/reseller lookup fell through to a misleading `err "no access"; exit 44`.
+    Now it checks each `get`: exit 0 (value) or 100 (optional absent) proceed;
+    anything else emits "Cannot verify ownership — datastore lookup failed ($rc)"
+    and exits with that code (not 44). authgate.test.sh (48/48): a get error
+    (112) PROPAGATES as 112 with no action; a 100 (optional-absent reseller)
+    stays a clean 44 deny. Verified the test fails pre-fix (got 44, want 112).
+    With this, E.2.a is complete pending the user's SC_ARGV line.
 - **WP-F** — G6 reseller removal: drop reseller_only, the a..z pre-created
   accounts, reseller_id derivation; per-server user inventory first.
 
