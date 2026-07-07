@@ -301,6 +301,9 @@ Execution rules (from 000-PROMPT + the Stage-2 preconditions in 000-INDEX):
     rootonly,operatorsonly,owneronly}.sh = one command per class; authgate.test
     Part D proves the full role×class ENFORCEMENT matrix (61/61 total,
     verified a broken guard fails the matrix). Strict shellcheck clean.
+    Audit fix: sc_role now initializes its role cache inside authlib.sh so an
+    inherited `SC_ROLE=operator` environment variable is ignored; matrix adds
+    an explicit spoof-denied cell.
     NEXT: E.2.b-1b unify the sc/sc-help LISTING filter with these guards
     (visibility == runnability); E.2.b-2 propose the explicit classification of
     the ~40 real commands for user review, then tag + prove.

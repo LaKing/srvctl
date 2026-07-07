@@ -18,6 +18,11 @@ function root_only {
     fi
 }
 
+## Role cache, initialized HERE so an inherited environment variable like
+## SC_ROLE=operator is never trusted. sc_role is the only writer.
+SC_ROLE=
+_SC_ROLE_RESOLVED=false
+
 ## sc_role — resolve the caller's role, memoized in SC_ROLE. Echoes it too.
 ##   root      : uid 0 (SC_UID0).
 ##   operator  : the LOCAL datastore user record has role=operator (WP-E.2).
@@ -27,7 +32,7 @@ function root_only {
 ## Host-scoped by design: the role comes from THIS host's user record, so an
 ## operator here is a plain user on a host whose record does not say operator.
 function sc_role {
-    if [[ -z ${SC_ROLE:-} ]]
+    if ! $_SC_ROLE_RESOLVED
     then
         if $SC_UID0
         then
@@ -42,6 +47,7 @@ function sc_role {
                 SC_ROLE=user
             fi
         fi
+        _SC_ROLE_RESOLVED=true
     fi
     echo "$SC_ROLE"
 }

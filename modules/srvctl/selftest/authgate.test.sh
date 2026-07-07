@@ -50,7 +50,8 @@ probe() { # $1 = shell snippet   $2 SC_USER   $3 SC_UID0
     set +u   # real srvctl commands reference optional vars unquoted; not nounset-safe
     export MARKFILE="$mf" SRVCTL=1 SC_INSTALL_DIR="$REPO" ARG="site.example.com" OPA="none" \
       C="site.example.com" NOW="x" HOSTNAME="testhost" OWNER="alice" RESELLER="bob" \
-      SC_USER="$2" SC_UID0="$3" USER="$2" GET_RC="${GET_RC:-0}" ROLE_FIELD="${ROLE_FIELD:-}" SC_ROLE=""
+      SC_USER="$2" SC_UID0="$3" USER="$2" GET_RC="${GET_RC:-0}" ROLE_FIELD="${ROLE_FIELD:-}" \
+      SC_ROLE="${PRESET_SC_ROLE:-}"
     # real guards (owner_only/root_only) with their deps (get/sudomize/err)
     # stubbed by STUBS, which is sourced AFTER so its stubs win.
     # shellcheck disable=SC1090,SC1091
@@ -194,6 +195,7 @@ probe "$FX_root" bob false                               ; ok "user: root_only D
 probe "$FX_ops" root true                                ; ok "root: operators_only RUN" "$(has_action "$MARKS")" "yes"
 ROLE_FIELD=operator probe "$FX_ops" op false             ; ok "operator: operators_only RUN" "$(has_action "$MARKS")" "yes"
 probe "$FX_ops" bob false                                ; ok "user: operators_only DENY"    "$RC" "44"
+PRESET_SC_ROLE=operator probe "$FX_ops" bob false         ; ok "inherited SC_ROLE spoof DENY" "$RC" "44"
 # OWNER_ONLY: root (any), owner escalates, non-owner denied — INCLUDING an
 # operator who is not the owner (operators do NOT bypass ownership)
 probe "$FX_owner" root true                              ; ok "root: owner_only(non-owner) RUN" "$(has_action "$MARKS")" "yes"
