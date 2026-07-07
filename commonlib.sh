@@ -47,6 +47,7 @@ function hint {
     
 }
 
+
 function title {
     
     echo ''
@@ -239,14 +240,15 @@ function hint_on_file {
 
     [[ -f $file ]] || return 132
 
-    ## resolve the caller's role once, memoized in SC_ROLE. Prefer sc_role
-    ## (authlib.sh — gives the operator distinction from the datastore); if it
-    ## is not loaded (early/completion paths), fall back to the root/non-root
-    ## split from SC_UID0 so the listing still filters safely.
-    if [[ -z ${SC_ROLE:-} ]]
+    ## Resolve the caller's role. Prefer sc_role (authlib.sh — gives the
+    ## operator distinction from the datastore); if it is not loaded
+    ## (early/completion paths), fall back to the root/non-root split from
+    ## SC_UID0. Never trust an inherited SC_ROLE=operator from the environment.
+    if command -v sc_role > /dev/null 2>&1
     then
-        command -v sc_role > /dev/null 2>&1 && sc_role > /dev/null 2>&1
-        [[ ${SC_ROLE:-} ]] || if $SC_UID0; then SC_ROLE=root; else SC_ROLE=user; fi
+        sc_role > /dev/null 2>&1
+    else
+        if $SC_UID0; then SC_ROLE=root; else SC_ROLE=user; fi
     fi
 
     local hintstr command hintcmd hintexec data
@@ -698,4 +700,3 @@ function set_permissions() {
     [[ -d "$SC_ROOTFS_DIR" ]] && chmod 700 "$SC_ROOTFS_DIR"
     
 }
-

@@ -18,7 +18,7 @@
 # the verb/action stubs are invoked indirectly by the sourced commands.
 # shellcheck disable=SC2030,SC2031,SC2329
 set -u
-REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
+REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd -P)"
 pass=0; fail=0
 ok() { if [[ "$2" == "$3" ]]; then pass=$((pass + 1)); else fail=$((fail + 1)); echo "  FAIL $1: got '$2' want '$3'"; fi; }
 has_action() { local m=",$1,"; local a; for a in put out add del new cfg rm systemctl machinectl chroot rsync run run_hook regen; do [[ $m == *",$a,"* ]] && { echo yes; return; }; done; echo no; }
@@ -204,12 +204,15 @@ ROLE_FIELD=operator probe "$FX_owner" op false           ; ok "operator(non-owne
 probe "$FX_owner" mallory false                          ; ok "user(non-owner): owner_only DENY"     "$RC" "44"
 
 echo "== (E) role x class VISIBILITY (hint_on_file listing filter, WP-E.2.b) =="
-shown() { [[ $1 == 0 ]] && echo shown || echo hidden; }   # hint_on_file: 0=render, 133/134=hidden
+shown() { case "$1" in 0) echo shown;; 133|134) echo hidden;; *) echo "rc:$1";; esac; }   # hint_on_file: 0=render, 133/134=hidden
 VISRC=0
-vis() { # $1 fixture basename  $2 SC_USER  $3 SC_UID0
+vis() { # $1 fixture basename  $2 SC_USER  $3 SC_UID0  $4 grep|indexed
+  local fixture user uid0 mode file
+  fixture="$1"; user="$2"; uid0="$3"; mode="${4:-grep}"
+  file="$REPO/modules/srvctl/selftest/authfixtures/$fixture.sh"
   (
     set +u
-    export SRVCTL=1 SC_INSTALL_DIR="$REPO" SC_USER="$2" SC_UID0="$3" SC_HOSTNET=42 \
+    export SRVCTL=1 SC_INSTALL_DIR="$REPO" SC_USER="$user" SC_UID0="$uid0" SC_HOSTNET=42 \
       OWNER=alice RESELLER=bob GET_RC=0 ROLE_FIELD="${ROLE_FIELD:-}" MARKFILE=/dev/null SC_ROLE=""
     # shellcheck disable=SC1090,SC1091
     source "$REPO/modules/srvctl/libs/authlib.sh"   # real sc_role
@@ -218,29 +221,65 @@ vis() { # $1 fixture basename  $2 SC_USER  $3 SC_UID0
     # shellcheck disable=SC1090,SC1091
     source "$REPO/commonlib.sh"                      # real hint_on_file
     hint() { :; } ; complicate() { :; } ; title() { :; }
-    # consumed by hint_on_file (sourced commonlib.sh); shellcheck can't see it
-    # shellcheck disable=SC2034
-    SC_IDX_BUILT=false                               # exercise the grep fallback filter
-    hint_on_file "$REPO/modules/srvctl/selftest/authfixtures/$1.sh"
+    if [[ $mode == indexed ]]
+    then
+      build_command_index "$file"
+      $SC_IDX_BUILT || exit 199
+    else
+      # consumed by hint_on_file (sourced commonlib.sh); shellcheck can't see it
+      # shellcheck disable=SC2034
+      SC_IDX_BUILT=false                             # exercise the grep fallback filter
+    fi
+    hint_on_file "$file"
   ) > /dev/null 2>&1
   VISRC=$?
 }
+vis_no_authlib() { # $1 grep|indexed — fallback must ignore inherited SC_ROLE
+  local mode file
+  mode="${1:-grep}"
+  file="$REPO/modules/srvctl/selftest/authfixtures/operatorsonly.sh"
+  (
+    set +u
+    export SRVCTL=1 SC_INSTALL_DIR="$REPO" SC_USER=bob SC_UID0=false SC_HOSTNET=42 SC_ROLE=operator
+    # shellcheck disable=SC1090,SC1091
+    source "$REPO/commonlib.sh"                      # no authlib/sc_role on purpose
+    hint() { :; } ; complicate() { :; } ; title() { :; }
+    if [[ $mode == indexed ]]
+    then
+      build_command_index "$file"
+      $SC_IDX_BUILT || exit 199
+    else
+      # shellcheck disable=SC2034
+      SC_IDX_BUILT=false
+    fi
+    hint_on_file "$file"
+  ) > /dev/null 2>&1
+  VISRC=$?
+}
+vis_matrix() { # $1 grep|indexed
+  local mode
+  mode="$1"
 # everyone: visible to every role
-vis everyone root true                 ; ok "root sees everyone"        "$(shown "$VISRC")" "shown"
-ROLE_FIELD=operator vis everyone op false ; ok "operator sees everyone" "$(shown "$VISRC")" "shown"
-vis everyone bob false                 ; ok "user sees everyone"        "$(shown "$VISRC")" "shown"
+vis everyone root true "$mode"                 ; ok "$mode: root sees everyone"        "$(shown "$VISRC")" "shown"
+ROLE_FIELD=operator vis everyone op false "$mode" ; ok "$mode: operator sees everyone" "$(shown "$VISRC")" "shown"
+vis everyone bob false "$mode"                 ; ok "$mode: user sees everyone"        "$(shown "$VISRC")" "shown"
 # root_only: only root
-vis rootonly root true                 ; ok "root sees root_only"       "$(shown "$VISRC")" "shown"
-ROLE_FIELD=operator vis rootonly op false ; ok "operator HIDDEN root_only" "$(shown "$VISRC")" "hidden"
-vis rootonly bob false                 ; ok "user HIDDEN root_only"     "$(shown "$VISRC")" "hidden"
+vis rootonly root true "$mode"                 ; ok "$mode: root sees root_only"       "$(shown "$VISRC")" "shown"
+ROLE_FIELD=operator vis rootonly op false "$mode" ; ok "$mode: operator HIDDEN root_only" "$(shown "$VISRC")" "hidden"
+vis rootonly bob false "$mode"                 ; ok "$mode: user HIDDEN root_only"     "$(shown "$VISRC")" "hidden"
 # operators_only: root + operator
-vis operatorsonly root true            ; ok "root sees operators_only"  "$(shown "$VISRC")" "shown"
-ROLE_FIELD=operator vis operatorsonly op false ; ok "operator sees operators_only" "$(shown "$VISRC")" "shown"
-vis operatorsonly bob false            ; ok "user HIDDEN operators_only" "$(shown "$VISRC")" "hidden"
+vis operatorsonly root true "$mode"            ; ok "$mode: root sees operators_only"  "$(shown "$VISRC")" "shown"
+ROLE_FIELD=operator vis operatorsonly op false "$mode" ; ok "$mode: operator sees operators_only" "$(shown "$VISRC")" "shown"
+vis operatorsonly bob false "$mode"            ; ok "$mode: user HIDDEN operators_only" "$(shown "$VISRC")" "hidden"
 # owner_only: resource-scoped, always LISTED (enforced per-resource at run time)
-vis owneronly root true                ; ok "root sees owner_only"      "$(shown "$VISRC")" "shown"
-ROLE_FIELD=operator vis owneronly op false ; ok "operator sees owner_only" "$(shown "$VISRC")" "shown"
-vis owneronly bob false                ; ok "user sees owner_only"      "$(shown "$VISRC")" "shown"
+vis owneronly root true "$mode"                ; ok "$mode: root sees owner_only"      "$(shown "$VISRC")" "shown"
+ROLE_FIELD=operator vis owneronly op false "$mode" ; ok "$mode: operator sees owner_only" "$(shown "$VISRC")" "shown"
+vis owneronly bob false "$mode"                ; ok "$mode: user sees owner_only"      "$(shown "$VISRC")" "shown"
+}
+vis_matrix grep
+vis_matrix indexed
+vis_no_authlib grep                        ; ok "grep fallback ignores inherited SC_ROLE spoof"    "$(shown "$VISRC")" "hidden"
+vis_no_authlib indexed                     ; ok "indexed fallback ignores inherited SC_ROLE spoof" "$(shown "$VISRC")" "hidden"
 
 command rm -f "$STUBS"
 echo ""

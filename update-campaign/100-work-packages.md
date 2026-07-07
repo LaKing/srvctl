@@ -310,18 +310,23 @@ Execution rules (from 000-PROMPT + the Stage-2 preconditions in 000-INDEX):
     hint_on_file's filter (both indexed + grep-fallback paths) now mirrors the
     guards via sc_role: root sees all; operator sees operators_only+everyone;
     user sees everyone (root_only/operators_only hidden); owner_only is always
-    LISTED (resource-scoped, enforced per-resource at run). Role resolved once
-    (memoized), with a SC_UID0 root/non-root fallback if authlib is not loaded
-    (keeps the root-only sandbox harness golden unchanged). authgate Part E
-    proves the role×class VISIBILITY matrix (74/74; verified a broken filter
-    fails the user cell). Strict shellcheck clean; harness + datastore green.
+    LISTED (resource-scoped, enforced per-resource at run). Role resolves
+    through sc_role when authlib is loaded, otherwise falls back to SC_UID0
+    root/user and ignores inherited SC_ROLE values. authgate Part E proves the
+    role×class VISIBILITY matrix across both grep and indexed branches (88/88;
+    includes explicit inherited-SC_ROLE spoof-denied cells). Strict shellcheck
+    clean; harness + datastore green.
   - **WP-E.2.b-1b GAP — `sc help` NOT yet filtered**: help_commands runs at the
     early help-breakout (init.sh:185) BEFORE load_libs (196), so sc_role/get
     are unavailable there; it still shows ALL commands to everyone
-    (documented-but-forbidden). Filtering it needs moving the help breakout to
-    AFTER load_libs but BEFORE the init hooks (so the datastore migration is
-    NOT triggered by `sc help`) — a core init-order change + sc-help behavior
-    change. FLAGGED for user decision before touching init.sh.
+    (documented-but-forbidden). AUDIT NOTE: the simple proposed move to AFTER
+    load_libs but BEFORE init hooks is NOT sufficient: datastore pre-init has
+    only defaulted SC_DATASTORE_DIR to the RO path, while init_datastore has not
+    selected/exported the final RW/RO store. A non-root operator's sc_role/get
+    lookup would therefore read the wrong/stale store or fail safe to user.
+    Filtering sc help needs either a non-mutating datastore role-read bootstrap
+    or an init split that selects the datastore without running migration, then
+    help breakout before mutating init work. FLAGGED before touching init.sh.
     NEXT: E.2.b-2 propose the explicit classification of the ~40 real commands
     for user review, then tag + prove.
 - **WP-F** — G6 reseller removal: drop reseller_only, the a..z pre-created
