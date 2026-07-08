@@ -147,6 +147,15 @@ Re-tag and `owner_only`-branch removal happen ONLY after the data model migrates
   documented in-place. `new reseller` untouched (later phase). Full datastore
   suite 61/61 + mutators 9/9; command guards (add-user still `reseller_only`)
   unchanged — the re-tag is Phase 3.
+  - **ROLLOUT CAVEAT (mixed window):** this is back-compat for *reads*, but it
+    is a real *write* behavior change — while this branch is deployed and active
+    resellers are still creating users, those new users are NOT stamped under a
+    reseller (no `user.reseller`). That matches the WP-F direction but is not
+    invisible: it changes who "owns" users created during the window. Options at
+    deploy time: (a) accept it (the reseller relationship is going away anyway),
+    or (b) briefly pause reseller-driven user creation until Phases 2–4 land.
+    Decide per host from the Phase 0 output (a host with 0 active resellers has
+    no window to worry about).
 - **Phase 2 — migrate the accounts (per Phase 0).** Any active reseller kept →
   `role=operator`; vestigial a–x seeds → removed from `default-users.json` +
   a one-shot `migrate.mjs` step that strips `reseller`/`reseller_id` from user
