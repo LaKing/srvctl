@@ -114,9 +114,13 @@ node update-campaign/wpf-phase0-inventory.mjs [DATASTORE_DIR]
 Auto-detects `/var/srvctl3/datastore` etc.; reads v3 monolithic
 `users.json`/`containers.json` or v4 per-entity. Reports: [1] real resellers,
 [2] a–x seed ACTIVE/vestigial, [3] users tied to a non-self reseller, [4]
-`reseller_*_ecdsa.pub` symlinks, and a verdict (vestigial ⇒ low-risk removal;
-in-use ⇒ migrate tied users + active resellers first). Verified against the
-golden fixture. Collect its output from every production host before Phase 2.
+`reseller_*_ecdsa.pub` symlinks (all three name variants:
+`reseller_id_ecdsa.pub`, `reseller_srvctl_id_ecdsa.pub`,
+`srvctl_reseller_id_ecdsa.pub`), and a verdict (vestigial ⇒ low-risk removal;
+in-use ⇒ migrate tied users + active resellers first). Tested by
+`wpf-phase0-inventory.test.mjs` (18 checks: v3 monolithic, v4 flat per-entity,
+and all three key-filename variants). Collect its output from every production
+host before Phase 2.
 
 ### Decisions made (2026-07-08)
 1. **Drop reseller super-ownership entirely** — confirmed. No role inherits it.
