@@ -5,10 +5,8 @@
 ##
 ##   hs_only and ve_only are called near the top of command files across
 ##   many modules (haproxy, named, saslauthd, usersonve, vncproxy, ...).
-##   Their names double as literal marker strings: hint_on_file
-##   (commonlib.sh) greps the first 20 lines of a command file for them
-##   to filter the help listing — keep both the function names and the
-##   in-file call positions stable.
+##   Their names double as line-anchored visibility markers for hint_on_file
+##   (commonlib.sh), which scans command files for real guard calls.
 ##
 
 ## FIXME(v4): SC_ON_HS is never assigned anywhere in bash — with the

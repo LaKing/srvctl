@@ -4,8 +4,9 @@
 ##   authlib — srvctl's entire permission model, used by ~60 call sites
 ##   across nearly all modules. Exit codes are conventions relied on by
 ##   callers: 44 = authorization failure, 32 = missing argument.
-##   The bare word root_only / reseller_only within the first 20 lines of a
-##   command file doubles as a visibility marker for help listings.
+##   Line-anchored guard calls define each command's auth class; help listings
+##   hide root/operator/reseller-only commands by class, while owner_only stays
+##   listed because ownership is resource-scoped.
 ##
 
 function root_only {

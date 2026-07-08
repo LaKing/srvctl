@@ -288,11 +288,11 @@ function hint_on_file {
     ## markers directly, same role visibility as the indexed path above.
     if [[ $SC_ROLE != root ]]
     then
-        head -n 20 "$file" | grep -q 'root_only' && return 133
-        head -n 20 "$file" | grep -q 'operators_only' && [[ $SC_ROLE != operator ]] && return 134
+        grep -Eq '^[[:space:]]*root_only[[:space:]]*(#.*)?$' "$file" && return 133
+        grep -Eq '^[[:space:]]*operators_only[[:space:]]*(#.*)?$' "$file" && [[ $SC_ROLE != operator ]] && return 134
     fi
-    ! [[ $SC_HOSTNET ]] && head -n 20 "$file" | grep -q 'hs_only' && return 134
-    [[ $SC_ROLE != root ]] && ! [[ "${#SC_USER}" == 1 ]] && head -n 20 "$file" | grep -q 'reseller_only' && return 134
+    ! [[ $SC_HOSTNET ]] && grep -Eq '^[[:space:]]*hs_only[[:space:]]*(#.*)?$' "$file" && return 134
+    [[ $SC_ROLE != root ]] && ! [[ "${#SC_USER}" == 1 ]] && grep -Eq '^[[:space:]]*reseller_only[[:space:]]*(#.*)?$' "$file" && return 134
 
     ## NOTE: for HEMP and HEXE below, grep receives "$file" as an operand,
     ## so the head-limited stdin is ignored and the WHOLE file is searched.

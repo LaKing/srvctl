@@ -275,6 +275,10 @@ vis operatorsonly bob false "$mode"            ; ok "$mode: user HIDDEN operator
 vis owneronly root true "$mode"                ; ok "$mode: root sees owner_only"      "$(shown "$VISRC")" "shown"
 ROLE_FIELD=operator vis owneronly op false "$mode" ; ok "$mode: operator sees owner_only" "$(shown "$VISRC")" "shown"
 vis owneronly bob false "$mode"                ; ok "$mode: user sees owner_only"      "$(shown "$VISRC")" "shown"
+# marker parser: guard calls are whole-file + line-anchored.
+ROLE_FIELD=operator vis lateoperators op false "$mode" ; ok "$mode: operator sees late operators_only" "$(shown "$VISRC")" "shown"
+vis lateoperators bob false "$mode"            ; ok "$mode: user HIDDEN late operators_only" "$(shown "$VISRC")" "hidden"
+vis commentedroot bob false "$mode"            ; ok "$mode: user sees commented root_only" "$(shown "$VISRC")" "shown"
 }
 vis_matrix grep
 vis_matrix indexed

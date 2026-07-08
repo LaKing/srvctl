@@ -13,8 +13,8 @@
 //   dynamic (## &&&) : FIRST match in the WHOLE file (add-ve.sh relies on this
 //                      at line 13, beyond head -10)
 //   help    (## &en) : ALL matches in the whole file, marker -> 4 spaces
-//   perms            : root_only / hs_only / reseller_only substring in the
-//                      first 20 lines
+//   perms            : line-anchored root_only / hs_only / reseller_only /
+//                      operators_only guard calls anywhere in the file
 // Value extraction mirrors bash ${str:7}: drop the 6-char marker + 1 space.
 
 const HINT = "## @en";
@@ -31,9 +31,11 @@ function afterMarker(line) {
 export function parseCommandFile(content) {
   const lines = content.split("\n");
   const head10 = lines.slice(0, 10);
-  const head20 = lines.slice(0, 20);
-
   const firstContaining = (arr, marker) => arr.find((l) => l.includes(marker));
+  const hasGuardCall = (name) => {
+    const re = new RegExp(`^[ \\t]*${name}[ \\t]*(?:#.*)?$`);
+    return lines.some((l) => re.test(l));
+  };
 
   const hintLine = firstContaining(head10, HINT);
   const synLine = firstContaining(lines, HEMP);
@@ -43,17 +45,15 @@ export function parseCommandFile(content) {
     .filter((l) => l.includes(HELP))
     .map((l) => l.split(HELP).join("    ")); // sed s/## &en/    /g
 
-  const headText = head20.join("\n");
-
   return {
     hint: hintLine === undefined ? null : afterMarker(hintLine),
     syntax: synLine === undefined ? null : afterMarker(synLine),
     dynamic: dynLine === undefined ? null : afterMarker(dynLine),
     help,
-    root_only: headText.includes("root_only"),
-    hs_only: headText.includes("hs_only"),
-    reseller_only: headText.includes("reseller_only"),
-    operators_only: headText.includes("operators_only"),
+    root_only: hasGuardCall("root_only"),
+    hs_only: hasGuardCall("hs_only"),
+    reseller_only: hasGuardCall("reseller_only"),
+    operators_only: hasGuardCall("operators_only"),
   };
 }
 

@@ -5,9 +5,9 @@
 //
 // For each command file we run the exact shell pipelines the bash help path
 // uses (head|grep -m1 '## @en'; grep -m1 '## @@@' file; grep -m1 '## &&&'
-// file; grep '## &en' file | sed; head -20 | grep -q root_only ...) and assert
-// the mjs parser extracts identical values. This proves the parser can replace
-// the grep storm without changing what `sc help` would show.
+// file; grep '## &en' file | sed; whole-file line-anchored guard-call greps)
+// and assert the mjs parser extracts identical values. This proves the parser
+// can replace the grep storm without changing what `sc help` would show.
 //
 // Run: node modules/srvctl/selftest/commandindex.test.mjs   (exit != 0 on fail)
 
@@ -51,10 +51,10 @@ function bashRef(file) {
     printf 'SYN\\t%s\\n' "${'${hintcmd:7}'}"
     printf 'DYN\\t%s\\n' "${'${hintexec:7}'}"
     grep '## &en' "$f" | sed 's/## &en/    /g' | while IFS= read -r l; do printf 'HELP\\t%s\\n' "$l"; done
-    head -n 20 "$f" | grep -q 'root_only' && echo 'ROOT_ONLY' || true
-    head -n 20 "$f" | grep -q 'hs_only' && echo 'HS_ONLY' || true
-    head -n 20 "$f" | grep -q 'reseller_only' && echo 'RESELLER_ONLY' || true
-    head -n 20 "$f" | grep -q 'operators_only' && echo 'OPERATORS_ONLY' || true
+    grep -Eq '^[[:space:]]*root_only[[:space:]]*(#.*)?$' "$f" && echo 'ROOT_ONLY' || true
+    grep -Eq '^[[:space:]]*hs_only[[:space:]]*(#.*)?$' "$f" && echo 'HS_ONLY' || true
+    grep -Eq '^[[:space:]]*reseller_only[[:space:]]*(#.*)?$' "$f" && echo 'RESELLER_ONLY' || true
+    grep -Eq '^[[:space:]]*operators_only[[:space:]]*(#.*)?$' "$f" && echo 'OPERATORS_ONLY' || true
   `;
   const out = execFileSync("bash", ["-c", sh], { encoding: "utf8" });
   const ref = { hint: null, syntax: null, dynamic: null, help: [], root_only: false, hs_only: false, reseller_only: false, operators_only: false };
@@ -92,6 +92,11 @@ for (const file of files) {
   eq(`syntax non-empty-if-present ${rel}`, parsed.syntax === null || parsed.syntax.length > 0, true);
   eq(`dynamic non-empty-if-present ${rel}`, parsed.dynamic === null || parsed.dynamic.length > 0, true);
 }
+
+const addVe = parseCommandFile(fs.readFileSync(path.join(REPO, "modules", "containers", "commands", "add-ve.sh"), "utf8"));
+eq("late operators_only guard call counts", addVe.operators_only, true);
+const regenerate = parseCommandFile(fs.readFileSync(path.join(REPO, "modules", "containers", "commands", "regenerate.sh"), "utf8"));
+eq("commented root_only marker does not count", regenerate.root_only, false);
 
 console.log(`commandindex.test: ${passed} checks passed over ${files.length} command files, ${failures.length} failed`);
 for (const f of failures) {

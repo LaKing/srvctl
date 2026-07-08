@@ -159,7 +159,8 @@ Execution rules (from 000-PROMPT + the Stage-2 preconditions in 000-INDEX):
     + buildIndex() CLI. selftest/commandindex.test.mjs is a DIFFERENTIAL vs
     the actual commonlib.sh grep pipelines over all 38 real command files:
     190/190 identical, incl. the load-bearing whole-file `## &&&` (add-ve at
-    line 13) and head-10/head-20 window semantics.
+    line 13) and then-current head-10/head-20 window semantics. WP-E.2.b later
+    changed permission-marker semantics to whole-file line-anchored guard calls.
   - **WP-D — SANDBOX HARNESS ✅ DONE** (modules/srvctl/selftest/sandbox/):
     runs the REAL srvctl.sh help path inside an unprivileged user+mount+uts
     namespace with every live srvctl path (/etc/srvctl, /var/local/srvctl,
@@ -337,17 +338,17 @@ Execution rules (from 000-PROMPT + the Stage-2 preconditions in 000-INDEX):
     operator); add-vnc-user gained owner_only (closes its no-authz gap,
     check-before the datastore write). selftest/classification.test.sh =
     line-anchored manifest (14/14) proving the tags are APPLIED; guards proven
-    behaviourally by authgate Parts D/E (88/88). Strict shellcheck clean.
-    - **KNOWN VISIBILITY GAP (next E.2.b-2 sub-task)**: markers are detected in
-      HEAD-20 only, as a loose SUBSTRING. So (a) a guard call beyond line 20
-      (add-ve's operators_only at L34) is enforced but NOT hidden from users
-      (visible-but-forbidden), and (b) a commented-out marker (regenerate's
-      `##root_only`) is counted (hidden-but-not-enforced). Fix: change the
-      command index parser + the bash fallback to detect LINE-ANCHORED guard
-      CALLS across the WHOLE file, then add the real guards this reveals as
-      missing (regenerate). Only then is visibility == runnability true for all.
-    - **Remaining tags** (after the parser fix): root_only adds (customize,
-      fix-owner, fix-sshd, fix-saslauthd, exec-all, regenerate real guard),
+    behaviourally by authgate Parts D/E. Strict shellcheck clean.
+    - **AUDIT FIX — visibility marker parser ✅**: the command index parser and
+      bash fallback now detect LINE-ANCHORED guard CALLS across the WHOLE file,
+      not HEAD-20 loose substrings. This closes both exposed mismatches:
+      add-ve/add-codepad/add-network-ve operators_only calls beyond line 20 are
+      now hidden from ordinary users, and regenerate's commented `##root_only`
+      no longer hides a runnable command. commandindex has explicit regression
+      checks for late operators_only + commented root_only; authgate Part E
+      proves both grep and indexed visibility branches.
+    - **Remaining tags**: root_only adds (customize, fix-owner, fix-sshd,
+      fix-saslauthd, exec-all, regenerate real guard),
       update-ve→owner_only, testsaslauthd root_only→operators_only (widening),
       installer owner_only decision; then extend the manifest to all 38.
 - **WP-F** — G6 reseller removal: drop reseller_only, the a..z pre-created
