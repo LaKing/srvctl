@@ -100,19 +100,18 @@ fi
 
 if [[ $ok == true ]]
 then
-    ## WP-E.2.b: mutating a SYSTEM service via the generic `sc <service> <op>`
-    ## shorthand is an operator/root action. service_action's own gate keys on
-    ## plain uid 0, which ANY user reaches via `sudo srvctl.sh` (NOPASSWD
-    ## sudoers) — so gate the shorthand HERE. Reads (status / no op) and --user
-    ## services (the caller's own) stay open. Owner commands (update-ve,
-    ## adjust-service) call service_action directly, gated by owner_only, so
-    ## they are unaffected. NOTE (user review): this uses operators_only
-    ## (root+operator) and REPLACES the old root/wheel gate — a wheel member who
-    ## is not an operator no longer mutates arbitrary services via the shorthand;
-    ## tighten to root_only if arbitrary host-service control should be root-only.
-    if [[ -n "$op" ]] && [[ "$op" != status ]] && [[ -z "$xswitch" ]]
+    ## Gate GENERIC host-service mutation only. service_action's own gate keys
+    ## on plain uid 0, which ANY user reaches via `sudo srvctl.sh` (NOPASSWD
+    ## sudoers) — so gate the shorthand HERE. Mutating an arbitrary HOST service
+    ## (sshd/postfix/named/...) is host-infrastructure control -> root_only
+    ## (operators stay on explicit reviewed commands). Reads (status / no op)
+    ## and --user services (the caller's own) stay open.
+    ##   EXCEPTION: container units (srvctl-nspawn@...) have ALREADY been
+    ##   owner-authorized by containers/hooks/adjust-service.sh (which rewrote
+    ##   $service), so do NOT re-deny the owner here.
+    if [[ -n "$op" ]] && [[ "$op" != status ]] && [[ -z "$xswitch" ]] && [[ "$service" != srvctl-nspawn@* ]]
     then
-        operators_only
+        root_only
     fi
     service_action "$service" "$op" "$xswitch"
     ## FIXME(v4): exit_0 runs unconditionally, so service_action failures

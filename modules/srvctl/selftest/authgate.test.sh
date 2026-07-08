@@ -319,19 +319,42 @@ ok "adjust-service: SUDO-BYPASS (uid0 non-owner) DENIED" "$RC" "44"
 ok "adjust-service: SUDO-BYPASS did NOT rewrite"         "$(has_mark "$MARKS" rewrite)" "no"
 command rm -rf "$svc_tmp"
 
-echo "== (G) generic 'sc <service> <op>' shorthand is operator/root-gated =="
+echo "== (G) generic 'sc <service> <op>' shorthand: host services root-gated =="
 # command.sh sets ok=true when systemctl is-active succeeds (stubbed 0), then
-# our gate runs operators_only for a mutating SYSTEM-service op before
-# service_action. A sudo'd user (uid 0, SC_USER != root, role=user) must be
-# denied — this is the bypass the service shorthand still had.
+# gates a mutating GENERIC host-service op with root_only before service_action.
+# Policy: arbitrary host-service mutation (sshd/postfix/...) is root-only;
+# operators use explicit reviewed commands. Reads (status) stay open.
 SVC_STOP="CMD=sshd; ARG=stop; source $REPO/modules/srvctl/command.sh"
 SVC_STATUS="CMD=sshd; ARG=status; source $REPO/modules/srvctl/command.sh"
-probe "$SVC_STOP" mallory true                 # uid 0 via sudo, role=user
-ok "service stop: sudo-bypass (uid0 user) DENIED"     "$RC" "44"
-ok "service stop: sudo-bypass reached NO service_action" "$(has_mark "$MARKS" service_action)" "no"
-ROLE_FIELD=operator probe "$SVC_STOP" bob true ; ok "service stop: operator ALLOWED"     "$(has_mark "$MARKS" service_action)" "yes"
-probe "$SVC_STOP" root true                    ; ok "service stop: genuine root ALLOWED" "$(has_mark "$MARKS" service_action)" "yes"
-probe "$SVC_STATUS" mallory false              ; ok "service status: open to any user"   "$(has_mark "$MARKS" service_action)" "yes"
+probe "$SVC_STOP" mallory true                 # uid 0 via sudo, not root
+ok "host-svc stop: sudo-bypass (uid0 non-root) DENIED"   "$RC" "44"
+ok "host-svc stop: sudo-bypass reached NO service_action" "$(has_mark "$MARKS" service_action)" "no"
+ROLE_FIELD=operator probe "$SVC_STOP" bob true ; ok "host-svc stop: operator DENIED (root-only)" "$RC" "44"
+probe "$SVC_STOP" root true                    ; ok "host-svc stop: genuine root ALLOWED" "$(has_mark "$MARKS" service_action)" "yes"
+probe "$SVC_STATUS" mallory false              ; ok "host-svc status: open to any user"   "$(has_mark "$MARKS" service_action)" "yes"
+
+echo "== (G2) container shorthand 'sc VE <op>' stays OWNER-scoped (not re-denied) =="
+# Full flow through the REAL container hook: it owner_only-authorizes and
+# rewrites service=srvctl-nspawn@VE; command.sh must NOT re-deny the owner with
+# the generic root_only gate (that regression broke `sc VE restart`).
+ctr_tmp="$(mktemp -d /tmp/srvctl-authgate.XXXXXX)"; mkdir -p "$ctr_tmp/rootfs"
+ctr_rel="../tmp/${ctr_tmp##*/}"   # /srv/$ctr_rel/rootfs resolves into $ctr_tmp
+CTR_RESTART="run_hook() { [[ \$1 == adjust-service ]] && source $REPO/modules/containers/hooks/adjust-service.sh; }; CMD='$ctr_rel'; ARG=restart; source $REPO/modules/srvctl/command.sh"
+probe "$CTR_RESTART" alice true                ; ok "sc VE restart: OWNER allowed (gate skips container unit)" "$(has_mark "$MARKS" service_action)" "yes"
+probe "$CTR_RESTART" mallory true              # uid 0 via sudo, not the owner
+ok "sc VE restart: sudo-bypass non-owner DENIED"        "$RC" "44"
+ok "sc VE restart: non-owner reached NO service_action" "$(has_mark "$MARKS" service_action)" "no"
+command rm -rf "$ctr_tmp"
+
+echo "== (G3) openvpn hook calls service_action directly -> needs its own root gate =="
+# The openvpn hook runs BEFORE command.sh's gate (it acts then returns 0). Its
+# own guard runs before the unit-layout detection, so it is host-independent.
+OVPN_STOP="service=openvpn; op=stop; source $REPO/modules/openvpn/hooks/adjust-service.sh"
+OVPN_STATUS="service=openvpn; op=status; source $REPO/modules/openvpn/hooks/adjust-service.sh"
+probe "$OVPN_STOP" mallory true                ; ok "openvpn stop: sudo-bypass (uid0 non-root) DENIED" "$RC" "44"
+probe "$OVPN_STOP" mallory false               ; ok "openvpn stop: normal user DENIED (root-only)"     "$RC" "44"
+probe "$OVPN_STOP" root true                   ; ok "openvpn stop: genuine root NOT denied"  "$(has_mark "$MARKS" err)" "no"
+probe "$OVPN_STATUS" mallory false             ; ok "openvpn status: open to any user"       "$(has_mark "$MARKS" err)" "no"
 
 command rm -f "$STUBS"
 echo ""

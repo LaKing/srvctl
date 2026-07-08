@@ -22,6 +22,17 @@
 # shellcheck disable=SC2154
 ## service and op are defined by the caller (modules/srvctl/command.sh).
 
+## WP-E.2.b: this hook calls service_action DIRECTLY (then returns 0), so it
+## runs BEFORE the command.sh shorthand gate — and service_action itself still
+## trusts plain uid 0. Without its own guard, `sudo srvctl.sh openvpn stop`
+## would mutate the host VPN tunnels for a non-root caller. Mutating the host
+## OpenVPN units is host-infrastructure control -> root only; reads (status /
+## empty op = journalctl) stay open.
+if [[ $service == openvpn ]] && [[ -n "$op" ]] && [[ "$op" != status ]]
+then
+    root_only
+fi
+
 
 ## legacy layout: single openvpn@.service template (pre Fedora 28)
 if [[ -f "/usr/lib/systemd/system/openvpn@.service" ]]

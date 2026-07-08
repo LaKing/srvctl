@@ -400,13 +400,28 @@ Execution rules (from 000-PROMPT + the Stage-2 preconditions in 000-INDEX):
       · SERVICE SHORTHAND bypass: `sc <service> <op>` (default command.sh) →
         service_action gated on plain uid0, so `sudo srvctl.sh sshd stop`
         reached systemctl. Gated the SHORTHAND path (command.sh, before
-        service_action) with operators_only for a mutating SYSTEM-service op;
-        reads (status) + --user services stay open; owner callers (update-ve/
-        adjust-service) call service_action directly (owner_only) and are
-        unaffected — deliberately NOT changing service_action itself. Replaces
-        the old bypassable root/wheel gate (FLAGGED for review: operators_only
-        vs root_only for arbitrary host-service control). Part G proves it
-        (sudo-bypass DENIED, operator/root allowed, status open). 131/131.
+        service_action) for a mutating GENERIC host-service op; reads (status) +
+        --user services stay open; owner callers call service_action directly
+        (owner_only) and are unaffected — deliberately NOT changing
+        service_action itself.
+    - **SERVICE-SHORTHAND hook interactions (audit round 2, 2 high) ✅**:
+      · POLICY (user call): arbitrary host-service mutation is root_only (host
+        infra control); operators stay on explicit reviewed commands. Changed
+        the command.sh gate operators_only -> root_only.
+      · CONTAINER re-deny REGRESSION: `sc VE restart` runs the container
+        adjust-service hook, which owner_only-authorizes and rewrites
+        service=srvctl-nspawn@VE; the new generic gate then re-denied the owner
+        (not an operator/root). Fixed: the gate SKIPS container units
+        (`$service == srvctl-nspawn@*`) — already owner-authorized. Part G2
+        (full flow via the REAL hook) proves owner allowed / non-owner denied;
+        verified it FAILS without the skip.
+      · OPENVPN hook bypass: openvpn/hooks/adjust-service.sh calls
+        service_action DIRECTLY then `return 0`, so it runs BEFORE the command.sh
+        gate and service_action still trusts uid0 → `sudo srvctl.sh openvpn
+        stop` mutated tunnels. Added its OWN root_only guard (before the
+        unit-layout detection, so host-independent) for a mutating op; reads
+        stay open. Part G3 proves it; verified it FAILS with the guard
+        neutralized. 138/138.
     - **WP-E.2.b remaining**: `sc help` role-filtering (blocked on the init
       datastore-selection bootstrap, recorded above); the VE-side usersonve
       role model (its own decision); reseller→operator re-tag lands in WP-F.
