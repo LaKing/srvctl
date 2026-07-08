@@ -32,7 +32,8 @@ then
 fi
 
 argument container-name
-authorize
+## WP-E.2.b: container provisioning -> operator/root (was authorize stub).
+operators_only
 sudomize
 
 add_ve codepad "$ARG"

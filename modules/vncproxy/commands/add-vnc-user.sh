@@ -19,6 +19,10 @@ hs_only
 C="$ARG"
 username="${OPA,,}"
 
+## WP-E.2.b: register a vnc user is owner-scoped (root or the container owner);
+## check BEFORE the datastore write. Closes the old "no privilege check" gap.
+owner_only container "$C"
+
 ## FIXME(v4): regex is unanchored, so any string containing a single
 ## lowercase letter passes; the raw value is stored in the datastore and
 ## ends up in /var/vncproxy/records, which start.sh sources as root bash
@@ -29,9 +33,6 @@ then
     exit 22
 fi
 
-## FIXME(v4): no privilege check (authorize is never called); a non-root
-## run half-executes — the datastore write may succeed while the systemctl
-## restart fails, leaving records and the proxy db out of sync.
 add container "$C" vncuser "$username"
 
 mkdir -p /var/vncproxy

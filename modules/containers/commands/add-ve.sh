@@ -29,7 +29,9 @@
 ##
 
 argument container-name
-authorize
+## WP-E.2.b: provisioning a container is an operator/root action (was the
+## non-denying authorize stub). The created container is then owned by a user.
+operators_only
 sudomize
 
 C="$ARG"

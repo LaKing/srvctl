@@ -327,8 +327,29 @@ Execution rules (from 000-PROMPT + the Stage-2 preconditions in 000-INDEX):
     Filtering sc help needs either a non-mutating datastore role-read bootstrap
     or an init split that selects the datastore without running migration, then
     help breakout before mutating init work. FLAGGED before touching init.sh.
-    NEXT: E.2.b-2 propose the explicit classification of the ~40 real commands
-    for user review, then tag + prove.
+  - **WP-E.2.b-2 — classification (user-approved) IN PROGRESS**. Agreed
+    classes/decisions: installers→owner_only (deferred, need container-arg
+    check), VE-side usersonve→keep current (own role space), update-ve→
+    owner_only, add-vnc-user→owner_only, add-publickey→everyone, reseller_only
+    commands STAY reseller_only (re-tag would lock out still-active a-z
+    resellers → WP-F). Slice 1 DONE (enforcement): add-ve/add-network-ve/
+    add-codepad authorize-stub→operators_only (tightens provisioning to root+
+    operator); add-vnc-user gained owner_only (closes its no-authz gap,
+    check-before the datastore write). selftest/classification.test.sh =
+    line-anchored manifest (14/14) proving the tags are APPLIED; guards proven
+    behaviourally by authgate Parts D/E (88/88). Strict shellcheck clean.
+    - **KNOWN VISIBILITY GAP (next E.2.b-2 sub-task)**: markers are detected in
+      HEAD-20 only, as a loose SUBSTRING. So (a) a guard call beyond line 20
+      (add-ve's operators_only at L34) is enforced but NOT hidden from users
+      (visible-but-forbidden), and (b) a commented-out marker (regenerate's
+      `##root_only`) is counted (hidden-but-not-enforced). Fix: change the
+      command index parser + the bash fallback to detect LINE-ANCHORED guard
+      CALLS across the WHOLE file, then add the real guards this reveals as
+      missing (regenerate). Only then is visibility == runnability true for all.
+    - **Remaining tags** (after the parser fix): root_only adds (customize,
+      fix-owner, fix-sshd, fix-saslauthd, exec-all, regenerate real guard),
+      update-ve→owner_only, testsaslauthd root_only→operators_only (widening),
+      installer owner_only decision; then extend the manifest to all 38.
 - **WP-F** — G6 reseller removal: drop reseller_only, the a..z pre-created
   accounts, reseller_id derivation; per-server user inventory first.
 
