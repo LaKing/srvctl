@@ -104,8 +104,27 @@ live datastore (`/var/srvctl3/datastore` or per-entity `users/`, `containers/`):
 5. Any containers whose only management path today is the reseller branch (owner
    differs from the human who operates it).
 
-Deliver as a small read-only script (`get`-based) — I can write it next; it must
-run per-host because datastores are per-host.
+**Script: `update-campaign/wpf-phase0-inventory.mjs`** (READ-ONLY, no deps).
+Run per-host (datastores are per-host):
+
+```
+node update-campaign/wpf-phase0-inventory.mjs [DATASTORE_DIR]
+```
+
+Auto-detects `/var/srvctl3/datastore` etc.; reads v3 monolithic
+`users.json`/`containers.json` or v4 per-entity. Reports: [1] real resellers,
+[2] a–x seed ACTIVE/vestigial, [3] users tied to a non-self reseller, [4]
+`reseller_*_ecdsa.pub` symlinks, and a verdict (vestigial ⇒ low-risk removal;
+in-use ⇒ migrate tied users + active resellers first). Verified against the
+golden fixture. Collect its output from every production host before Phase 2.
+
+### Decisions made (2026-07-08)
+1. **Drop reseller super-ownership entirely** — confirmed. No role inherits it.
+2. **Delete `add-reseller` outright** — operators are granted by root via
+   `cfg user <u> role operator` (no new command); the a–x single-char
+   convention is retired.
+3. a–x accounts: delete vestigial, migrate any ACTIVE reseller to
+   `role=operator` — pending each host's Phase 0 output.
 
 ---
 
