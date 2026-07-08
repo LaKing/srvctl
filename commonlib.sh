@@ -125,8 +125,11 @@ function run_command {
 
     local tvrc module
 
-    ## call a srvctl function
-    if [[ $UID == 0 ]] && [[ $OPAS ]] && [[ $CMD == 'exec-function' ]]
+    ## call a srvctl function. GENUINE root only: SC_USER=root (SUDO_USER-
+    ## preserved) AND uid 0. Plain uid 0 is reachable by any user via
+    ## `sudo srvctl.sh` (NOPASSWD sudoers), so it must not gate these privileged
+    ## paths — see authlib.sh sc_is_root.
+    if [[ $SC_USER == root ]] && [[ $UID == 0 ]] && [[ $OPAS ]] && [[ $CMD == 'exec-function' ]]
     then
         $OPAS
         exif "failed to exec '$OPAS'"
@@ -140,7 +143,7 @@ function run_command {
     ## this dispatch path, so they are unaffected. Previously '&&' bound
     ## tighter than '||', so only 'new' was root-gated and every other verb
     ## dispatched for ANY user. Full role-based gating is WP-E.2 (012 plan).
-    if [[ $UID == 0 ]] && [[ $OPAS ]] && { [[ $CMD == 'new' ]] || [[ $CMD == 'put' ]] || [[ $CMD == 'cfg' ]] || [[ $CMD == 'del' ]] || [[ $CMD == 'add' ]]; }
+    if [[ $SC_USER == root ]] && [[ $UID == 0 ]] && [[ $OPAS ]] && { [[ $CMD == 'new' ]] || [[ $CMD == 'put' ]] || [[ $CMD == 'cfg' ]] || [[ $CMD == 'del' ]] || [[ $CMD == 'add' ]]; }
     then
         # shellcheck disable=SC2086
         $CMD $OPAS
@@ -242,13 +245,15 @@ function hint_on_file {
 
     ## Resolve the caller's role. Prefer sc_role (authlib.sh — gives the
     ## operator distinction from the datastore); if it is not loaded
-    ## (early/completion paths), fall back to the root/non-root split from
-    ## SC_UID0. Never trust an inherited SC_ROLE=operator from the environment.
+    ## (early/completion paths), fall back to a root/non-root split. Never
+    ## trust an inherited SC_ROLE from the environment. "root" here is GENUINE
+    ## root (SC_USER=root AND uid 0), NOT plain uid 0 — a `sudo srvctl.sh`
+    ## caller is uid 0 but keeps their own SC_USER (see authlib sc_is_root).
     if command -v sc_role > /dev/null 2>&1
     then
         sc_role > /dev/null 2>&1
     else
-        if $SC_UID0; then SC_ROLE=root; else SC_ROLE=user; fi
+        if [[ $SC_USER == root ]] && $SC_UID0; then SC_ROLE=root; else SC_ROLE=user; fi
     fi
 
     local hintstr command hintcmd hintexec data

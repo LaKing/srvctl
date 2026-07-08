@@ -92,13 +92,18 @@ for pair in "${OWNER_CMDS[@]}"; do
   ok "$name: owner ESCALATES (sudomize)" "$([[ ",$MARKS," == *",sudomize,"* ]] && echo yes || echo no)" "yes"
 done
 
-# WP-E.2 owner_only: root may act on everything for everyone, even a container
-# it does not own. (backup-ve excluded: its action's `out > /srv/$C/...`
-# redirect fails before the stub records, so has_action is unreliable there.)
+# GENUINE root (SC_USER=root + uid 0) may act on everything, even a container
+# it does not own. But the SUDO BYPASS (WP-E.2.b audit) must be closed: a
+# NON-owner who reaches uid 0 via `sudo srvctl.sh` keeps SC_USER=<them>, so
+# they are NOT root and MUST be denied. (backup-ve excluded: its action's
+# `out > /srv/$C/...` redirect fails before the stub records has_action.)
 for pair in "destroy-ve:$CMDS_destroyve" "remove-ve:$CMDS_removeve" "http-redirect:$CMDS_httpredir" "override-in-address:$CMDS_override" "https-redirect:$CMDS_httpsredir" "recreate-ve:$CMDS_recreate" "map-port:$CMDS_mapport"; do
   name="${pair%%:*}"; snippet="${pair#*:}"
-  probe "$snippet" mallory true        # root, but NOT the owner
-  ok "$name: root (non-owner) ALLOWED" "$(has_action "$MARKS")" "yes"
+  probe "$snippet" root true           # genuine root, not the owner
+  ok "$name: genuine-root (non-owner) ALLOWED" "$(has_action "$MARKS")" "yes"
+  probe "$snippet" mallory true        # uid 0 via sudo, but SC_USER != root, not owner
+  ok "$name: SUDO-BYPASS (uid0 non-root) DENIED" "$RC" "44"
+  ok "$name: SUDO-BYPASS ran NO action"          "$(has_action "$MARKS")" "no"
 done
 
 # owner_only lookup-error propagation: a DATASTORE ERROR from `get` (exit != 0
@@ -203,6 +208,11 @@ probe "$FX_owner" root true                              ; ok "root: owner_only(
 probe "$FX_owner" alice false                            ; ok "owner: owner_only ESCALATES"  "$([[ ",$MARKS," == *",sudomize,"* ]] && echo yes || echo no)" "yes"
 ROLE_FIELD=operator probe "$FX_owner" op false           ; ok "operator(non-owner): owner_only DENY" "$RC" "44"
 probe "$FX_owner" mallory false                          ; ok "user(non-owner): owner_only DENY"     "$RC" "44"
+# SUDO BYPASS across classes: a non-root user at uid 0 (SC_USER != root, no
+# operator role) is still just a user — uid 0 alone must not grant anything.
+probe "$FX_root" mallory true                            ; ok "sudo-bypass: root_only DENY"      "$RC" "44"
+probe "$FX_ops" mallory true                             ; ok "sudo-bypass: operators_only DENY" "$RC" "44"
+probe "$FX_owner" mallory true                           ; ok "sudo-bypass: owner_only DENY"     "$RC" "44"
 
 echo "== (E) role x class VISIBILITY (hint_on_file listing filter, WP-E.2.b) =="
 shown() { case "$1" in 0) echo shown;; 133|134) echo hidden;; *) echo "rc:$1";; esac; }   # hint_on_file: 0=render, 133/134=hidden
@@ -298,8 +308,11 @@ ok "adjust-service: non-owner ran NO action"    "$(has_action "$MARKS")" "no"
 ok "adjust-service: non-owner did NOT rewrite"  "$(has_mark "$MARKS" rewrite)" "no"
 probe "$CMDS_adjust" alice false
 ok "adjust-service: owner ESCALATES"            "$(has_mark "$MARKS" sudomize)" "yes"
-probe "$CMDS_adjust" mallory true
-ok "adjust-service: root rewrites container unit" "$(has_mark "$MARKS" rewrite)" "yes"
+probe "$CMDS_adjust" root true
+ok "adjust-service: genuine root rewrites container unit" "$(has_mark "$MARKS" rewrite)" "yes"
+probe "$CMDS_adjust" mallory true      # uid 0 via sudo, SC_USER != root, not owner
+ok "adjust-service: SUDO-BYPASS (uid0 non-owner) DENIED" "$RC" "44"
+ok "adjust-service: SUDO-BYPASS did NOT rewrite"         "$(has_mark "$MARKS" rewrite)" "no"
 command rm -rf "$svc_tmp"
 
 command rm -f "$STUBS"

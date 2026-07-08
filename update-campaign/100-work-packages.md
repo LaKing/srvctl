@@ -374,13 +374,21 @@ Execution rules (from 000-PROMPT + the Stage-2 preconditions in 000-INDEX):
       `owner_only container "$service"` before rewriting the container unit;
       `sc all-containers OP` now uses `root_only` instead of unconditional
       sudomize. authgate Part F covers the default path.
-    - **RESIDUAL DESIGN RISK — explicit sudo boundary**: current host sudoers
-      still permits `ALL ALL=(ALL) NOPASSWD: $SC_INSTALL_DIR/srvctl.sh *`.
-      A user manually invoking `sudo srvctl.sh ...` becomes effective uid 0,
-      and today's guards intentionally resolve uid0 as root. Do NOT silently
-      "fix" this in a command-local patch; it needs an explicit sudo/role
-      bootstrap decision (preserve original caller identity across sudo, or
-      constrain sudoers) before calling WP-E complete against hostile users.
+    - **SUDO BYPASS — RESOLVED ✅ (the keystone fix)**: the sudoers entry
+      `ALL ALL=(ALL) NOPASSWD: srvctl.sh *` lets any user reach uid 0 via
+      `sudo srvctl.sh`, so gating on plain uid 0 made EVERY guard bypassable
+      (`sudo srvctl.sh destroy-ve not-mine`). Fixed by keying "root" off the
+      REAL caller, not uid 0: authlib.sh sc_is_root = `[[ $SC_USER == root ]]
+      && $SC_UID0` (SC_USER comes from SUDO_USER, unspoofable across sudo;
+      +uid0 rejects a `USER=root` spoof). root_only/operators_only/owner_only/
+      sc_role and the commonlib raw-verb + exec-function dispatch + the listing
+      role-fallback now all use it; sudomize KEEPS SC_UID0 (correctly "am I
+      escalated"). The escalated owner flow still works (sudo re-exec keeps
+      SC_USER=owner, so owner_only passes on ownership, not on uid0). authgate
+      SUDO-BYPASS cells (uid0 + SC_USER!=root -> DENIED) across all owner
+      commands, the class fixtures, and adjust-service; verified they FAIL
+      against the old uid0-trusting code. 118/118. This closes the WP-E
+      blocker against hostile users.
     - **WP-E.2.b remaining**: `sc help` role-filtering (blocked on the init
       datastore-selection bootstrap, recorded above); the VE-side usersonve
       role model (its own decision); reseller→operator re-tag lands in WP-F.

@@ -9,8 +9,19 @@
 ##   listed because ownership is resource-scoped.
 ##
 
+## sc_is_root — the caller is GENUINELY root: identity root (SC_USER, taken
+## from SUDO_USER so `sudo srvctl.sh` cannot fake it) AND uid 0. This is the
+## ONLY thing the role guards may treat as root. Plain uid 0 is NOT enough:
+## the NOPASSWD sudoers entry (srvctl.sh *) lets ANY user reach uid 0 with
+## SC_USER still their own name — requiring SC_USER=root closes that bypass,
+## and requiring uid 0 too rejects a `USER=root` spoof with no real privilege.
+## sudomize still keys off SC_UID0 (that genuinely means "am I escalated yet").
+function sc_is_root {
+    [[ $SC_USER == root ]] && $SC_UID0
+}
+
 function root_only {
-    if $SC_UID0
+    if sc_is_root
     then
         return 0
     else
@@ -25,7 +36,7 @@ SC_ROLE=
 _SC_ROLE_RESOLVED=false
 
 ## sc_role — resolve the caller's role, memoized in SC_ROLE. Echoes it too.
-##   root      : uid 0 (SC_UID0).
+##   root      : GENUINE root (sc_is_root: SC_USER=root AND uid 0).
 ##   operator  : the LOCAL datastore user record has role=operator (WP-E.2).
 ##   user      : everyone else — the safe default. An absent role (get 100) or
 ##               a datastore error is treated as an ordinary user, never
@@ -35,7 +46,7 @@ _SC_ROLE_RESOLVED=false
 function sc_role {
     if ! $_SC_ROLE_RESOLVED
     then
-        if $SC_UID0
+        if sc_is_root
         then
             SC_ROLE=root
         else
@@ -64,7 +75,7 @@ function operators_only {
 }
 
 function reseller_only {
-    if [[ "${#SC_USER}" == 1 ]] || $SC_UID0
+    if [[ "${#SC_USER}" == 1 ]] || sc_is_root
     then
         return 0
     else
@@ -77,17 +88,18 @@ function reseller_only {
 ##
 ##   MUST be called BEFORE any state change (check-before-act): it either
 ##   returns (authorized) or exits. Policy:
-##     - root (SC_UID0) may act on everything for everyone -> return 0.
+##     - GENUINE root (sc_is_root) may act on everything for everyone -> 0.
 ##     - the resource owner, or (transitionally, until WP-F) its reseller,
-##       escalates to root via sudomize -> the command re-runs as root and
-##       passes the SC_UID0 check above.
-##     - anyone else is denied (exit 44).
+##       escalates via sudomize -> the command re-runs at uid 0 but with
+##       SC_USER still the owner, so the owner-check below passes again.
+##     - anyone else is denied (exit 44) — including a non-owner who reached
+##       uid 0 via `sudo srvctl.sh` (SC_USER stays their own name).
 ##
 ##   Replaces the per-command 'authorize + owner-check + [[ $SC_UID0 ]]'
 ##   pattern. Lives here (always-loaded srvctl authlib) so every module,
 ##   host- or VE-side, shares one guard.
 function owner_only { # $1 type  $2 id
-    $SC_UID0 && return 0
+    sc_is_root && return 0
 
     local _owner _reseller _rc
 
