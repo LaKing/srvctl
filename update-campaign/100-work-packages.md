@@ -364,6 +364,23 @@ Execution rules (from 000-PROMPT + the Stage-2 preconditions in 000-INDEX):
       No new shellcheck findings; commandindex 282, authgate 94, harness +
       datastore green. commandindex commented-marker fixture moved from
       regenerate (now really guarded) to a synthetic string.
+    - **AUDIT FIX — default command surface guarded**: the 38-command manifest
+      covers named `modules/*/commands/*.sh` files, but bare `sc VE restart`
+      and `sc restart VE` enter through the module default `command.sh` path
+      (`srvctl/command.sh` → `containers/hooks/adjust-service.sh`). That hook
+      still used the old sudomize-before-ownership pattern: a non-root
+      non-owner could sudo-reexec first, then the root fast-path made the
+      later ownership check tautological. Fixed by checking
+      `owner_only container "$service"` before rewriting the container unit;
+      `sc all-containers OP` now uses `root_only` instead of unconditional
+      sudomize. authgate Part F covers the default path.
+    - **RESIDUAL DESIGN RISK — explicit sudo boundary**: current host sudoers
+      still permits `ALL ALL=(ALL) NOPASSWD: $SC_INSTALL_DIR/srvctl.sh *`.
+      A user manually invoking `sudo srvctl.sh ...` becomes effective uid 0,
+      and today's guards intentionally resolve uid0 as root. Do NOT silently
+      "fix" this in a command-local patch; it needs an explicit sudo/role
+      bootstrap decision (preserve original caller identity across sudo, or
+      constrain sudoers) before calling WP-E complete against hostile users.
     - **WP-E.2.b remaining**: `sc help` role-filtering (blocked on the init
       datastore-selection bootstrap, recorded above); the VE-side usersonve
       role model (its own decision); reseller→operator re-tag lands in WP-F.

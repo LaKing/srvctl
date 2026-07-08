@@ -16,28 +16,17 @@
 ## special services
 # shellcheck disable=SC2154
 
-## TODO check if user is reseller or user of service
-
 echo "============= SERVICE: $service OP: $op SC_USER $SC_USER SC_UID0: $SC_UID0 ======================"
 
 if [[ -d /srv/$service/rootfs ]]
 then
-    if $SC_UID0
-    then
-        ## FIXME(v4): tautological ownership test — the trailing
-        ## '|| $SC_UID0' is always true inside this 'if $SC_UID0' branch,
-        ## so the AUTH-ERROR / exit 142 path is dead and any user able to
-        ## sudomize can start/stop/restart any other user's container.
-        if [[ $SC_USER == $(get container "$service" user) ]] || [[ $SC_USER == $(get container "$service" reseller) ]] || $SC_UID0
-        then
-            msg "AUTH-OK $SC_USER has acceess to $service"
-        else
-            err "AUTH-ERROR $SC_USER has no access to $service"
-            exit 142
-        fi
-    else
-        sudomize
-    fi
+    ## WP-E.2.b audit: default container service shorthand (`sc VE restart`,
+    ## `sc restart VE`, etc.) is owner-scoped too. The old path sudomized before
+    ## checking ownership, then root always passed; non-owners could operate
+    ## other users' containers.
+    owner_only container "$service"
+    msg "AUTH-OK $SC_USER has access to $service"
+
     ## this is the service name actually for a container
     service="srvctl-nspawn@$service"
 
@@ -54,7 +43,7 @@ fi
 ## all-containers
 if [[ $service == all-containers ]] && [[ -n "$op" ]] && [[ -f "/etc/systemd/system/srvctl-nspawn@.service" ]]
 then
-    sudomize
+    root_only
 
     all_containers "$op"
     exit_0

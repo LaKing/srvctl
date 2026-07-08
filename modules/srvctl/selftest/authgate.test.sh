@@ -22,6 +22,7 @@ REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd -P)"
 pass=0; fail=0
 ok() { if [[ "$2" == "$3" ]]; then pass=$((pass + 1)); else fail=$((fail + 1)); echo "  FAIL $1: got '$2' want '$3'"; fi; }
 has_action() { local m=",$1,"; local a; for a in put out add del new cfg rm systemctl machinectl chroot rsync run run_hook regen; do [[ $m == *",$a,"* ]] && { echo yes; return; }; done; echo no; }
+has_mark() { [[ ",$1," == *",$2,"* ]] && echo yes || echo no; }
 
 if [[ $UID == 0 ]]; then
   echo "SKIP authgate.test: must run as non-root (UID != 0) to exercise SC_UID0=false" >&2
@@ -284,6 +285,22 @@ vis_matrix grep
 vis_matrix indexed
 vis_no_authlib grep                        ; ok "grep fallback ignores inherited SC_ROLE spoof"    "$(shown "$VISRC")" "hidden"
 vis_no_authlib indexed                     ; ok "indexed fallback ignores inherited SC_ROLE spoof" "$(shown "$VISRC")" "hidden"
+
+echo "== (F) default container service hook is owner-gated =="
+svc_tmp="$(mktemp -d /tmp/srvctl-authgate.XXXXXX)"
+mkdir -p "$svc_tmp/rootfs"
+svc_rel="../tmp/${svc_tmp##*/}"
+CMDS_adjust="service='$svc_rel'; op=start; source $REPO/modules/containers/hooks/adjust-service.sh; [[ \$service == srvctl-nspawn@* ]] && mark rewrite"
+
+probe "$CMDS_adjust" mallory false
+ok "adjust-service: non-owner DENIED (exit 44)" "$RC" "44"
+ok "adjust-service: non-owner ran NO action"    "$(has_action "$MARKS")" "no"
+ok "adjust-service: non-owner did NOT rewrite"  "$(has_mark "$MARKS" rewrite)" "no"
+probe "$CMDS_adjust" alice false
+ok "adjust-service: owner ESCALATES"            "$(has_mark "$MARKS" sudomize)" "yes"
+probe "$CMDS_adjust" mallory true
+ok "adjust-service: root rewrites container unit" "$(has_mark "$MARKS" rewrite)" "yes"
+command rm -rf "$svc_tmp"
 
 command rm -f "$STUBS"
 echo ""
