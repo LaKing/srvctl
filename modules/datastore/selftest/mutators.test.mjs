@@ -75,7 +75,9 @@ const freshState = () => ({ users: structuredClone(USERS), containers: structure
 
 function captureV3Golden() {
   return {
-    new_user: v3("new_user", "carol"),
+    // new_user is a WP-F Phase 1 v4 DIVERGENCE (no reseller) — asserted
+    // explicitly below, NOT captured from the v3 oracle (which stamps reseller
+    // and requires the actor to be a reseller).
     new_reseller: v3("new_reseller", "agency"),
     new_container: v3("new_container", "new.example.com", "fedora"),
     "new_container bridge": v3("new_container", "bridged.example.com", "fedora", "br-test"),
@@ -97,7 +99,13 @@ function captureV3Golden() {
     throw new Error("missing mutator golden; run mutators.test.mjs --record while v3 lib.js exists");
   }
   const v3Golden = JSON.parse(fs.readFileSync(GOLDEN_FILE, "utf8"));
-  check("new_user", newUser(freshState(), "carol", { SC_USER: "root", NOW }), v3Golden.new_user);
+  // WP-F Phase 1: new_user DIVERGES from v3 — no reseller_id requirement, no
+  // user.reseller stamp. Asserted explicitly (not against the v3 oracle).
+  check("new_user v4 (root, no reseller)", newUser(freshState(), "carol", { SC_USER: "root", NOW }),
+    { added_by_username: "root", added_on_datestamp: NOW, user_id: 3, uid: 1003 });
+  // a NON-reseller actor (bob has no reseller_id) may now create users — v3 threw.
+  check("new_user v4 (non-reseller actor allowed)", newUser(freshState(), "dave", { SC_USER: "bob", NOW }),
+    { added_by_username: "bob", added_on_datestamp: NOW, user_id: 3, uid: 1003 });
   check("new_reseller", newReseller(freshState(), "agency", { SC_USER: "root", NOW }), v3Golden.new_reseller);
   check("new_container", newContainer(freshState(), "new.example.com", "fedora", undefined, { SC_USER: "root", NOW, SC_HOSTNET: "20" }), v3Golden.new_container);
   check("new_container bridge", newContainer(freshState(), "bridged.example.com", "fedora", "br-test", { SC_USER: "root", NOW, SC_HOSTNET: "20" }), v3Golden["new_container bridge"]);

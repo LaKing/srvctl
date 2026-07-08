@@ -136,11 +136,17 @@ host before Phase 2.
 
 Re-tag and `owner_only`-branch removal happen ONLY after the data model migrates.
 
-- **Phase 1 — decouple creation from reseller (data model, back-compat).**
-  `newUser` stops requiring `reseller_id` and stops stamping `user.reseller`
-  (so an operator/root can create users). Keep READING `reseller`/`reseller_id`
-  for now (compat). `container_reseller` keeps its `"root"` fallback. Additive;
-  golden/mutator tests updated to the new record shape.
+- **Phase 1 — decouple creation from reseller (data model). ✅ DONE.**
+  `mutators.newUser` no longer throws `MISSING RESELLER_ID` and no longer
+  stamps `user.reseller` — any authorized caller can create a user, and new
+  users carry no reseller (`container_reseller` derives `"root"`). Still READS
+  `reseller`/`reseller_id` for existing records (compat). The single v3
+  divergence is isolated: `new_user` moved from the v3 oracle to explicit v4
+  assertions in `mutators.test.mjs` (incl. a non-reseller actor may now create),
+  the `new-user` case in `golden.json` dropped carol's `reseller`, and both are
+  documented in-place. `new reseller` untouched (later phase). Full datastore
+  suite 61/61 + mutators 9/9; command guards (add-user still `reseller_only`)
+  unchanged — the re-tag is Phase 3.
 - **Phase 2 — migrate the accounts (per Phase 0).** Any active reseller kept →
   `role=operator`; vestigial a–x seeds → removed from `default-users.json` +
   a one-shot `migrate.mjs` step that strips `reseller`/`reseller_id` from user

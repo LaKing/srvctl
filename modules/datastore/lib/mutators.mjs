@@ -91,8 +91,11 @@ export function newUser(state, username, { SC_USER, NOW }) {
   const user = {};
   user.added_by_username = SC_USER;
   user.added_on_datestamp = NOW;
-  if (users[SC_USER].reseller_id === undefined) throw new MutatorError("MISSING RESELLER_ID");
-  user.reseller = SC_USER;
+  // WP-F Phase 1: DIVERGES from v3. v3 required the acting user to be a reseller
+  // (threw MISSING RESELLER_ID) and stamped user.reseller = SC_USER. The role
+  // model (operators/root provision users) drops both — any authorized caller
+  // may create a user, and new users carry no reseller (container_reseller then
+  // derives "root"). The reseller/reseller_id fields go away in a later phase.
   user.user_id = getNextUserId(users);
   user.uid = userUid(users, username);
   return user;

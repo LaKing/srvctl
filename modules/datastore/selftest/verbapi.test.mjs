@@ -97,6 +97,11 @@ const CASES = [
   ["out-user", ["out", "user", "alice"]],
   ["cfg-user-container_list", ["cfg", "user", "container_list"]],
   ["get-user-missing", ["get", "user", "nobody", "name"]],
+  // WP-F Phase 1 DIVERGENCE from v3: `new user` no longer stamps user.reseller
+  // (and no longer requires the actor to be a reseller). The golden new-user
+  // case was updated to drop carol's reseller field; everything else stays
+  // byte/semantic-exact against v3. `new reseller` is untouched until a later
+  // WP-F phase removes the reseller layer entirely.
   ["new-user", ["new", "user", "carol"], true],
   ["new-reseller", ["new", "reseller", "agency"], true],
   // ---- host ----

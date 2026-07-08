@@ -1,11 +1,4 @@
 {
-  "new_user": {
-    "added_by_username": "root",
-    "added_on_datestamp": "2026-01-01T00:00:00.000Z",
-    "reseller": "root",
-    "user_id": 3,
-    "uid": 1003
-  },
   "new_reseller": {
     "added_by_username": "root",
     "added_on_datestamp": "2026-01-01T00:00:00.000Z",

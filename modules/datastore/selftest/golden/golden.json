@@ -371,7 +371,7 @@
     "exitCode": 0,
     "files": {
       "hosts.json": "{\n  \"node1\": {\n    \"hostnet\": 20,\n    \"host_ip\": \"10.16.20.1\",\n    \"host-key-rsa\": \"AAAAnode1rsakey\"\n  },\n  \"node2\": {\n    \"hostnet\": 21,\n    \"host_ip\": \"10.16.21.1\"\n  }\n}\n",
-      "users.json": "{\n  \"root\": {\n    \"reseller_id\": 0,\n    \"user_id\": 0,\n    \"uid\": 0,\n    \"name\": \"root\"\n  },\n  \"alice\": {\n    \"reseller_id\": 1,\n    \"user_id\": 1,\n    \"uid\": 1001,\n    \"name\": \"Alice\"\n  },\n  \"bob\": {\n    \"user_id\": 2,\n    \"uid\": 1002,\n    \"reseller\": \"alice\",\n    \"name\": \"Bob\"\n  },\n  \"carol\": {\n    \"added_by_username\": \"root\",\n    \"added_on_datestamp\": \"2026-01-01T00:00:00.000Z\",\n    \"reseller\": \"root\",\n    \"user_id\": 3,\n    \"uid\": 1003\n  }\n}",
+      "users.json": "{\n  \"root\": {\n    \"reseller_id\": 0,\n    \"user_id\": 0,\n    \"uid\": 0,\n    \"name\": \"root\"\n  },\n  \"alice\": {\n    \"reseller_id\": 1,\n    \"user_id\": 1,\n    \"uid\": 1001,\n    \"name\": \"Alice\"\n  },\n  \"bob\": {\n    \"user_id\": 2,\n    \"uid\": 1002,\n    \"reseller\": \"alice\",\n    \"name\": \"Bob\"\n  },\n  \"carol\": {\n    \"added_by_username\": \"root\",\n    \"added_on_datestamp\": \"2026-01-01T00:00:00.000Z\",\n    \"user_id\": 3,\n    \"uid\": 1003\n  }\n}",
       "containers.json": "{\n  \"site.example.com\": {\n    \"user\": \"alice\",\n    \"ip\": \"10.20.1.5\"\n  },\n  \"shop.example.com\": {\n    \"user\": \"bob\",\n    \"ip\": \"10.20.2.6\",\n    \"aliases\": [\"store.example.com\"]\n  },\n  \"mail.site.example.com\": {\n    \"user\": \"alice\",\n    \"ip\": \"10.20.1.9\"\n  }\n}\n"
     }
   },
