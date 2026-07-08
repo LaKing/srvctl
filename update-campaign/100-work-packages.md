@@ -411,17 +411,29 @@ Execution rules (from 000-PROMPT + the Stage-2 preconditions in 000-INDEX):
       · CONTAINER re-deny REGRESSION: `sc VE restart` runs the container
         adjust-service hook, which owner_only-authorizes and rewrites
         service=srvctl-nspawn@VE; the new generic gate then re-denied the owner
-        (not an operator/root). Fixed: the gate SKIPS container units
-        (`$service == srvctl-nspawn@*`) — already owner-authorized. Part G2
-        (full flow via the REAL hook) proves owner allowed / non-owner denied;
-        verified it FAILS without the skip.
+        (not an operator/root). Part G2 (full flow via the REAL hook) proves
+        owner allowed / non-owner denied.
       · OPENVPN hook bypass: openvpn/hooks/adjust-service.sh calls
         service_action DIRECTLY then `return 0`, so it runs BEFORE the command.sh
         gate and service_action still trusts uid0 → `sudo srvctl.sh openvpn
         stop` mutated tunnels. Added its OWN root_only guard (before the
         unit-layout detection, so host-independent) for a mutating op; reads
         stay open. Part G3 proves it; verified it FAILS with the guard
-        neutralized. 138/138.
+        neutralized.
+    - **DIRECT-UNIT bypass (audit round 3, high) ✅**: the container-skip was
+      first keyed on the NAME (`$service == srvctl-nspawn@*`), so typing the
+      unit directly — `sudo srvctl.sh srvctl-nspawn@victim stop` — matched the
+      skip WITHOUT going through the owner-authorizing hook, reaching
+      service_action as uid0. Fixed capability-style: the container hook sets
+      SC_SERVICE_OWNER_AUTHORIZED=true ONLY after owner_only returns; command.sh
+      RESETS it to false before run_hook (never trust an inherited value —
+      auth-state-not-from-environment) and skips the root gate ONLY on that
+      token. Direct unit names never reach the hook, so the token stays false
+      and root_only applies. Part G4 proves it (direct-unit sudo-bypass DENIED,
+      genuine root allowed); verified it FAILS against the name-based skip while
+      G2 (legit owner) still passes. 141/141. Swept all service_action callers
+      (command.sh, both hooks, status=read, update-ve=owner_only) — no other
+      instance of this class.
     - **WP-E.2.b remaining**: `sc help` role-filtering (blocked on the init
       datastore-selection bootstrap, recorded above); the VE-side usersonve
       role model (its own decision); reseller→operator re-tag lands in WP-F.

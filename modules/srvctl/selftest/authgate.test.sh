@@ -346,6 +346,17 @@ ok "sc VE restart: sudo-bypass non-owner DENIED"        "$RC" "44"
 ok "sc VE restart: non-owner reached NO service_action" "$(has_mark "$MARKS" service_action)" "no"
 command rm -rf "$ctr_tmp"
 
+echo "== (G4) typing the container UNIT NAME directly must NOT skip the root gate =="
+# `sc srvctl-nspawn@victim stop` runs the REAL container hook, but there is no
+# /srv/srvctl-nspawn@victim/rootfs, so owner_only never runs and the capability
+# token SC_SERVICE_OWNER_AUTHORIZED stays false — the generic root gate applies.
+# (The earlier name-based skip let this reach service_action as uid 0.)
+UNIT="run_hook() { [[ \$1 == adjust-service ]] && source $REPO/modules/containers/hooks/adjust-service.sh; }; CMD='srvctl-nspawn@victim'; ARG=stop; source $REPO/modules/srvctl/command.sh"
+probe "$UNIT" mallory true
+ok "direct unit stop: sudo-bypass DENIED"           "$RC" "44"
+ok "direct unit stop: reached NO service_action"    "$(has_mark "$MARKS" service_action)" "no"
+probe "$UNIT" root true                             ; ok "direct unit stop: genuine root ALLOWED (host-svc policy)" "$(has_mark "$MARKS" service_action)" "yes"
+
 echo "== (G3) openvpn hook calls service_action directly -> needs its own root gate =="
 # The openvpn hook runs BEFORE command.sh's gate (it acts then returns 0). Its
 # own guard runs before the unit-layout detection, so it is host-independent.

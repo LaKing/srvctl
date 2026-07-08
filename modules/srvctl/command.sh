@@ -50,6 +50,12 @@ then
     service="$ARG"
 fi
 
+## Reset the owner-authorized capability token BEFORE running hooks — never
+## trust an inherited value (a caller must not preset it to skip the root gate).
+## containers/hooks/adjust-service.sh sets it true only after owner_only
+## succeeds; the generic host-service gate below honors ONLY this flag.
+SC_SERVICE_OWNER_AUTHORIZED=false
+
 ## check additional modules
 run_hook adjust-service
 
@@ -106,10 +112,12 @@ then
     ## (sshd/postfix/named/...) is host-infrastructure control -> root_only
     ## (operators stay on explicit reviewed commands). Reads (status / no op)
     ## and --user services (the caller's own) stay open.
-    ##   EXCEPTION: container units (srvctl-nspawn@...) have ALREADY been
-    ##   owner-authorized by containers/hooks/adjust-service.sh (which rewrote
-    ##   $service), so do NOT re-deny the owner here.
-    if [[ -n "$op" ]] && [[ "$op" != status ]] && [[ -z "$xswitch" ]] && [[ "$service" != srvctl-nspawn@* ]]
+    ##   EXCEPTION: an action the container hook already owner-authorized sets
+    ##   SC_SERVICE_OWNER_AUTHORIZED=true — do NOT re-deny it. Keyed on that
+    ##   TOKEN, not the srvctl-nspawn@ name: a user typing `sc srvctl-nspawn@
+    ##   victim stop` never reaches that hook, so the token stays false and the
+    ##   root gate still applies.
+    if [[ -n "$op" ]] && [[ "$op" != status ]] && [[ -z "$xswitch" ]] && [[ "$SC_SERVICE_OWNER_AUTHORIZED" != true ]]
     then
         root_only
     fi

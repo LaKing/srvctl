@@ -27,6 +27,14 @@ then
     owner_only container "$service"
     msg "AUTH-OK $SC_USER has access to $service"
 
+    ## Capability token for command.sh's generic host-service root gate: THIS
+    ## action has been owner-authorized, so that gate must NOT re-deny it. It is
+    ## keyed on this flag, NOT on the srvctl-nspawn@ name — a user can type
+    ## `sc srvctl-nspawn@victim stop` directly, which never reaches this hook
+    ## and so never gets the token. Set only AFTER owner_only returns.
+    # shellcheck disable=SC2034
+    SC_SERVICE_OWNER_AUTHORIZED=true
+
     ## this is the service name actually for a container
     service="srvctl-nspawn@$service"
 
