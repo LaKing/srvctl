@@ -44,9 +44,11 @@ declare -A MANIFEST=(
   [srvctl/fix-owner]=root_only           [srvctl/fix-sshd]=root_only
   [containers/exec-all]=root_only        [odoo/install-odoo]=root_only
   [wordpress/install-wordpress]=root_only
-  # root_only — VE-side installers (kept; their own role space is a later decision)
+  # root_only — VE-side commands: container-admin (VE root) tasks. add-user was
+  # UNGUARDED (WP-E VE-side sweep) — now guarded like its siblings.
   [usersonve/install-crossover]=root_only [usersonve/install-qlcplus]=root_only
   [usersonve/vnc-desktop]=root_only       [usersonve/add-zerotier]=root_only
+  [usersonve/add-user]=root_only
   # reseller_only — TRANSITIONAL (re-tag to operators_only in WP-F when the
   # a..z resellers are removed; re-tagging now would lock them out)
   [containers/add-ve-user]=reseller_only  [usersonhost/add-user]=reseller_only
@@ -55,7 +57,6 @@ declare -A MANIFEST=(
   [containers/status]=everyone           [ve/status]=everyone
   [srvctl/version]=everyone               [srvctl/ls]=everyone
   [srvctl/diagnose]=everyone              [usersonhost/add-publickey]=everyone
-  [usersonve/add-user]=everyone
 )
 
 for key in "${!MANIFEST[@]}"; do

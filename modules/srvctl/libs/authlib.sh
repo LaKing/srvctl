@@ -192,3 +192,37 @@ function sudomize {
         exit "$_rc"
     fi
 }
+
+## Context guards hs_only / ve_only — MOVED here from containers/libs/authlib.sh
+## (WP-E VE-side sweep). They were defined in the CONTAINERS module, which is
+## inactive inside a container, so `ve_only` was UNDEFINED inside a VE — every
+## usersonve command's ve_only was a no-op (command-not-found), leaving only
+## root_only as the real guard. srvctl authlib is always loaded, so defining
+## them here makes them available host- AND VE-side. Their names also double as
+## line-anchored visibility markers for hint_on_file (commonlib.sh).
+##
+## FIXME(v4, unchanged): SC_ON_HS / SC_ON_VE are never assigned in bash, so
+## `if $SC_ON_HS` is an empty command (status 0) and these ALWAYS pass — real
+## context-gating comes from module-activation conditions (+ root_only). Making
+## them live (e.g. hs_only -> [[ $SC_HOSTNET ]], ve_only -> [[ $SC_USE_VE ==
+## true ]]) is a behavior change across many modules and needs VM testing; kept
+## as-is here so this move is behavior-preserving.
+function hs_only {
+    if $SC_ON_HS
+    then
+        return 0
+    else
+        err "Authorization failure - this command is host-only"
+        exit 44
+    fi
+}
+
+function ve_only {
+    if $SC_ON_VE
+    then
+        return 0
+    else
+        err "Authorization failure - this command is VE-only"
+        exit 44
+    fi
+}

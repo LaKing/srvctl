@@ -446,6 +446,28 @@ Execution rules (from 000-PROMPT + the Stage-2 preconditions in 000-INDEX):
       all firewall-cmd calls are READS (via `diagnose`, everyone) — clean. The
       regenerate/update-install hooks inherit their trigger command's root_only.
       143/143.
+    - **VE-SIDE SWEEP (last unaudited permission surface) ✅**: usersonve is
+      active ONLY inside containers; no default command.sh; one hook
+      (update-install-host = `dnf update`, fired by update-install=root_only,
+      inherits). Findings:
+      · add-user.sh (container account + password mutation) was UNGUARDED (its
+        own FIXME admitted "relies solely on... being root", which nothing
+        enforced) — a sudo'd VE user could add/replace accounts. Fixed: ve_only
+        + root_only, matching its four siblings. Now root_only in the manifest.
+        Part H proves sudo-bypass + normal VE user DENIED, VE root reaches the
+        action; verified it FAILS without the guard.
+      · GUARD-LOADING BUG: ve_only/hs_only lived in containers/libs/authlib.sh,
+        but the containers module is INACTIVE inside a VE, so ve_only was
+        UNDEFINED there — every usersonve command's ve_only was a silent
+        command-not-found no-op; only root_only actually guarded. MOVED both to
+        the always-loaded srvctl authlib (behavior-preserving); Part H proves
+        they are DEFINED with only srvctl authlib sourced.
+      · KNOWN (unchanged, documented FIXME): ve_only/hs_only ALWAYS PASS
+        (SC_ON_VE/SC_ON_HS never set) — they are visibility markers; real
+        context-gating is module activation + root_only. Making them live
+        (hs_only→[[ $SC_HOSTNET ]], ve_only→[[ $SC_USE_VE == true ]]) is a
+        cross-module behavior change needing VM testing — deferred, not a hole.
+      148/148.
     - **WP-E.2.b remaining**: `sc help` role-filtering (blocked on the init
       datastore-selection bootstrap, recorded above); the VE-side usersonve
       role model (its own decision); reseller→operator re-tag lands in WP-F.

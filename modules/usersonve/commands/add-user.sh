@@ -10,9 +10,13 @@
 ## verbatim, else generating one via the password module — then rewrites
 ## $home/.password, mails a welcome notice and chowns the home directory.
 
-## FIXME(v4): unlike its siblings this command has no dispatcher guard and no
-## permission markers (it relies solely on the VE-only module condition and
-## on being root); run directly with bash it stumbles through undefined helpers.
+## WP-E VE-side sweep: add the guards its siblings already carry. Managing
+## container accounts + passwords is a container-admin (VE root) task. root_only
+## (sc_is_root) is the REAL barrier: it denies a non-root VE user who reaches
+## uid 0 via `sudo srvctl.sh`. ve_only marks it VE-scoped (see the ve_only note
+## in srvctl authlib — context is enforced by the usersonve module condition).
+ve_only
+root_only
 
 argument username
 

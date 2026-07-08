@@ -378,6 +378,21 @@ probe "$OVPN_STOP" mallory false               ; ok "openvpn stop: normal user D
 probe "$OVPN_STOP" root true                   ; ok "openvpn stop: genuine root NOT denied"  "$(has_mark "$MARKS" err)" "no"
 probe "$OVPN_STATUS" mallory false             ; ok "openvpn status: open to any user"       "$(has_mark "$MARKS" err)" "no"
 
+echo "== (H) VE-side: guards defined without the containers module + add-user guarded =="
+# Inside a VE the containers module is INACTIVE; srvctl authlib is always
+# loaded. ve_only/hs_only were moved there, so they must be DEFINED with only
+# srvctl authlib sourced (previously undefined inside a VE).
+# shellcheck disable=SC1091
+vedef() { ( source "$REPO/modules/srvctl/libs/authlib.sh" > /dev/null 2>&1; type "$1" > /dev/null 2>&1 && echo defined || echo undefined ); }
+ok "VE-context: ve_only DEFINED (moved to srvctl authlib)" "$(vedef ve_only)" "defined"
+ok "VE-context: hs_only DEFINED (moved to srvctl authlib)" "$(vedef hs_only)" "defined"
+# add-user (container account/password mutation) is now root_only.
+ADDUSER="source $REPO/modules/usersonve/commands/add-user.sh"
+probe "$ADDUSER" mallory true                  ; ok "add-user: sudo-bypass (uid0 non-root) DENIED" "$RC" "44"
+probe "$ADDUSER" bob false                      ; ok "add-user: normal VE user DENIED"              "$RC" "44"
+ADDUSER_ROOT="adduser() { mark adduser; }; id() { return 1; }; getent() { echo 'x:x:0:0::/nonexistent-home:/bin/sh'; }; new_password() { echo pw; }; passwd() { :; }; mail() { :; }; $ADDUSER"
+probe "$ADDUSER_ROOT" root true                ; ok "add-user: VE root reaches account creation"   "$(has_mark "$MARKS" adduser)" "yes"
+
 command rm -f "$STUBS"
 echo ""
 echo "authgate.test: $pass passed, $fail failed"

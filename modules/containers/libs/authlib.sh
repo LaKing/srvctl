@@ -1,35 +1,14 @@
 #!/bin/bash
 
 ##
-##   containers/libs/authlib.sh — host-side / container-side guards.
+##   containers/libs/authlib.sh — context guards MOVED to srvctl authlib.
 ##
-##   hs_only and ve_only are called near the top of command files across
-##   many modules (haproxy, named, saslauthd, usersonve, vncproxy, ...).
-##   Their names double as line-anchored visibility markers for hint_on_file
-##   (commonlib.sh), which scans command files for real guard calls.
+##   hs_only and ve_only now live in modules/srvctl/libs/authlib.sh (WP-E
+##   VE-side sweep). They were here, in the CONTAINERS module, which is INACTIVE
+##   inside a container — so `ve_only` was undefined inside a VE, and every
+##   usersonve command's ve_only call was a silent command-not-found no-op.
+##   srvctl authlib is always loaded, so the definitions belong there.
 ##
-
-## FIXME(v4): SC_ON_HS is never assigned anywhere in bash — with the
-## variable unset, 'if $SC_ON_HS' expands to an empty command list
-## (status 0), so the guard ALWAYS passes and the exit 44 branch is
-## dead. Enforcement today comes only from the help-listing grep and
-## module activation conditions. Same for SC_ON_VE below.
-function hs_only {
-    if $SC_ON_HS
-    then
-        return 0
-    else
-        err "Authorization failure - this command is host-only"
-        exit 44
-    fi
-}
-
-function ve_only {
-    if $SC_ON_VE
-    then
-        return 0
-    else
-        err "Authorization failure - this command is VE-only"
-        exit 44
-    fi
-}
+##   This file is intentionally left as a pointer so the move is discoverable;
+##   it defines nothing. If containers grows container-specific guards later,
+##   they can live here again.
