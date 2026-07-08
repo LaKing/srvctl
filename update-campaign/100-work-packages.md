@@ -473,6 +473,19 @@ Execution rules (from 000-PROMPT + the Stage-2 preconditions in 000-INDEX):
       role model (its own decision); reseller→operator re-tag lands in WP-F.
 - **WP-F** — G6 reseller removal: drop reseller_only, the a..z pre-created
   accounts, reseller_id derivation; per-server user inventory first.
+  - **INVENTORY DONE (no code/data changed)** → see
+    `023-reseller-removal-plan.md`. Full touch-point map (data model, guards,
+    listing, ssh symlinks, displays); confirmed reseller_id is NOT in
+    address/uid derivation (clean removal). Key semantic: reseller has
+    SUPER-OWNERSHIP of its users' containers (owner_only branch + ssh key
+    symlinks + user_container_list); the role model drops it and no role
+    inherits it. Seed accounts a–x (reseller_id 1–24) in default-users.json.
+    5-phase plan (decouple newUser from reseller_id → migrate accounts →
+    re-tag reseller_only→operators_only → drop owner_only branch → remove
+    layer); re-tag/branch-removal ONLY after data migrated. AWAITING user
+    decisions: (1) drop super-ownership? (2) a–x policy; (3) add-reseller →
+    delete vs repurpose as add-operator. Phase 0 = a per-host read-only
+    inventory script (production data, cannot run from here).
 
 ### Networking / certs / mail (deprecations)
 - **WP-G** — G8 ZeroTier: self-hosted controller; 10.16.x.y range;
