@@ -100,6 +100,20 @@ fi
 
 if [[ $ok == true ]]
 then
+    ## WP-E.2.b: mutating a SYSTEM service via the generic `sc <service> <op>`
+    ## shorthand is an operator/root action. service_action's own gate keys on
+    ## plain uid 0, which ANY user reaches via `sudo srvctl.sh` (NOPASSWD
+    ## sudoers) — so gate the shorthand HERE. Reads (status / no op) and --user
+    ## services (the caller's own) stay open. Owner commands (update-ve,
+    ## adjust-service) call service_action directly, gated by owner_only, so
+    ## they are unaffected. NOTE (user review): this uses operators_only
+    ## (root+operator) and REPLACES the old root/wheel gate — a wheel member who
+    ## is not an operator no longer mutates arbitrary services via the shorthand;
+    ## tighten to root_only if arbitrary host-service control should be root-only.
+    if [[ -n "$op" ]] && [[ "$op" != status ]] && [[ -z "$xswitch" ]]
+    then
+        operators_only
+    fi
     service_action "$service" "$op" "$xswitch"
     ## FIXME(v4): exit_0 runs unconditionally, so service_action failures
     ## (return 66 for non-root/non-wheel, 223 for unknown op, systemctl

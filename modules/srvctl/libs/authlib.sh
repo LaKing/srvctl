@@ -124,13 +124,18 @@ function owner_only { # $1 type  $2 id
 
     if [[ $SC_USER == "$_owner" ]] || [[ $SC_USER == "$_reseller" ]]
     then
-        ## owner but not root: re-exec through sudo, then the whole command
-        ## re-runs and hits the SC_UID0 fast-path above.
+        ## Owner/reseller authorized on OWNERSHIP (not uid 0). A non-root owner
+        ## re-execs through sudo here (sudomize exits). The re-execed owner is
+        ## uid 0 but SC_USER=owner, so it is NOT sc_is_root and does NOT hit the
+        ## fast path above — it must authorize HERE. (Before sc_is_root, the
+        ## re-exec hit the plain-uid0 fast path; without this return 0 the owner
+        ## now falls through to the denial below — a real regression.)
         sudomize
+        return 0
     fi
 
     ## reached only by a non-root, non-owner caller whose ownership lookup
-    ## SUCCEEDED (the owner branch above exits via sudomize's re-exec).
+    ## SUCCEEDED (the owner branch above returns or re-execs).
     err "$SC_USER has no access to $2"
     exit 44
 }

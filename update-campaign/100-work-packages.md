@@ -389,6 +389,24 @@ Execution rules (from 000-PROMPT + the Stage-2 preconditions in 000-INDEX):
       commands, the class fixtures, and adjust-service; verified they FAIL
       against the old uid0-trusting code. 118/118. This closes the WP-E
       blocker against hostile users.
+    - **SUDO-BYPASS follow-ups (audit, 2 high) ✅**:
+      · owner_only REGRESSION: sc_is_root correctly stopped treating the
+        re-execed owner (uid0, SC_USER=owner) as root, but the owner branch
+        called sudomize (a no-op once uid0) WITHOUT `return 0`, so the owner
+        fell through to the denial — normal owner commands broke. Fixed:
+        `return 0` after sudomize (authorize on OWNERSHIP, not uid0). The probe
+        sudomize stub `exit 0`ed, masking it; added owner(post-sudo uid0)→RUN
+        cells (real commands + fixture) that FAIL without the return 0.
+      · SERVICE SHORTHAND bypass: `sc <service> <op>` (default command.sh) →
+        service_action gated on plain uid0, so `sudo srvctl.sh sshd stop`
+        reached systemctl. Gated the SHORTHAND path (command.sh, before
+        service_action) with operators_only for a mutating SYSTEM-service op;
+        reads (status) + --user services stay open; owner callers (update-ve/
+        adjust-service) call service_action directly (owner_only) and are
+        unaffected — deliberately NOT changing service_action itself. Replaces
+        the old bypassable root/wheel gate (FLAGGED for review: operators_only
+        vs root_only for arbitrary host-service control). Part G proves it
+        (sudo-bypass DENIED, operator/root allowed, status open). 131/131.
     - **WP-E.2.b remaining**: `sc help` role-filtering (blocked on the init
       datastore-selection bootstrap, recorded above); the VE-side usersonve
       role model (its own decision); reseller→operator re-tag lands in WP-F.

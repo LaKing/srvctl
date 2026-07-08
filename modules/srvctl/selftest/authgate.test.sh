@@ -39,6 +39,7 @@ sudomize() { if ! $SC_UID0; then mark sudomize; exit 0; fi; }   # like the real 
 argument() { :; } ; authorize() { :; } ; hs_only() { :; } ; ve_only() { :; }
 msg() { :; } ; err() { mark err; } ; ntc() { :; } ; prg() { :; } ; debug() { :; } ; exif() { :; } ; eyif() { :; }
 run() { mark run; } ; run_hook() { mark run_hook; }
+service_action() { mark service_action; } ; exit_0() { :; }
 regenerate_haproxy_conf() { mark regen; } ; regenerate_certificates() { mark regen; }
 rm() { mark rm; } ; systemctl() { mark systemctl; } ; machinectl() { mark machinectl; }
 chroot() { mark chroot; } ; rsync() { mark rsync; } ; umount() { :; } ; quotaoff() { :; } ; quotaon() { :; }
@@ -101,6 +102,8 @@ for pair in "destroy-ve:$CMDS_destroyve" "remove-ve:$CMDS_removeve" "http-redire
   name="${pair%%:*}"; snippet="${pair#*:}"
   probe "$snippet" root true           # genuine root, not the owner
   ok "$name: genuine-root (non-owner) ALLOWED" "$(has_action "$MARKS")" "yes"
+  probe "$snippet" alice true          # owner in the post-sudomize uid 0 state
+  ok "$name: owner (post-sudo uid0) ALLOWED" "$(has_action "$MARKS")" "yes"
   probe "$snippet" mallory true        # uid 0 via sudo, but SC_USER != root, not owner
   ok "$name: SUDO-BYPASS (uid0 non-root) DENIED" "$RC" "44"
   ok "$name: SUDO-BYPASS ran NO action"          "$(has_action "$MARKS")" "no"
@@ -206,6 +209,7 @@ PRESET_SC_ROLE=operator probe "$FX_ops" bob false         ; ok "inherited SC_ROL
 # operator who is not the owner (operators do NOT bypass ownership)
 probe "$FX_owner" root true                              ; ok "root: owner_only(non-owner) RUN" "$(has_action "$MARKS")" "yes"
 probe "$FX_owner" alice false                            ; ok "owner: owner_only ESCALATES"  "$([[ ",$MARKS," == *",sudomize,"* ]] && echo yes || echo no)" "yes"
+probe "$FX_owner" alice true                             ; ok "owner(post-sudo uid0): owner_only RUN" "$(has_action "$MARKS")" "yes"
 ROLE_FIELD=operator probe "$FX_owner" op false           ; ok "operator(non-owner): owner_only DENY" "$RC" "44"
 probe "$FX_owner" mallory false                          ; ok "user(non-owner): owner_only DENY"     "$RC" "44"
 # SUDO BYPASS across classes: a non-root user at uid 0 (SC_USER != root, no
@@ -314,6 +318,20 @@ probe "$CMDS_adjust" mallory true      # uid 0 via sudo, SC_USER != root, not ow
 ok "adjust-service: SUDO-BYPASS (uid0 non-owner) DENIED" "$RC" "44"
 ok "adjust-service: SUDO-BYPASS did NOT rewrite"         "$(has_mark "$MARKS" rewrite)" "no"
 command rm -rf "$svc_tmp"
+
+echo "== (G) generic 'sc <service> <op>' shorthand is operator/root-gated =="
+# command.sh sets ok=true when systemctl is-active succeeds (stubbed 0), then
+# our gate runs operators_only for a mutating SYSTEM-service op before
+# service_action. A sudo'd user (uid 0, SC_USER != root, role=user) must be
+# denied — this is the bypass the service shorthand still had.
+SVC_STOP="CMD=sshd; ARG=stop; source $REPO/modules/srvctl/command.sh"
+SVC_STATUS="CMD=sshd; ARG=status; source $REPO/modules/srvctl/command.sh"
+probe "$SVC_STOP" mallory true                 # uid 0 via sudo, role=user
+ok "service stop: sudo-bypass (uid0 user) DENIED"     "$RC" "44"
+ok "service stop: sudo-bypass reached NO service_action" "$(has_mark "$MARKS" service_action)" "no"
+ROLE_FIELD=operator probe "$SVC_STOP" bob true ; ok "service stop: operator ALLOWED"     "$(has_mark "$MARKS" service_action)" "yes"
+probe "$SVC_STOP" root true                    ; ok "service stop: genuine root ALLOWED" "$(has_mark "$MARKS" service_action)" "yes"
+probe "$SVC_STATUS" mallory false              ; ok "service status: open to any user"   "$(has_mark "$MARKS" service_action)" "yes"
 
 command rm -f "$STUBS"
 echo ""
