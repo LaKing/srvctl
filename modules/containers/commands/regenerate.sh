@@ -7,7 +7,8 @@
 ## &en The regenerate rootfs command rebuilds the container base images.
 ## &en
 
-##root_only
+## WP-E.2.b: host-wide config regeneration -> root only (was commented out).
+root_only
 hs_only
 
 ## run only with srvctl? or with bash?

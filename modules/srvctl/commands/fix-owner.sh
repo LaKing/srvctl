@@ -5,6 +5,9 @@
 ## &en Useful for transfers of files across systems.
 ## &en Recursive chown based on parent directory.
 
+## WP-E.2.b: host maintenance -> root only.
+root_only
+
 ## FIXME(v4): this command is a silent no-op — its only action below is
 ## commented out, while the help still promises a recursive chown. Users
 ## running it believe ownership was fixed. Kept as-is: uncommenting would

@@ -11,7 +11,9 @@ hs_only
 [[ $SRVCTL ]] || exit 4
 
 argument container-name
-authorize
+## WP-E.2.b: acts on one container's OS -> root or the container owner
+## (was the non-denying authorize stub).
+owner_only container "$ARG"
 
 ##
 ##   containers/commands/update-ve.sh — STUB: distro upgrade of a

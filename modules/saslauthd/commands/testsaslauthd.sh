@@ -13,12 +13,12 @@
 ## Guard: refuse to run outside the srvctl dispatcher (module-local exit code).
 [[ $SRVCTL ]] || exit 4
 
-root_only
+## WP-E.2.b: co-worker email diagnostic -> root or operator (was root_only).
+operators_only
 hs_only
 
-## FIXME(v4): dead code — the check above already exits (44) for any non-root
-## caller, so this sudo self-elevation can never trigger; the sibling
-## fix-saslauthd command elevates fine.
+## An operator (non-root) passes operators_only and escalates here via sudomize
+## (with operators_only this is no longer dead code — it fires for operators).
 sudomize
 
 ## Split ARG ("user@domain") into its parts.

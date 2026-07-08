@@ -9,6 +9,9 @@
 ##   on the three ssh host key files, then restart sshd.
 ##
 
+## WP-E.2.b: host sshd maintenance -> root only.
+root_only
+
 run chown root:ssh_keys /etc/ssh/ssh_host_ecdsa_key
 run chown root:ssh_keys /etc/ssh/ssh_host_ed25519_key
 run chown root:ssh_keys /etc/ssh/ssh_host_rsa_key

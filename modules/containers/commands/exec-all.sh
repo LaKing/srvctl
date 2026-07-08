@@ -4,6 +4,8 @@
 ## @en Execute a command on all running containers.
 ## &en In some cases it might come handy to run a single command on all containers.
 
+## WP-E.2.b: runs a command across ALL containers -> root only.
+root_only
 sudomize
 
 ##

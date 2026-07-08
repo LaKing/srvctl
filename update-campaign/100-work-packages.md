@@ -347,10 +347,26 @@ Execution rules (from 000-PROMPT + the Stage-2 preconditions in 000-INDEX):
       no longer hides a runnable command. commandindex has explicit regression
       checks for late operators_only + commented root_only; authgate Part E
       proves both grep and indexed visibility branches.
-    - **Remaining tags**: root_only adds (customize, fix-owner, fix-sshd,
-      fix-saslauthd, exec-all, regenerate real guard),
-      update-ve→owner_only, testsaslauthd root_only→operators_only (widening),
-      installer owner_only decision; then extend the manifest to all 38.
+    - **ALL 38 COMMANDS CLASSIFIED ✅** (classification.test 38/38):
+      · owner_only (10): +update-ve (was authorize stub), +add-vnc-user.
+      · operators_only (5): add-ve/add-network-ve/add-codepad; testsaslauthd +
+        fix-saslauthd (root/none → operator; fix-saslauthd's own comment already
+        called it an "Operator command"; testsaslauthd's dead sudomize is now
+        live for operators).
+      · root_only (13): +customize (defines code), +fix-owner, +fix-sshd,
+        +exec-all (all containers), +regenerate (real guard, was commented);
+        install-odoo/wordpress KEPT root_only (no container arg → owner_only
+        N/A); VE-side usersonve installers kept root_only (own role space TBD).
+      · reseller_only (3): add-ve-user, usersonhost/add-user, change-user —
+        TRANSITIONAL (re-tag to operators_only in WP-F).
+      · everyone (7): status(containers,ve), version, ls, diagnose,
+        add-publickey, usersonve/add-user.
+      No new shellcheck findings; commandindex 282, authgate 94, harness +
+      datastore green. commandindex commented-marker fixture moved from
+      regenerate (now really guarded) to a synthetic string.
+    - **WP-E.2.b remaining**: `sc help` role-filtering (blocked on the init
+      datastore-selection bootstrap, recorded above); the VE-side usersonve
+      role model (its own decision); reseller→operator re-tag lands in WP-F.
 - **WP-F** — G6 reseller removal: drop reseller_only, the a..z pre-created
   accounts, reseller_id derivation; per-server user inventory first.
 

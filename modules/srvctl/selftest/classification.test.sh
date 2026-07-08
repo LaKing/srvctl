@@ -26,19 +26,36 @@ detect() {
   echo everyone
 }
 
-# module/command : expected class  (WP-E.2.b agreed classification)
+# module/command : expected class  (WP-E.2.b agreed classification — ALL 38)
 declare -A MANIFEST=(
   # owner_only — resource-scoped (root or the resource owner)
   [containers/destroy-ve]=owner_only     [containers/remove-ve]=owner_only
   [containers/backup-ve]=owner_only      [containers/recreate-ve]=owner_only
-  [containers/map-port]=owner_only       [haproxy/http-redirect]=owner_only
-  [haproxy/https-redirect]=owner_only    [named/override-in-address]=owner_only
-  [vncproxy/add-vnc-user]=owner_only
-  # operators_only — provisioning (root or operator)
+  [containers/map-port]=owner_only       [containers/update-ve]=owner_only
+  [haproxy/http-redirect]=owner_only     [haproxy/https-redirect]=owner_only
+  [named/override-in-address]=owner_only [vncproxy/add-vnc-user]=owner_only
+  # operators_only — provisioning + co-worker host tasks (root or operator)
   [containers/add-ve]=operators_only     [containers/add-network-ve]=operators_only
-  [codepad/add-codepad]=operators_only
-  # root_only — host/cluster admin (pre-existing real guards)
+  [codepad/add-codepad]=operators_only   [saslauthd/testsaslauthd]=operators_only
+  [saslauthd/fix-saslauthd]=operators_only
+  # root_only — host/cluster admin, code, host maintenance
   [srvctl/update-install]=root_only      [usersonhost/add-reseller]=root_only
+  [containers/regenerate]=root_only      [srvctl/customize]=root_only
+  [srvctl/fix-owner]=root_only           [srvctl/fix-sshd]=root_only
+  [containers/exec-all]=root_only        [odoo/install-odoo]=root_only
+  [wordpress/install-wordpress]=root_only
+  # root_only — VE-side installers (kept; their own role space is a later decision)
+  [usersonve/install-crossover]=root_only [usersonve/install-qlcplus]=root_only
+  [usersonve/vnc-desktop]=root_only       [usersonve/add-zerotier]=root_only
+  # reseller_only — TRANSITIONAL (re-tag to operators_only in WP-F when the
+  # a..z resellers are removed; re-tagging now would lock them out)
+  [containers/add-ve-user]=reseller_only  [usersonhost/add-user]=reseller_only
+  [usersonhost/change-user]=reseller_only
+  # everyone (default, no role guard) — reads / self-service
+  [containers/status]=everyone           [ve/status]=everyone
+  [srvctl/version]=everyone               [srvctl/ls]=everyone
+  [srvctl/diagnose]=everyone              [usersonhost/add-publickey]=everyone
+  [usersonve/add-user]=everyone
 )
 
 for key in "${!MANIFEST[@]}"; do

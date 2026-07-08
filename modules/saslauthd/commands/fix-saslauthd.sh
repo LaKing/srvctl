@@ -12,6 +12,9 @@
 ## Guard: refuse to run outside the srvctl dispatcher (module-local exit code).
 [[ $SRVCTL ]] || exit 4
 
+## WP-E.2.b: operator command (restart the host mail-auth service) — matches
+## this file's own "Operator command" note above.
+operators_only
 sudomize
 
 if systemctl restart saslauthd

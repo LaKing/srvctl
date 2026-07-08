@@ -95,8 +95,11 @@ for (const file of files) {
 
 const addVe = parseCommandFile(fs.readFileSync(path.join(REPO, "modules", "containers", "commands", "add-ve.sh"), "utf8"));
 eq("late operators_only guard call counts", addVe.operators_only, true);
-const regenerate = parseCommandFile(fs.readFileSync(path.join(REPO, "modules", "containers", "commands", "regenerate.sh"), "utf8"));
-eq("commented root_only marker does not count", regenerate.root_only, false);
+// Only a LINE-ANCHORED guard CALL counts — a commented-out or embedded marker
+// must not. (regenerate.sh was the real example until WP-E.2.b gave it a real
+// root_only guard, so this uses a synthetic fixture that stays valid.)
+const commented = parseCommandFile('#!/bin/bash\n##root_only\n# mentions root_only in prose\necho "root_only"\n');
+eq("commented/embedded root_only marker does not count", commented.root_only, false);
 
 console.log(`commandindex.test: ${passed} checks passed over ${files.length} command files, ${failures.length} failed`);
 for (const f of failures) {
