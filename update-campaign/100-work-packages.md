@@ -434,6 +434,18 @@ Execution rules (from 000-PROMPT + the Stage-2 preconditions in 000-INDEX):
       G2 (legit owner) still passes. 141/141. Swept all service_action callers
       (command.sh, both hooks, status=read, update-ve=owner_only) — no other
       instance of this class.
+    - **CONTAINER machinectl shorthand (proactive sweep, high) ✅**: swept all
+      hooks + default commands doing privileged mutations. containers/command.sh
+      (the `sc VE op` / `sc op VE` machinectl shorthand: reboot/poweroff/kill/
+      login/shell/show/status) had NO role guard. The op-first order
+      `sc poweroff VE` sets service=$CMD=poweroff (not a container), so the
+      srvctl container hook never fires — `sudo srvctl.sh poweroff VE` could
+      poweroff/kill/enter ANY container. Fixed: owner_only container "$C" on the
+      machinectl block. Part G5 proves owner allowed / non-owner denied;
+      verified it FAILS without the guard. firewalld/hooks/diagnose.sh checked:
+      all firewall-cmd calls are READS (via `diagnose`, everyone) — clean. The
+      regenerate/update-install hooks inherit their trigger command's root_only.
+      143/143.
     - **WP-E.2.b remaining**: `sc help` role-filtering (blocked on the init
       datastore-selection bootstrap, recorded above); the VE-side usersonve
       role model (its own decision); reseller→operator re-tag lands in WP-F.

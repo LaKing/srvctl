@@ -357,6 +357,17 @@ ok "direct unit stop: sudo-bypass DENIED"           "$RC" "44"
 ok "direct unit stop: reached NO service_action"    "$(has_mark "$MARKS" service_action)" "no"
 probe "$UNIT" root true                             ; ok "direct unit stop: genuine root ALLOWED (host-svc policy)" "$(has_mark "$MARKS" service_action)" "yes"
 
+echo "== (G5) container machinectl shorthand ('sc poweroff VE') is owner-scoped =="
+# op-first order: service=\$CMD=poweroff is NOT a container, so the srvctl
+# container hook never fires; containers/command.sh reaches machinectl. Force
+# is-active to FAIL so srvctl/command.sh falls through to that path.
+ctr2_tmp="$(mktemp -d /tmp/srvctl-authgate.XXXXXX)"
+ctr2_rel="../tmp/${ctr2_tmp##*/}"   # /srv/$ctr2_rel resolves into $ctr2_tmp
+POWEROFF="systemctl() { [[ \$1 == is-active ]] && return 1; mark systemctl; }; CMD=poweroff; ARG='$ctr2_rel'; source $REPO/modules/containers/command.sh"
+probe "$POWEROFF" mallory true                      ; ok "sc poweroff VE: sudo-bypass (non-owner) DENIED" "$RC" "44"
+probe "$POWEROFF" alice true                        ; ok "sc poweroff VE: owner ALLOWED (reaches op)"      "$RC" "0"
+command rm -rf "$ctr2_tmp"
+
 echo "== (G3) openvpn hook calls service_action directly -> needs its own root gate =="
 # The openvpn hook runs BEFORE command.sh's gate (it acts then returns 0). Its
 # own guard runs before the unit-layout detection, so it is host-independent.

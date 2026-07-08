@@ -94,6 +94,13 @@ fi
 if [[ $cop == reboot ]] || [[ $cop == poweroff ]] || [[ $cop == kill ]] || [[ $cop == login ]] || [[ $cop == show ]] || [[ $cop == status ]] || [[ $cop == shell ]]
 then
     msg "$C $cop"
+    ## WP-E.2.b: machinectl ops on a container (reboot/poweroff/kill/login/
+    ## shell/show/status) are owner-scoped. This path was UNGUARDED, and the
+    ## op-first word order `sc poweroff VE` skips the srvctl/command.sh
+    ## container hook (there service=$CMD=poweroff is not a container name), so
+    ## `sudo srvctl.sh poweroff VE` could reboot/poweroff/kill/enter ANY
+    ## container. owner_only escalates the owner and denies everyone else.
+    owner_only container "$C"
 else
     return
 fi
