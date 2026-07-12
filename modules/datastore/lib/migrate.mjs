@@ -59,8 +59,17 @@ export function migrateToPerEntity(srcDir, store) {
       const map = loadMonolithic(srcDir, spec);
       let n = 0;
       for (const id of Object.keys(map)) {
-        tx.write(spec.type, id, map[id]);
-        n++;
+        // write-if-absent: never clobber a per-entity record that already
+        // exists. tx.has reflects PER-ENTITY only (the transaction does not use
+        // the monolithic read fallback), so this fills in only the records that
+        // are missing. Makes re-running the migration idempotent, and lets a
+        // half-migrated / split store (some records already written per-entity
+        // by v4 writes, the rest still monolithic) CONSOLIDATE safely — the
+        // newer per-entity records survive, the monolithic-only ones are added.
+        if (!tx.has(spec.type, id)) {
+          tx.write(spec.type, id, map[id]);
+          n++;
+        }
       }
       counts[spec.type] = n;
     }

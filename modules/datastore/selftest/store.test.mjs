@@ -270,6 +270,88 @@ test("git mode records a commit per change", (dir) => {
   assert.match(log[0], /delete users\/alice/);
 });
 
+// ---- upgrade safety: v3 monolithic read fallback + migration consolidation -
+// (a half-updated / un-migrated / RO-copy store must still READ correctly, and
+//  a re-run migration must never lose data — the production "all states run,
+//  auto-upgrade, no data loss" requirement.)
+
+const mono = (dir, type, map) => fs.writeFileSync(path.join(dir, `${type}.json`), JSON.stringify(map));
+
+test("un-migrated store: public reads fall back to monolithic <type>.json", (dir) => {
+  // v4 code, v3 datastore: only the monolithic file exists, no per-entity dir.
+  mono(dir, "users", { alice: { uid: 1001 }, bob: { uid: 1002 } });
+  const s = createStore(dir, { git: false });
+  assert.deepEqual(s.readAll("users"), { alice: { uid: 1001 }, bob: { uid: 1002 } });
+  assert.deepEqual(s.read("users", "bob"), { uid: 1002 });
+  assert.equal(s.has("users", "bob"), true);
+  assert.equal(s.has("users", "nobody"), false);
+  assert.deepEqual(s.list("users"), ["alice", "bob"]);
+  // a type with no monolithic file and no per-entity dir is simply empty.
+  assert.deepEqual(s.readAll("containers"), {});
+});
+
+test("split store: per-entity WINS over monolithic, no record is lost", (dir) => {
+  // monolithic has alice(old)+bob; a v4 write already landed alice(new) per-entity.
+  mono(dir, "users", { alice: { uid: 1, gen: "v3" }, bob: { uid: 2 } });
+  const s = createStore(dir, { git: false });
+  s.write("users", "alice", { uid: 1, gen: "v4" }); // per-entity override
+  assert.deepEqual(s.readAll("users"), { alice: { uid: 1, gen: "v4" }, bob: { uid: 2 } });
+  assert.deepEqual(s.read("users", "alice"), { uid: 1, gen: "v4" }); // newer wins
+  assert.deepEqual(s.read("users", "bob"), { uid: 2 }); // monolithic-only survives
+  assert.deepEqual(s.list("users"), ["alice", "bob"]);
+});
+
+test("migration consolidates a split store without clobbering per-entity writes", (dir) => {
+  mono(dir, "hosts", {});
+  mono(dir, "containers", {});
+  mono(dir, "users", { alice: { uid: 1, gen: "v3" }, bob: { uid: 2 } });
+  const s = createStore(dir, { git: false });
+  s.write("users", "alice", { uid: 1, gen: "v4" }); // newer per-entity record
+  // re-run migration (write-if-absent): keeps alice(v4), adds bob from monolithic.
+  const counts = migrateToPerEntity(dir, s);
+  assert.equal(counts.users, 1, "only the missing record (bob) is written");
+  // read the RAW per-entity files (delete the monolithic so no fallback):
+  for (const t of ["hosts", "users", "containers"]) fs.rmSync(path.join(dir, `${t}.json`));
+  assert.deepEqual(s.read("users", "alice"), { uid: 1, gen: "v4" }); // NOT clobbered
+  assert.deepEqual(s.read("users", "bob"), { uid: 2 }); // consolidated in
+});
+
+test("post-migration: monolithic gone → reads are pure per-entity", (dir) => {
+  mono(dir, "hosts", {});
+  mono(dir, "containers", {});
+  mono(dir, "users", { alice: { uid: 1001 } });
+  const s = createStore(dir, { git: false });
+  migrateToPerEntity(dir, s);
+  // simulate datalib archiving the monolithic files after a successful migrate
+  for (const t of ["hosts", "users", "containers"]) fs.rmSync(path.join(dir, `${t}.json`));
+  assert.deepEqual(s.readAll("users"), { alice: { uid: 1001 } });
+  assert.deepEqual(exportToMonolithic(s).users, { alice: { uid: 1001 } });
+});
+
+test(".per-entity marker: per-entity authoritative, deletes are NOT resurrected", (dir) => {
+  // what datalib does post-migrate: consolidate, then mark per-entity truth,
+  // KEEPING the monolithic on disk (for half-rsync'd old readers).
+  mono(dir, "hosts", {});
+  mono(dir, "containers", {});
+  mono(dir, "users", { alice: { uid: 1 }, bob: { uid: 2 } });
+  const s = createStore(dir, { git: false });
+  migrateToPerEntity(dir, s);
+  fs.writeFileSync(path.join(dir, ".per-entity"), ""); // marker
+  // monolithic files still present, but per-entity is authoritative now:
+  assert.deepEqual(s.readAll("users"), { alice: { uid: 1 }, bob: { uid: 2 } });
+  s.remove("users", "alice"); // delete a record whose monolithic entry remains
+  assert.equal(s.has("users", "alice"), false, "monolithic must NOT resurrect a deleted record");
+  assert.equal(s.read("users", "alice"), null);
+  assert.deepEqual(s.readAll("users"), { bob: { uid: 2 } });
+  assert.deepEqual(s.list("users"), ["bob"]);
+});
+
+test("corrupt monolithic <type>.json is a hard error, not silent empty", (dir) => {
+  fs.writeFileSync(path.join(dir, "users.json"), "{ not json");
+  const s = createStore(dir, { git: false });
+  assert.throws(() => s.readAll("users"), (e) => e instanceof StoreError && /corrupt monolithic/.test(e.message));
+});
+
 // ---------------------------------------------------------------------------
 
 console.log(`\n${passed} passed, ${failures.length} failed`);

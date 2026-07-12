@@ -116,6 +116,7 @@ cat > "$SC_DATASTORE_RW_DIR/.gitignore" << EOF
 .git.log
 .gitignore
 .monolithic-backup/
+.per-entity
 cert/
 users/*/
 EOF
@@ -138,15 +139,32 @@ EOF
 ## (hosts/ users/ containers/). Skips once the monolithic files are archived.
 function migrate_datastore_to_per_entity() {
 
+    ## Already authoritative: nothing to do. The .per-entity marker (written
+    ## below) means per-entity is the source of truth; the monolithic files may
+    ## still sit on disk for a half-rsync'd old reader.
+    [[ -f "$SC_DATASTORE_RW_DIR/.per-entity" ]] && return 0
+
+    ## No monolithic source → nothing to migrate/consolidate.
     [[ -f "$SC_DATASTORE_RW_DIR/hosts.json" ]] || return 0
 
     msg "Migrating datastore to file-per-entity layout"
 
+    ## migrate.mjs is write-if-absent + transactional: it CONSOLIDATES any
+    ## monolithic records that are missing from per-entity WITHOUT clobbering
+    ## existing per-entity records — safe on a half-migrated / split store, and
+    ## safe to re-run.
     if run /bin/node "$SC_INSTALL_DIR/modules/datastore/lib/migrate.mjs" "$SC_DATASTORE_RW_DIR" "$SC_DATASTORE_RW_DIR"
     then
+        ## Snapshot the pre-migration files, then mark per-entity AUTHORITATIVE.
+        ## We deliberately do NOT delete the monolithic originals: a host that is
+        ## only HALF rsync'd (new datalib.sh, still-old main.mjs/lib.js) must
+        ## keep reading them. The .per-entity marker makes v4 readers ignore the
+        ## monolithic (store.mjs) so deletes are honored once we are on v4; a
+        ## later fully-v4 cleanup removes the stale originals.
         mkdir -p "$SC_DATASTORE_RW_DIR/.monolithic-backup"
-        mv "$SC_DATASTORE_RW_DIR/hosts.json" "$SC_DATASTORE_RW_DIR/users.json" "$SC_DATASTORE_RW_DIR/containers.json" "$SC_DATASTORE_RW_DIR/.monolithic-backup/" 2> /dev/null
-        msg "Datastore migrated; monolithic files archived to .monolithic-backup"
+        cp -f "$SC_DATASTORE_RW_DIR/hosts.json" "$SC_DATASTORE_RW_DIR/users.json" "$SC_DATASTORE_RW_DIR/containers.json" "$SC_DATASTORE_RW_DIR/.monolithic-backup/" 2> /dev/null
+        : > "$SC_DATASTORE_RW_DIR/.per-entity"
+        msg "Datastore migrated; per-entity is now authoritative (.per-entity marker set)"
         return 0
     fi
 
@@ -177,7 +195,12 @@ function init_datastore() {
     ## idempotent and no-ops once fully migrated.
     if ! $SC_DATASTORE_RO_USE && [[ $USER == root ]]
     then
-        if [[ ! -d "$SC_DATASTORE_DIR/hosts" ]] || [[ -f "$SC_DATASTORE_DIR/hosts.json" ]]
+        ## Run install/migration when the per-entity layout is absent, OR when
+        ## monolithic files remain and per-entity is NOT yet authoritative
+        ## (no .per-entity marker) — i.e. a not-yet / partially migrated store.
+        ## Once the marker is set the monolithic files may linger (kept for
+        ## half-rsync'd old readers) without re-triggering.
+        if [[ ! -d "$SC_DATASTORE_DIR/hosts" ]] || { [[ -f "$SC_DATASTORE_DIR/hosts.json" ]] && [[ ! -f "$SC_DATASTORE_DIR/.per-entity" ]]; }
         then
             ## init_datastore_install ends in migrate_datastore_to_per_entity;
             ## a migration failure (partial store / data loss) must STOP the

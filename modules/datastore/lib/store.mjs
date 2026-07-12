@@ -164,6 +164,68 @@ export function createStore(rootDir, options = {}) {
     return out;
   }
 
+  // ---- v3 monolithic read fallback (upgrade safety) -----------------------
+  // During a v3->v4 transition a store may still hold the monolithic
+  // <root>/<type>.json: not yet migrated, the RO/gluster copy, or a half
+  // rsync'd host whose migration has not run. PUBLIC reads fall back to it so
+  // data is NEVER seen as missing; per-entity records WIN over monolithic ones
+  // (they are the newer, post-migration truth). Deletes leave a per-entity
+  // tombstone gap that monolithic could resurrect, so writes/deletes must run
+  // only AFTER migration — which init_datastore guarantees (root + RW migrates
+  // before dispatch). The transaction/write path below deliberately does NOT
+  // use this fallback (it operates only on real per-entity files), so
+  // migration's write-if-absent stays correct and a consolidating re-migration
+  // never clobbers a per-entity write.
+  function readMonolithic(type) {
+    // Once migration writes the .per-entity marker, per-entity is AUTHORITATIVE:
+    // ignore the monolithic file entirely (so v4 deletes are honored) even
+    // though it stays on disk for any still-running v3 reader during a
+    // half-rsync'd upgrade. Before the marker, the monolithic is the source.
+    if (fs.existsSync(path.join(root, ".per-entity"))) return null;
+    let raw;
+    try {
+      raw = fs.readFileSync(path.join(root, `${assertType(type)}.json`), "utf8");
+    } catch (err) {
+      if (err.code === "ENOENT") return null;
+      throw new StoreError("READ", `read monolithic ${type}.json: ${err.message}`);
+    }
+    let obj;
+    try {
+      obj = JSON.parse(raw);
+    } catch (err) {
+      throw new StoreError("PARSE", `corrupt monolithic ${type}.json: ${err.message}`);
+    }
+    if (obj === null || typeof obj !== "object" || Array.isArray(obj))
+      throw new StoreError("PARSE", `monolithic ${type}.json is not a {id: record} map`);
+    return obj;
+  }
+  const hasOwn = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
+
+  function readWithFallback(type, id) {
+    const v = read(type, id);
+    if (v !== null) return v; // per-entity wins
+    const mono = readMonolithic(type);
+    return mono && hasOwn(mono, id) ? mono[id] : null;
+  }
+  function hasWithFallback(type, id) {
+    if (has(type, id)) return true;
+    const mono = readMonolithic(type);
+    return !!(mono && hasOwn(mono, id));
+  }
+  function listWithFallback(type) {
+    const ids = new Set(list(type));
+    const mono = readMonolithic(type);
+    if (mono) for (const id of Object.keys(mono)) ids.add(id);
+    return [...ids].sort();
+  }
+  function readAllWithFallback(type) {
+    const merged = { ...(readMonolithic(type) || {}) }; // monolithic base
+    for (const id of list(type)) merged[id] = read(type, id); // per-entity overrides
+    const sorted = {}; // preserve the WP-C sorted-key contract
+    for (const id of Object.keys(merged).sort()) sorted[id] = merged[id];
+    return sorted;
+  }
+
   // ---- locking ------------------------------------------------------------
 
   function acquireLock() {
@@ -344,7 +406,19 @@ export function createStore(rootDir, options = {}) {
     }
   }
 
-  return { root, read, has, list, readAll, write, remove, transaction, readOnly };
+  // PUBLIC reads use the monolithic fallback; the transaction closure above
+  // keeps using the per-entity-only read/list (so migration sees real files).
+  return {
+    root,
+    read: readWithFallback,
+    has: hasWithFallback,
+    list: listWithFallback,
+    readAll: readAllWithFallback,
+    write,
+    remove,
+    transaction,
+    readOnly,
+  };
 }
 
 // Busy-sleep in ms without pulling in a timer (we are a short-lived CLI and
