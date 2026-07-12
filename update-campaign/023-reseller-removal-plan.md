@@ -156,10 +156,21 @@ Re-tag and `owner_only`-branch removal happen ONLY after the data model migrates
     or (b) briefly pause reseller-driven user creation until Phases 2–4 land.
     Decide per host from the Phase 0 output (a host with 0 active resellers has
     no window to worry about).
-- **Phase 2 — migrate the accounts (per Phase 0).** Any active reseller kept →
-  `role=operator`; vestigial a–x seeds → removed from `default-users.json` +
-  a one-shot `migrate.mjs` step that strips `reseller`/`reseller_id` from user
-  records and removes reseller key symlinks.
+- **Phase 2 — remove the vestigial seeds. ✅ MIGRATOR BUILT + TESTED (user
+  runs it on prod).** Phase 0 on `fx.d250.hu` (already v4 per-entity; 58 users,
+  50 containers): **0 real resellers, all 24 a–x seeds vestigial, 0 tied users,
+  0 reseller keys** → the reseller layer is entirely dead. So Phase 2 is a pure
+  deletion — no operator migration needed. Deliverables:
+  `wpf-phase2-remove-vestigial-resellers.mjs` (DRY-RUN default, `--apply` to
+  write; aborts unless the host is CLEAN — 0 real resellers / 0 tied users / 0
+  ACTIVE seeds; re-verifies vestigial under the lock; only ever removes a–x
+  seed records; idempotent; requires a migrated store; removes via one
+  store.transaction/git-commit). `default-users.json` trimmed to seed only
+  `root` (fresh installs). Tests: `.test.mjs` 14/14; CLI verified dry-run →
+  apply(24 removed) → idempotent no-op; store suite 21/21 still green.
+  Per-host: run the migrator (dry-run first) on EACH host — it self-aborts on
+  any host that is not clean. Field-stripping (`reseller`/`reseller_id` on the
+  remaining records) is deferred to Phase 5 with the derivation removal.
 - **Phase 3 — re-tag guards (only now safe).** `reseller_only` →
   `operators_only` on `add-ve-user`, `add-user`, `change-user`. Delete the
   `reseller_only` function and the `${#SC_USER}==1` special-cases in
