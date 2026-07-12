@@ -116,6 +116,21 @@ Phase 1 is back-compat for READS (mixed old/new records work) but a real WRITE
 change during the deploy window (new users unstamped) — see the rollout caveat in
 `023`.
 
+## 5b. Mixed-version upgrade safety (v3 / half-updated / v4) — DONE ✅
+Production got accidentally half-updated; code is **rsync'd, not git**. Design +
+operational guidance: `025-mixed-version-upgrade-safety.md`. The datastore engine
+now guarantees data survives and converges regardless of code state:
+`store.mjs` v4 reads fall back to (and merge with) the v3 monolithic
+`<type>.json`; `migrate.mjs` is write-if-absent (idempotent, consolidates a split
+store, never clobbers); `datalib.sh` keeps the monolithic in place and writes a
+`.per-entity` marker that makes v4 treat per-entity as authoritative (so deletes
+don't resurrect) — needed because alphabetical rsync order can land new
+`datalib.sh` before new `main.mjs`. Data convergence is automatic (root
+`init_datastore`) and independent of code convergence. **Boundary (user):** do
+NOT add self-healing/self-rsync deployment logic until the real rsync mechanism
+is known; temp-dir + atomic swap of `/usr/local/share/srvctl` (with `--delete`)
+is the deployment boundary. Tests: store.test 21/21 incl. 6 upgrade-safety cases.
+
 ## 6. THE IMMEDIATE NEXT STEP
 
 **Blocked on the user.** Run, on each production host, and share output:
@@ -144,6 +159,7 @@ resellers get locked out). Do NOT pre-draft Phase 3/4.
 
 ## 8. Commit arc (branch v4, newest first)
 ```
+385978b make v3/half-updated/v4 hosts all run + auto-upgrade, no data loss (025)
 d4b336d WP-F: Phase 1 mixed-window rollout caveat (doc)
 96959e8 WP-F Phase 1: decouple new_user from the reseller layer
 c2a6d49 WP-F Phase 0: fix v4 per-entity read + reseller-key variants; add tests
