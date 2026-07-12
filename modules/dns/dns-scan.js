@@ -195,7 +195,7 @@ process.exitCode = 0;
 // another cluster host when the datastore is the shared gluster mount —
 // is silently clobbered with the copy loaded at startup.
 process.on("exit", function () {
-    fs.writeFileSync(SC_CONTAINERS_DATA_FILE, JSON.stringify(containers, null, 2));
+    datastore.save_type("containers", containers); // was monolithic write, lost on v4 per-entity
 });
 
 exit();

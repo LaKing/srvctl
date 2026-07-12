@@ -254,13 +254,13 @@ function scan_host_keys() {
     Object.keys(hosts).forEach(function (i) {
         if (check_host_keys(hosts, i)) write_hosts = true;
     });
-    if (write_hosts) fs.writeFileSync(SC_HOSTS_DATA_FILE, JSON.stringify(hosts, null, 2));
+    if (write_hosts) datastore.save_type("hosts", hosts); // was monolithic write, lost on v4 per-entity
 
     let write_containers = false;
     Object.keys(containers).forEach(function (i) {
         if (check_container_host_keys(containers, i)) write_containers = true;
     });
-    if (write_containers) fs.writeFileSync(SC_CONTAINERS_DATA_FILE, JSON.stringify(containers, null, 2));
+    if (write_containers) datastore.save_type("containers", containers); // was monolithic write, lost on v4 per-entity
 }
 
 // Returns true when containers.json needs a rewrite for container i.

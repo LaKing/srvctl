@@ -76,12 +76,34 @@ app.get('/ssh/:user', function(req, res) {
 
 
 
+// Read a datastore type in EITHER layout (v4 file-per-entity <type>/<id>.json,
+// or v3 monolithic <type>.json), mirroring store.mjs/lib.js: monolithic base,
+// per-entity wins, and once the .per-entity marker exists per-entity is
+// authoritative (monolithic ignored). A migrated store has no monolithic file
+// (ENOENT is not an error) — without this the GUI would crash on startup.
+function loadDatastoreType(type) {
+    const result = {};
+    if (!fs.existsSync(SC_DATASTORE_DIR + '/.per-entity')) {
+        try {
+            const mono = JSON.parse(fs.readFileSync(SC_DATASTORE_DIR + '/' + type + '.json'));
+            if (mono && typeof mono === 'object' && !Array.isArray(mono)) Object.assign(result, mono);
+        } catch (e) { if (e.code !== 'ENOENT') throw e; }
+    }
+    try {
+        for (const n of fs.readdirSync(SC_DATASTORE_DIR + '/' + type)) {
+            if (!n.endsWith('.json') || n.startsWith('.')) continue;
+            result[n.slice(0, -5)] = JSON.parse(fs.readFileSync(SC_DATASTORE_DIR + '/' + type + '/' + n));
+        }
+    } catch (e) { if (e.code !== 'ENOENT') throw e; }
+    return result;
+}
+
 // FIXME(v4): datastore JSONs (and commands.spec below) are read once at
 // startup; new or removed containers/users/commands stay invisible in the
 // GUI until the service is restarted.
-const containers = JSON.parse(fs.readFileSync(SC_DATASTORE_DIR + '/containers.json'));
-const users = JSON.parse(fs.readFileSync(SC_DATASTORE_DIR + '/users.json'));
-const hosts = JSON.parse(fs.readFileSync(SC_DATASTORE_DIR + '/hosts.json'));
+const containers = loadDatastoreType('containers');
+const users = loadDatastoreType('users');
+const hosts = loadDatastoreType('hosts');
 
 
 // Parse /var/local/srvctl/commands.spec (records: 4 fields joined by the

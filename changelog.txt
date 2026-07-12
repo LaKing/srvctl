@@ -1,0 +1,63 @@
+srvctl changelog
+================
+
+Newest first. srvctl 4 is the systemd-nspawn container-farm manager rewrite
+(bash + Node.js). Datastore, runtime and permission model were reworked; the
+notable operational changes are listed here.
+
+4.0.0.2 (v4, in progress)
+-------------------------
+
+Datastore consumers — read/write EITHER layout (fix)
+  * `sc status` (and every module that loads the datastore via
+    modules/datastore/lib.js — containers/status, named, haproxy, dns, ssh,
+    letsencrypt, opendkim, vncproxy, perdition, codepad, usersonhost) failed
+    with `LIB-ERROR: READFILE .../hosts.json ENOENT` on a migrated (v4
+    file-per-entity) datastore, because lib.js still read the v3 MONOLITHIC
+    hosts.json/users.json/containers.json. lib.js now reads either layout
+    (per-entity, with a v3 monolithic fallback and the .per-entity authoritative
+    marker), fixing all of them at once.
+  * The direct monolithic READERS modules/gui/server.js and
+    modules/usersonhost/user.js were given the same fallback (they do not go
+    through lib.js).
+  * The generator modules that wrote the WHOLE monolithic file back
+    (ssh.js host keys + containers, dns-scan.js, opendkim.js) now persist
+    per-entity via lib.js save_type — previously their regeneration updates
+    were written to a file v4 ignores and were silently lost.
+
+Mixed-version upgrade safety (v3 / half-updated / v4)
+  * Every host state runs, auto-upgrades to v4, and loses no data even when a
+    code rsync only partially landed. store.mjs v4 reads fall back to (and merge
+    with) the v3 monolithic files; migration (migrate.mjs) is write-if-absent so
+    it consolidates a split/half-migrated store without clobbering; datalib.sh
+    KEEPS the monolithic files in place and writes a `.per-entity` marker
+    (instead of archiving them), so a host that got new code before new main.mjs
+    still reads its data, while v4 treats per-entity as authoritative once
+    marked (deletes are honored). Data convergence is automatic (root
+    init_datastore) and independent of code convergence. See
+    update-campaign/025-mixed-version-upgrade-safety.md.
+  * Deployment boundary: rsync to a temp dir then atomically swap
+    /usr/local/share/srvctl (with --delete). No self-healing/self-rsync logic.
+
+Datastore v4 — file-per-entity
+  * The datastore moved from three monolithic JSON files to one file per entity
+    (<type>/<id>.json), atomic + locked + git-versioned. Existing v3 stores
+    migrate automatically and idempotently on the first root `sc` run.
+
+Permission model (root / operator / user)
+  * "root" for any authorization decision is the REAL caller (SC_USER=root AND
+    uid 0), never plain uid 0 — closing the `sudo srvctl.sh …` bypass that the
+    NOPASSWD sudoers entry otherwise allowed.
+  * Guards: root_only, operators_only, owner_only (resource-scoped), plus
+    context markers hs_only/ve_only (now in the always-loaded srvctl authlib so
+    they work inside containers). All 38 commands are classified and guarded;
+    the generic `sc <service> <op>` shorthand, the container service hooks, the
+    openvpn hook and the `sc VE poweroff|…` machinectl shorthand are gated.
+
+Reseller layer removal (in progress, WP-F)
+  * `new user` no longer requires the actor to be a reseller and no longer
+    stamps user.reseller. A read-only per-host inventory
+    (update-campaign/wpf-phase0-inventory.mjs) and a defensive, dry-run-default
+    remover of vestigial a–x seed accounts
+    (update-campaign/wpf-phase2-remove-vestigial-resellers.mjs) are provided.
+    Guard re-tagging and owner_only reseller-branch removal follow.

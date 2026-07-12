@@ -188,7 +188,7 @@ process.on('exit', function() {
     fs.writeFileSync(SC_OPENDKIM_FOLDER + '/TrustedHosts', TrustedHosts);
     fs.writeFileSync(SC_OPENDKIM_FOLDER + '/KeyTable', KeyTable);
     fs.writeFileSync(SC_OPENDKIM_FOLDER + '/SigningTable', SigningTable);
-    fs.writeFileSync(SC_CONTAINERS_DATA_FILE, JSON.stringify(containers, null, 2));
+    datastore.save_type("containers", containers); // was monolithic write, lost on v4 per-entity
     msg('Wrote OpenDKIM TrustedHosts, KeyTable, SigningTable to ' + SC_OPENDKIM_FOLDER);
 });
 

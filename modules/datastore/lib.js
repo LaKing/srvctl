@@ -87,17 +87,40 @@ function return_value(msg) {
     }
 }
 
-function load_hosts() {
-    var results;
-
-    try {
-        results = JSON.parse(fs.readFileSync(SC_HOSTS_DATA_FILE));
-    } catch (err) {
-        return_error("READFILE " + SC_HOSTS_DATA_FILE + " " + err);
+// Read a datastore type in EITHER layout. v4 is file-per-entity
+// (<dir>/<type>/<id>.json); v3 was monolithic (<dir>/<type>.json). This mirrors
+// store.mjs's read fallback so every lib.js consumer keeps working during AND
+// after the migration: the monolithic file is the base, per-entity records WIN,
+// and once the .per-entity marker exists per-entity is AUTHORITATIVE (the
+// monolithic file is ignored, so deletes are honored). A missing monolithic
+// file (ENOENT) is NOT an error — a migrated store simply has none.
+function load_type(type) {
+    var dir = process.env.SC_DATASTORE_DIR;
+    var result = {};
+    if (!fs.existsSync(dir + "/.per-entity")) {
+        try {
+            var mono = JSON.parse(fs.readFileSync(dir + "/" + type + ".json"));
+            if (mono && typeof mono === "object" && !Array.isArray(mono)) {
+                Object.keys(mono).forEach(function (id) { result[id] = mono[id]; });
+            }
+        } catch (e) {
+            if (e.code !== "ENOENT") return_error("READFILE " + dir + "/" + type + ".json " + e);
+        }
     }
+    try {
+        fs.readdirSync(dir + "/" + type).forEach(function (n) {
+            if (n.slice(-5) !== ".json" || n.charAt(0) === ".") return; // skip dotfiles + key subdirs
+            result[n.slice(0, -5)] = JSON.parse(fs.readFileSync(dir + "/" + type + "/" + n));
+        });
+    } catch (e) {
+        if (e.code !== "ENOENT") return_error("READDIR " + dir + "/" + type + " " + e);
+    }
+    return result;
+}
 
+function load_hosts() {
+    var results = load_type("hosts");
     if (Object.keys(results).length < 1) return_error("READFILE " + SC_HOSTS_DATA_FILE + " has no hosts defined. Eventually run: srvctl update-install");
-
     return results;
 }
 
@@ -105,11 +128,7 @@ var hosts = load_hosts();
 exports.hosts = hosts;
 
 function load_users() {
-    try {
-        return JSON.parse(fs.readFileSync(SC_USERS_DATA_FILE));
-    } catch (err) {
-        return_error("READFILE " + SC_USERS_DATA_FILE + " " + err);
-    }
+    return load_type("users");
 }
 
 var users = load_users();
@@ -127,15 +146,27 @@ var resellers = load_resellers();
 exports.resellers = resellers;
 
 function load_containers() {
-    try {
-        return JSON.parse(fs.readFileSync(SC_CONTAINERS_DATA_FILE));
-    } catch (err) {
-        return_error("READFILE " + SC_CONTAINERS_DATA_FILE + " " + err);
-    }
+    return load_type("containers");
 }
 
 var containers = load_containers();
 exports.containers = containers;
+
+// Persist a whole type map to the v4 file-per-entity layout (<dir>/<type>/
+// <id>.json), matching store.mjs's serialize so no file churns. Used by the
+// generator modules (ssh/dns/opendkim) that previously wrote the WHOLE
+// monolithic <type>.json — on a migrated store that write was ignored (v4 reads
+// per-entity), silently losing their regeneration updates. This writes the same
+// records per-entity instead, so they take effect. (Best-effort, unlocked — as
+// the v3 monolithic write was; these run single-threaded during regenerate.)
+function save_type(type, map) {
+    var dir = process.env.SC_DATASTORE_DIR + "/" + type;
+    try { fs.mkdirSync(dir, { recursive: true }); } catch (e) { if (e.code !== "EEXIST") throw e; }
+    Object.keys(map).forEach(function (id) {
+        fs.writeFileSync(dir + "/" + id + ".json", JSON.stringify(map[id], null, 2) + "\n");
+    });
+}
+exports.save_type = save_type;
 
 function write_users() {
     if (SC_DATASTORE_RO) return_error("Readonly datastore.");
