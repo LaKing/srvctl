@@ -55,7 +55,12 @@ function check_wildcard_pem { ## file
 function apply_wildcard_certificates() {
 
     msg "Apply wildcard certificates"
-    
+
+    ## Ensure the datastore cert dir exists before the fan-out writes into it —
+    ## on a fresh datastore it is created later (regenerate_haproxy_conf), so the
+    ## first fan-out used to silently no-op.
+    mkdir -p "$SC_DATASTORE_DIR/cert"
+
     for i in /etc/srvctl/cert/*/*.pem
     do
         checked_domain="$(check_wildcard_pem "$i")"
@@ -77,9 +82,9 @@ function apply_wildcard_certificates() {
                     ## this module — on a read-only datastore or before the
                     ## haproxy/letsencrypt mkdir this cat fails and wildcard
                     ## certs are silently not applied.
-                    ## FIXME(v4): the copy contains the private key but is
-                    ## written with the default umask (0644, no chmod).
+                    ## The copy contains the private key — keep it non-readable.
                     cat "$i" > "$SC_DATASTORE_DIR/cert/$c.pem"
+                    chmod 600 "$SC_DATASTORE_DIR/cert/$c.pem"
                 fi
 
                 ## check the containers against company domains that have no hostname

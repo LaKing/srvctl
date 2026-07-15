@@ -57,17 +57,25 @@ function regenerate_haproxy_conf {
     ## we may have server-wide wildcard certificates
     mkdir -p /etc/srvctl/cert
 
-    ## FIXME(v4): hardcoded path — should honor SC_DATASTORE_RW_DIR.
-    load_certificate_folder_files /var/srvctl3/datastore/cert
-
-    for sccert_dir in /etc/srvctl/cert/*
-    do
-        load_certificate_folder_files "$sccert_dir"
-    done
-
-    ## the CA bundle is not a servable certificate; keep it out of the
-    ## crt directory haproxy binds to
-    rm -fr /var/haproxy/ca-bundle.pem
+    ## Select + sync the certs haproxy serves: prefer a matching WILDCARD over a
+    ## per-domain (letsencrypt) cert, keep only valid certs, and PRUNE stale /
+    ## superseded copies so a renewal is never shadowed by an old one (this
+    ## replaces the add-only `cp -u` that never pruned). certselectlib lives in
+    ## the certificates module; fall back to the old behaviour if it is not
+    ## loaded on this host.
+    if command -v sync_haproxy_certificates > /dev/null 2>&1
+    then
+        sync_haproxy_certificates /var/haproxy
+    else
+        load_certificate_folder_files /var/srvctl3/datastore/cert
+        for sccert_dir in /etc/srvctl/cert/*
+        do
+            load_certificate_folder_files "$sccert_dir"
+        done
+        ## the CA bundle is not a servable certificate; keep it out of the
+        ## crt directory haproxy binds to
+        rm -fr /var/haproxy/ca-bundle.pem
+    fi
 
     haproxycfg
     ## reload (not restart) keeps existing connections alive

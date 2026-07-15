@@ -8,6 +8,22 @@ notable operational changes are listed here.
 4.0.0.2 (v4, in progress)
 -------------------------
 
+Certificates — haproxy cert selection + prune (fix)
+  * haproxy served a stale/expired cert after a renewal: regenerate_haproxy_conf
+    only `cp -u`-copied certs into /var/haproxy and never pruned, so an old
+    per-domain copy shadowed the new wildcard. New certselectlib
+    (modules/certificates/libs/certselectlib.sh) rebuilds /var/haproxy as a
+    DESIRED set and prunes everything else. Preference per domain: a matching
+    WILDCARD > a per-domain (letsencrypt) cert; expired certs are never served;
+    newer notAfter wins. Because haproxy SNI prefers an exact match over the
+    wildcard, a domain covered by a valid wildcard gets NO per-domain file (the
+    wildcard serves it). Deployed files are mode 0600. Tested by
+    modules/certificates/selftest/certselect.test.sh (15 checks over generated
+    certs). Also: apply_wildcard_certificates now mkdir's the datastore cert dir
+    before the fan-out (first-run no-op fix) and chmods the key-bearing copy 600.
+    To rotate a wildcard now: drop the new pem in /etc/srvctl/cert/<domain>/ and
+    run `sc regenerate` — the old copy is pruned automatically.
+
 Datastore consumers — read/write EITHER layout (fix)
   * `sc status` (and every module that loads the datastore via
     modules/datastore/lib.js — containers/status, named, haproxy, dns, ssh,
