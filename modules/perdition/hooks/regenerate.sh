@@ -11,6 +11,14 @@
 ##   and pop3s services.
 ##
 
+## Refresh the IMAP/POP TLS cert so a renewal reaches perdition without a full
+## update-install. Guarded: only when installed (the certificates module and
+## /etc/perdition present) — perdition is not installed on every host.
+if command -v install_service_hostcertificate > /dev/null 2>&1 && [[ -d /etc/perdition ]]
+then
+    install_service_hostcertificate /etc/perdition
+fi
+
 perditioncfg
 
 restart_perdition

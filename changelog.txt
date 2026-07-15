@@ -23,6 +23,14 @@ Certificates — haproxy cert selection + prune (fix)
     before the fan-out (first-run no-op fix) and chmods the key-bearing copy 600.
     To rotate a wildcard now: drop the new pem in /etc/srvctl/cert/<domain>/ and
     run `sc regenerate` — the old copy is pruned automatically.
+  * The OTHER TLS services (postfix SMTP, perdition IMAP/POP, gui) get their
+    cert via install_service_hostcertificate. Two fixes so a renewal reaches
+    them too: (a) it now accepts a COMBINED pem (cert+chain+key), extracting the
+    key — so the same pem dropped for haproxy also serves mail, no separate
+    <domain>.key needed; (b) the postfix and perdition regenerate hooks now
+    re-install the service cert (guarded, idempotent) before restart, so
+    `sc regenerate` propagates a renewal to mail — previously it was installed
+    only at `update-install`. (gui still refreshes at update-install.)
 
 Datastore consumers — read/write EITHER layout (fix)
   * `sc status` (and every module that loads the datastore via

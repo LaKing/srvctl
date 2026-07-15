@@ -92,6 +92,25 @@ left=""
 for f in "$HA"/*.pem; do [[ -e "$f" ]] && left+="$(basename "$f") "; done
 ok "final haproxy dir = wildcard + uncovered per-domain only" "$left" "deep.a.example.test.pem example.test.pem printhub.other.pem "
 
+# --- service_key_pem: one COMBINED pem must serve the mail/gui services too ---
+# (install_service_hostcertificate references run/err/create_selfsigned but
+#  service_key_pem does not; sourcing only defines functions.)
+# shellcheck disable=SC2329
+err() { :; }
+# shellcheck disable=SC2329
+run() { :; }
+# shellcheck disable=SC1090,SC1091
+source "$REPO/modules/certificates/libs/servicecertlib.sh"
+SVC="$TMP/svc"; mkdir -p "$SVC"
+cp "$DS/cert/printhub.other.pem" "$SVC/combined.pem"                 # cert+chain+key
+openssl x509 -in "$SVC/combined.pem" > "$SVC/split.pem" 2> /dev/null # cert only
+openssl pkey -in "$SVC/combined.pem" > "$SVC/split.key" 2> /dev/null # key only
+ok "combined pem yields a key"     "$(service_key_pem "$SVC" combined > /dev/null && echo y || echo n)" "y"
+ok "combined key is a PRIVATE KEY" "$(service_key_pem "$SVC" combined | grep -c 'BEGIN.*PRIVATE KEY')" "1"
+ok "separate .key is used"         "$(service_key_pem "$SVC" split > /dev/null && echo y || echo n)" "y"
+rm -f "$SVC/split.key"
+ok "cert-only pem, no key -> fail" "$(service_key_pem "$SVC" split > /dev/null && echo y || echo n)" "n"
+
 echo ""
 echo "certselect.test: $pass passed, $fail failed"
 exit $(( fail > 0 ? 1 : 0 ))

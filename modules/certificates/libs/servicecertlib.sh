@@ -18,6 +18,24 @@
 ##   is cached as $src/dhparam next to the source certificate.
 ##
 
+## A usable private key for $dom under $src: a separate <dom>.key, else a key
+## EMBEDDED in a combined <dom>.pem (cert+chain+key, e.g. the haproxy-style pem
+## an admin drops in /etc/srvctl/cert/<dom>/). Prints the key PEM; non-zero if
+## neither yields one. Lets ONE combined pem serve both haproxy and the mail/
+## gui services instead of also requiring a separate .key.
+function service_key_pem { ## src dom
+    local src="$1" dom="$2" key=""
+    if [[ -f "$src/$dom.key" ]]
+    then
+        key="$(cat "$src/$dom.key")"
+    elif [[ -f "$src/$dom.pem" ]]
+    then
+        key="$(openssl pkey -in "$src/$dom.pem" 2> /dev/null)"
+    fi
+    [[ -n "$key" ]] || return 1
+    printf '%s\n' "$key"
+}
+
 function install_service_hostcertificate() { ## path
     ## create crt.key, pem, .. and bundle
     local path src dom found
@@ -41,7 +59,7 @@ function install_service_hostcertificate() { ## path
         src="/etc/srvctl/cert/$SC_COMPANY_DOMAIN"
         dom="$SC_COMPANY_DOMAIN"
         
-        if [[ -f "$src/$dom.pem" ]] && [[ -f "$src/$dom.key" ]]
+        if [[ -f "$src/$dom.pem" ]] && service_key_pem "$src" "$dom" > /dev/null
         then
             found=true
         fi
@@ -54,7 +72,7 @@ function install_service_hostcertificate() { ## path
         src="/etc/srvctl/cert/${HOSTNAME:3}"
         dom="${HOSTNAME:3}"
         
-        if [[ -f "$src/$dom.pem" ]] && [[ -f "$src/$dom.key" ]]
+        if [[ -f "$src/$dom.pem" ]] && service_key_pem "$src" "$dom" > /dev/null
         then
             found=true
         fi
@@ -67,7 +85,7 @@ function install_service_hostcertificate() { ## path
         src="/etc/srvctl/cert/$HOSTNAME"
         dom="$HOSTNAME"
         
-        if [[ -f "$src/$dom.pem" ]] && [[ -f "$src/$dom.key" ]]
+        if [[ -f "$src/$dom.pem" ]] && service_key_pem "$src" "$dom" > /dev/null
         then
             found=true
         fi
@@ -86,7 +104,7 @@ function install_service_hostcertificate() { ## path
                 then
                     src="$dir"
                     dom="$d"
-                    if [[ -f "$src/$dom.pem" ]] && [[ -f "$src/$dom.key" ]]
+                    if [[ -f "$src/$dom.pem" ]] && service_key_pem "$src" "$dom" > /dev/null
                     then
                         found=true
                     fi
@@ -101,7 +119,7 @@ function install_service_hostcertificate() { ## path
         create_selfsigned_domain_certificate "$HOSTNAME" "/etc/srvctl/cert/$HOSTNAME"
         src="/etc/srvctl/cert/$HOSTNAME"
         dom="$HOSTNAME"
-        if [[ -f "$src/$dom.pem" ]] && [[ -f "$src/$dom.key" ]]
+        if [[ -f "$src/$dom.pem" ]] && service_key_pem "$src" "$dom" > /dev/null
         then
             found=true
         fi
@@ -121,7 +139,7 @@ function install_service_hostcertificate() { ## path
         fi
         
         cat "$src/$dom.pem" > "$path/crt.pem"
-        cat "$src/$dom.key" > "$path/key.pem"
+        service_key_pem "$src" "$dom" > "$path/key.pem"
         cat "$ssl_dhparams" >> "$path/crt.pem"
         
         if [[ -f $src/ca-bundle.pem ]]

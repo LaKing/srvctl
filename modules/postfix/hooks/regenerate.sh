@@ -17,4 +17,14 @@
 
 regenerate_etc_postfix_relaydomains
 
+## Refresh the SMTP TLS cert on every regenerate so a renewed host/wildcard cert
+## reaches postfix WITHOUT a full update-install (previously it was installed
+## only at update-install, so renewals never propagated to mail). Idempotent —
+## re-copies the same bytes when unchanged. Guarded so it is a no-op where the
+## certificates module or /etc/postfix is absent.
+if command -v install_service_hostcertificate > /dev/null 2>&1 && [[ -d /etc/postfix ]]
+then
+    install_service_hostcertificate /etc/postfix
+fi
+
 restart_postfix
