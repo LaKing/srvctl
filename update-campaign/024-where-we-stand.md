@@ -107,7 +107,7 @@ NOT in address/uid derivation (clean removal).
 |---|---|---|
 | 0 | per-host read-only inventory script (`wpf-phase0-inventory.mjs`, tested v3+v4 layouts, 3 key variants) | ✅ built — **awaiting production runs** |
 | 1 | `mutators.newUser` no longer requires `reseller_id` / stamps `user.reseller` | ✅ done (96959e8) |
-| 2 | migrate accounts from real data (active reseller→operator, delete vestigial, strip fields, remove reseller-key symlinks) | **needs Phase 0 output** |
+| 2 | migrate accounts (active reseller→operator, delete vestigial, strip fields, remove reseller-key symlinks) — migrator `wpf-phase2-remove-vestigial-resellers.mjs` | ✅ built + tested (18edb41) — **awaiting production runs (dry-run first)** |
 | 3 | re-tag `reseller_only`→`operators_only` (add-ve-user, usersonhost/add-user, change-user); delete the guard + `${#SC_USER}==1` listing special-cases | needs Phase 2 |
 | 4 | drop the `owner_only` reseller branch | needs data migrated |
 | 5 | remove the layer (`add-reseller`, `new reseller`/`newReseller`, `derive.container_reseller`, `user_container_list` clause, ssh reseller symlinks, informational `get <container> reseller` displays) | needs 2–4 |
@@ -133,14 +133,22 @@ is the deployment boundary. Tests: store.test 21/21 incl. 6 upgrade-safety cases
 
 ## 6. THE IMMEDIATE NEXT STEP
 
-**Blocked on the user.** Run, on each production host, and share output:
-```
-node update-campaign/wpf-phase0-inventory.mjs [DATASTORE_DIR]
-```
-Then, from that real data, generate the concrete **Phase 2 migrator** and land
-**Phase 2 → 3 → 4** in order (each verified against the datastore goldens + the
-guard probe; re-tag/branch-removal ONLY after accounts migrate, else single-char
-resellers get locked out). Do NOT pre-draft Phase 3/4.
+Current status snapshot: `026-campaign-status-2026-07-16.md`. The Phase 2
+migrator is BUILT AND TESTED (`wpf-phase2-remove-vestigial-resellers.mjs`,
+commit 18edb41). What remains, in order:
+
+1. Run the Phase 2 migrator on **every production host — dry-run first**
+   (the Phase 0 inventory `wpf-phase0-inventory.mjs` remains available to
+   review a host before migrating it).
+2. Phase 3: re-tag `reseller_only`→`operators_only`, delete the guard and the
+   `${#SC_USER}==1` listing special-cases.
+3. Phase 4: drop the `owner_only` reseller branch.
+4. Phase 5: remove the remaining reseller model, commands, derivations, and
+   ssh-key machinery.
+
+Each step verified against the datastore goldens + the guard probe.
+Re-tag/branch-removal ONLY after accounts migrate, else single-char resellers
+get locked out.
 
 ## 7. Traps this campaign already hit (don't repeat)
 

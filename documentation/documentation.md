@@ -135,17 +135,57 @@ This creates symlinks at `/bin/sc` and `/bin/srvctl`.
 
 ### Initial Configuration
 
-Install the non-topology examples and the canonical cluster topology, then
-customize them:
+Create the static configuration by hand — since 4.0.0.7 no example files are
+shipped; the templates below are the reference. Adjust every hostname,
+address, and identifier to your environment:
 
 ```bash
 install -d /etc/srvctl/data
-cp -R /usr/local/share/srvctl/example-conf/data/. /etc/srvctl/data/
-install -m 0644 /usr/local/share/srvctl/example-conf/clusters.json.example \
-  /etc/srvctl/clusters.json
+
+cat > /etc/srvctl/clusters.json << 'EOF'
+{
+    "example_cluster": {
+        "s1.example.com": {
+            "mac_address": "080027000001",
+            "host_ip": "192.0.2.10",
+            "gateway": "192.0.2.1",
+            "prefix": "24",
+            "dns1": "192.0.2.1",
+            "dns2": "8.8.8.8",
+            "hostnet": 16,
+            "dns_server": "master",
+            "dns_primary": true,
+            "reverse_proxy": "haproxy"
+        },
+        "s2.example.com": {
+            "mac_address": "080027000002",
+            "host_ip": "192.0.2.11",
+            "gateway": "192.0.2.1",
+            "prefix": "24",
+            "dns1": "192.0.2.1",
+            "dns2": "8.8.8.8",
+            "hostnet": 17,
+            "dns_server": "slave",
+            "reverse_proxy": "haproxy"
+        }
+    }
+}
+EOF
+
+cat > /etc/srvctl/data/branding.conf << 'EOF'
+## Your company - must be one word, no spaces.
+SC_COMPANY=example
+## Company domain name
+SC_COMPANY_DOMAIN=example.com
+EOF
+
+cat > /etc/srvctl/data/ca.conf << 'EOF'
+SC_ROOTCA_HOST=s1.example.com
+SC_ROOTCA_SUBJ="/C=HU/ST=Hungary/L=Budapest/O=Example-CA"
+EOF
 ```
 
-Edit the following files:
+Customize the following files:
 
 - `/etc/srvctl/clusters.json` — The sole topology source. Define every cluster
   host with its MAC, IP, hostnet, gateway, and DNS role; distribute this file

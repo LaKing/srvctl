@@ -26,11 +26,15 @@ As root, clone the repo and create some symlinks for it.
 ```
 
 At this point the srvctl command should be ready to be used.
-To use srvctl as a containerfarm host, the common configuration data has to be written using the JSON format. You may refer to the example-configs.
+To use srvctl as a containerfarm host, create the static configuration by hand
+(no example files are shipped since 4.0.0.7):
 
-    install -d /etc/srvctl/data
-    cp -R /usr/local/share/srvctl/example-conf/data/. /etc/srvctl/data/
-    install -m 0644 /usr/local/share/srvctl/example-conf/clusters.json.example /etc/srvctl/clusters.json
+    /etc/srvctl/clusters.json       - canonical cluster topology, the sole topology source (JSON)
+    /etc/srvctl/data/branding.conf  - SC_COMPANY and SC_COMPANY_DOMAIN (bash)
+    /etc/srvctl/data/ca.conf        - SC_ROOTCA_HOST and SC_ROOTCA_SUBJ (bash)
+
+Complete copy-paste templates for all three files are in the Initial
+Configuration section of documentation/documentation.md.
 
 Most static configuration files reside in /etc/srvctl. Data is stored in BASH formatted, sourcable variable description files, and in JSON files.
 The datastore module saves configuration informations, and gluster can be used to sync the data across servers.

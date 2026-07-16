@@ -15,8 +15,10 @@ commonlib.sh       # Core functions (hint, load_libs, run_hook, etc.)
 lablib.sh          # Color output and utility functions
 version            # Current version string
 modules/           # 37 plugin modules (see below)
-example-conf/      # Example configuration templates
 ```
+
+Configuration templates are inline in `documentation/documentation.md`
+(Initial Configuration); the shipped `example-conf/` was removed in 4.0.0.7.
 
 ## Module Structure
 

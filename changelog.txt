@@ -66,8 +66,9 @@ Host projections relocated to /var/srvctl3/host (change)
     identity to boot from. Because v3 renders host.conf values as UNQUOTED
     root shell assignments, the rollback first validates the topology
     (cluster-config-cli v3safe) and refuses values containing whitespace,
-    quotes, or shell substitution before writing anything. The shipped
-    topology template is example-conf/clusters.json.example.
+    quotes, or shell substitution before writing anything. The topology
+    template lives inline in documentation/documentation.md (Initial
+    Configuration); 4.0.0.7 removed the shipped example-conf files.
 
 Cluster topology — one canonical file (architectural fix)
   * `/etc/srvctl/clusters.json` is now the sole live topology source on each
@@ -90,8 +91,9 @@ Cluster topology — one canonical file (architectural fix)
     lock and verifies full SHA-256/projections. Prepare failure commits nothing;
     partial distributed commits are loud failures. all-host regeneration also
     verifies the complete file on every cross-cluster host before mutation.
-    Static-data sync excludes `clusters*.json`; the shipped topology template
-    is `clusters.json.example`. No live topology copy belongs under `/var`.
+    Static-data sync excludes `clusters*.json`; the topology template is
+    documented inline in documentation/documentation.md (4.0.0.7 removed the
+    shipped example files). No live topology copy belongs under `/var`.
   * Topology removal now fails closed against a last-successful publication
     manifest. First upgrade requires the explicit, complete-inventory baseline
     `initialize_cluster_publication confirm-complete-inventory`; ordinary

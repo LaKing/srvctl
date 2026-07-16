@@ -471,7 +471,8 @@ Execution rules (from 000-PROMPT + the Stage-2 preconditions in 000-INDEX):
     - **WP-E.2.b remaining**: `sc help` role-filtering (blocked on the init
       datastore-selection bootstrap, recorded above); the VE-side usersonve
       role model (its own decision); reseller→operator re-tag lands in WP-F.
-- **WP-F** — G6 reseller removal: drop reseller_only, the a..z pre-created
+- **WP-F — IN PROGRESS (Phases 0–2 built; production migration + Phases 3–5
+  remain)** — G6 reseller removal: drop reseller_only, the a..z pre-created
   accounts, reseller_id derivation; per-server user inventory first.
   - **INVENTORY DONE (no code/data changed)** → see
     `023-reseller-removal-plan.md`. Full touch-point map (data model, guards,
@@ -482,10 +483,20 @@ Execution rules (from 000-PROMPT + the Stage-2 preconditions in 000-INDEX):
     inherits it. Seed accounts a–x (reseller_id 1–24) in default-users.json.
     5-phase plan (decouple newUser from reseller_id → migrate accounts →
     re-tag reseller_only→operators_only → drop owner_only branch → remove
-    layer); re-tag/branch-removal ONLY after data migrated. AWAITING user
-    decisions: (1) drop super-ownership? (2) a–x policy; (3) add-reseller →
-    delete vs repurpose as add-operator. Phase 0 = a per-host read-only
-    inventory script (production data, cannot run from here).
+    layer); re-tag/branch-removal ONLY after data migrated.
+  - **DECISIONS LOCKED (2026-07, user)**: (1) drop reseller super-ownership
+    entirely — no role inherits it; (2) delete add-reseller outright
+    (operators granted by root via `cfg user <u> role operator`); (3) a–x
+    seeds: delete vestigial, migrate any ACTIVE reseller → role=operator.
+  - **Phase 0 ✅** inventory tool `wpf-phase0-inventory.mjs` (aa792ac,
+    c2a6d49; 18 tests, v3+v4 layouts, 3 reseller-key variants).
+  - **Phase 1 ✅** `mutators.newUser` decoupled from the reseller layer
+    (96959e8; rollout caveat recorded in 023/d4b336d).
+  - **Phase 2 migrator ✅ BUILT + TESTED** —
+    `wpf-phase2-remove-vestigial-resellers.mjs` (18edb41; vestigial-seed
+    removal + default-users.json trim). **Awaiting production runs — dry-run
+    first on every host.** Phases 3–5 follow only after accounts migrate.
+  - Status snapshot: `026-campaign-status-2026-07-16.md`.
 
 ### Networking / certs / mail (deprecations)
 - **WP-G** — G8 ZeroTier: self-hosted controller; 10.16.x.y range;
