@@ -11,8 +11,21 @@
 ## vncproxy every minute, killing all live VNC sessions.
 # shellcheck shell=bash
 
-# shellcheck disable=SC1091 ## runtime-file
-source /etc/srvctl/host.conf
+## The projection moves to /var/srvctl3/host on the first root srvctl run
+## after a code deploy; until then (and after a code rollback) only the
+## legacy /etc/srvctl copy exists. A missing file here must not trigger the
+## FAIL branch below (it restarts vncproxy, killing live sessions).
+# shellcheck disable=SC1091 ## runtime-files
+source /var/srvctl3/host/host.conf 2>/dev/null || source /etc/srvctl/host.conf || exit 0
+
+## Without a host address there is nothing to probe: restarting vncproxy
+## cannot help (start.sh refuses with 78), it only spams the journal once a
+## minute. Skip the probe instead of taking the FAIL branch.
+if [[ -z ${SC_HOST_IP:-} ]]
+then
+    echo "SKIP: host projection lacks SC_HOST_IP; not probing vncproxy"
+    exit 0
+fi
 
 if nmap -p 5900 --script vnc-info "$SC_HOST_IP" | grep "VNC Authentication"
 then

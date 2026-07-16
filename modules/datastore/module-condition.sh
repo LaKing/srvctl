@@ -7,7 +7,7 @@
 ##
 ##   Delegates entirely to the containers module condition: the datastore is
 ##   active exactly where containers are managed (real cluster hosts listed
-##   in /etc/srvctl/hosts.json, not inside nspawn/lxc guests).
+##   in /var/srvctl3/host/hosts.json, not inside nspawn/lxc guests).
 ##
 
 # shellcheck source=/usr/local/share/srvctl/modules/containers/module-condition.sh

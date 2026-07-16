@@ -60,7 +60,20 @@ function v3(op, ...args) {
     fs.writeFileSync(path.join(dir, "hosts.json"), JSON.stringify({ n1: { hostnet: 20, host_ip: "10.16.20.1" } }));
     fs.writeFileSync(path.join(dir, "users.json"), JSON.stringify(USERS));
     fs.writeFileSync(path.join(dir, "containers.json"), JSON.stringify(CONTAINERS));
-    const r = spawnSync(process.execPath, [CAPTURE, op, ...args], { env: { ...ENV, SC_DATASTORE_DIR: dir }, encoding: "utf8" });
+    const clustersFile = path.join(dir, "cluster-topology.fixture.json");
+    fs.writeFileSync(clustersFile, JSON.stringify({ test_cluster: {
+      n1: { hostnet: 20, host_ip: "10.16.20.1" },
+    } }));
+    const r = spawnSync(process.execPath, [CAPTURE, op, ...args], {
+      env: {
+        ...ENV,
+        SC_DATASTORE_DIR: dir,
+        SRVCTL_SELFTEST: "true",
+        SRVCTL_SELFTEST_CLUSTERS_FILE: clustersFile,
+        SRVCTL_SELFTEST_HOSTNAME: "n1",
+      },
+      encoding: "utf8",
+    });
     if (r.error) throw new Error(`spawn capture: ${r.error.message}`);
     if (r.status !== 0) throw new Error(`capture ${op} exited ${r.status}: ${r.stderr}`);
     const line = r.stdout.split("\n").filter(Boolean).find((l) => l.startsWith("@@RESULT@@"));

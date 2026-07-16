@@ -27,7 +27,9 @@ As root, clone the repo and create some symlinks for it.
 At this point the srvctl command should be ready to be used.
 To use srvctl as a containerfarm host, the common configuration data has to be written using the JSON format. You may refer to the example-configs.
 
-    cp -R /usr/local/share/srvctl/example-conf/data /etc/srvctl
+    install -d /etc/srvctl/data
+    cp -R /usr/local/share/srvctl/example-conf/data/. /etc/srvctl/data/
+    install -m 0644 /usr/local/share/srvctl/example-conf/clusters.json.example /etc/srvctl/clusters.json
 
 Most static configuration files reside in /etc/srvctl. Data is stored in BASH formatted, sourcable variable description files, and in JSON files.
 The datastore module saves configuration informations, and gluster can be used to sync the data across servers.
@@ -59,9 +61,39 @@ The main datastore functions may be accessed directly, so instead of writing
 
 The datastore
 
-Srvctl maintains configuration data in json files. These files may reside at the following locations
-/etc/srvctl/data - static configuration files
+Srvctl maintains configuration data in json files. Cluster topology has one
+canonical path on each host: /etc/srvctl/clusters.json. It must be identical on
+all hosts and must not be copied into /etc/srvctl/data or /var.
+/etc/srvctl/data - non-topology static configuration seeds
 /var/srvctl3/datastore - readwrite gluster data volume (/var/srvctl3/gluster/srvctl-data as readonly fallback)
+
+On the first upgrade to fail-closed topology publication, deploy the same
+srvctl version to every configured host while the canonical file still lists
+the complete deployed inventory, then run:
+
+    srvctl exec-function initialize_cluster_publication confirm-complete-inventory
+
+Do this before removing or renaming any host: initialization can verify the
+hosts still listed, but cannot discover one already deleted from the first
+baseline. The publication manifest stores only the verified canonical SHA-256
+and ordered hostnames, never a second topology copy.
+
+For normal changes, edit /etc/srvctl/clusters.json, run
+`srvctl exec-function publish_data`, then `srvctl regenerate all-hosts`.
+Before removing or renaming OLDHOST, drain its workloads and, while it still
+answers under that hostname, run from the same publication controller that
+initialized and owns the manifest (never from OLDHOST itself):
+
+    srvctl exec-function retire_cluster_host OLDHOST confirm-decommissioned
+
+Only after retirement succeeds may you remove/rename its canonical entry and
+publish. Retirement stops and disables its authoritative BIND role before
+detaching topology. For a rename, make the machine answer under its new
+canonical hostname, publish, then run `srvctl update-install NEWHOST` on that
+machine before the final `srvctl regenerate all-hosts`. Publication re-enrolls
+the topology; update-install re-enables boot-persistent roles such as BIND.
+To retire the publication controller itself, initialize a different current
+host against the unchanged complete inventory first, then retire it from there.
 
 Accessing the VE
 
@@ -71,6 +103,3 @@ There are several options for users to access their VE.
 - ssh directly to the VE, for example "ssh charlie_charlie-one.ve_root@192.168.88.13 -p 2222" Note the USER_VE_VEUSER syntax.
 
 Mailing is enabled by default, but mailing should be seperated to containers, thus create containers with the mail. subdomain-prefix to have a dedicated MX.
-
-
-

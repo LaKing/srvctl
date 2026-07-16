@@ -8,7 +8,7 @@
 ##   in modules.conf. Enabled:
 ##     - inside any systemd-nspawn or lxc container,
 ##     - on farm hosts (SC_HOSTNET set or /etc/srvctl/data present, and
-##       $HOSTNAME listed in /etc/srvctl/hosts.json),
+##       $HOSTNAME listed in /var/srvctl3/host/hosts.json),
 ##     - on the 'update-install <host>' bootstrap path.
 ##   Never on a pristine localhost.localdomain machine.
 ##
@@ -34,7 +34,7 @@ fi
 ## farm host: part of a cluster and listed among the managed hosts.
 if [[ $SC_HOSTNET ]] || [[ -d /etc/srvctl/data ]]
 then
-    if [[ -f /etc/srvctl/hosts.json ]] && grep --quiet "\"$HOSTNAME\"" /etc/srvctl/hosts.json
+    if [[ -f /var/srvctl3/host/hosts.json ]] && grep --quiet "\"$HOSTNAME\"" /var/srvctl3/host/hosts.json
     then
         echo true
         return

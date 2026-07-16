@@ -8,7 +8,7 @@
 ##   module's condition, so sshpiperd is active exactly where containers
 ##   is: on farm hosts (not localhost.localdomain, not itself a
 ##   container, SC_HOSTNET set or /etc/srvctl/data present, $HOSTNAME in
-##   /etc/srvctl/hosts.json) and on the 'update-install <host>'
+##   /var/srvctl3/host/hosts.json) and on the 'update-install <host>'
 ##   bootstrap path. The result is cached as SC_USE_SSHPIPERD in
 ##   modules.conf.
 ##

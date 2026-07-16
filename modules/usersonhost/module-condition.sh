@@ -8,7 +8,7 @@
 ##   containers module condition and inherits its verdict, so usersonhost
 ##   is active exactly where containers is — on real cluster hosts (not
 ##   inside nspawn/lxc containers, hostname not localhost.localdomain,
-##   listed in /etc/srvctl/hosts.json), or during "update-install <arg>".
+##   listed in /var/srvctl3/host/hosts.json), or during "update-install <arg>".
 ##   Net effect: host-side user management never runs inside a container.
 ##
 

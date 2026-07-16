@@ -16,6 +16,7 @@ import { migrateToPerEntity } from "../lib/migrate.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const MAIN = path.join(HERE, "..", "main.mjs");
+const CLUSTERS = path.join(HERE, "golden", "fixture", "cluster-topology.fixture.json");
 const N = 20;
 
 let passed = 0;
@@ -50,7 +51,13 @@ function parallel(dir, argvList, env) {
   execFileSync("bash", ["-c", script], { stdio: "ignore" });
 }
 
-const ENV = { SC_HOSTNET: "20", SC_USER: "root", USER: "root", NOW: "2026-01-01T00:00:00.000Z", SC_COMPANY_DOMAIN: "example.com" };
+const ENV = {
+  SC_HOSTNET: "20", SC_USER: "root", USER: "root",
+  NOW: "2026-01-01T00:00:00.000Z", SC_COMPANY_DOMAIN: "example.com",
+  SRVCTL_SELFTEST: "true",
+  SRVCTL_SELFTEST_CLUSTERS_FILE: CLUSTERS,
+  SRVCTL_SELFTEST_HOSTNAME: "node1",
+};
 const HOSTS = { node1: { hostnet: 20, host_ip: "10.16.20.1" } };
 const USERS = { root: { reseller_id: 0, user_id: 0, uid: 0, name: "root" } };
 

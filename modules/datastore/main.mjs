@@ -17,6 +17,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { createStore, StoreError } from "./lib/store.mjs";
+import hostTopology from "./lib/host-topology.js";
 import { derivations } from "./lib/derive.mjs";
 import { generators, container_useruids } from "./lib/generators.mjs";
 import {
@@ -84,14 +85,19 @@ const store = createStore(DATASTORE_DIR, { readOnly: READONLY, git: false });
 const $TAG = "\x1b[34m[ " + os.hostname().split(".")[0] + " ]";
 function msg(text) { console.log($TAG + "\x1b[32m", text, "\x1b[0m"); }
 
-// Derivations/generators iterate whole maps, so load each type in full.
-// Per-entity semantics vs v3's "3 required files": hosts must be non-empty
-// (the unmounted/empty-datastore signal, as v3's hosts length check); an
-// empty users/containers set is valid (there is no single file to be
-// "missing" per-entity). A corrupt entity file → LIB-ERROR 112.
+// Derivations/generators iterate whole maps, so load each type in full. The
+// persisted hosts table may legitimately be empty (it contains dynamic keys
+// only); overlaying the canonical local cluster must produce at least one
+// host. Empty users/containers sets remain valid. A corrupt entity or
+// canonical topology file → LIB-ERROR 112.
 let hosts, users, containers;
+let topologyOptions;
 try {
-  hosts = store.readAll("hosts");
+  topologyOptions = hostTopology.runtimeTopologyOptions(process.env);
+  hosts = hostTopology.overlayStoredHosts(
+    store.readAll("hosts"),
+    topologyOptions,
+  ).hosts;
   users = store.readAll("users");
   containers = store.readAll("containers");
 } catch (err) {
@@ -121,7 +127,10 @@ function runMutation(message, fn) {
   try {
     store.transaction(message, (tx) => {
       const st = {
-        hosts: tx.readAll("hosts"),
+        hosts: hostTopology.overlayStoredHosts(
+          tx.readAll("hosts"),
+          topologyOptions,
+        ).hosts,
         users: tx.readAll("users"),
         containers: tx.readAll("containers"),
       };

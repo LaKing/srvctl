@@ -53,8 +53,11 @@ mkdir -p "$INSTALL/modules/srvctl/lib"
 cp "$REPO/modules/srvctl/lib/commandindex.mjs" "$INSTALL/modules/srvctl/lib/"
 printf 'echo true\n' > "$INSTALL/modules/srvctl/module-condition.sh"
 
-# minimal fixture config (a single *.conf sourced by init.sh)
-cat > "$SB/etc/host.conf" << 'CONF'
+# minimal fixture config (a single *.conf sourced by init.sh). NOT named
+# host.conf: that name is the generated cluster projection (now under
+# /var/srvctl3/host), and a legacy /etc/srvctl/host.conf makes init fail
+# closed pending a root migration.
+cat > "$SB/etc/harness.conf" << 'CONF'
 SC_HOSTNET=42
 SC_COMPANY_DOMAIN=harness.test
 CONF

@@ -19,6 +19,18 @@ then
     exit 6
 fi
 
+## git's "dubious ownership" guard (CVE-2022-24765) refuses to run when the repo
+## is owned by a different user than the caller — e.g. the tree was deployed /
+## chowned as root but push.sh is run as another user (or vice versa). Without
+## this every git call below fails ("detected dubious ownership ... Could not
+## access 'HEAD'") and the branch comes back empty. This dev tool trusts its own
+## project dir, so add it to the caller's safe.directory list once (idempotent).
+if ! git config --global --get-all safe.directory 2> /dev/null | grep -qxF "$wd"
+then
+    git config --global --add safe.directory "$wd" 2> /dev/null \
+        || echo "NOTICE: could not add $wd to git safe.directory (set HOME, or run: git config --system --add safe.directory $wd)"
+fi
+
 echo "PUSH $HOSTNAME:$wd $(date +%Y.%m.%d-%H:%M:%S)"
 
 branch="$(git branch --show-current)"

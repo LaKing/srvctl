@@ -10,8 +10,10 @@ root_only
 ##
 ##   Install/update flow. Note that this does NOT update the srvctl code
 ##   itself — code arrives out-of-band (git clone, or /bin/pop on dev boxes).
-##   Before this file runs, init.sh has already regenerated /etc/srvctl from
-##   /etc/srvctl/data and re-tested all module conditions.
+##   Before this file runs, init.sh has already validated the canonical
+##   /etc/srvctl/clusters.json, regenerated its host-local projections, copied
+##   non-topology .conf seeds from /etc/srvctl/data, and re-tested all module
+##   conditions.
 ##   Here: full OS dnf update always; then, on a host and only with a
 ##   HOSTNAME argument: debug.conf, SELinux off, base packages, first-boot
 ##   hostname (exit 5), git identity, cluster ssh-keyscan, every module's

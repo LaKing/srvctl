@@ -7,7 +7,7 @@
 ###        The result is cached as SC_USE_GLUSTER in modules.conf.
 ###
 ###        Intended logic: enable only on real (non-container) cluster hosts
-###        listed in /etc/srvctl/hosts.json alongside at least one other host.
+###        listed in /var/srvctl3/host/hosts.json alongside at least one other host.
 ###        At this commit the module is HARD-DISABLED: even the final
 ###        "all checks passed" branch echoes false (kill-switch introduced in
 ###        commit e179f53), so its libs are never sourced and its hooks never
@@ -33,7 +33,7 @@ then
         return
     fi
     
-    if [[ -f /etc/srvctl/hosts.json ]] && grep --quiet "\"$HOSTNAME\"" /etc/srvctl/hosts.json
+    if [[ -f /var/srvctl3/host/hosts.json ]] && grep --quiet "\"$HOSTNAME\"" /var/srvctl3/host/hosts.json
     then
         
         ## check if we have servers in this cluster
@@ -43,7 +43,7 @@ then
         ##                       host object nested inside the outer {}.
         ## END{print count} print the result.
         
-        if [[ "$(awk '/{/ {d++} /}/ {d--} /{/ && d==2 {count++} END{print count}' /etc/srvctl/hosts.json)" == 1 ]]
+        if [[ "$(awk '/{/ {d++} /}/ {d--} /{/ && d==2 {count++} END{print count}' /var/srvctl3/host/hosts.json)" == 1 ]]
         then
             echo false
             return

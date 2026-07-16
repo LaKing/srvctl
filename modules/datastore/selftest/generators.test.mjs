@@ -92,9 +92,20 @@ function captureV3Golden() {
     fs.writeFileSync(path.join(dir, "hosts.json"), JSON.stringify(HOSTS));
     fs.writeFileSync(path.join(dir, "users.json"), JSON.stringify(USERS));
     fs.writeFileSync(path.join(dir, "containers.json"), JSON.stringify(CONTAINERS));
+    const clustersFile = path.join(dir, "cluster-topology.fixture.json");
+    fs.writeFileSync(clustersFile, JSON.stringify({ test_cluster: {
+      node1: { hostnet: 20, host_ip: "10.16.20.1", dns1: "1.1.1.1", dns2: "1.0.0.1" },
+      node2: { hostnet: 21, host_ip: "10.16.21.1" },
+    } }));
 
     const r = spawnSync(process.execPath, [CAPTURE], {
-      env: { ...ENV, SC_DATASTORE_DIR: dir },
+      env: {
+        ...ENV,
+        SC_DATASTORE_DIR: dir,
+        SRVCTL_SELFTEST: "true",
+        SRVCTL_SELFTEST_CLUSTERS_FILE: clustersFile,
+        SRVCTL_SELFTEST_HOSTNAME: "node1",
+      },
       encoding: "utf8",
     });
     if (r.error) throw new Error(`spawn capture: ${r.error.message}`);

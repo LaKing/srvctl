@@ -591,12 +591,20 @@ function help_commands {
 ## evaluated in a subshell and must print "true" to enable the module.
 ## Results are cached as 'export SC_USE_<MODULE>=<bool>' lines in
 ## ~/.srvctl/modules.conf (regenerated when missing, or by update-install /
-## test-modules); the legacy /var/local/srvctl/modules.conf is sourced first.
+## test-modules). A cache is sourced only when its embedded canonical topology
+## generation matches; the legacy /var/local cache follows the same rule.
 function test_srvctl_modules() {
 
-    local conf
+    local conf legacy_conf cluster_generation temporary_conf
 
-    conf=/var/local/srvctl/modules.conf
+    legacy_conf=/var/local/srvctl/modules.conf
+    conf="$legacy_conf"
+    cluster_generation="${SC_CANONICAL_CLUSTERS_SHA256:-${SC_CLUSTERS_SHA256:-none}}"
+    if [[ $cluster_generation != none ]] && [[ ! $cluster_generation =~ ^[0-9a-f]{64}$ ]]
+    then
+        err "Invalid canonical cluster generation in host.conf"
+        return 113
+    fi
     
     if [[ $USER == root ]]
     then
@@ -610,15 +618,17 @@ function test_srvctl_modules() {
         mkdir -p "$SC_HOME/.srvctl"
     fi
     
-    if [[ ! -f $conf ]] || [[ $CMD == update-install ]] || [[ $CMD == test-modules ]]
+    if [[ ! -f $conf ]] || \
+       ! grep -qxF "export SC_MODULES_CLUSTERS_SHA256=$cluster_generation" "$conf" || \
+       [[ $CMD == update-install ]] || [[ $CMD == test-modules ]]
     then
         msg "Srvctl modules configuration"
 
-        ## bugfix(v4-polish): start from an empty cache. This used to
-        ## append-only, so every update-install grew the file by another
-        ## full block and stale SC_USE_* entries of removed modules
-        ## persisted forever (last-wins kept current modules correct).
-        : > "$conf"
+        ## Build beside the cache and atomically rename only after every module
+        ## has been evaluated. A crash cannot expose a truncated cache, and a
+        ## cache from another canonical cluster generation is never sourced.
+        temporary_conf="$(mktemp "${conf}.tmp.XXXXXX")" || return 113
+        echo "export SC_MODULES_CLUSTERS_SHA256=$cluster_generation" > "$temporary_conf"
 
         ## test value / test result on tested module
         local tvtm trtm module
@@ -642,8 +652,10 @@ function test_srvctl_modules() {
                 err "Module $module has no condition file in $dir"
             fi
             #declare $tv=$tr
-            echo "export $tvtm=$trtm" >> "$conf"
+            echo "export $tvtm=$trtm" >> "$temporary_conf"
         done
+        chmod 644 "$temporary_conf" || { rm -f "$temporary_conf"; return 113; }
+        mv -f "$temporary_conf" "$conf" || { rm -f "$temporary_conf"; return 113; }
     fi
     
     if [[ $CMD == 'test-modules' ]]
@@ -652,10 +664,12 @@ function test_srvctl_modules() {
         exit 0
     fi
     
-    if [[ -f /var/local/srvctl/modules.conf ]]
+    if [[ $legacy_conf != "$conf" ]] && [[ -f $legacy_conf ]] && \
+       grep -qxF "export SC_MODULES_CLUSTERS_SHA256=$cluster_generation" "$legacy_conf"
     then
-        debug "@source /var/local/srvctl/modules.conf"
-        source /var/local/srvctl/modules.conf
+        debug "@source $legacy_conf"
+        # shellcheck disable=SC1090
+        source "$legacy_conf" || return 113
     fi
     
     if [[ -f $conf ]]
@@ -663,7 +677,7 @@ function test_srvctl_modules() {
         debug "@source $conf"
         ## dynamic source
         # shellcheck disable=SC1090
-        source "$conf"
+        source "$conf" || return 113
     fi
     
     for dir in $SC_MODULES

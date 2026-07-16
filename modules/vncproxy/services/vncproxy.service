@@ -7,6 +7,9 @@ Type=simple
 ExecStart=bash /usr/local/share/srvctl/modules/vncproxy/start.sh
 Restart=always
 RestartSec=3
+# start.sh exits 78 (EX_CONFIG) when no host projection exists (host retired,
+# migration incomplete); restarting cannot help until srvctl regenerates it.
+RestartPreventExitStatus=78
 
 [Install]
 WantedBy=multi-user.target

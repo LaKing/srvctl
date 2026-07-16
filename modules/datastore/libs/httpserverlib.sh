@@ -7,7 +7,8 @@
 ##   writes /etc/systemd/system/datastore-server.service (running
 ##   apps/datastore-server.js as root on port 1030, proxied by haproxy for
 ##   the .well-known ACME and datastore-snapshot paths), reloads systemd
-##   and enables + starts the unit. The unit text below is installed
+##   and enables + restarts the unit so updated server code is loaded. The unit
+##   text below is installed
 ##   verbatim on every host — keep it byte-identical.
 ##
 
@@ -37,6 +38,6 @@ WantedBy=multi-user.target
     systemctl daemon-reload
 
     run systemctl enable datastore-server.service
-    run systemctl start datastore-server.service
+    run systemctl restart datastore-server.service
     run systemctl status datastore-server.service --no-pager
 }

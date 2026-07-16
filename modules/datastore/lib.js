@@ -5,8 +5,9 @@
 /*
  *  modules/datastore/lib.js — the datastore model / derivation library.
  *
- *  Loads hosts.json, users.json and containers.json from $SC_DATASTORE_DIR
- *  at require() time and exports:
+ *  Loads users/containers plus dynamic host rows from $SC_DATASTORE_DIR at
+ *  require() time, overlays host topology from /etc/srvctl/clusters.json,
+ *  and exports:
  *    - pure derivations: container uid/br/gw/interface/host/reseller/ports/
  *      quota, user_uid, the cluster_* list functions
  *    - text generators: nspawn/network/hosts/resolv.conf/firewall snippets,
@@ -35,16 +36,10 @@ const get = require(lablib).get;
 const run = require(lablib).run;
 const rok = require(lablib).rok;
 
-const SC_HOSTS_DATA_FILE = process.env.SC_DATASTORE_DIR + "/hosts.json";
 const SC_USERS_DATA_FILE = process.env.SC_DATASTORE_DIR + "/users.json";
 const SC_CONTAINERS_DATA_FILE = process.env.SC_DATASTORE_DIR + "/containers.json";
-// FIXME(v4): dead readonly guard — SC_DATASTORE_RO is never exported anywhere
-// in the repo (bash uses the unexported SC_DATASTORE_RO_USE), so the readonly
-// check in write_users/write_containers below never fires: in readonly mode
-// put/new/del/add/cfg still write the json files into the RO datastore and
-// only the git commit is skipped (libs/gitlib.sh). Unify on one variable and
-// enforce it here in the rewrite.
-const SC_DATASTORE_RO = process.env.SC_DATASTORE_RO;
+const SC_DATASTORE_RO = process.env.SC_DATASTORE_RO_USE === "true" ||
+    process.env.SC_DATASTORE_RO === "true";
 const SC_COMPANY_DOMAIN = process.env.SC_COMPANY_DOMAIN;
 const dot = ".";
 const root = "root";
@@ -72,6 +67,9 @@ const SC_CLUSTERNAME = process.env.SC_CLUSTERNAME;
 
 // includes
 var fs = require("fs");
+var path = require("path");
+var spawnSync = require("child_process").spawnSync;
+var hostTopology = require("./lib/host-topology.js");
 
 function return_error(msg) {
     console.error("LIB-ERROR:", msg);
@@ -119,9 +117,14 @@ function load_type(type) {
 }
 
 function load_hosts() {
-    var results = load_type("hosts");
-    if (Object.keys(results).length < 1) return_error("READFILE " + SC_HOSTS_DATA_FILE + " has no hosts defined. Eventually run: srvctl update-install");
-    return results;
+    try {
+        return hostTopology.overlayStoredHosts(
+            load_type("hosts"),
+            hostTopology.runtimeTopologyOptions(process.env)
+        ).hosts;
+    } catch (e) {
+        return_error("HOST-TOPOLOGY " + e.message);
+    }
 }
 
 var hosts = load_hosts();
@@ -157,9 +160,39 @@ exports.containers = containers;
 // generator modules (ssh/dns/opendkim) that previously wrote the WHOLE
 // monolithic <type>.json — on a migrated store that write was ignored (v4 reads
 // per-entity), silently losing their regeneration updates. This writes the same
-// records per-entity instead, so they take effect. (Best-effort, unlocked — as
-// the v3 monolithic write was; these run single-threaded during regenerate.)
+// records per-entity instead, so they take effect. Host writes are the special
+// locked, dynamic-only path below; other types retain the historical
+// best-effort/unlocked behavior and run single-threaded during regenerate.
 function save_type(type, map) {
+    if (type === "hosts") {
+        // A read-only fallback may supply dynamic keys for this run, but it is
+        // never mutated. On RW storage, use the locked v4 store transaction so
+        // only explicit dynamic fields survive; static topology is canonical.
+        if (SC_DATASTORE_RO) return;
+        var topologyOptions;
+        try {
+            topologyOptions = hostTopology.runtimeTopologyOptions(process.env);
+        } catch (e) {
+            return_error("HOST-TOPOLOGY " + e.message);
+        }
+        var result = spawnSync(process.execPath, [
+            path.join(__dirname, "lib", "reconcile-hosts.mjs"),
+            "merge",
+            topologyOptions.clusterFile || hostTopology.CANONICAL_CLUSTERS_FILE,
+            process.env.SC_DATASTORE_DIR,
+            topologyOptions.hostname || HOSTNAME
+        ], {
+            encoding: "utf8",
+            input: JSON.stringify(map)
+        });
+        if (result.error || result.status !== 0) {
+            return_error("HOST-TOPOLOGY " +
+                (result.error ? result.error.message :
+                    (result.stderr.trim() || "reconcile-hosts exited " + result.status)));
+        }
+        return;
+    }
+
     var dir = process.env.SC_DATASTORE_DIR + "/" + type;
     try { fs.mkdirSync(dir, { recursive: true }); } catch (e) { if (e.code !== "EEXIST") throw e; }
     Object.keys(map).forEach(function (id) {

@@ -3,24 +3,26 @@
 /* srvctl — modules/named/named.js
  *
  * Authoritative-DNS generator, run by namedcfg (libs/bashlib.sh) at every
- * 'sc regenerate'. It aggregates containers.json from every cluster host
- * (local datastore file for this host, HTTPS fetch from peers, cached under
- * /var/srvctl3/named/<host>.json), then writes:
- *   - /var/named/srvctl.conf                zone declarations (master or
- *                                           slave, per this host's role)
- *   - /var/named/srvctl/<domain>.zone       full zone content, masters only
+ * 'sc regenerate'. It aggregates containers from every cluster host (the
+ * layout-aware datastore view for this host, HTTPS fetch from peers cached
+ * under /var/srvctl3/named/<host>.json), then writes:
+ *   - /var/named/srvctl.conf                zone declarations (one elected
+ *                                           primary; every other DNS host is
+ *                                           a transfer replica)
+ *   - /var/named/srvctl/<domain>.zone       full zone content, primary only
  *                                           (aliases share the primary's file)
- * Zone content (SOA serial = epoch seconds, NS ns1/ns2.$SC_COMPANY_DOMAIN,
+ * Zone content (monotonic, content-aware SOA serial, NS
+ * ns1/ns2.$SC_COMPANY_DOMAIN,
  * wildcard/apex A, SPF/DKIM/DMARC/MX assembly, custom dns_records) is
  * public production DNS — any byte change here changes the farm's DNS.
  *
  * Exit-code protocol (relied on by exif in namedcfg): starts at 99,
  * success 0, DATA-ERROR 111 with a "DATA-ERROR:" line on stderr.
  *
- * Flow trick: the peer fetches are async and there is no await here, so
- * the config is assembled in a process.on("exit") handler after the event
- * loop drains — meaning each run uses the peer caches written by the
- * PREVIOUS run. See the FIXME notes at the exit handler.
+ * Peer snapshots are awaited with a hard timeout before rendering. A fresh
+ * valid response atomically replaces its last-good cache. Operator-driven
+ * runs require fresh peers; the hourly safety run may use a recent cache.
+ * Missing/expired required data fails closed before production publication.
  */
 
 // TODO: in case of duplicate containers, dns should priorize
@@ -41,9 +43,21 @@ function out(msg) {
 
 // includes
 const fs = require("fs");
+const net = require("net");
 const os = require("os");
-const http = require("http");
-const https = require("https");
+const snapshotsLib = require("./lib/snapshots.js");
+const topologyLib = require("./lib/topology.js");
+const zonefileLib = require("./lib/zonefile.js");
+const zonesLib = require("./lib/zones.js");
+const clusterConfigLib = require("../containers/lib/cluster-config.js");
+const atomicWriteFileSync = snapshotsLib.atomicWriteFileSync;
+const loadPeerSnapshot = snapshotsLib.loadPeerSnapshot;
+const dnsRoleForHost = topologyLib.dnsRoleForHost;
+const electDnsTopology = topologyLib.electDnsTopology;
+const SERIAL_PLACEHOLDER = zonefileLib.SERIAL_PLACEHOLDER;
+const planZoneUpdate = zonefileLib.planZoneUpdate;
+const canonicalZoneName = zonesLib.canonicalZoneName;
+const validateZoneOwnership = zonesLib.validateZoneOwnership;
 
 const CMD = process.argv[2];
 // constatnts
@@ -56,15 +70,20 @@ var datastore = require("../datastore/lib.js");
 const HOSTNAME = os.hostname();
 const br = "\n";
 const SC_CLUSTERNAME = process.env.SC_CLUSTERNAME;
-const SC_CLUSTERS_DATA_FILE = "/etc/srvctl/clusters.json";
+const SC_CLUSTERS_FILE = "/etc/srvctl/clusters.json";
+const PEER_CACHE_DIR = "/var/srvctl3/named";
+const PEER_FETCH_TIMEOUT_MS = Number(process.env.SC_NAMED_FETCH_TIMEOUT_MS || 3000);
+const PEER_CACHE_MAX_AGE_MS = Number(process.env.SC_NAMED_CACHE_MAX_AGE_MS || 21600000);
+const REQUIRE_FRESH_PEERS = process.env.SC_NAMED_REQUIRE_FRESH === "true";
 const SRVCTL = process.env.SRVCTL;
 const SC_UID0 = process.env.SC_UID0;
 const localhost = "localhost";
 
 process.exitCode = 99;
+var fatal_error = false;
 
 function exit() {
-    process.exitCode = 0;
+    if (!fatal_error) process.exitCode = 0;
 }
 
 function return_value(msg) {
@@ -76,6 +95,7 @@ function return_value(msg) {
 }
 
 function return_error(msg) {
+    fatal_error = true;
     console.error("DATA-ERROR:", msg);
     process.exitCode = 111;
     process.exit(111);
@@ -86,42 +106,69 @@ function output(variable, value) {
     process.exitCode = 0;
 }
 
-// if the default
-var is_master = false;
-if (datastore.hosts[HOSTNAME]) if (datastore.hosts[HOSTNAME].dns_server === "master") is_master = true;
-if (is_master) msg("bind DNS master");
-else msg("bind DNS slave");
-
 // variables
 //var hosts = datastore.hosts;
 //var users = datastore.users;
 //var resellers = datastore.resellers;
 //var containers = datastore.containers;
 var clusters;
+var peer_container_snapshots = {};
 
 var listed_domain_names = [];
 
 // read clusters
 try {
-    clusters = JSON.parse(fs.readFileSync(SC_CLUSTERS_DATA_FILE));
+    var parsed_clusters = clusterConfigLib.readClusters(SC_CLUSTERS_FILE);
+    clusters = parsed_clusters.clusters;
 } catch (err) {
-    return_error("READFILE " + SC_CLUSTERS_DATA_FILE + " " + err);
+    return_error("READFILE " + SC_CLUSTERS_FILE + " " + err.message);
 }
 
-var master_servers = "";
+// init.sh pins the generation this invocation dispatched under; the cluster
+// lock is long released, so refuse to render zones from a topology that a
+// publication replaced meanwhile (the retried run reads coherently).
+var pinned_generation = process.env.SC_CANONICAL_CLUSTERS_SHA256;
+if (pinned_generation && /^[0-9a-f]{64}$/.test(pinned_generation) &&
+    parsed_clusters.sha256 !== pinned_generation) {
+    return_error("CLUSTER-GENERATION " + SC_CLUSTERS_FILE +
+        " changed during this invocation (dispatched under " +
+        pinned_generation + ", read " + parsed_clusters.sha256 + "); retry");
+}
 
-Object.keys(clusters).forEach(function (i) {
-    Object.keys(clusters[i]).forEach(function (j) {
-        if (clusters[i][j].dns_server === "master") {
-            // if it has a public IP address
-            if (clusters[i][j].host_ip) master_servers += clusters[i][j].host_ip + ";";
-        }
-    });
-});
+var dns_topology;
+try {
+    dns_topology = electDnsTopology(clusters);
+} catch (error) {
+    return_error("DNS topology: " + error.message);
+}
 
-if (master_servers === "") {
-    return_error("could not locate master servers in the cluster configuration");
-} else msg("master servers: " + master_servers);
+var local_dns_role = dnsRoleForHost(dns_topology, HOSTNAME);
+if (!local_dns_role) return_error("host " + HOSTNAME + " has no DNS role in " + SC_CLUSTERS_FILE);
+
+// `is_master` is kept as the local branch name for the generator, but now
+// means the one elected publication primary.  Additional legacy masters are
+// replicas, eliminating independently generated competing serials.
+var is_master = local_dns_role === "primary";
+var master_servers = dns_topology.primaryIp + ";";
+var replica_servers = dns_topology.replicaIps.map(function(ip) { return ip + ";"; }).join("");
+var replica_transfer_clients = dns_topology.replicaAclIps.map(function(ip) { return ip + ";"; }).join("");
+var local_dns_host = is_master ? dns_topology.primary :
+    dns_topology.replicas.find(function(host) { return host.hostname === HOSTNAME; });
+var soa_primary_name;
+try {
+    soa_primary_name = canonicalZoneName(
+        dns_topology.primary.config.dns_authoritative_name || "ns1." + CDN);
+} catch (error) {
+    return_error("DNS authoritative name: " + error.message);
+}
+
+if (is_master) msg("bind DNS primary " + dns_topology.primary.hostname);
+else msg("bind DNS replica of " + dns_topology.primary.hostname);
+msg("DNS primary server: " + master_servers);
+if (dns_topology.usedLegacyFallback) {
+    ntc("dns_primary is not set; elected sole legacy DNS master " +
+        dns_topology.primary.hostname + " (set dns_primary=true to make the role explicit)");
+}
 
 // split a DKIM key into 33-char quoted chunks for the zone-file TXT record
 // FIXME(v4): low — 'r = br' creates an implicit global (no var); works only
@@ -150,8 +197,6 @@ function get_container_zone(cluster, host, hostdata, containers, name, alias) {
 
     var spf_string = "v=spf1";
 
-    var serial = Math.floor(new Date().getTime() / 1000);
-
     if (container.use_host_ip !== undefined) spf_string += " ip4:" + container.use_host_ip;
     if (hostdata.host_ip !== undefined) spf_string += " ip4:" + hostdata.host_ip;
     if (hostdata.host_ipv6 !== undefined) spf_string += " ip6:" + hostdata.host_ipv6;
@@ -167,10 +212,10 @@ function get_container_zone(cluster, host, hostdata, containers, name, alias) {
     spf_string += " ~all";
 
     zone += "$TTL 1D" + br;
-    zone += "@        IN SOA        @ hostmaster." + CDN + ". (" + br;
-    zone += "                                        " + serial + "        ; serial" + br;
-    zone += "                                        1D        ; refresh" + br;
-    zone += "                                        1H        ; retry" + br;
+    zone += "@        IN SOA        " + soa_primary_name + ". hostmaster." + CDN + ". (" + br;
+    zone += "                                        " + SERIAL_PLACEHOLDER + "        ; serial" + br;
+    zone += "                                        15M        ; refresh" + br;
+    zone += "                                        5M        ; retry" + br;
     zone += "                                        1W        ; expire" + br;
     zone += "                                        3H )        ; minimum" + br;
     zone += "        IN         NS        ns1." + CDN + "." + br;
@@ -284,21 +329,69 @@ function get_container_zone(cluster, host, hostdata, containers, name, alias) {
     return zone;
 }
 
+// Zone files are planned in memory first.  A read/render failure therefore
+// leaves both the installed zones and srvctl.conf untouched instead of
+// publishing a partial generation.
+var pending_zone_updates = [];
+
+function plan_container_zone(path, template) {
+    var previous;
+    try {
+        previous = fs.readFileSync(path, "utf8");
+    } catch (error) {
+        if (error.code !== "ENOENT") throw error;
+    }
+
+    var update = planZoneUpdate(template, previous);
+    if (update.changed) {
+        pending_zone_updates.push({ path: path, content: update.content, serial: update.serial });
+    }
+    return update;
+}
+
+function replication_source_statement(kind, address) {
+    if (!address) return "";
+    return kind + (net.isIP(address) === 6 ? "-source-v6 " : "-source ") +
+        address + "; ";
+}
+
+function primary_zone_statement(name, file) {
+    var transfer = 'allow-transfer {' + (replica_transfer_clients || "none;") + '};';
+    var notification = "notify no; ";
+    if (replica_servers) {
+        notification = 'notify explicit; also-notify {' + replica_servers + '}; ';
+    }
+    return 'zone "' + name + '" {' +
+        'type master; file "' + file + '"; ' + notification +
+        replication_source_statement("notify", dns_topology.primary.config.dns_replication_source) +
+        transfer + '};' + br;
+}
+
+function replica_zone_statement(name, file) {
+    return 'zone "' + name + '" {' +
+        'type slave; masters {' + master_servers + '}; ' +
+        'allow-notify {' + dns_topology.primaryAclIp + ';}; ' +
+        replication_source_statement("transfer", local_dns_host.config.dns_replication_source) +
+        'file "' + file + '";};' + br;
+}
+
+function containers_for_host(host) {
+    if (host === HOSTNAME) {
+        // datastore.containers merges v3 monolithic data with v4 per-entity
+        // records (or treats per-entity as authoritative after migration).
+        return datastore.containers;
+    }
+    if (!Object.prototype.hasOwnProperty.call(peer_container_snapshots, host)) {
+        throw new Error("no prepared containers snapshot for " + host);
+    }
+    return peer_container_snapshots[host];
+}
+
 function get_conf(cluster, host) {
     var conf = "## " + host + br + br;
-    var containers = {};
-    var file = "/var/srvctl3/named/" + host + ".json";
-    if (host === HOSTNAME) file = "/var/srvctl3/datastore/containers.json";
-
     var hostdata = clusters[cluster][host];
     if (!hostdata.host_ip) return "";
-
-    try {
-        containers = JSON.parse(fs.readFileSync(file));
-    } catch (error) {
-        err("READFILE for " + host + " " + error);
-        return conf + br + br;
-    }
+    var containers = containers_for_host(host);
 
     if (is_master)
         Object.keys(containers).forEach(function (i) {
@@ -306,11 +399,12 @@ function get_conf(cluster, host) {
             if (!i.includes(".")) return;
             if (listed_domain_names.indexOf(i) >= 0) return msg("DNS: ignoring dublicate listing of " + i + " on " + host);
             listed_domain_names.push(i);
-            conf += 'zone "' + i + '" {type master; file "/var/named/srvctl/' + i + '.zone";};' + br;
-            fs.writeFileSync("/var/named/srvctl/" + i + ".zone", get_container_zone(cluster, host, hostdata, containers, i));
+            var zonefile = "/var/named/srvctl/" + i + ".zone";
+            conf += primary_zone_statement(i, zonefile);
+            plan_container_zone(zonefile, get_container_zone(cluster, host, hostdata, containers, i));
             if (containers[i].aliases)
                 containers[i].aliases.forEach(function (j) {
-                    conf += 'zone "' + j + '" {type master; file "/var/named/srvctl/' + i + '.zone";};' + br;
+                    conf += primary_zone_statement(j, zonefile);
                 });
         });
 
@@ -320,10 +414,10 @@ function get_conf(cluster, host) {
             if (!i.includes(".")) return;
             if (listed_domain_names.indexOf(i) >= 0) return msg("DNS: ignoring dublicate listing of " + i + "on" + host);
             listed_domain_names.push(i);
-            conf += 'zone "' + i + '" {type slave; masters {' + master_servers + '}; file "/var/named/srvctl/' + i + '.slave.zone";};' + br;
+            conf += replica_zone_statement(i, "/var/named/srvctl/" + i + ".slave.zone");
             if (containers[i].aliases)
                 containers[i].aliases.forEach(function (j) {
-                    conf += 'zone "' + j + '" {type slave; masters {' + master_servers + '}; file "/var/named/srvctl/' + j + '.slave.zone";};' + br;
+                    conf += replica_zone_statement(j, "/var/named/srvctl/" + j + ".slave.zone");
                 });
         });
 
@@ -332,6 +426,24 @@ function get_conf(cluster, host) {
 
 function make_conf() {
     var conf = "## BIND-CONFIG " + br + br;
+    var zone_sources = [];
+    pending_zone_updates = [];
+    listed_domain_names = [];
+
+    Object.keys(clusters).forEach(function(cluster) {
+        Object.keys(clusters[cluster]).forEach(function(host) {
+            if (!clusters[cluster][host].host_ip) return;
+            zone_sources.push({
+                cluster: cluster,
+                host: host,
+                containers: containers_for_host(host),
+            });
+        });
+    });
+    // Zone names and ownership are validated as a complete set before a
+    // single zone is rendered or published. This catches alias/base and
+    // cross-host collisions that BIND otherwise rejects only at activation.
+    validateZoneOwnership(zone_sources, CDN);
 
     Object.keys(clusters).forEach(function (i) {
         Object.keys(clusters[i]).forEach(function (j) {
@@ -342,101 +454,70 @@ function make_conf() {
     return conf;
 }
 
-// ---------
-// fetch a peer's containers.json over HTTPS (self-signed certs accepted;
-// endpoint served by modules/datastore/apps/datastore-server.js behind the
-// haproxy ACL) and cache it under /var/srvctl3/named/<host>.json for the
-// NEXT run's make_conf.
-// FIXME(v4): medium — no effective timeout: the https.Agent timeout only
-// arms a socket timeout with no 'timeout' listener and the request is never
-// destroyed, so one unresponsive peer can stall this script (and thus
-// 'sc regenerate') indefinitely.
-function get_host_containers(cluster, host) {
-    var ip = clusters[cluster][host].host_ip;
-    console.log("get_host_containers", host, ip);
-    var req = {
-        host: ip, // host
-        port: 443,
-        path: "/.well-known/srvctl/datastore/containers.json",
-        method: "GET",
-        rejectUnauthorized: false,
-        requestCert: true,
-        agent: new https.Agent({ keepAlive: false, timeout: 1000 }),
-    };
-    https
-        .get(req, function (res) {
-            const { statusCode } = res;
-            const contentType = res.headers["content-type"];
+// Fetch every peer before rendering. A bounded fresh HTTPS snapshot wins;
+// otherwise its atomically written last-good cache is used. If neither is
+// available, Promise.all rejects and nothing is generated or published.
+async function prepare_peer_snapshots() {
+    fs.mkdirSync(PEER_CACHE_DIR, { recursive: true });
+    var pending = [];
 
-            let error;
-            if (statusCode !== 200) {
-                error = new Error("Request Failed.\n" + `Status Code: ${statusCode}`);
-            } else if (!/^application\/json/.test(contentType)) {
-                error = new Error("Invalid content-type.\n" + `Expected application/json but received ${contentType}`);
-            }
-            if (error) {
-                console.error(error.message);
-                // consume response data to free up memory
-                res.resume();
-                return;
-            }
-
-            res.setEncoding("utf8");
-            let rawData = "";
-            res.on("data", (chunk) => {
-                rawData += chunk;
-            });
-            res.on("end", () => {
-                try {
-                    const parsedData = JSON.parse(rawData);
-                    //xhosts[ip] = parsedData;
-                    fs.writeFile("/var/srvctl3/named/" + host + ".json", rawData, function (err) {
-                        if (err) return_error("WRITEFILE zone " + err);
-                    });
-                } catch (e) {
-                    console.error(e.message, rawData);
-                }
-            });
-        })
-        .on("error", (e) => {
-            console.error("GET https://" + host + "/.well-known/srvctl/datastore/containers.json", e);
+    Object.keys(clusters).forEach(function(cluster) {
+        Object.keys(clusters[cluster]).forEach(function(host) {
+            var hostdata = clusters[cluster][host];
+            if (host === HOSTNAME || !hostdata.host_ip) return;
+            pending.push(loadPeerSnapshot({
+                cacheDir: PEER_CACHE_DIR,
+                hostname: host,
+                ip: hostdata.host_ip,
+                timeoutMs: PEER_FETCH_TIMEOUT_MS,
+                maxCacheAgeMs: PEER_CACHE_MAX_AGE_MS,
+                requireFresh: REQUIRE_FRESH_PEERS,
+            }).then(function(result) {
+                return { host: host, result: result };
+            }));
         });
+    });
+
+    var loaded = await Promise.all(pending);
+    loaded.forEach(function(entry) {
+        peer_container_snapshots[entry.host] = entry.result.snapshot;
+        if (entry.result.source === "cache") {
+            ntc("using last-good containers cache for " + entry.host +
+                " after fresh fetch failed: " + entry.result.freshError.message);
+        } else {
+            msg("fetched containers snapshot for " + entry.host);
+        }
+    });
 }
 
-//---------
-// A little trick here. As there is no real sync version of http.get, we will process the data when the event loop completes - on exit
-// FIXME(v4): the local host is fetched over HTTPS too, although get_conf
-// reads the local datastore file directly — one request per run is wasted.
-
-Object.keys(clusters).forEach(function (i) {
-    //if (i !== SC_CLUSTERNAME)
-    Object.keys(clusters[i]).forEach(function (j) {
-        if (clusters[i][j].host_ip !== undefined) get_host_containers(i, j);
-        //console.log(clusters[i][j].host_ip);
+function publish_generated_config(conf) {
+    // Each replacement is atomic. Zone data is committed first and the BIND
+    // include last, so a new declaration never points at a partial zone file.
+    pending_zone_updates.forEach(function(update) {
+        atomicWriteFileSync(update.path, update.content);
+        msg("wrote zone " + update.path + " serial " + update.serial);
     });
-});
+    atomicWriteFileSync("/var/named/srvctl.conf", conf);
+    msg("wrote named conf");
+}
 
-// FIXME(v4): medium — this exit handler also runs after return_error's
-// process.exit(111): 'exit' listeners still fire and exit() resets
-// process.exitCode to 0, which Node re-reads. Concrete case: no master
-// with a host_ip triggers return_error above, yet a broken srvctl.conf
-// (slave zones with empty 'masters {};') is still written and exif in
-// namedcfg sees success, so restart_named reloads BIND on a config that
-// fails to load. Related: if clusters.json was unreadable, make_conf
-// throws a TypeError on the undefined 'clusters' during exit instead of
-// the clean DATA-ERROR path. v4: rewrite with async/await and explicit
-// exit paths.
-
-process.on("exit", function () {
-    var conf = make_conf();
-    //console.log(conf);
-
+async function main() {
     try {
-        fs.writeFileSync("/var/named/srvctl.conf", conf);
-        msg("wrote named conf");
-    } catch (err) {
-        return_error("ERROR WRITEFILE named srvctl conf" + err);
+        if (!Number.isFinite(PEER_FETCH_TIMEOUT_MS) || PEER_FETCH_TIMEOUT_MS <= 0) {
+            throw new Error("invalid SC_NAMED_FETCH_TIMEOUT_MS: " + PEER_FETCH_TIMEOUT_MS);
+        }
+        if (!Number.isFinite(PEER_CACHE_MAX_AGE_MS) || PEER_CACHE_MAX_AGE_MS < 0) {
+            throw new Error("invalid SC_NAMED_CACHE_MAX_AGE_MS: " + PEER_CACHE_MAX_AGE_MS);
+        }
+        await prepare_peer_snapshots();
+        // make_conf performs every source/old-zone read and render before the
+        // first write, so fatal input errors cannot leave a partial result.
+        var conf = make_conf();
+        publish_generated_config(conf);
+        exit();
+    } catch (error) {
+        return_error("GENERATE named configuration " + error);
     }
+}
 
-    exit();
-});
+main();

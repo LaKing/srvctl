@@ -21,10 +21,15 @@ function install_named {
 
     msg "Installing bind/named DNS server."
     # shellcheck source=/usr/local/share/srvctl/modules/named/installnamedlib.sh
+    # shellcheck disable=SC1091 # installed runtime path
     source "$SC_INSTALL_DIR/modules/named/installnamedlib.sh"
     ### procedures defined, now back to running code
 
-    [[ -f /usr/sbin/named ]] || sc_install bind bind-utils
+    [[ -f /usr/sbin/named ]] || sc_install bind
+    ## Replica convergence verification queries authoritative SOAs with dig;
+    ## bind-utils is a separate package and may be absent on an existing host
+    ## where named itself is already installed.
+    [[ -x /usr/bin/dig ]] || sc_install bind-utils
     ## FIXME(v4): medium — ntp/ntpd is retired on current Fedora (chrony
     ## replaced it); the install and enable/start below fail with noisy
     ## errors and no time sync gets configured by this module.

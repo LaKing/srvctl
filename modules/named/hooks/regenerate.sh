@@ -4,11 +4,11 @@
 ##   modules/named/hooks/regenerate.sh — rebuild the authoritative DNS.
 ##
 ##   Runs via 'run_hook regenerate' from 'sc regenerate'. Calls namedcfg
-##   (libs/bashlib.sh), which runs named.js to aggregate containers.json
-##   from every cluster host and rewrite /var/named/srvctl.conf plus the
-##   per-domain zone files, then restart_named (libs/systemdlib.sh) to
-##   reload BIND. A nonzero exit from named.js aborts the whole srvctl
-##   run via exif in namedcfg.
+##   (libs/bashlib.sh), which builds a consistent container snapshot and
+##   rewrites /var/named/srvctl.conf plus any changed per-domain zone files.
+##   restart_named (libs/systemdlib.sh) validates and restarts BIND, then
+##   explicitly notifies primary zones or retransfers and verifies replicas. Any
+##   generation, activation or propagation failure aborts the srvctl run.
 ##
 
 msg "Regenerate bind/named DNS server configuration"
@@ -16,5 +16,3 @@ msg "Regenerate bind/named DNS server configuration"
 namedcfg
 
 restart_named
-
-## if there are several master name servers, each should be restarted here after a regenerate namedcfg locally

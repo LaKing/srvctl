@@ -1,7 +1,7 @@
 #!/bin/bash
 
 ###
-###   srvctl v3 with systemd-containers intended to use on fedora 25 and later
+###   srvctl v4 with systemd-containers intended to use on fedora 40 and later
 ###
 ###   D250 Laboratories / D250.hu
 ###   Author: István király
@@ -13,7 +13,6 @@
 ###   parses the command line into CMD/ARG/ARGS/OPA/OPAS, sources init.sh
 ###   (config + hooks), and dispatches via run_command (commonlib.sh).
 ###
-
 ###
 ###  trying to be compatible with
 ###  https://google.github.io/styleguide/shell.xml
@@ -58,6 +57,11 @@ readonly SC_INSTALL_BIN="$(realpath "$BASH_SOURCE")"
 ## strip the trailing "/srvctl.sh" (10 chars) to get the install dir
 readonly SC_INSTALL_DIR="${SC_INSTALL_BIN:0:-10}"
 readonly SC_COMMAND_ARGUMENTS="$*"
+## Original argv preserved as an array so sudomize (modules/srvctl/libs/
+## authlib.sh) can re-exec through sudo without collapsing arguments that
+## contain spaces. Consumed cross-file.
+# shellcheck disable=SC2034
+SC_ARGV=("$@")
 
 ## should be /usr/local/share/srvctl
 export SC_INSTALL_DIR

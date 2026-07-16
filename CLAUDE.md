@@ -30,7 +30,7 @@ libs/*.sh             # Library functions sourced when module is enabled
 conf/                 # Configuration templates
 ```
 
-Modules are enabled/disabled based on `module-condition.sh` checks. State is cached in `/var/local/srvctl/modules.conf` (root) or `~/.srvctl/modules.conf` (user).
+Modules are enabled/disabled based on `module-condition.sh` checks. State is cached in `~/.srvctl/modules.conf` (including root), keyed to the canonical cluster-config SHA-256; `/var/local/srvctl/modules.conf` is a generation-checked legacy fallback.
 
 ## Command Documentation Format
 
@@ -68,7 +68,8 @@ No build step. Install by cloning to `/usr/local/share/srvctl` and running `bash
 
 ## Configuration Locations
 
-- `/etc/srvctl/` - Static config (JSON and `.conf` files)
+- `/etc/srvctl/` - Static config (JSON and `.conf` files; `clusters.json` is the canonical topology)
+- `/var/srvctl3/host/` - Generated per-host projections of the topology (`host.conf`, `hosts.json`); never edit
 - `/var/srvctl3/datastore/` - Read-write data store
 - `/srv/` - Container root filesystems and mounts
 

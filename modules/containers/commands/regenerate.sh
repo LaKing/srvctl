@@ -24,7 +24,8 @@ hs_only
 ##                 /srv dirs vs the database, ownership, /etc/hosts and
 ##                 the inotify sysctl
 ##     all-hosts   regenerate_all_hosts — same, plus 'srvctl regenerate'
-##                 over ssh on every other cluster host
+##                 over ssh on every current-cluster host and every global
+##                 DNS authority, in publication order
 ##     rootfs      run_hook regenerate_rootfs — rebuild the container base
 ##                 images under /var/srvctl3/rootfs (from /root as cwd)
 ##
@@ -45,11 +46,13 @@ then
     return
 fi
 
+regenerate_status=0
 if [[ $ARG == all-hosts ]]
 then
-    regenerate_all_hosts
+    regenerate_all_hosts || regenerate_status=$?
 else
-    run_hook regenerate
+    run_hook regenerate || regenerate_status=$?
 fi
 
 msg "regenerate done"
+return "$regenerate_status"

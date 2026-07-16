@@ -8,6 +8,149 @@ notable operational changes are listed here.
 4.0.0.2 (v4, in progress)
 -------------------------
 
+Host projections relocated to /var/srvctl3/host (change)
+  * The generated `host.conf` / `hosts.json` projections of the canonical
+    `/etc/srvctl/clusters.json` moved from `/etc/srvctl` to `/var/srvctl3/host`,
+    so `/etc/srvctl` holds only operator-owned static configuration. init.sh
+    sources the projection explicitly after the static `/etc/srvctl/*.conf`
+    files; the canonical identity can no longer be shadowed by a stray static
+    file sorting after `host.conf`.
+  * Migration is automatic and fail-closed: the first root invocation
+    regenerates the projections at the new path and deletes the legacy
+    `/etc/srvctl` copies. Non-root invocations refuse to run while a legacy
+    copy lingers (DATA-ERROR, root reconciliation required), so a stale host
+    identity is never sourced. Host retirement removes both generations, and
+    the remote retirement check asserts both are gone.
+  * Consumers updated: module activation conditions (containers, firewalld,
+    gluster), datastore seeding and remote projection verification, the
+    vncproxy service scripts (which fall back to the legacy path during the
+    deploy/rollback window instead of restart-looping), and the datastore
+    diagnose hook.
+  * The projection directory is normalized on every regeneration: a symlink
+    or non-directory fails closed, root re-asserts root:root ownership, and
+    permissions are forced to 0755 (root sources host.conf from there; a
+    pre-existing 0777/0700 or user-owned directory is never trusted).
+  * init.sh detects a readonly SC_* variable from a static config that would
+    shadow the generated host.conf and fails closed. After sourcing, and
+    again after module selection, init re-probes the raw canonical and
+    hosts.json bytes against the verified generation, so a publication
+    landing between lock release and module selection cannot yield a run
+    mixing identity A with hosts.json B.
+  * init.sh additionally exports the dispatched generation as an invocation
+    pin (SC_CANONICAL_CLUSTERS_SHA256). The dynamic canonical rereads
+    (datastore host-topology.js, named.js) validate every read against it
+    and fail closed if a publication replaced the generation mid-command,
+    closing the remaining check-before-use window; the retried invocation
+    reads coherently. Publication itself verifies via the unpinned CLI under
+    its exclusive lock and is unaffected.
+  * all-host regeneration re-probes the initiating generation before EVERY
+    host execution, not only in the preflight: a publication landing mid-run
+    aborts the remaining hosts loudly instead of driving generation-A host
+    order and DNS roles against hosts already carrying generation B.
+    The plan generation additionally travels with every child launch
+    (SC_EXPECTED_CLUSTERS_SHA256): the child's init compares it against the
+    generation it freshly verifies itself and refuses (113) before hooks, so
+    even a publication in the probe-to-launch window cannot make a host
+    execute under an inventory or DNS role it no longer has (e.g. an
+    A-primary launched as a B-replica).
+  * vncproxy start.sh exits 78 (EX_CONFIG) when no host projection exists or
+    it lacks SC_HOST_IP, and vncproxy.service declares
+    RestartPreventExitStatus=78, so a retired or mid-migration host does not
+    restart-loop every RestartSec. The unit is hand-installed: deployed hosts
+    need the updated unit + systemctl daemon-reload to pick this up.
+  * Documented, tested code rollback to v3: `srvctl exec-function
+    prepare_cluster_rollback_to_legacy` (on EVERY host being rolled back, on
+    v4, immediately before swapping the code) re-renders /etc/srvctl/host.conf
+    + hosts.json and restores the /etc/srvctl/data/clusters.json seed that v3
+    update-install regenerates from; without it a rolled-back v3 has no
+    identity to boot from. Because v3 renders host.conf values as UNQUOTED
+    root shell assignments, the rollback first validates the topology
+    (cluster-config-cli v3safe) and refuses values containing whitespace,
+    quotes, or shell substitution before writing anything. The shipped
+    topology template is example-conf/clusters.json.example.
+
+Cluster topology — one canonical file (architectural fix)
+  * `/etc/srvctl/clusters.json` is now the sole live topology source on each
+    host. The legacy `/etc/srvctl/data/clusters.json` copy contract was unsafe:
+    update-install refreshed the canonical file, while an ordinary regenerate
+    did not, allowing DNS primary/replica roles to drift between commands.
+  * Startup validates and locks a fail-closed one-time migration. A legacy-only
+    file is atomically moved; an identical duplicate is removed; divergent or
+    malformed files stop the command without changing either. Hashed
+    `host.conf` and `hosts.json` projections are refreshed before config/module
+    selection. Per-user module caches are generation-keyed and atomically
+    replaced, closing the stale `SC_USE_NAMED` crash window.
+  * Datastore host rows now contain dynamic SSH host-key fields only. Every
+    modern and compatibility reader overlays those keys onto membership and
+    static fields derived from the canonical topology; stale host_ip/hostnet
+    values therefore cannot win, even from a read-only datastore fallback.
+    Writable startup transactionally prunes old static and orphan host rows.
+  * Fleet publication now capability-checks every host from the canonical
+    topology, stages and validates everywhere, then commits under the shared
+    lock and verifies full SHA-256/projections. Prepare failure commits nothing;
+    partial distributed commits are loud failures. all-host regeneration also
+    verifies the complete file on every cross-cluster host before mutation.
+    Static-data sync excludes `clusters*.json`; the shipped topology template
+    is `clusters.json.example`. No live topology copy belongs under `/var`.
+  * Topology removal now fails closed against a last-successful publication
+    manifest. First upgrade requires the explicit, complete-inventory baseline
+    `initialize_cluster_publication confirm-complete-inventory`; ordinary
+    publication cannot silently bless a missing baseline. The manifest stores
+    only the canonical SHA-256 and ordered hostnames, not topology fields or a
+    second clusters.json copy.
+  * Removing or renaming a host requires `retire_cluster_host OLDHOST
+    confirm-decommissioned` from the manifest-owning publication controller
+    while the target still answers its old hostname. Retirement verifies the
+    exact prior generation and v2 capability, stops/disables named before
+    detaching topology, leaves a remote SHA receipt for crash-safe retry, and
+    creates the controller receipt required by the next publication.
+    Initialize, retire, and publish are mutually serialized; re-enrollment under
+    a new hostname clears the remote retirement marker only after canonical and
+    generated projections land successfully. Rename completion runs
+    update-install under the new identity to re-enable persistent roles.
+    all-host regeneration also refuses a canonical SHA or ordered inventory
+    that differs from the last successful publication.
+
+Authoritative DNS — single-writer publication + explicit propagation (fix)
+  * DNS topology now elects one canonical publication primary (pin it with
+    dns_primary=true; a sole legacy master is the compatibility fallback).
+    Every other DNS host, including an extra legacy master, is a transfer
+    replica. This removes divergent multi-writer zone files and stale hosts
+    winning merely because they generated a later epoch serial. Multiple
+    masters without exactly one marker fail closed instead of depending on
+    local JSON insertion order. all-host regeneration compares the elected
+    topology on every current-cluster host plus every declared global DNS host
+    before mutation. This also catches a hidden replica whose DNS role is
+    missing only from the initiating host's stale clusters.json.
+  * SOA serials are content-aware and monotonic, generation is locally locked,
+    peer snapshots are fresh with a last-valid-cache fallback, and zone/config
+    files are atomically replaced with the BIND include committed last.
+    Refresh/retry are 15m/5m instead of 1d/1h.
+    Operator-driven and all-host runs require fresh snapshots; only the hourly
+    safety run may use a last-good cache, capped at six hours, so an override
+    cannot report success after rendering stale peer data.
+  * Primary zones explicitly NOTIFY replicas and restrict transfers to their
+    addresses; replica zones use only the canonical primary. Regeneration
+    validates BIND before restart, then forces `rndc notify` on primary zones.
+    Operator/all-host runs perform a full `rndc retransfer` on replicas and
+    poll both authoritative SOAs until their serials match, so a missed UDP
+    NOTIFY or a former master's higher stale serial cannot leave the secondary
+    behind. Replica verification uses one queue-aware global pending set and a
+    bounded, zone-count-scaled deadline; transfers may finish out of order
+    without the old fixed per-zone timeout producing false failures. The hourly
+    safety pass uses a lightweight refresh.
+    NAT/multihomed installations can separate the local bind address
+    (dns_replication_source) from the remotely observed transfer identity
+    (dns_replication_acl_ip), avoiding routing-dependent transfer denial.
+    SOA MNAME now names the DNS authority (configurable with
+    dns_authoritative_name) instead of `@`, so redirecting an apex A record can
+    no longer make the external web server appear to be the zone primary.
+  * `regenerate all-hosts` now orders ordinary hosts -> publication primary ->
+    replicas, preserves stderr, attempts all hosts, and returns aggregate
+    failure. `override-in-address` uses that path directly, so an A-record
+    override converges current-cluster consumers and every global authoritative
+    DNS role immediately.
+
 Certificates — haproxy cert selection + prune (fix)
   * haproxy served a stale/expired cert after a renewal: regenerate_haproxy_conf
     only `cp -u`-copied certs into /var/haproxy and never pruned, so an old
@@ -33,6 +176,12 @@ Certificates — haproxy cert selection + prune (fix)
     only at `update-install`. (gui still refreshes at update-install.)
 
 Datastore consumers — read/write EITHER layout (fix)
+  * Authoritative DNS now completes that migration: named.js uses the
+    layout-aware local container map instead of bypassing it for the stale
+    legacy containers.json, and datastore-server builds peer snapshots from
+    the authoritative store on every request. This fixes override_in_a_ip (and
+    every other post-migration container update) being absent from generated
+    master zones in both local and multi-host DNS setups.
   * `sc status` (and every module that loads the datastore via
     modules/datastore/lib.js — containers/status, named, haproxy, dns, ssh,
     letsencrypt, opendkim, vncproxy, perdition, codepad, usersonhost) failed

@@ -7,6 +7,16 @@
 here="$(cd "$(dirname "$0")" && pwd)"
 fail=0
 
+for t in "$here"/*.test.sh
+do
+    [[ -f "$t" ]] || continue
+    echo "== $(basename "$t") =="
+    if ! bash "$t"
+    then
+        fail=1
+    fi
+done
+
 for t in "$here"/*.test.mjs
 do
     [[ -f "$t" ]] || continue

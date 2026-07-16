@@ -54,8 +54,27 @@ fi
 ## where the binary resolves via PATH but not at /bin/vncproxy.)
 if [[ /bin/vncproxy ]]
 then
-    # shellcheck disable=SC1091 ## runtime-file
-    source /etc/srvctl/host.conf
+    ## The projection moves to /var/srvctl3/host on the first root srvctl run
+    ## after a code deploy; until then (and after a code rollback) only the
+    ## legacy /etc/srvctl copy exists. This unit must work in both windows.
+    ## With NEITHER present (host retired, incomplete recovery) refuse to
+    ## start instead of invoking the proxy with an empty bind address and
+    ## letting Restart= loop it.
+    # shellcheck disable=SC1091 ## runtime-files
+    ## Exit 78 (EX_CONFIG) is listed in the unit's RestartPreventExitStatus:
+    ## restarting cannot help until srvctl regenerates the projection, so
+    ## Restart=always must not loop on this status every RestartSec.
+    if ! source /var/srvctl3/host/host.conf 2>/dev/null && \
+       ! source /etc/srvctl/host.conf 2>/dev/null
+    then
+        echo "FAIL: no host projection available; not starting vncproxy"
+        exit 78
+    fi
+    if [[ -z ${SC_HOST_IP:-} ]]
+    then
+        echo "FAIL: host projection lacks SC_HOST_IP; not starting vncproxy"
+        exit 78
+    fi
     vncproxy "$SC_HOST_IP:5900" "$DBFILE"
 fi
 

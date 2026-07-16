@@ -135,22 +135,150 @@ This creates symlinks at `/bin/sc` and `/bin/srvctl`.
 
 ### Initial Configuration
 
-Copy example configuration and customize:
+Install the non-topology examples and the canonical cluster topology, then
+customize them:
 
 ```bash
-cp -R /usr/local/share/srvctl/example-conf/data /etc/srvctl
+install -d /etc/srvctl/data
+cp -R /usr/local/share/srvctl/example-conf/data/. /etc/srvctl/data/
+install -m 0644 /usr/local/share/srvctl/example-conf/clusters.json.example \
+  /etc/srvctl/clusters.json
 ```
 
 Edit the following files:
 
-- `/etc/srvctl/data/clusters.json` — Define cluster hosts with MAC, IP, hostnet, gateway, DNS server role.
+- `/etc/srvctl/clusters.json` — The sole topology source. Define every cluster
+  host with its MAC, IP, hostnet, gateway, and DNS role; distribute this file
+  byte-for-byte to every host.
 - `/etc/srvctl/data/branding.conf` — Set `SC_COMPANY` and `SC_COMPANY_DOMAIN`.
 - `/etc/srvctl/data/ca.conf` — Set `SC_ROOTCA_HOST` and `SC_ROOTCA_SUBJ`.
+
+Do not create another `clusters.json` under `/etc/srvctl/data` or `/var`.
+`/var/srvctl3/host/host.conf` and `/var/srvctl3/host/hosts.json` are regenerated
+projections, not editable topology sources. (They lived in `/etc/srvctl` before
+4.0.0.4; the first root invocation regenerates them under `/var/srvctl3/host`
+and removes the legacy copies.)
+
+On an upgraded host, startup handles the old path conservatively:
+
+- only `/etc/srvctl/data/clusters.json` exists: it is atomically moved to the
+  canonical path;
+- both files are byte-identical: the legacy pathname is removed;
+- both files differ: startup exits with `DATA-ERROR` and preserves both. Review
+  the diff, put the chosen/merged topology in `/etc/srvctl/clusters.json`, then
+  remove `/etc/srvctl/data/clusters.json` explicitly.
+
+After migration, verify the runtime invariant with:
+
+```bash
+find /etc/srvctl /var/srvctl3 /var/local/srvctl \
+  -name clusters.json -print
+```
+
+The only result should be `/etc/srvctl/clusters.json`.
+
+### Rolling the code back to v3
+
+The migration removes the files v3 boots from (`/etc/srvctl/host.conf`,
+`/etc/srvctl/hosts.json`, and the `/etc/srvctl/data/clusters.json` seed that
+v3's `update-install` regenerates them from), so a code rollback needs one
+backout step. While still on v4 code, as root:
+
+```bash
+srvctl exec-function prepare_cluster_rollback_to_legacy
+```
+
+then immediately replace `/usr/local/share/srvctl` with the v3 code. The
+function re-renders the legacy projections and restores the seed from the
+canonical topology, atomically and under the publication lock. Do not run v4
+`srvctl` in between: a root invocation migrates the legacy files away again,
+and non-root invocations fail closed while they exist. Upgrading again later
+needs no special handling — normal startup migration reclaims the files.
+
+The function operates on the **local host only**. For a fleet rollback, run
+it — and confirm it succeeded — on **every host whose code will be rolled
+back, before swapping the code anywhere**; a host missed here boots v3
+without an identity. It also validates the topology for the v3 generator,
+which renders `host.conf` values as *unquoted* root shell assignments: if
+any host record carries a value containing whitespace, quotes, `$(...)`,
+backticks, or similar, the rollback refuses with `DATA-ERROR` before writing
+anything. Fix those values in the canonical topology (fleet-wide) first.
+
+Before the first publication after upgrading, deploy this srvctl version to
+every configured host and leave the complete deployed inventory in the
+canonical file. On the host holding that file, establish the verified baseline:
+
+```bash
+srvctl exec-function initialize_cluster_publication confirm-complete-inventory
+```
+
+Run initialization before editing, removing, or renaming a host. It proves
+that every listed host already serves the exact canonical SHA-256 and matching
+projections, but it cannot discover a host that was removed before the first
+baseline. Ordinary publication fails closed while the baseline is absent or
+invalid. The manifest at
+`/var/srvctl3/cluster-config/publication/publication-inventory.v1` contains only
+the last successful SHA-256 and ordered hostnames; it is removal-detection
+state, not another copy of the cluster topology.
+
+For a normal topology edit, run:
+
+```bash
+srvctl exec-function publish_data
+srvctl regenerate all-hosts
+```
+
+`publish_data` capability-checks every hostname from the canonical file,
+synchronizes non-topology seeds while excluding all `clusters*.json` files,
+prepares and validates the topology everywhere, and commits only after every
+prepare succeeds. It verifies the canonical SHA-256 and generated projections
+on every host. A prepare failure changes no live topology; a failure during the
+distributed commit is reported explicitly as a partial commit and blocks
+regeneration until repaired. `grab_data <host>` now fetches static seeds only;
+use `grab_cluster_config <host>` for an explicit validated topology import.
+
+Host removal and rename are deliberately ordered:
+
+1. Drain/decommission the old host's workloads and dependent roles.
+2. While it still answers SSH and `hostname` as `OLDHOST`, run from the same
+   publication controller that initialized and owns the local manifest (never
+   from `OLDHOST` itself):
+
+   ```bash
+   srvctl exec-function retire_cluster_host OLDHOST confirm-decommissioned
+   ```
+
+3. Retirement verifies the exact last-published generation and retirement
+   capability, stops and disables `named.service`, removes the canonical and
+   legacy topology paths plus generated projections under the remote lock, and
+   records an exact-generation receipt. A retry recovers safely if remote
+   retirement succeeded but the controller receipt write failed.
+4. Only after that command succeeds, remove or rename `OLDHOST` in
+   `/etc/srvctl/clusters.json`. For removal, run `publish_data` and then
+   `regenerate all-hosts`.
+5. For a rename, first make the machine answer under its new canonical
+   hostname, then run `publish_data`. On the renamed machine run
+   `srvctl update-install NEWHOST` before the publication controller runs
+   `srvctl regenerate all-hosts`.
+   Publication re-enrolls the topology and clears the remote retirement marker;
+   update-install re-enables boot-persistent roles such as `named.service`,
+   which retirement intentionally disabled.
+
+The initialize, retire, and publish workflows share one exclusive workflow
+lock. Publication refuses a disappeared previous hostname without a matching
+receipt for the exact prior manifest SHA, and refuses to publish a retired
+hostname that still appears in the current canonical topology.
+`regenerate all-hosts` likewise refuses to run unless the local canonical
+SHA-256 and ordered host inventory equal the last successful publication.
+To retire the current publication controller itself, first run
+`initialize_cluster_publication confirm-complete-inventory` on another current
+host while the complete, unchanged inventory is still deployed; that host then
+owns the local manifest and performs the retirement.
 
 Then run the full installation:
 
 ```bash
-srvctl update-install
+srvctl update-install HOSTNAME
 ```
 
 ### Hostname and DNS
@@ -198,7 +326,9 @@ Setting a correct hostname is mandatory. Correct forward and reverse DNS entries
 2. Creates `/etc/srvctl` and `/var/local/srvctl` directories (as root).
 3. Creates symlinks for `sc` and `srvctl` in `/bin/` (if missing).
 4. Sets up bash completion symlink.
-5. Processes configuration files from `/etc/srvctl/data/` and `/etc/srvctl/*.conf`.
+5. Migrates the legacy topology path once, fails closed if old and canonical
+   topology files conflict, and refreshes host-local projections from
+   `/etc/srvctl/clusters.json` before sourcing `/etc/srvctl/*.conf`.
 6. Sources `/etc/os-release` for OS detection.
 7. Determines the actual user (handles sudo scenarios via `SUDO_USER`).
 8. Logs command execution to `~/.srvctl/srvctl.log` and `/var/log/srvctl-root.log` (root).
@@ -322,8 +452,13 @@ modules/<name>/
 
 At startup, `test_srvctl_modules()` iterates all module directories, sources each `module-condition.sh`, and records whether the module is active. Results are cached in:
 
-- `/var/local/srvctl/modules.conf` (root)
-- `~/.srvctl/modules.conf` (per-user)
+- `~/.srvctl/modules.conf` (per-user, including root)
+- `/var/local/srvctl/modules.conf` (legacy fallback, used only when its
+  generation matches)
+
+Each cache records the SHA-256 generation of the canonical cluster file. A
+different generation is rebuilt beside the old cache and atomically renamed,
+so a role change or interrupted command cannot leave `SC_USE_NAMED` stale.
 
 Each module gets a variable `SC_USE_<MODULE_NAME_UPPERCASE>` set to `true` or `false`.
 
@@ -462,8 +597,16 @@ The datastore module provides a JSON-based configuration store for the entire sr
 |------|----------|---------|
 | Containers | `$SC_DATASTORE_RW_DIR/containers.json` | All container definitions |
 | Users | `$SC_DATASTORE_RW_DIR/users.json` | All user definitions |
-| Hosts | `/etc/srvctl/hosts.json` | Cluster host definitions |
-| Clusters | `/etc/srvctl/clusters.json` | Cluster topology |
+| Hosts | `/var/srvctl3/host/hosts.json` | Generated current-cluster projection |
+| Host runtime metadata | `$SC_DATASTORE_DIR/hosts/<hostname>.json` | Dynamic SSH host-key fields only |
+| Clusters | `/etc/srvctl/clusters.json` | Sole canonical cluster topology |
+
+Host membership and static fields such as `host_ip`, `hostnet`, interfaces,
+gateways, and DNS roles are always read from `/etc/srvctl/clusters.json`.
+Datastore readers overlay only the explicitly supported SSH host-key fields.
+Writable startup removes stale static/orphan host rows transactionally; when a
+read-only datastore fallback is selected, the same read-time overlay ignores
+its stale static values without modifying it.
 
 ### Datastore Commands
 
@@ -534,8 +677,14 @@ Where `hostnet` is the host's unique ID (16–255), `user_id` is the user's sequ
 
 ### Datastore Synchronization
 
-- `publish_data()` — Rsync the datastore to all cluster hosts.
-- `grab_data()` — Rsync the datastore from a specific host.
+- `initialize_cluster_publication(confirm-complete-inventory)` — One-time,
+  verified baseline of canonical SHA-256 plus the complete host inventory.
+- `publish_data()` — Synchronize non-topology datastore seeds and publish the
+  canonical topology with prepare/commit/verify and removal checks.
+- `retire_cluster_host(host, confirm-decommissioned)` — Stop the host's DNS
+  authority and detach its exact deployed topology before removal or rename.
+- `grab_data()` — Synchronize non-topology datastore seeds from a specific host.
+- `grab_cluster_config()` — Explicitly import and apply a validated topology.
 - Git-based version control tracks changes (`gitlib.sh`).
 
 ### Datastore HTTP Server
@@ -839,14 +988,66 @@ Each service is defined as an XML file in `/etc/firewalld/services/`.
 
 ### DNS — named (BIND)
 
-The `named` module runs an authoritative BIND DNS server with master/slave replication.
+The `named` module runs authoritative BIND DNS with one serial authority and
+zone-transfer replicas.
 
 **Module activation:** Requires `SC_DNS_SERVER` set to `master` or `slave`.
 
+**DNS topology (`/etc/srvctl/clusters.json`, the sole topology source):**
+
+- Exactly one host publishes zone content. Set `"dns_server": "master"` and
+  `"dns_primary": true` on that host.
+- If exactly one legacy `master` exists, it is elected when `dns_primary` is
+  omitted. With more than one legacy master, exactly one `dns_primary: true`
+  marker is required; srvctl fails closed instead of relying on JSON order.
+- Every other DNS host is a transfer replica. An extra legacy host still
+  labelled `master` is treated as a replica; it no longer generates competing
+  SOA serials.
+- DNS hosts require a stable `host_ip`. The primary uses replica addresses for
+  NOTIFY and the transfer ACL; replicas transfer from the elected primary only.
+- On NAT or multihomed DNS hosts, set `dns_replication_source` to the local
+  address BIND must bind for outbound replication traffic, and set
+  `dns_replication_acl_ip` to the address the remote DNS host actually sees.
+  The primary emits `notify-source`; replicas emit `transfer-source`, and both
+  sides authorize the configured observed address. Without these optional
+  fields, `host_ip` remains the replication identity.
+- The SOA MNAME defaults to `ns1.<SC_COMPANY_DOMAIN>` and is independent of a
+  domain's apex A override. Set `dns_authoritative_name` on the primary only if
+  its public authoritative name differs.
+
 **Configuration generation (`named.js`):**
+
 - Generates zone files for all containers and their domains from the datastore.
-- Creates master zones on the master server, slave zones with `masters` directives on slave servers.
+- Reads the layout-aware local datastore and fresh peer snapshots, with the
+  last valid peer snapshot as a bounded-outage fallback only for the hourly
+  safety run (maximum age: six hours). Manual/all-host publication requires
+  every peer to be fresh and returns nonzero without publishing if one is not.
+- Increments a zone's SOA serial only when its rendered content changes. The
+  serial is monotonic even when two regenerations occur in one second or the
+  host clock moves backwards.
+- Creates primary zones with explicit NOTIFY and restricted transfers; creates
+  replica zones that name only the canonical primary.
 - Stores zone files in `/var/named/srvctl/`.
+
+**Activation and propagation:**
+
+- Generation is locked so cron and manual runs cannot allocate the same serial
+  concurrently.
+- BIND configuration and primary zone loading are checked before restart.
+- After restart, primary zones receive `rndc notify`; replica zones receive a
+  forced `rndc retransfer` for operator/all-host runs. srvctl polls the primary
+  and local authoritative SOAs as one pending set until their serials match.
+  The global deadline scales with BIND's per-primary transfer queue, and zones
+  may complete out of order; command success means every replica is serving the
+  published generation. The hourly safety run uses a lightweight `rndc
+  refresh`; SOA refresh/retry timers are 15 minutes / 5 minutes as a recovery
+  path if a NOTIFY packet is missed.
+- `srvctl regenerate all-hosts` enumerates every host in every canonical
+  cluster, runs ordinary hosts first, then the publication primary, then
+  replicas. It attempts every host, reports all execution failures, and returns
+  nonzero if any failed. Before changing the first host, it verifies the full
+  canonical file SHA-256 and DNS election on every host. Identical DNS roles
+  with different ordinary-host data still fail closed.
 
 **BIND configuration (`/etc/named.conf`):**
 - ACL "trusted" for `10.0.0.0/8` and localhost.
@@ -858,7 +1059,15 @@ The `named` module runs an authoritative BIND DNS server with master/slave repli
 
 | Command | Description |
 |---------|-------------|
-| `override-in-address <container> <ip>` | Temporarily redirect a container's A records |
+| `override-in-address <container> <ip>` | Redirect wildcard/apex A records and converge the current cluster plus all DNS authorities |
+| `override-in-address <container> none` | Remove the A-record override and converge the current cluster plus all DNS authorities |
+| `regenerate all-hosts` | Publish manual datastore edits in dependency order and refresh DNS replicas |
+
+For an external web server, use `override-in-address example.com 203.0.113.10`.
+This changes the authoritative wildcard and apex A records; it is a DNS record
+change, not an HTTP redirect. Verify both authorities with
+`dig +short example.com @<primary-ip>` and
+`dig +short example.com @<replica-ip>`.
 
 ### DNS Scanning
 
@@ -1428,7 +1637,9 @@ The version file at `$SC_INSTALL_DIR/version` contains the current version strin
 
 **With `rootfs` argument:** Rebuilds base container images via `regenerate_rootfs` hook.
 
-**With `all-hosts` argument:** Runs regeneration on all cluster hosts via SSH.
+**With `all-hosts` argument:** Runs current-cluster hosts first, followed by the
+global DNS publication primary and replicas, using local execution or SSH as
+appropriate.
 
 **Cron job:** `/etc/cron.hourly/srvctl-regenerate.sh` runs regeneration automatically every hour.
 
@@ -1534,7 +1745,7 @@ claude --allowed-tools Bash,Read,Edit,WebFetch
 |------|---------|
 | `/usr/local/share/srvctl/` | Installation directory |
 | `/etc/srvctl/` | Static configuration (JSON, .conf files) |
-| `/etc/srvctl/data/` | Cluster, branding, and CA configuration |
+| `/etc/srvctl/data/` | Non-topology configuration seeds such as branding and CA settings |
 | `/etc/srvctl/CA/` | Certificate authority files |
 | `/etc/srvctl/cert/` | Host certificates |
 | `/var/srvctl3/datastore/` | Read-write data store |
@@ -1599,9 +1810,9 @@ claude --allowed-tools Bash,Read,Edit,WebFetch
 
 | File | Format | Purpose |
 |------|--------|---------|
-| `/etc/srvctl/clusters.json` | JSON | Cluster host definitions |
-| `/etc/srvctl/hosts.json` | JSON | Generated host data |
-| `/etc/srvctl/host.conf` | Bash | Host-specific settings |
+| `/etc/srvctl/clusters.json` | JSON | Sole canonical cluster topology; identical on every host |
+| `/var/srvctl3/host/hosts.json` | JSON | Generated current-cluster projection; do not edit |
+| `/var/srvctl3/host/host.conf` | Bash | Generated host-specific settings; do not edit |
 | `/etc/srvctl/data/branding.conf` | Bash | Company name and domain |
 | `/etc/srvctl/data/ca.conf` | Bash | CA host and subject |
 | `/etc/srvctl/debug.conf` | Bash | Debug settings |
@@ -1623,6 +1834,7 @@ claude --allowed-tools Bash,Read,Edit,WebFetch
       "dns2": "8.8.4.4",
       "hostnet": "78",
       "dns_server": "master",
+      "dns_primary": true,
       "reverse_proxy": "haproxy"
     },
     "t2.example.com": {
@@ -1639,6 +1851,11 @@ claude --allowed-tools Bash,Read,Edit,WebFetch
   }
 }
 ```
+
+`dns_primary: true` pins the one DNS publication primary. It may be omitted
+only when exactly one `dns_server: "master"` exists. Any additional legacy
+masters and all slaves serve as transfer replicas of that canonical primary;
+multiple masters without exactly one marker are an error.
 
 ---
 

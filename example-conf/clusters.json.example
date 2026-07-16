@@ -9,6 +9,7 @@
             "dns2": "8.8.8.8",
             "hostnet": 78,
             "dns_server": "master",
+            "dns_primary": true,
             "reverse_proxy": "haproxy"
         },
         "t2.test.vm": {
@@ -32,7 +33,6 @@
             "dns1": "192.168.88.1",
             "dns2": "8.8.8.8",
             "hostnet": 20,
-            "dns_server": "master",
             "reverse_proxy": "haproxy"
         }
     }

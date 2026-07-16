@@ -6,7 +6,7 @@
 ##   Evaluated in a subshell by test_srvctl_modules (commonlib.sh); must
 ##   print "true" to enable the module. Delegates to the containers module
 ##   condition, so haproxy is active exactly when containers is
-##   (container-capable host listed in /etc/srvctl/hosts.json, or an
+##   (container-capable host listed in /var/srvctl3/host/hosts.json, or an
 ##   update-install run with an argument). Result cached as SC_USE_HAPROXY
 ##   in modules.conf.
 ##

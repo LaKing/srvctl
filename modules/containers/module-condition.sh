@@ -8,12 +8,19 @@
 ##   modules.conf). Enabled on configured cluster hosts: never on a
 ##   pristine localhost.localdomain, never inside a container
 ##   (systemd-nspawn/lxc), only when this HOSTNAME is listed in
-##   /etc/srvctl/hosts.json — plus a bootstrap path that force-enables
-##   the module for 'sc update-install ARG' on any machine.
+##   /var/srvctl3/host/hosts.json — plus the explicit first-install state set by
+##   init.sh only after ARG was validated in the canonical topology.
 ##
 ##   Note: host-conf.js in this directory is invoked directly by core
 ##   init.sh even when this condition says false.
 ##
+
+if [[ ${SC_CLUSTER_HOSTNAME_BOOTSTRAP:-false} == true ]] && \
+   [[ -n ${SC_CLUSTER_BOOTSTRAP_TARGET_HOSTNAME:-} ]]
+then
+    echo true
+    return
+fi
 
 if [[ $HOSTNAME == localhost.localdomain ]]
 then
@@ -34,17 +41,11 @@ then
         return
     fi
     
-    if [[ -f /etc/srvctl/hosts.json ]] && grep --quiet "\"$HOSTNAME\"" /etc/srvctl/hosts.json
+    if [[ -f /var/srvctl3/host/hosts.json ]] && grep --quiet "\"$HOSTNAME\"" /var/srvctl3/host/hosts.json
     then
         echo true
         return
     fi
-fi
-
-if [[ $CMD == update-install ]] && [[ $ARG ]]
-then
-    echo true
-    return
 fi
 
 echo false

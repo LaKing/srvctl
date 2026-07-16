@@ -40,6 +40,9 @@ const ENV = {
   SRVCTL: "srvctl-4.0.0.2",
   SC_UID0: "true",
   SC_DATASTORE_RO: "", // exercise the (v3) writable path
+  SRVCTL_SELFTEST: "true",
+  SRVCTL_SELFTEST_CLUSTERS_FILE: path.join(FIXTURE, "cluster-topology.fixture.json"),
+  SRVCTL_SELFTEST_HOSTNAME: "node1",
 };
 
 // Normalize the machine hostname out of captured text so the golden is
