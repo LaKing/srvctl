@@ -5,8 +5,78 @@ Newest first. srvctl 4 is the systemd-nspawn container-farm manager rewrite
 (bash + Node.js). Datastore, runtime and permission model were reworked; the
 notable operational changes are listed here.
 
-4.0.0.2 (v4, in progress)
--------------------------
+Unreleased (v4, in progress on top of 4.0.0.8)
+----------------------------------------------
+
+Comount — shared writable directories across nspawn UID namespaces
+  * New host-only comount module: add-codepad-comount-to-containers and
+    add-root-comount-to-containers take PATH CONTAINER... with PATH inside the
+    containers. Sources are created/reused under /var/srvctl3/comount/as-codepad
+    or as-root followed by PATH, keeping host /srv reserved for containers.
+    The basename is host-unique; independent comount-NAME datastore fields
+    support multiple shares. remove-comount/test-comount take NAME CONTAINER.
+  * Sourced functions and regenerate/update-install-host hooks render named
+    /srv/CONTAINER/comount/NAME mounts and .binds from datastore UID offsets,
+    mapping the selected account's UID/GID. Codepad backing files use numeric
+    804:804 without a host account. Codepad shares also map root for root file
+    creation; root shares need no codepad account. Regeneration upgrades old
+    mappings without reassigning ownership; test-comount tests both accounts.
+  * Unchanged mounts do not restart containers; stopped targets remain stopped.
+    test-comount checks writing as the selected account; diagnose reports mount
+    status using normal srvctl logging. Removal preserves shared source files.
+    Previous arbitrary host sources are not automatically migrated.
+
+Datastore init — marker-less per-entity store no longer bricks the host (fix)
+  * A datastore with the per-entity layout but no .per-entity marker and no
+    monolithic files (created by early-v4 code before the marker existed, or
+    by a copy/restore that dropped the hidden file) failed EVERY command:
+    init_datastore skipped install/migration (its trigger only fired for a
+    missing layout or lingering monolithic files), then host-topology
+    reconciliation hard-required the marker — "DATA-ERROR: HOST-TOPOLOGY
+    datastore ... is not an authoritative per-entity store".
+  * The install trigger now fires whenever the marker is absent, and
+    migration marks a marker-less per-entity store authoritative (with no
+    monolithic files it is the only data there is). Blessing requires ALL
+    THREE entity directories, judged by what existed BEFORE install
+    normalized the skeleton — a restore containing only hosts/ is refused,
+    not silently made authoritative. Stray monolithic
+    users.json/containers.json WITHOUT hosts.json are likewise a partial
+    store and fail loudly instead of being blessed or silently ignored.
+  * Fresh-install seeding now fails with a clear message when the generated
+    host projection is missing, instead of seeding an empty hosts.json that
+    dies much later as corrupt monolithic JSON.
+  * Fresh-install seeding also refuses a store that still contains surviving
+    user/container data (monolithic users.json/containers.json or a
+    users//containers/ entity dir) without hosts data: seeding used to
+    overwrite the survivors with defaults and migration then blessed the
+    result, silently destroying the surviving records. Partial survivors now
+    fail loudly with zero mutation.
+
+4.0.0.8
+-------
+
+Documentation refresh (docs only)
+  * No code change. README.md, README.txt, CLAUDE.md,
+    documentation/documentation.md and the update-campaign notes were brought
+    in line with the v4 layout, and this changelog's references to the (now
+    removed) example-conf files were corrected to point at the inline topology
+    template in documentation/documentation.md.
+
+4.0.0.7
+-------
+
+Shipped example configuration removed (change)
+  * example-conf/ (clusters.json.example, data/branding.conf, data/ca.conf) and
+    the legacy var/tools/srvctl.3.2.5.9.txt dump were deleted from the tree.
+    Nothing read them at runtime; the topology template now lives inline in
+    documentation/documentation.md (Initial Configuration).
+
+4.0.0.6
+-------
+
+Everything below shipped in 4.0.0.6: the whole v4 datastore, permission-model,
+topology, DNS and certificate line landed between the 4.0.0.2 release and this
+one. 4.0.0.3 to 4.0.0.5 were never released.
 
 Host projections relocated to /var/srvctl3/host (change)
   * The generated `host.conf` / `hosts.json` projections of the canonical
@@ -163,8 +233,9 @@ Certificates — haproxy cert selection + prune (fix)
     newer notAfter wins. Because haproxy SNI prefers an exact match over the
     wildcard, a domain covered by a valid wildcard gets NO per-domain file (the
     wildcard serves it). Deployed files are mode 0600. Tested by
-    modules/certificates/selftest/certselect.test.sh (15 checks over generated
-    certs). Also: apply_wildcard_certificates now mkdir's the datastore cert dir
+    modules/certificates/selftest/certselect.test.sh (19 checks over generated
+    certs; the last 4 cover the service-cert key extraction below). Also:
+    apply_wildcard_certificates now mkdir's the datastore cert dir
     before the fan-out (first-run no-op fix) and chmods the key-bearing copy 600.
     To rotate a wildcard now: drop the new pem in /etc/srvctl/cert/<domain>/ and
     run `sc regenerate` — the old copy is pruned automatically.

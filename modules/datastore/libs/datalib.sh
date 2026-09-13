@@ -18,6 +18,11 @@
 
 ## sc exec-function publish_data
 
+## TEST SEAMS for the sandboxed selftests, not supported configuration:
+## production reads the static seeds from /etc/srvctl/data and the generated
+## host projection from /var/srvctl3/host (the cluster-config seam).
+: "${SC_DATASTORE_SEED_DIR:=/etc/srvctl/data}"
+
 function _srvctl_cluster_cli() {
     /bin/node "$SC_INSTALL_DIR/modules/containers/lib/cluster-config-cli.js" "$@"
 }
@@ -1011,29 +1016,63 @@ function init_datastore_install() {
 
     msg "init_datastore_install"
 
+    ## Recovery evidence for migrate_datastore_to_per_entity: record which
+    ## entity directories existed BEFORE this function normalizes the
+    ## skeleton below. Blessing a marker-less per-entity store may only trust
+    ## directories that were already there — a just-created empty directory
+    ## proves nothing, and a partial copy/restore must never become silently
+    ## authoritative. Dynamically scoped into the migrate call.
+    local sc_pre_hosts_dir=false sc_pre_users_dir=false sc_pre_containers_dir=false
+    [[ -d "$SC_DATASTORE_RW_DIR/hosts" ]] && sc_pre_hosts_dir=true
+    [[ -d "$SC_DATASTORE_RW_DIR/users" ]] && sc_pre_users_dir=true
+    [[ -d "$SC_DATASTORE_RW_DIR/containers" ]] && sc_pre_containers_dir=true
+
     ## srvctl3 database is static in /etc/srvctl/data, shared in the RW folder
     mkdir -p "$SC_DATASTORE_RO_DIR"
     mkdir -p "$SC_DATASTORE_RW_DIR"
-    mkdir -p /etc/srvctl/data
+    mkdir -p "$SC_DATASTORE_SEED_DIR"
+
+    local sc_host_projection="${SC_CLUSTER_CONFIG_HOST_DIR:-/var/srvctl3/host}/hosts.json"
 
     ## Fresh install: seed the v3 monolithic source files ONLY when the RW
     ## datastore has neither the per-entity dirs nor monolithic seeds yet.
     ## They are converted to file-per-entity by migrate_datastore_to_per_entity.
     if [[ ! -d "$SC_DATASTORE_RW_DIR/hosts" ]] && [[ ! -f "$SC_DATASTORE_RW_DIR/hosts.json" ]]
     then
-        cat /var/srvctl3/host/hosts.json > "$SC_DATASTORE_RW_DIR/hosts.json"
-
-        if [[ -f /etc/srvctl/data/containers.json ]]
+        ## A store that still contains SOME user/container data — monolithic
+        ## users.json/containers.json or a users//containers/ entity dir —
+        ## is a partial copy/restore, NOT a fresh install. Seeding would
+        ## overwrite the survivors with seeds/defaults and migration would
+        ## then bless the result, silently destroying the surviving data.
+        ## Fail before writing anything.
+        if [[ -f "$SC_DATASTORE_RW_DIR/users.json" ]] || \
+           [[ -f "$SC_DATASTORE_RW_DIR/containers.json" ]] || \
+           $sc_pre_users_dir || $sc_pre_containers_dir
         then
-            cat /etc/srvctl/data/containers.json > "$SC_DATASTORE_RW_DIR/containers.json"
+            err "Datastore has surviving user/container data without hosts data; refusing fresh-install seeding"
+            return 1
+        fi
+        ## Fail with a clear message rather than seeding an empty hosts.json
+        ## (a failed cat still creates the redirection target, and the empty
+        ## file then dies much later as corrupt monolithic JSON).
+        if [[ ! -f $sc_host_projection ]]
+        then
+            err "INITIALIZE datastore requires the generated host projection $sc_host_projection"
+            return 1
+        fi
+        cat "$sc_host_projection" > "$SC_DATASTORE_RW_DIR/hosts.json" || return 1
+
+        if [[ -f "$SC_DATASTORE_SEED_DIR/containers.json" ]]
+        then
+            cat "$SC_DATASTORE_SEED_DIR/containers.json" > "$SC_DATASTORE_RW_DIR/containers.json"
         else
             err "INITIALIZE-EMPTY srvctl data containers"
             echo '{}' > "$SC_DATASTORE_RW_DIR/containers.json"
         fi
 
-        if [[ -f /etc/srvctl/data/users.json ]]
+        if [[ -f "$SC_DATASTORE_SEED_DIR/users.json" ]]
         then
-            cat /etc/srvctl/data/users.json > "$SC_DATASTORE_RW_DIR/users.json"
+            cat "$SC_DATASTORE_SEED_DIR/users.json" > "$SC_DATASTORE_RW_DIR/users.json"
         else
             ## seed table: root plus the single-letter resellers a-x
             err "INITIALIZE-DEFAULT srvctl data users"
@@ -1086,8 +1125,42 @@ function migrate_datastore_to_per_entity() {
     ## still sit on disk for a half-rsync'd old reader.
     [[ -f "$SC_DATASTORE_RW_DIR/.per-entity" ]] && return 0
 
-    ## No monolithic source → nothing to migrate/consolidate.
-    [[ -f "$SC_DATASTORE_RW_DIR/hosts.json" ]] || return 0
+    ## No monolithic source → nothing to migrate/consolidate. But a COMPLETE
+    ## per-entity layout that exists WITHOUT the marker (early-v4 store, or a
+    ## copy/restore that dropped the hidden marker file) is the only data
+    ## there is: mark it authoritative, or host-topology reconciliation
+    ## refuses every subsequent command. Stray non-hosts monolithic files
+    ## without hosts.json are a partial store — fail loudly, never bless.
+    if [[ ! -f "$SC_DATASTORE_RW_DIR/hosts.json" ]]
+    then
+        if [[ -f "$SC_DATASTORE_RW_DIR/users.json" ]] || [[ -f "$SC_DATASTORE_RW_DIR/containers.json" ]]
+        then
+            err "Datastore has partial monolithic files without hosts.json; refusing to mark per-entity authoritative"
+            return 1
+        fi
+
+        ## Blessing requires evidence for ALL THREE entity directories. When
+        ## called from init_datastore_install, the dynamically scoped
+        ## sc_pre_*_dir flags record what existed BEFORE the skeleton
+        ## normalization created the missing ones (a normalized empty dir
+        ## proves nothing); standalone callers see the raw filesystem.
+        local pre_hosts="${sc_pre_hosts_dir:-}" pre_users="${sc_pre_users_dir:-}"
+        local pre_containers="${sc_pre_containers_dir:-}"
+        [[ -n $pre_hosts ]] || { [[ -d "$SC_DATASTORE_RW_DIR/hosts" ]] && pre_hosts=true || pre_hosts=false; }
+        [[ -n $pre_users ]] || { [[ -d "$SC_DATASTORE_RW_DIR/users" ]] && pre_users=true || pre_users=false; }
+        [[ -n $pre_containers ]] || { [[ -d "$SC_DATASTORE_RW_DIR/containers" ]] && pre_containers=true || pre_containers=false; }
+
+        if $pre_hosts && $pre_users && $pre_containers
+        then
+            : > "$SC_DATASTORE_RW_DIR/.per-entity" || return 1
+            msg "Marker-less per-entity datastore: marked authoritative (.per-entity set)"
+        elif $pre_hosts || $pre_users || $pre_containers
+        then
+            err "Datastore has a partial per-entity layout (hosts/users/containers incomplete before normalization); refusing to mark authoritative"
+            return 1
+        fi
+        return 0
+    fi
 
     msg "Migrating datastore to file-per-entity layout"
 
@@ -1137,12 +1210,16 @@ function init_datastore() {
     ## idempotent and no-ops once fully migrated.
     if ! $SC_DATASTORE_RO_USE && [[ $USER == root ]]
     then
-        ## Run install/migration when the per-entity layout is absent, OR when
-        ## monolithic files remain and per-entity is NOT yet authoritative
-        ## (no .per-entity marker) — i.e. a not-yet / partially migrated store.
-        ## Once the marker is set the monolithic files may linger (kept for
-        ## half-rsync'd old readers) without re-triggering.
-        if [[ ! -d "$SC_DATASTORE_DIR/hosts" ]] || { [[ -f "$SC_DATASTORE_DIR/hosts.json" ]] && [[ ! -f "$SC_DATASTORE_DIR/.per-entity" ]]; }
+        ## Run install/migration when the per-entity layout is absent, OR
+        ## whenever per-entity is NOT yet authoritative (no .per-entity
+        ## marker): an unmigrated monolithic store, but also a marker-less
+        ## per-entity store — created by early-v4 code before the marker
+        ## existed, or by a copy/restore that dropped the hidden file. The
+        ## reconciliation below hard-requires the marker, so skipping install
+        ## here would fail every command on such a host. Once the marker is
+        ## set the monolithic files may linger (kept for half-rsync'd old
+        ## readers) without re-triggering.
+        if [[ ! -d "$SC_DATASTORE_DIR/hosts" ]] || [[ ! -f "$SC_DATASTORE_DIR/.per-entity" ]]
         then
             ## init_datastore_install ends in migrate_datastore_to_per_entity;
             ## a migration failure (partial store / data loss) must STOP the

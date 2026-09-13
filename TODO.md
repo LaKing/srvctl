@@ -2,6 +2,55 @@
 
 Prioritized from the read-only audit performed on 2026-07-16. Revalidate each item against a fixed commit before implementation because the working tree was changing during the audit.
 
+## Datastore marker-recovery review
+
+- [x] **High — Refuse to bless an incomplete per-entity directory layout.**
+  - RESOLVED: `init_datastore_install` records which entity directories existed
+    BEFORE its skeleton normalization (dynamically scoped `sc_pre_*_dir`
+    flags), and the blessing branch in `migrate_datastore_to_per_entity` now
+    requires evidence for ALL THREE of `hosts/`, `users/`, `containers/` —
+    pre-normalization flags when called from install, the raw filesystem for
+    standalone callers. Any partial directory layout fails loudly and is never
+    blessed.
+  - Tests: hosts-only refused both standalone and through the REAL install
+    (proving evidence capture beats the normalization); complete marker-less
+    restore blessed. Verified failing against the hosts-only predicate.
+
+- [x] **Medium — Exercise the real install path and projection failure.**
+  - RESOLVED: path test seams added (`SC_DATASTORE_SEED_DIR`, and the
+    projection via the existing `SC_CLUSTER_CONFIG_HOST_DIR` seam); four real
+    `init_datastore_install` tests cover fresh seed→migrate→bless, missing
+    projection (fails with no empty hosts.json and no marker left behind —
+    verified failing without the guard), hosts-only restore refusal, and
+    complete-restore blessing. A failed `cat` of the projection now also
+    aborts (`|| return 1`). datalib suite: 160 checks.
+
+- [x] **Operational — Tighten the emergency marker command preflight.**
+  - RESOLVED (procedure): before manually creating `.per-entity` on a stuck
+    host, ALL of: `hosts/`, `users/`, `containers/` exist; `hosts.json`,
+    `users.json`, `containers.json` all absent; back up the datastore
+    (`tar -C /var/srvctl3 -czf /root/datastore-backup.tgz datastore`);
+    validate every entity file
+    (`for f in /var/srvctl3/datastore/{hosts,users,containers}/*.json; do
+    node -e "JSON.parse(require('fs').readFileSync(process.argv[1]))" "$f"
+    || echo "BAD $f"; done`); only then `touch
+    /var/srvctl3/datastore/.per-entity`. Otherwise deploy the fixed code,
+    which applies the same rules automatically.
+
+- [x] **High — Detect partial monolithic state before fresh-install seeding.**
+  - RESOLVED: the fresh-seed branch now refuses, before writing anything, any
+    surviving user/container data — monolithic `users.json`/`containers.json`
+    OR a pre-existing `users//containers/` entity dir (via the pre-normalization
+    `sc_pre_*_dir` flags) — when hosts data is absent. Partial survivors fail
+    with "surviving user/container data without hosts data" and zero mutation.
+    Partial combos WITH `hosts.json` skip seeding and fail hard in migrate.mjs
+    (all-three-required), also without mutation.
+  - Tests (real install path, byte-for-byte preservation asserted):
+    users.json-only, users.json+containers.json, users/-dir-only,
+    hosts.json-only — all rc≠0, unmutated, never blessed. Verified against the
+    pre-fix code: it reproduces the reported clobber (rc 0, marker stamped,
+    sentinel overwritten by seeded defaults). datalib suite: 172 checks.
+
 ## Current topology-migration review
 
 - [x] **High — Pin `regenerate all-hosts` through its complete execution window.**

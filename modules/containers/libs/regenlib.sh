@@ -358,15 +358,13 @@ function check_container_directories() {
             
         fi
 
-        ## if container has everything but a rootfs
-        ## FIXME(v4): runs for ANY /srv entry without rootfs/ (only
-        ## /srv/TEMP is excluded) — for an unknown directory the datastore
-        ## type is empty and create_nspawn_container_filesystem copies ALL
-        ## base images into it (see the FIXME there); the stray then gets
-        ## imported as a container on the next regenerate.
+        ## Only provision missing rootfs trees for registered containers.
+        local container_exists
         if [[ ! -d $D/rootfs ]]
         then
-            create_nspawn_container_filesystem "$C"
+            container_exists="$(get container "$C" exist)" || return $?
+            [[ $container_exists == true ]] || continue
+            create_nspawn_container_filesystem "$C" || return $?
         fi
     done
 }

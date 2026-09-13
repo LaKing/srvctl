@@ -12,7 +12,7 @@
 
    Output structure (names are API — they appear in haproxy logs/stats):
      frontends  http (*:80), https (*:443 ssl), port<N> for 9200/8080/8443
-                and, when SC_USE_CODEPAD=true, 9000/9001
+                and, when use_codepad is set, the codepad ports 9000/9001/9002
      backends   http:<ve>, https:<ve>, port<N>:<ve>, the well-known
                 helpers (letsencrypt 1028, thunderbird 1029, srvctl3data
                 1030) and 'backend default' -> localhost:1282
@@ -23,6 +23,10 @@
    get no use_backend ACLs; datastore keys read per container: aliases,
    altnames, static, proxy_ports, http_port, https_port, and the
    http-redirect/https-redirect keys set by the module's commands.
+   The codepad ports (9000/9001/9002, plus the unrendered 24678) are
+   proxied to every container whose local rootfs has /var/codepad/codepad4.
+   9000 and 24678 additionally keep the legacy -devel name / proxy_ports
+   opt-in for non-codepad containers; see codepad_port_allowed.
 
    Exit codes: 0 success, 111 write error, 99 abnormal end (preset below).
 
@@ -91,8 +95,8 @@ var containers = {};
 //var user = '';
 //var container = '';
 
-var use_codepad = false;
-if (process.env.SC_USE_CODEPAD === "true") use_codepad = true;
+var use_codepad = true;
+//if (process.env.SC_USE_CODEPAD === "true") use_codepad = true;
 
 // create an array of arrays based on the dots
 var aa = [];
@@ -125,6 +129,33 @@ function don(d) {
 // ACL hostnames (garbage but syntactically valid config).
 function ddn(d) {
     return d.replace(/\./g, "-") + "." + SC_COMPANY_DOMAIN;
+}
+
+// Codepad reserved ports: 9000, 9001 and 9002 are served over https by the
+// codepad container itself and are rendered below; 24678 (vite hmr) stays in
+// the set so its rules would be consistent, but is not rendered.
+const codepad_ports = [9000, 9001, 9002, 24678];
+
+function is_codepad_port(n) {
+    return codepad_ports.indexOf(n) >= 0;
+}
+
+// is_codepad_container: true when the container's rootfs carries a codepad4
+// install. A local /srv lookup evaluated at regenerate time, so it only ever
+// matches containers that live on the generating host.
+function is_codepad_container(c) {
+    return fs.existsSync("/srv/" + c + "/rootfs/var/codepad/codepad4");
+}
+
+// codepad_port_allowed: every codepad container is proxied on every codepad
+// port. 9001 and 9002 are codepad-only; 9000 and 24678 additionally keep the
+// legacy opt-in (a *-devel name, or the port listed in the container's
+// proxy_ports key) so non-codepad dev containers relying on it stay reachable.
+function codepad_port_allowed(c, n) {
+    if (is_codepad_container(c)) return true;
+    if (n === 9001 || n === 9002) return false;
+    if (c.includes("-devel")) return true;
+    return containers[c].proxy_ports && containers[c].proxy_ports.indexOf(n) >= 0;
 }
 
 // str += br + '';
@@ -410,7 +441,7 @@ function get_frontend_port(n, ssl) {
     str += br + "frontend port" + n;
     str += br + "    bind *:" + n;
     if (ssl)
-        if (n === 9000 || n === 9001 || n === 24678) str += " ssl crt /var/haproxy";
+        if (is_codepad_port(n)) str += " ssl crt /var/haproxy";
         else str += " ssl crt /var/haproxy alpn h2,http/1.1";
 
     str += br;
@@ -420,8 +451,8 @@ function get_frontend_port(n, ssl) {
         // srvctl-related port permissions based on configurations
 
         // codepad reserved ports
-        if (n === 9000 || n === 9001 || n === 24678) {
-            if (!containers[c].proxy_ports || containers[c].proxy_ports.indexOf(n) < 0) if (!c.includes("-devel")) return;
+        if (is_codepad_port(n)) {
+            if (!codepad_port_allowed(c, n)) return;
         }
 
         str += acl("port" + n, c, n);
@@ -432,8 +463,8 @@ function get_frontend_port(n, ssl) {
         // srvctl-related port permissions based on configurations
 
         // codepad reserved ports
-        if (n === 9000 || n === 9001 || n === 24678) {
-            if (!containers[c].proxy_ports || containers[c].proxy_ports.indexOf(n) < 0) if (!c.includes("-devel")) return;
+        if (is_codepad_port(n)) {
+            if (!codepad_port_allowed(c, n)) return;
         }
 
         str += subacl("port" + n, c, n);
@@ -492,8 +523,8 @@ function get_backends_for_port(n, ssl) {
         // srvctl-related port permissions based on configurations
 
         // codepad reserved ports
-        if (n === 9000 || n === 9001 || n === 24678) {
-            if (!containers[c].proxy_ports || containers[c].proxy_ports.indexOf(n) < 0) if (!c.includes("-devel")) return;
+        if (is_codepad_port(n)) {
+            if (!codepad_port_allowed(c, n)) return;
         }
 
         str += br + "backend port" + n + ":" + c;
@@ -501,7 +532,7 @@ function get_backends_for_port(n, ssl) {
         //str += br + '    redirect scheme https if !{ ssl_fc }';
         str += br + "    server port" + n + ":" + c + " " + c + ":" + n;
         if (ssl)
-            if (n === 9000 || n === 9001 || n === 24678) str += " ssl verify none";
+            if (is_codepad_port(n)) str += " ssl verify none";
             else str += " ssl verify none alpn h2,http/1.1";
 
         str += br + "";
@@ -519,6 +550,7 @@ cfg += get_frontend_https();
 if (use_codepad) {
     cfg += get_frontend_port(9000, true);
     cfg += get_frontend_port(9001, true);
+    cfg += get_frontend_port(9002, true);
     //cfg += get_frontend_port(24678, true);
 }
 
@@ -535,6 +567,7 @@ cfg += get_backends_for_https();
 if (use_codepad) {
     cfg += get_backends_for_port(9000, true);
     cfg += get_backends_for_port(9001, true);
+    cfg += get_backends_for_port(9002, true);
     //cfg += get_backends_for_port(24678, true);
 }
 

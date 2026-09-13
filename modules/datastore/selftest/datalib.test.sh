@@ -808,5 +808,184 @@ run_grab_cluster source.example
 ok "mixed-version topology source fails" "$RC" "1"
 ok "mixed-version source downloads nothing" "$(count_prefix 'rsync|')" "0"
 
+## The publication tests above stub mkdir/rm as marks; from here on the
+## datastore-layout tests need the real filesystem commands.
+unset -f mkdir rm
+
+echo "== marker-less per-entity datastore is blessed authoritative =="
+SC_DATASTORE_RW_DIR="$TMP/ds-markerless"
+mkdir -p "$SC_DATASTORE_RW_DIR/hosts" "$SC_DATASTORE_RW_DIR/users" "$SC_DATASTORE_RW_DIR/containers"
+printf '{"host_key":"k"}\n' > "$SC_DATASTORE_RW_DIR/hosts/h1.json"
+migrate_datastore_to_per_entity
+ok "blessing returns success" "$?" "0"
+ok "marker stamped on marker-less per-entity store" \
+    "$([[ -f $SC_DATASTORE_RW_DIR/.per-entity ]] && echo yes || echo no)" "yes"
+ok "per-entity record untouched" "$(<"$SC_DATASTORE_RW_DIR/hosts/h1.json")" '{"host_key":"k"}'
+
+echo "== fresh empty datastore is not blessed =="
+SC_DATASTORE_RW_DIR="$TMP/ds-fresh"
+mkdir -p "$SC_DATASTORE_RW_DIR"
+migrate_datastore_to_per_entity
+ok "fresh store returns success" "$?" "0"
+ok "no marker on a store without per-entity layout" \
+    "$([[ -e $SC_DATASTORE_RW_DIR/.per-entity ]] && echo no || echo yes)" "yes"
+
+echo "== partial monolithic without hosts.json fails loudly =="
+SC_DATASTORE_RW_DIR="$TMP/ds-partial"
+mkdir -p "$SC_DATASTORE_RW_DIR/hosts"
+printf '{}\n' > "$SC_DATASTORE_RW_DIR/users.json"
+migrate_datastore_to_per_entity
+ok "partial monolithic store fails" "$?" "1"
+ok "partial monolithic store is not blessed" \
+    "$([[ -e $SC_DATASTORE_RW_DIR/.per-entity ]] && echo no || echo yes)" "yes"
+
+echo "== partial per-entity layout is refused (standalone) =="
+SC_DATASTORE_RW_DIR="$TMP/ds-partial-dirs"
+mkdir -p "$SC_DATASTORE_RW_DIR/hosts"
+printf '{"host_key":"k"}\n' > "$SC_DATASTORE_RW_DIR/hosts/h1.json"
+migrate_datastore_to_per_entity
+ok "hosts-only layout fails" "$?" "1"
+ok "hosts-only layout is not blessed" \
+    "$([[ -e $SC_DATASTORE_RW_DIR/.per-entity ]] && echo no || echo yes)" "yes"
+
+echo "== real install path: fresh store seeds, migrates, blesses =="
+run() { "$@"; }
+USER=root
+SC_INSTALL_DIR="$REPO"
+SC_DATASTORE_SEED_DIR="$TMP/seed-data"
+SC_CLUSTER_CONFIG_HOST_DIR="$TMP/host-projection"
+mkdir -p "$SC_DATASTORE_SEED_DIR" "$SC_CLUSTER_CONFIG_HOST_DIR"
+printf '{"h1.test":{"host_key":"k"}}\n' > "$SC_CLUSTER_CONFIG_HOST_DIR/hosts.json"
+SC_DATASTORE_RW_DIR="$TMP/ds-real-fresh"
+SC_DATASTORE_RO_DIR="$TMP/ds-real-fresh-ro"
+init_datastore_install > /dev/null
+ok "real fresh install succeeds" "$?" "0"
+ok "real fresh install marks per-entity authoritative" \
+    "$([[ -f $SC_DATASTORE_RW_DIR/.per-entity ]] && echo yes || echo no)" "yes"
+ok "monolithic hosts seed converted to per-entity" \
+    "$([[ -f $SC_DATASTORE_RW_DIR/hosts/h1.test.json ]] && echo yes || echo no)" "yes"
+ok "entity skeleton exists" \
+    "$([[ -d $SC_DATASTORE_RW_DIR/hosts && -d $SC_DATASTORE_RW_DIR/users && -d $SC_DATASTORE_RW_DIR/containers && -d $SC_DATASTORE_RW_DIR/cert ]] && echo yes || echo no)" "yes"
+
+echo "== real install path: missing projection fails cleanly =="
+SC_CLUSTER_CONFIG_HOST_DIR="$TMP/host-projection-absent"
+SC_DATASTORE_RW_DIR="$TMP/ds-real-noproj"
+SC_DATASTORE_RO_DIR="$TMP/ds-real-noproj-ro"
+init_datastore_install > /dev/null
+ok "missing projection fails the install" "$?" "1"
+ok "no empty hosts.json is left behind" \
+    "$([[ -e $SC_DATASTORE_RW_DIR/hosts.json ]] && echo no || echo yes)" "yes"
+ok "no marker after the failed install" \
+    "$([[ -e $SC_DATASTORE_RW_DIR/.per-entity ]] && echo no || echo yes)" "yes"
+
+echo "== real install path: hosts-only restore is refused =="
+SC_CLUSTER_CONFIG_HOST_DIR="$TMP/host-projection"
+SC_DATASTORE_RW_DIR="$TMP/ds-real-hostsonly"
+SC_DATASTORE_RO_DIR="$TMP/ds-real-hostsonly-ro"
+mkdir -p "$SC_DATASTORE_RW_DIR/hosts"
+printf '{"host_key":"k"}\n' > "$SC_DATASTORE_RW_DIR/hosts/h1.test.json"
+init_datastore_install > /dev/null
+ok "partial restore fails through the real install" "$?" "1"
+ok "partial restore is never blessed despite normalization" \
+    "$([[ -e $SC_DATASTORE_RW_DIR/.per-entity ]] && echo no || echo yes)" "yes"
+ok "restored record is untouched" \
+    "$(<"$SC_DATASTORE_RW_DIR/hosts/h1.test.json")" '{"host_key":"k"}'
+
+echo "== real install path: surviving monolithic users.json is never clobbered =="
+SC_DATASTORE_RW_DIR="$TMP/ds-real-usersjson"
+SC_DATASTORE_RO_DIR="$TMP/ds-real-usersjson-ro"
+mkdir -p "$SC_DATASTORE_RW_DIR"
+printf '{"sentinel":{"role":"user"}}\n' > "$SC_DATASTORE_RW_DIR/users.json"
+init_datastore_install > /dev/null
+ok "users.json-only survivor fails the install" "$?" "1"
+ok "surviving users.json is byte-identical" \
+    "$(<"$SC_DATASTORE_RW_DIR/users.json")" '{"sentinel":{"role":"user"}}'
+ok "no hosts.json was seeded over the survivor state" \
+    "$([[ -e $SC_DATASTORE_RW_DIR/hosts.json ]] && echo no || echo yes)" "yes"
+ok "survivor state is not blessed" \
+    "$([[ -e $SC_DATASTORE_RW_DIR/.per-entity ]] && echo no || echo yes)" "yes"
+
+echo "== real install path: users.json + containers.json survivors are preserved =="
+SC_DATASTORE_RW_DIR="$TMP/ds-real-twojson"
+SC_DATASTORE_RO_DIR="$TMP/ds-real-twojson-ro"
+mkdir -p "$SC_DATASTORE_RW_DIR"
+printf '{"sentinel":{"role":"user"}}\n' > "$SC_DATASTORE_RW_DIR/users.json"
+printf '{"sentinelve":{"user":"sentinel"}}\n' > "$SC_DATASTORE_RW_DIR/containers.json"
+init_datastore_install > /dev/null
+ok "two-survivor store fails the install" "$?" "1"
+ok "both survivors are byte-identical" \
+    "$(<"$SC_DATASTORE_RW_DIR/users.json"):$(<"$SC_DATASTORE_RW_DIR/containers.json")" \
+    '{"sentinel":{"role":"user"}}:{"sentinelve":{"user":"sentinel"}}'
+
+echo "== real install path: surviving users/ entity dir is never seeded over =="
+SC_DATASTORE_RW_DIR="$TMP/ds-real-usersdir"
+SC_DATASTORE_RO_DIR="$TMP/ds-real-usersdir-ro"
+mkdir -p "$SC_DATASTORE_RW_DIR/users"
+printf '{"role":"user"}\n' > "$SC_DATASTORE_RW_DIR/users/sentinel.json"
+init_datastore_install > /dev/null
+ok "users-dir-only survivor fails the install" "$?" "1"
+ok "surviving entity record is byte-identical" \
+    "$(<"$SC_DATASTORE_RW_DIR/users/sentinel.json")" '{"role":"user"}'
+ok "users-dir survivor is not blessed" \
+    "$([[ -e $SC_DATASTORE_RW_DIR/.per-entity ]] && echo no || echo yes)" "yes"
+
+echo "== real install path: hosts.json without the other monolithic files fails hard =="
+SC_DATASTORE_RW_DIR="$TMP/ds-real-hostsjson"
+SC_DATASTORE_RO_DIR="$TMP/ds-real-hostsjson-ro"
+mkdir -p "$SC_DATASTORE_RW_DIR"
+printf '{"h1.test":{"host_key":"k"}}\n' > "$SC_DATASTORE_RW_DIR/hosts.json"
+install_rc=0
+init_datastore_install > /dev/null 2>&1 || install_rc=$?
+ok "hosts.json-only partial monolithic fails the install" \
+    "$([[ $install_rc -ne 0 ]] && echo yes || echo no)" "yes"
+ok "hosts.json survivor is byte-identical" \
+    "$(<"$SC_DATASTORE_RW_DIR/hosts.json")" '{"h1.test":{"host_key":"k"}}'
+ok "hosts.json-only partial monolithic is not blessed" \
+    "$([[ -e $SC_DATASTORE_RW_DIR/.per-entity ]] && echo no || echo yes)" "yes"
+
+echo "== real install path: complete marker-less restore is blessed =="
+SC_DATASTORE_RW_DIR="$TMP/ds-real-complete"
+SC_DATASTORE_RO_DIR="$TMP/ds-real-complete-ro"
+mkdir -p "$SC_DATASTORE_RW_DIR/hosts" "$SC_DATASTORE_RW_DIR/users" "$SC_DATASTORE_RW_DIR/containers"
+printf '{"host_key":"k"}\n' > "$SC_DATASTORE_RW_DIR/hosts/h1.test.json"
+init_datastore_install > /dev/null
+ok "complete restore succeeds through the real install" "$?" "0"
+ok "complete restore is marked authoritative" \
+    "$([[ -f $SC_DATASTORE_RW_DIR/.per-entity ]] && echo yes || echo no)" "yes"
+
+echo "== init_datastore triggers install for a marker-less per-entity store =="
+## The reconcile stub reproduces the production contract that exposed the
+## bug: it fails 113 unless the .per-entity marker exists at reconcile time.
+FAKE_INSTALL="$TMP/fake-install"
+mkdir -p "$FAKE_INSTALL/modules/datastore/lib"
+cat > "$FAKE_INSTALL/modules/datastore/lib/reconcile-hosts.mjs" << 'EOF'
+import fs from "node:fs";
+import path from "node:path";
+const dir = process.argv[4];
+if (!fs.existsSync(path.join(dir, ".per-entity"))) {
+    console.error(`DATA-ERROR: HOST-TOPOLOGY datastore ${dir} is not an authoritative per-entity store`);
+    process.exit(113);
+}
+EOF
+SC_DATASTORE_RW_DIR="$TMP/ds-trigger"
+SC_DATASTORE_RO_DIR="$TMP/ds-trigger-ro"
+mkdir -p "$SC_DATASTORE_RW_DIR/hosts" "$SC_DATASTORE_RW_DIR/users" \
+    "$SC_DATASTORE_RW_DIR/containers"
+printf '{"host_key":"k"}\n' > "$SC_DATASTORE_RW_DIR/hosts/h1.json"
+SC_INSTALL_DIR="$FAKE_INSTALL"
+SC_DATASTORE_RO_USE=false
+USER=root
+INSTALL_CALLS=0
+init_datastore_install() {
+    INSTALL_CALLS=$((INSTALL_CALLS + 1))
+    migrate_datastore_to_per_entity
+}
+exif() { local rc=$?; [[ $rc -eq 0 ]] || exit "$rc"; }
+init_datastore
+ok "init_datastore succeeds on a marker-less per-entity store" "$?" "0"
+ok "install/migration was triggered" "$INSTALL_CALLS" "1"
+ok "reconciliation ran against an authoritative store" \
+    "$([[ -f $SC_DATASTORE_RW_DIR/.per-entity ]] && echo yes || echo no)" "yes"
+
 echo "$pass passed, $fail failed"
 [[ $fail == 0 ]]
