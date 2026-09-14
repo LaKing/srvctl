@@ -21,7 +21,7 @@
 ## /etc/letsencrypt/cli.ini (webroot authenticator on /var/acme), creates
 ## the acme system user and webroot, generates and starts
 ## acme-server.service (the port-1028 challenge responder behind haproxy)
-## and installs the vendored CA to /etc/letsencrypt/ca.pem. Runs on every
+## and removes any stale /etc/letsencrypt/ca.pem left by earlier versions. Runs on every
 ## update-install (twice, in fact — the certificates module hook also calls
 ## it); re-runs only regenerate the same files.
 function install_acme {
@@ -67,11 +67,11 @@ WantedBy=multi-user.target
     ## cleanup of the legacy unit location. TODO remove
     rm -fr /lib/systemd/system/acme-server.service
 
-    ## FIXME(v4): the vendored letsencrypt-ca.pem is DST Root CA X3,
-    ## expired 2021-09-30. letsencrypt.js appends /etc/letsencrypt/ca.pem to
-    ## every deployed bundle, so all bundles ship an expired root — drop the
-    ## append or vendor the current ISRG root in the DNS-01 redesign.
-    cat "$SC_INSTALL_DIR/modules/letsencrypt/letsencrypt-ca.pem" > /etc/letsencrypt/ca.pem
+    ## Earlier versions installed a vendored DST Root CA X3 (expired
+    ## 2021-09-30) here and letsencrypt.js appended it to every bundle.
+    ## Nothing reads the file any more; a stale copy is removed so it cannot
+    ## be mistaken for a live input.
+    rm -f /etc/letsencrypt/ca.pem
 
     systemctl daemon-reload
 

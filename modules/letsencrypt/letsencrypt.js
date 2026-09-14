@@ -17,9 +17,9 @@
  *
  * Reads:  datastore containers/hosts JSON (datastore/lib.js),
  *         /etc/letsencrypt/live/<lineage>/{cert,fullchain,privkey}.pem,
- *         /etc/letsencrypt/ca.pem, /etc/srvctl/cert/<domain>/<domain>.pem
+ *         /etc/srvctl/cert/<domain>/<domain>.pem
  *         (wildcard detection, owned by the certificates module).
- * Writes: $SC_DATASTORE_DIR/cert/<domain>.pem (privkey+fullchain+ca) and,
+ * Writes: $SC_DATASTORE_DIR/cert/<domain>.pem (privkey+fullchain) and,
  *         when /srv/<domain>/rootfs/etc/pki/tls/{private,certs} exist, the
  *         container's localhost.key / localhost.crt / <domain>.pem /
  *         localhost.pem; appends certbot output to /srv/<name>/
@@ -48,6 +48,7 @@ function out(msg) {
 // includes
 const fs = require("fs");
 const datastore = require("../datastore/lib.js");
+const bundlelib = require("./libs/bundlelib.js");
 const execSync = require("child_process").execSync;
 const https = require("https");
 
@@ -188,7 +189,10 @@ function check_checkend(cert_file) {
 }
 
 // True when the already-deployed $SC_DATASTORE_DIR/cert/<domain>.pem is a
-// real (not self-signed) cert still valid for 7+ days — i.e. nothing to do.
+// real (not self-signed) cert still valid for 7+ days and carries no expired
+// certificate block — i.e. nothing to do. A bundle written by an earlier
+// version with the expired DST Root CA X3 appended fails the second test and
+// is rebuilt from the certbot lineage on the next run.
 function check_datastore_cert(domain) {
     // TODO no need to check this certificate in the LE module.
     var cert_file = SC_CONTAINERS_CERT_DIR + "/" + domain + ".pem";
@@ -208,6 +212,12 @@ function check_datastore_cert(domain) {
             return false;
         }
 
+        var expired = bundlelib.expiredBlocks(fs.readFileSync(cert_file, "UTF8"));
+        if (expired.length > 0) {
+            ntc("Datastore bundle for " + domain + " carries expired certificate block(s) " + expired.join(",") + "; redeploying " + cert_file);
+            return false;
+        }
+
         return check_checkend(cert_file);
     } else {
         ntc("No datastore cert file for", domain, cert_file);
@@ -215,7 +225,7 @@ function check_datastore_cert(domain) {
     }
 }
 
-// Bundle privkey + fullchain + ca into $SC_DATASTORE_DIR/cert/<domain>.pem
+// Bundle privkey + fullchain into $SC_DATASTORE_DIR/cert/<domain>.pem
 // and, when a container rootfs matches the domain, into its
 // /etc/pki/tls/{private,certs} files. Best-effort: any missing input just
 // logs an err and returns; the caller's exit code stays 0.
@@ -229,23 +239,18 @@ function letsencrypt_deploy(domain) {
     var cert_pem = "/etc/letsencrypt/live/" + le_dir + "/cert.pem";
     var fullchain_pem = "/etc/letsencrypt/live/" + le_dir + "/fullchain.pem";
     var privkey_pem = "/etc/letsencrypt/live/" + le_dir + "/privkey.pem";
-    // FIXME(v4): /etc/letsencrypt/ca.pem is the vendored letsencrypt-ca.pem
-    // (DST Root CA X3, expired 2021-09-30) installed by install_acme; it is
-    // appended to every bundle below, shipping an expired root in the
-    // presented chain. certbot's fullchain.pem already carries the correct
-    // ISRG chain — drop the append (or vendor the current ISRG root) in the
-    // DNS-01 redesign.
-    var ca_pem = "/etc/letsencrypt/ca.pem";
+    // certbot's fullchain.pem is leaf + intermediates, which is the complete
+    // chain a server should present. No trust anchor is appended: the vendored
+    // DST Root CA X3 that earlier versions added here expired on 2021-09-30
+    // and was flagged by scanners as an extra, expired anchor.
 
     if (!fs.existsSync(privkey_pem)) return err("Private key dont exists " + privkey_pem);
     if (!fs.existsSync(fullchain_pem)) return err("Certificate dont exists " + fullchain_pem);
-    if (!fs.existsSync(ca_pem)) return err("CA file dont exists " + ca_pem);
 
     var privkey = fs.readFileSync(privkey_pem, "UTF8");
     var fullchain = fs.readFileSync(fullchain_pem, "UTF8");
-    var ca = fs.readFileSync(ca_pem, "UTF8");
 
-    var pem = privkey + br + fullchain + br + ca + br;
+    var pem = bundlelib.composeBundle(privkey, fullchain);
 
     fs.writeFileSync(SC_CONTAINERS_CERT_DIR + "/" + domain + ".pem", pem);
 
@@ -257,7 +262,7 @@ function letsencrypt_deploy(domain) {
         fs.writeFileSync("/srv/" + domain + "/rootfs/etc/pki/tls/private/localhost.key", privkey);
 
         // /etc/pki/tls/certs/localhost.crt
-        fs.writeFileSync("/srv/" + domain + "/rootfs/etc/pki/tls/certs/localhost.crt", fullchain + br + ca + br);
+        fs.writeFileSync("/srv/" + domain + "/rootfs/etc/pki/tls/certs/localhost.crt", fullchain);
 
         fs.writeFileSync("/srv/" + domain + "/rootfs/etc/pki/tls/certs/" + domain + ".pem", pem);
         fs.writeFileSync("/srv/" + domain + "/rootfs/etc/pki/tls/certs/localhost.pem", pem);
