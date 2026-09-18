@@ -44,10 +44,9 @@ dnf -y install xbindkeys
 
 ## Kiosk autostart contract: vnc-desktop's none.desktop and the Ctrl+Alt+Del
 ## xbindkeys binding both exec this file; overwrite it to launch QLC+.
-## FIXME(v4): "[[ /home/x/autostart.sh ]]" is a non-empty-string test
-## (missing -f), always true — autostart.sh is unconditionally overwritten,
-## clobbering e.g. the CrossOver autostart written by install-crossover.
-if [[ /home/x/autostart.sh ]]
+## Only where the kiosk contract exists (vnc-desktop or install-crossover
+## created the file); without a kiosk there is nothing to wire QLC+ into.
+if [[ -f /home/x/autostart.sh ]]
 then
 cat > '/home/x/autostart.sh' << EOF
 #!/bin/bash
@@ -68,13 +67,12 @@ fi
 mkdir -p /home/x/.qlcplus/fixtures
 
 ## Copy fixture definitions shared from the host.
-## FIXME(v4): iterating over ls output breaks on filenames with spaces and
-## errors if the share directory is missing; use a glob in v4.
 msg "Sync /var/srvctl3/share/common/qlcplus/fixtures"
-for f in $(ls /var/srvctl3/share/common/qlcplus/fixtures)
+for f in /var/srvctl3/share/common/qlcplus/fixtures/*
 do
-    echo "$f"
-    cat "/var/srvctl3/share/common/qlcplus/fixtures/$f" > "/home/x/.qlcplus/fixtures/$f"
+    [[ -f $f ]] || continue
+    echo "${f##*/}"
+    cat "$f" > "/home/x/.qlcplus/fixtures/${f##*/}"
 done
 
 ## default.qxw is the workspace autostart.sh loads; it is never created here.
