@@ -10,9 +10,15 @@
 ##   explicitly notifies primary zones or retransfers and verifies replicas. Any
 ##   generation, activation or propagation failure aborts the srvctl run.
 ##
+##   named_regenerate_activate (libs/acmelib.sh) runs that sequence under the
+##   activation lock: it first prepares the DNS-01 challenge zone
+##   (_acme.<company-domain>: TSIG key and seed on the primary, replica
+##   enablement), and after a successful restart commits the DNS-01 zone
+##   manifest bound to the activated srvctl.conf. Overlapping regenerates are
+##   serialized, so the manifest letsencrypt issues from always describes the
+##   running configuration.
+##
 
 msg "Regenerate bind/named DNS server configuration"
 
-namedcfg
-
-restart_named
+named_regenerate_activate

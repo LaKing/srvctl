@@ -58,6 +58,7 @@ srvctl is a container farm manager for microsite hosting on Fedora servers. It u
     - [Domain Certificates](#domain-certificates)
     - [Let's Encrypt / ACME](#lets-encrypt--acme)
     - [Wildcard Certificates](#wildcard-certificates)
+    - [DNS-01 Wildcard Certificates (WP-H)](#dns-01-wildcard-certificates-wp-h)
     - [HAProxy Certificate Selection](#haproxy-certificate-selection)
 12. [Mail Stack](#mail-stack)
     - [Postfix (SMTP)](#postfix-smtp)
@@ -1712,14 +1713,15 @@ in `libs/bashlib.sh`, which writes `/etc/haproxy/haproxy.cfg`):**
 
 | Function | Description |
 |----------|-------------|
-| `regenerate_haproxy_conf()` | Sync certificates, re-render the config, then reload — except under `ARG` `#cron.hourly`, where the reload is deliberately skipped |
+| `regenerate_haproxy_conf()` | Sync certificates, re-render the config, then reload — under `ARG` `#cron.hourly` only when the served certificate set differs from the one recorded at the last successful reload (`/var/srvctl3/acme/haproxy-reloaded.list`), so renewals become active unattended; the set is recorded only after `reload_haproxy()` succeeded, so a failed reload is retried on the next hourly run |
 | `restart_haproxy()` | Full restart; if the unit does not come back it runs `haproxy -c -f /etc/haproxy/haproxy.cfg` and prints the unit status |
-| `reload_haproxy()` | Graceful reload, falling back to `restart_haproxy()` only if the unit went inactive |
+| `reload_haproxy()` | Graceful reload, falling back to `restart_haproxy()` only if the unit went inactive; returns non-zero unless the new configuration is loaded (the reload succeeded, or the fallback restart left the unit active) |
 
-Both service helpers report failure but return success, so a broken proxy does
-not abort the surrounding regenerate run. `reload_haproxy` has no else branch:
-a reload rejected while the old process keeps serving is still reported as
-healthy, and the new configuration is silently never applied (`FIXME(v4)` in
+`restart_haproxy` reports failure but returns success, so a broken proxy does
+not abort the surrounding regenerate run. `reload_haproxy` reports a reload
+rejected while the old process keeps serving and returns non-zero; its only
+caller then keeps the previous certificate record, so the next hourly run
+retries. No syntax check runs before a reload (`FIXME(v4)` in
 `libs/systemdlib.sh`). Certificate refresh is ordered ahead of the re-render by
 `hooks/regenerate.sh`, which runs `run_hook regenerate_certificates` first.
 
@@ -1798,7 +1800,7 @@ The `certificates` module handles certificate lifecycle for containers and servi
 
 ### Let's Encrypt / ACME
 
-The `letsencrypt` module automates public certificate acquisition over ACME http-01. Like `certificates` it exposes no CLI commands — everything runs from the `update-install-host` and `regenerate_certificates` hooks.
+The `letsencrypt` module automates public certificate acquisition: DNS-01 wildcards for zones our DNS serves (see [DNS-01 Wildcard Certificates](#dns-01-wildcard-certificates-wp-h)) and ACME http-01 for everything else. Like `certificates` it exposes no CLI commands — everything runs from the `update-install-host` and `regenerate_certificates` hooks.
 
 **ACME server (`apps/acme-server.js`):**
 - Node HTTP server listening on `0.0.0.0:1028`, run as `acme-server.service` with `User=acme` (system uid 528).
@@ -1807,27 +1809,67 @@ The `letsencrypt` module automates public certificate acquisition over ACME http
 
 **Certificate acquisition (`letsencrypt.js`, driven by `regenerate_letsencrypt`):**
 - Container-level skips: names starting `mail.` are skipped unconditionally (checked first). Names ending `.devel` / `-devel` / `.local` / `-local` and dotless names are skipped only when the container declares no explicit `subdomains`; a container that does declare them is processed, and `container_domains()` then yields just those fqdns.
-- Per-domain skips: `www.` names (they ride along as a second `-d`), domains covered by an installed wildcard at `/etc/srvctl/cert/<d>/<d>.pem`, a datastore certificate still valid for 7+ days, a live certbot lineage still valid for 7+ days (deployed, then skipped), domains not yet DNS-scanned, and domains whose scanned A record does not equal this host's `host_ip`.
+- Per-domain skips: `www.` names (they ride along as a second `-d`), domains a **servable** wildcard covers per the shared rule in `modules/certificates/libs/wildcardgatelib.sh` (an admin wildcard with 7+ days left, or a managed DNS-01 wildcard with 1+ day left — exactly what HAProxy serves; an expired or invalid wildcard never blocks http-01) unless the covering name is in http-01 fallback or leaving DNS-01, a datastore certificate still valid for 7+ days, a live certbot lineage still valid for 7+ days (deployed, then skipped), domains not yet DNS-scanned, and domains whose scanned A record does not equal this host's `host_ip`.
 - Runs `letsencrypt certonly --non-interactive --agree-tos --keep-until-expiring --expand --webroot --webroot-path /var/acme/ -d <domain>` (plus `-d www.<domain>` when the www A record also points here), logging to `/srv/<name>/letsencrypt<name>.log` or `/srv/<name>/letsencrypt-www.<name>.log`.
 - Lineage selection tolerates certbot's `<domain>-0001` suffixes and picks the one with the latest `notAfter`; the freshly issued certificate is re-verified before deployment, because certbot can exit 0 while leaving an expired cert in place.
 - Deploys `privkey + fullchain` to `$SC_DATASTORE_DIR/cert/<domain>.pem` and, when `/srv/<domain>/rootfs/etc/pki/tls/` exists, to the container's `private/localhost.key`, `certs/localhost.crt` (fullchain only), `certs/<domain>.pem` and `certs/localhost.pem`. Nothing is appended after certbot's `fullchain.pem`: it already carries the complete ISRG chain and a trust anchor does not belong in the presented chain (`modules/letsencrypt/bundlelib.js`).
 - A datastore bundle that carries an expired certificate block — as every bundle written by earlier versions did, with DST Root CA X3 (expired 2021-09-30) appended — is not treated as valid even when its leaf is; it is rebuilt from the certbot lineage on the next `regenerate_certificates` run, without a new certbot request. Bundle composition and the expired-block detection are covered by `modules/letsencrypt/selftest/bundle.test.sh`.
-- Per-domain failures are logged only: the process always exits 0, so a failed renewal is invisible to the caller and to cron.
+- Per-domain failures are logged only: the process always exits 0, so a failed renewal is invisible to the caller and to cron. DNS-01 and handover alerts are also written to `/var/srvctl3/acme/status.json`.
+- When `acme-server.service` cannot be started, only http-01 is skipped (with an error); DNS-01 issuance, distribution and the handover state machine still run. `letsencrypt.js` runs under `flock /run/srvctl-letsencrypt.lock`.
 
 **Installation (`install_acme`, `libs/letsencryptlib.sh`):**
 - Installs certbot (`sc_install letsencrypt`) and writes `/etc/letsencrypt/cli.ini` (`webroot` authenticator, `webroot-path = /var/acme`, `email = webmaster@$SC_COMPANY_DOMAIN`).
 - Creates the `acme` system user (uid 528) and the `/var/acme` webroot, removes a stale `/etc/letsencrypt/ca.pem` left by earlier versions, then generates, enables and starts `acme-server.service`.
 - Called from **both** `modules/letsencrypt/hooks/update-install-host.sh` and `modules/certificates/hooks/update-install-host.sh`, so every `update-install` performs the install twice; re-runs are harmless apart from a `useradd: user 'acme' already exists` message.
 
-The whole module is scheduled for the v4 DNS-01 wildcard redesign — document it, do not rework it.
-
 ### Wildcard Certificates
 
-Wildcard certificates are **admin-supplied**: drop the combined pem into `/etc/srvctl/cert/<domain>/<domain>.pem`. srvctl never issues them (the ACME code path is http-01 only).
+Admin-supplied wildcard certificates: drop the combined pem into `/etc/srvctl/cert/<domain>/<domain>.pem`. (Managed DNS-01 wildcards are described in the next section.)
 
-**Validation (`check_wildcard_pem PEM`, `libs/wildcardcertlib.sh`):** echoes the wildcard *base domain* when the first certificate in the pem survives `openssl x509 -checkend 604800` (7 days) and its subject CN starts with `*.`; otherwise it echoes the literal string `false`. That echoed string is the contract — callers compare against `false`, not against an exit code. Both OpenSSL spellings are matched (`subject=CN = *.X` and `subject=CN=*.X`).
+**Validation (`check_wildcard_pem PEM`, `libs/wildcardgatelib.sh`):** echoes the wildcard *base domain* when the first certificate in the pem survives `openssl x509 -checkend 604800` (7 days) and its subject CN starts with `*.`; otherwise it echoes the literal string `false`. That echoed string is the contract — callers compare against `false`, not against an exit code. Both OpenSSL spellings are matched (`subject=CN = *.X` and `subject=CN=*.X`).
 
 **Application (`apply_wildcard_certificates`):** scans `/etc/srvctl/cert/*/*.pem` (not the datastore) and, for every valid wildcard, copies it to `$SC_DATASTORE_DIR/cert/<container>.pem` — mode 600 — for each container named `<base>` or `*.<base>`. Its only entry point is this module's `regenerate_certificates` hook, fired by the haproxy module (regenerate, `http-redirect`, `https-redirect`) and by named's `override-in-address`. A second branch meant to give dot-less container names the company wildcard is inert: its condition (`$c == $SC_COMPANY_DOMAIN` **and** `$c` contains no dot) can never both hold.
+
+### DNS-01 Wildcard Certificates (WP-H)
+
+Zones served by our DNS get a `domain` + `*.domain` certificate via DNS-01, issued **only on the elected DNS primary** (r2.d250.hu) and pulled by the hosts that serve them; everything else keeps http-01. Code: `modules/letsencrypt/{acmeplan.js,acmerun.js,apps/acme-dns-hook.sh}`, `modules/named/{lib/acmezone.js,libs/acmelib.sh}`, `modules/certificates/libs/wildcardgatelib.sh`.
+
+**Classification** (every certificate domain: container domains and the configured host names, i.e. the host keys of `/etc/srvctl/clusters.json`; host names are scanned by `dns-scan.js` into `/var/srvctl3/acme/host-dns.json`). "Ours" means the scanned NS list is non-empty and every entry is `ns1.<company-domain>` / `ns2.<company-domain>`.
+
+| Class | Outcome |
+|---|---|
+| ours, zone carries the challenge CNAME (or an operator-added host CNAME) | DNS-01 on the primary + handover |
+| ours, no CNAME possible (customer `_acme-challenge` record, overlong target, host name without CNAME) | http-01 as today (`not-dns01` in the index) |
+| external NS (or a mix) | http-01 as today |
+| undetermined (no/empty NS scan) | exactly today's http-01 decision |
+| leaves DNS-01 (explicit `not-dns01` from a fresh index) | http-01 resumes; wildcard retired once replaced |
+
+**The `_acme.<company-domain>` zone.** On the primary `named_prepare_acme_zone` creates `/var/named/srvctl-acme.key` (`tsig-keygen -a hmac-sha256 srvctl-acme`, 0640 root:named) and a seed zone in `/var/named/dynamic/`, each only if missing; the zone is declared with `update-policy { grant srvctl-acme subdomain _acme.<company-domain>. TXT; }` and the same notify/transfer ACL as every generated zone (no AXFR is used by srvctl). Replicas declare it as a slave zone only while the primary answers for it. Every generated zone gets `_acme-challenge IN CNAME <base-container>._acme.<company-domain>.` (aliases share the base file) unless the container's `dns_records` already define `_acme-challenge` (never overwritten) or the target would be invalid. Regular zones stay static.
+
+**Zone list = activated configuration.** The named regenerate hook runs prepare → `namedcfg` → `restart_named` → commit under `/run/srvctl-named-activate.lock`; `named.js` writes `/var/srvctl3/named/acme-zones.next.json` with the sha256 of the `srvctl.conf` it rendered, committed as `acme-zones.json` only after a successful restart with a matching live hash. The letsencrypt hook snapshots it under a shared hold of the same lock and issues only when the hashes agree (one regenerate of lag).
+
+**Issuance (primary, `regenerate` only):** `letsencrypt certonly --manual --preferred-challenges dns --manual-auth-hook "<hook> auth" --manual-cleanup-hook "<hook> cleanup" --cert-name srvctl-wildcard-<name> --keep-until-expiring -d <name> -d '*.<name>'` — a dedicated lineage, so the legacy http-01 lineages are never touched. Renewal at a third of the lifetime, at most `SC_ACME_MAX_ISSUE_PER_RUN` (10) per run, per-name backoff 1 h → 24 h, `SC_LETSENCRYPT_STAGING=true` adds `--test-cert`. Bundles and `index.json` are published in `/var/srvctl3/acme/bundles/` (0600) and deployed explicitly on the primary from `live/srvctl-wildcard-<name>/`.
+
+**Hooks** (`apps/acme-dns-hook.sh`, standalone, configured by `/etc/letsencrypt/srvctl-acme-dns.conf`): `auth` checks the `_acme-challenge` CNAME on the primary, records the challenge with its owning certbot process (pid, start time, boot id), adds the TXT with `nsupdate -k` and returns only when the primary and every secondary serve both the CNAME and the TXT. `cleanup` deletes exactly that value; a failure is logged and marked. `reconcile` (run on the primary every run) retries or removes a record only when its owner provably ended; live or unknown owners are only reported.
+
+**Serving hosts** pull `index.json` and their bundles from the primary (`rsync` over root ssh) and install a bundle into `$SC_DATASTORE_DIR/cert/wildcard/<name>.pem` only after validation (sha256 from the index, key match, SAN `name` + `*.name`, valid, later expiry). Per-domain certificates in `$SC_DATASTORE_DIR/cert/` are never written or deleted by this path. HAProxy serves managed wildcards as `wildcard.<name>.pem`.
+
+**Handover state** (`/var/srvctl3/acme/handover.json`, atomic writes, `.bak`, a journal replayed after a crash): LEGACY → WILDCARD when an issued bundle with at least a third of its lifetime is installed; an unavailable or stale index holds every state; a renewed bundle ends a fallback; an explicit `not-dns01` moves to LEAVING, where http-01 resumes and the still-valid wildcard is retired (to `cert/wildcard-retired/`) only once every served name it covers has a deployed, servable replacement (its validity has begun and its private key matches its certificate; per-domain certificate or another covering wildcard alike) with at least 30 days left. On the primary, a file in `bundles/` counts as issued, and suppresses renewal, only while it passes `wildcard_servable_managed`. State and alerts: `/var/srvctl3/acme/status.json`.
+
+**http-01 fallback (user decision D-B, off by default).** `SC_ACME_HTTP01_FALLBACK=true` (in `/etc/srvctl/*.conf`) lets a serving host run http-01 for a DNS-01 name whose installed wildcard has 7 days or less left and no newer usable bundle — also while the index is unavailable — with an alert when it starts; it ends when a renewed bundle is validated. Independently of D-B, an expired or invalid wildcard never blocks http-01.
+
+**Limits under indefinite outages.** With D-B off, a managed wildcard lapses if the primary or the pull path stays down past its expiry: http-01 is only unblocked once the wildcard is no longer servable (under one day left). With D-B on, coverage lapses only if local http-01 fails too. http-01 cannot re-cover names that are not in a container's domain list, names whose A record points elsewhere, or container names skipped by the http-01 path (`mail.*`, devel/local, dotless). A LEAVING wildcard that cannot be fully replaced is served until it stops being servable.
+
+**Company-zone delegation (for review, never applied by srvctl).** `named_acme_delegation_records` prints the records to add to the hand-maintained company zone (`/var/named/d250.conf`); without them `_acme` still resolves while the company zone's NS are our primary and secondary:
+
+```
+_acme                          IN NS    ns1.<company-domain>.
+_acme                          IN NS    ns2.<company-domain>.
+; optional, per configured host name that should get its certificate via DNS-01:
+_acme-challenge.<host-label>   IN CNAME <host-fqdn>._acme.<company-domain>.
+```
+
+**Tests:** `modules/letsencrypt/selftest/{acmeplan,handover,distribute}.test.mjs`, `{acme-dns-hook,runlock,bundle}.test.sh`; `modules/named/selftest/{acme-zone.test.mjs,acme-activation.test.sh}`; `modules/certificates/selftest/{wildcard-gate,certselect}.test.sh`; `modules/haproxy/selftest/{wellknown.test.mjs,activation.test.sh}`.
 
 ### HAProxy Certificate Selection
 
@@ -1835,7 +1877,7 @@ Wildcard certificates are **admin-supplied**: drop the combined pem into `/etc/s
 
 Preference per served domain:
 
-1. A matching **wildcard** certificate from `$SC_ADMIN_CERT_DIR` (default `/etc/srvctl/cert`), installed as `<base>.pem`.
+1. A matching **wildcard** certificate from `$SC_ADMIN_CERT_DIR` (default `/etc/srvctl/cert`), installed as `<base>.pem`, or a servable managed DNS-01 wildcard from `$SC_DATASTORE_DIR/cert/wildcard/<base>.pem`, installed as `wildcard.<base>.pem` (for the same base only the later-expiring of the two). Both are judged by `modules/certificates/libs/wildcardgatelib.sh`, the same rule the letsencrypt http-01 gate uses.
 2. Otherwise a **per-domain** certificate from `$SC_DATASTORE_DIR/cert` (Let's Encrypt or fanned-out wildcard copies).
 3. Self-signed per-container certificates live in `/srv/<c>/cert` and are never served by HAProxy.
 

@@ -2,6 +2,18 @@
 
 Status: DRAFT written session 1 (autonomous). Not approved.
 
+Update 2026-09-18 (issue "Wildcard certificates"): the hybrid scheme is
+implemented — DNS-01 wildcards (domain + *.domain) for zones our DNS serves,
+issued only on the elected DNS primary in srvctl-wildcard-<zone> lineages and
+pulled by serving hosts; http-01 via acme-server kept for external DNS, zones
+that cannot carry the challenge CNAME and host names, so acme-server.js /
+port 1028 do NOT retire. The TSIG-restricted _acme.<company-domain> zone and
+the per-zone _acme-challenge CNAME replace "RFC2136 on every zone"; custom
+certbot hooks are used, not certbot-dns-rfc2136. See
+documentation/documentation.md "DNS-01 Wildcard Certificates (WP-H)".
+Open user decisions: D-B http-01 fallback (off by default) and applying the
+company-zone _acme delegation records (printed for review only).
+
 ## v3 reality (from modules/letsencrypt.md + named.md fact sheets)
 
 - Per-domain http-01 via a bespoke acme-server.js (port 1028) behind

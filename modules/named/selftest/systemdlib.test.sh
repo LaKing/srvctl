@@ -82,6 +82,21 @@ PARSED="$(named_managed_zones "$CONF")"
 EXPECTED=$'master\tmaster.example\nslave\tslave.example\t192.0.2.1\nmaster\tmaster-two.example\nslave\tslave-two.example\t198.51.100.2'
 ok "managed-zone parser" "$PARSED" "$EXPECTED"
 
+# The DNS-01 challenge zone as named.js renders it (lib/acmezone.js): the key
+# include is ignored, the dynamic zone is a master on the primary (NOTIFY)
+# and a slave on replicas (retransfer + convergence check like any zone).
+ACME_CONF="$TMP/acme.conf"
+# shellcheck disable=SC2016 # JavaScript source
+node -e '
+const acme = require(process.argv[1]);
+process.stdout.write(acme.primaryAcmeStatement(
+    "zone \"_acme.company.test\" {type master; file \"/var/named/dynamic/_acme.company.test.zone\"; notify explicit; also-notify {192.0.2.54;}; allow-transfer {198.51.100.54;};};\n",
+    "_acme.company.test", "/var/named/srvctl-acme.key"));
+process.stdout.write("zone \"_acme.replica.test\" {type slave; masters {192.0.2.10;}; allow-notify {192.0.2.10;}; file \"/var/named/srvctl/_acme.replica.test.slave.zone\";};\n");
+' "$REPO/modules/named/lib/acmezone.js" > "$ACME_CONF"
+ok "managed-zone parser: DNS-01 challenge zone" "$(named_managed_zones "$ACME_CONF")" \
+    $'master\t_acme.company.test\nslave\t_acme.replica.test\t192.0.2.10'
+
 # Exercise the production dig-response parser without contacting a server.
 QUERY_SERIAL="$({
     dig() { printf '%s\n' 'ns.example. hostmaster.example. 4242 3600 600 86400 300'; }

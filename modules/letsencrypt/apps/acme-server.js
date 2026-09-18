@@ -11,8 +11,10 @@
  * "INVALID URL" reply (always HTTP 200).
  *
  * The port number and the challenge path prefix are shared API with the
- * haproxy module — never change one without the other. Scheduled to be
- * replaced by the v4 DNS-01 wildcard redesign (G7).
+ * haproxy module — never change one without the other. Kept by the DNS-01
+ * wildcard scheme (WP-H) for every name not served by our DNS (external or
+ * undetermined NS, zones that cannot carry the challenge CNAME, host names)
+ * and for the optional http-01 fallback.
  */
 
 // Load modules to create a http server.

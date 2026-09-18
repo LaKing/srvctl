@@ -10,7 +10,11 @@
 ##   an expired wildcard continuing to be served after a renewal).
 ##
 ##   Preference, per served domain:
-##     1. a matching WILDCARD cert  (admin certs in /etc/srvctl/cert/<d>/*.pem)
+##     1. a matching WILDCARD cert  (admin certs in /etc/srvctl/cert/<d>/*.pem,
+##                                   or managed DNS-01 wildcards pulled from the
+##                                   DNS primary into $SC_DATASTORE_DIR/cert/
+##                                   wildcard/<base>.pem, served here as
+##                                   wildcard.<base>.pem)
 ##     2. a per-domain cert         (letsencrypt / CA-signed, in the datastore
 ##                                   cert dir), i.e. anything not wildcard-covered
 ##     3. (self-signed per-container certs live in /srv/<c>/cert and are not
@@ -48,16 +52,9 @@ function cert_newer {
     [[ "$a" -ge "$b" ]]
 }
 
-## domain_under_wildcard DOMAIN BASE: 0 if a *.BASE cert covers DOMAIN — either
-## DOMAIN == BASE, or DOMAIN == <single-label>.BASE (wildcards match one level).
-function domain_under_wildcard {
-    local domain base head
-    domain="$1"; base="$2"
-    [[ "$domain" == "$base" ]] && return 0
-    [[ "$domain" == *".$base" ]] || return 1
-    head="${domain%".$base"}"
-    [[ "$head" != *"."* ]]
-}
+## domain_under_wildcard, check_wildcard_pem and wildcard_servable_managed
+## live in wildcardgatelib.sh: the same rule decides what is served here and
+## whether a wildcard suppresses http-01 issuance (letsencrypt module).
 
 ## sync_haproxy_certificates [TARGET_DIR]: build the served cert set + prune.
 function sync_haproxy_certificates {
@@ -82,6 +79,29 @@ function sync_haproxy_certificates {
             install -m 600 "$src" "$hadir/$bn"
             desired["$bn"]=1
         fi
+        case " $wildcard_bases " in *" $base "*) ;; *) wildcard_bases+=" $base" ;; esac
+    done
+
+    ## 1b) managed DNS-01 wildcards ($dsdir/wildcard/<base>.pem). Installed as
+    ##     wildcard.<base>.pem so they never collide with a per-domain <base>.pem.
+    ##     Only servable ones count (wildcard_servable_managed: key matches,
+    ##     SAN base + *.base, valid for at least one more day), so an expiring
+    ##     or broken one stops covering names and the per-domain cert is served
+    ##     again. If an admin wildcard exists for the same base, only the one
+    ##     expiring later is installed. wildcard-retired/ is never read.
+    for src in "$dsdir"/wildcard/*.pem
+    do
+        [[ -f "$src" ]] || continue
+        base="$(wildcard_servable_managed "$src")"     ## base domain, or "false"
+        [[ "$base" == false ]] && continue
+        if [[ -n "${desired[$base.pem]:-}" ]]
+        then
+            cert_newer "$src" "$hadir/$base.pem" || continue
+            unset 'desired[$base.pem]'
+        fi
+        bn="wildcard.$base.pem"
+        install -m 600 "$src" "$hadir/$bn"
+        desired["$bn"]=1
         case " $wildcard_bases " in *" $base "*) ;; *) wildcard_bases+=" $base" ;; esac
     done
 

@@ -8,17 +8,25 @@
  * every regenerate_certificates hook run (haproxy regenerate,
  * http-redirect/https-redirect, named override-in-address).
  *
+ * Hybrid scheme (WP-H): zones served by our DNS get a domain + *.domain
+ * wildcard via DNS-01, issued only on the elected DNS primary in a dedicated
+ * srvctl-wildcard-<zone> lineage and pulled by the hosts that serve them;
+ * everything else keeps http-01. acmerun.js / acmeplan.js hold that part:
+ * the per-name handover state machine, issuance and publication on the
+ * primary, pull + validation, retirement and the host-name path.
+ *
  * For every container in the datastore it decides per domain whether a
- * Let's Encrypt certificate is needed (skips mail./devel/local/dotless
- * names, www. duplicates, wildcard-covered domains, still-valid certs and
- * domains whose scanned A record does not point at this host), then runs
- * 'letsencrypt certonly' via the /var/acme webroot (http-01, answered by
- * apps/acme-server.js behind haproxy) and deploys the result.
+ * Let's Encrypt http-01 certificate is needed (skips mail./devel/local/
+ * dotless names, www. duplicates, domains a servable wildcard covers per
+ * the shared rule in certificates/libs/wildcardgatelib.sh — unless the
+ * covering name is in http-01 fallback or leaving DNS-01 —, still-valid
+ * certs and domains whose scanned A record does not point at this host),
+ * then runs 'letsencrypt certonly' via the /var/acme webroot (http-01,
+ * answered by apps/acme-server.js behind haproxy) and deploys the result.
  *
  * Reads:  datastore containers/hosts JSON (datastore/lib.js),
  *         /etc/letsencrypt/live/<lineage>/{cert,fullchain,privkey}.pem,
- *         /etc/srvctl/cert/<domain>/<domain>.pem
- *         (wildcard detection, owned by the certificates module).
+ *         admin and managed wildcards through wildcardgatelib.sh.
  * Writes: $SC_DATASTORE_DIR/cert/<domain>.pem (privkey+fullchain) and,
  *         when /srv/<domain>/rootfs/etc/pki/tls/{private,certs} exist, the
  *         container's localhost.key / localhost.crt / <domain>.pem /
@@ -29,8 +37,11 @@
  * logged but do not change the exit code); the return_value/return_error
  * helpers (100/111) are currently unused here.
  *
- * Scheduled for the v4 DNS-01 wildcard redesign (G7): document, don't
- * rework.
+ * Environment (set by regenerate_letsencrypt, libs/letsencryptlib.sh):
+ *   SC_ACME_COMMAND          the srvctl command; DNS-01 issues on "regenerate"
+ *   SC_ACME_HTTP01_AVAILABLE "false" when acme-server.service is not running
+ *   SC_ACME_HTTP01_FALLBACK  "true" enables the D-B http-01 fallback (off by
+ *                            default; a user decision)
  */
 
 const lablib = "../../lablib.js";
@@ -49,6 +60,7 @@ function out(msg) {
 const fs = require("fs");
 const datastore = require("../datastore/lib.js");
 const bundlelib = require("./bundlelib.js");
+const acmerun = require("./acmerun.js");
 const execSync = require("child_process").execSync;
 const https = require("https");
 
@@ -95,27 +107,15 @@ function output(variable, value) {
     process.exitCode = 0;
 }
 
-// A wildcard cert installed by the certificates module lives at
-// /etc/srvctl/cert/<domain>/<domain>.pem with a "*" in its subject; this
-// path/layout must stay in sync with wildcardcertlib.sh.
-function is_wildcard_certificate(domain) {
-    var cert_file = "/etc/srvctl/cert/" + domain + "/" + domain + ".pem";
-    if (fs.existsSync(cert_file)) {
-        if (execSync("openssl x509 -noout -subject -in " + cert_file).indexOf("*") > -1) {
-            return true;
-        }
-    }
-    return false;
-}
-
-// True when the domain itself or its parent domain (first label stripped,
-// after any leading "www.") is covered by an installed wildcard cert.
-function has_wildcard_certificate(domain) {
-    if (domain.substring(0, 4) === "www.") domain = domain.substring(4);
-    if (is_wildcard_certificate(domain)) return true;
-    if (is_wildcard_certificate(domain.substring(1 + domain.indexOf(".")))) return true;
-    return false;
-}
+// DNS-01 handover, pull and gate for this run (acmerun.js). Logs through
+// lablib so its alerts land in the regenerate output.
+var acme = new acmerun.AcmeRun(process.env, {
+    hostname: HOSTNAME,
+    log: function (level, text) {
+        if (level === "error") err("ACME " + text);
+        else ntc("ACME " + text);
+    },
+});
 
 // variables
 var hosts = datastore.hosts;
@@ -346,7 +346,9 @@ function check_container_domain(name, domain) {
     // www domains can be considered as subset of domains, its OK if the www points to the same IP.
     if (domain.substring(0, 4) === "www.") return skip("domain.substring(0, 4) === www.");
 
-    if (has_wildcard_certificate(domain)) return skip("Using wildcard certificate");
+    // The shared wildcard rule (wildcardgatelib.sh): only a servable wildcard
+    // suppresses http-01, and not while its name is in fallback or leaving.
+    if (acme.suppressed(domain)) return skip("Using wildcard certificate");
 
     if (check_datastore_cert(domain)) return skip("check_datastore_cert");
 
@@ -371,6 +373,11 @@ function check_container_domain(name, domain) {
             if (e === hosts[HOSTNAME].host_ip) hasA = true;
             else points_to += e + " ";
         });
+
+    if (hasA && !acme.cfg.http01) {
+        err(name + " Letsencrypt: certificate for " + domain + " is due but acme-server.service is not running (http-01 unavailable)");
+        return skip("http-01 unavailable");
+    }
 
     if (!hasA)
         // FIXME(v4): operator precedence bug in the nameserver hint — '+'
@@ -402,7 +409,33 @@ function check_container(name) {
     }
 }
 
+// Every name this host serves: container domains plus the host name.
+function served_domains() {
+    var domains = [];
+    Object.keys(containers).forEach(function (name) {
+        datastore.container_domains(name).forEach(function (d) {
+            domains.push(d);
+        });
+    });
+    domains.push(HOSTNAME);
+    return domains;
+}
+
 function main() {
+    var served = served_domains();
+    // DNS-01 first: replay (J), primary issuance, pull, handover evaluation,
+    // then the gate over every served name. A failure here never stops the
+    // http-01 path below; the gate then falls back to per-domain checks.
+    try {
+        acme.begin();
+        acme.primaryPhase();
+        acme.refresh(served);
+        acme.evaluateNames(served);
+    } catch (error) {
+        err("ACME handover phase failed: " + error.message);
+    }
+    acme.computeGate(served);
+
     Object.keys(containers).forEach(function (i) {
         // mail containers get their certificates elsewhere, never here
         if (i.substring(0, 5) === "mail.") return;
@@ -433,6 +466,15 @@ function main() {
 }
 
 main();
+
+try {
+    acme.hostPath(hosts[HOSTNAME] ? hosts[HOSTNAME].host_ip : null);
+    // retire leaving wildcards only now, after this run's http-01 issuance
+    acme.finishLeaving(served_domains());
+} catch (error) {
+    err("ACME host/leaving phase failed: " + error.message);
+}
+acme.writeStatus();
 
 // Per-domain failures above only log; the run itself always reports success
 // (exit() sets exitCode 0 again — see the deploy FIXME about surfacing an

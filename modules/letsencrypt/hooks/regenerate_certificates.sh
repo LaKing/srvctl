@@ -10,9 +10,9 @@
 ##   a hook with the same name; run_hook sources both in module order.
 ##
 ##   Ensures the acme-server.service challenge responder is running, then
-##   requests/renews and deploys Let's Encrypt certificates for all eligible
-##   container domains (regenerate_letsencrypt in libs/letsencryptlib.sh,
-##   which drives letsencrypt.js).
+##   runs letsencrypt.js (regenerate_letsencrypt in libs/letsencryptlib.sh):
+##   DNS-01 wildcard issuance on the DNS primary, pull and handover of
+##   wildcards on serving hosts, and http-01 for all other eligible domains.
 ##
 
 regenerate_letsencrypt

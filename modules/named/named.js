@@ -11,6 +11,14 @@
  *                                           a transfer replica)
  *   - /var/named/srvctl/<domain>.zone       full zone content, primary only
  *                                           (aliases share the primary's file)
+ *   - the _acme.<company-domain> DNS-01 challenge zone: a TSIG-restricted
+ *     dynamic zone on the primary (only when named_prepare_acme_zone has
+ *     created its key and seed), a slave zone on replicas (only when the
+ *     primary serves it), and an _acme-challenge CNAME into it in every
+ *     generated zone that can carry one (lib/acmezone.js)
+ *   - /var/srvctl3/named/acme-zones.next.json  (primary) the DNS-01 zone list
+ *     bound to the sha256 of the srvctl.conf written; named/libs/acmelib.sh
+ *     commits it only after that configuration is active
  * Zone content (monotonic, content-aware SOA serial, NS
  * ns1/ns2.$SC_COMPANY_DOMAIN,
  * wildcard/apex A, SPF/DKIM/DMARC/MX assembly, custom dns_records) is
@@ -49,6 +57,7 @@ const snapshotsLib = require("./lib/snapshots.js");
 const topologyLib = require("./lib/topology.js");
 const zonefileLib = require("./lib/zonefile.js");
 const zonesLib = require("./lib/zones.js");
+const acmezoneLib = require("./lib/acmezone.js");
 const clusterConfigLib = require("../containers/lib/cluster-config.js");
 const atomicWriteFileSync = snapshotsLib.atomicWriteFileSync;
 const loadPeerSnapshot = snapshotsLib.loadPeerSnapshot;
@@ -75,6 +84,12 @@ const PEER_CACHE_DIR = "/var/srvctl3/named";
 const PEER_FETCH_TIMEOUT_MS = Number(process.env.SC_NAMED_FETCH_TIMEOUT_MS || 3000);
 const PEER_CACHE_MAX_AGE_MS = Number(process.env.SC_NAMED_CACHE_MAX_AGE_MS || 21600000);
 const REQUIRE_FRESH_PEERS = process.env.SC_NAMED_REQUIRE_FRESH === "true";
+// DNS-01 challenge zone (named/libs/acmelib.sh creates key and seed on the primary)
+const ACME_ZONE = CDN ? acmezoneLib.acmeZoneName(CDN) : null;
+const ACME_KEY_FILE = process.env.SC_ACME_KEY_FILE || "/var/named/srvctl-acme.key";
+const ACME_SEED_FILE = (process.env.SC_ACME_SEED_DIR || "/var/named/dynamic") + "/" + ACME_ZONE + ".zone";
+const ACME_REPLICA_MARKER = PEER_CACHE_DIR + "/acme-zone.enabled";
+const ACME_MANIFEST_NEXT = PEER_CACHE_DIR + "/acme-zones.next.json";
 const SRVCTL = process.env.SRVCTL;
 const SC_UID0 = process.env.SC_UID0;
 const localhost = "localhost";
@@ -162,6 +177,13 @@ try {
     return_error("DNS authoritative name: " + error.message);
 }
 
+// The _acme zone is declared only when it can work: on the primary once its
+// key and seed exist, on a replica once the primary answers for it.
+var acme_active = Boolean(ACME_ZONE) && (is_master ?
+    fs.existsSync(ACME_KEY_FILE) && fs.existsSync(ACME_SEED_FILE) :
+    fs.existsSync(ACME_REPLICA_MARKER));
+var acme_manifest_zones = [];
+
 if (is_master) msg("bind DNS primary " + dns_topology.primary.hostname);
 else msg("bind DNS replica of " + dns_topology.primary.hostname);
 msg("DNS primary server: " + master_servers);
@@ -220,6 +242,7 @@ function get_container_zone(cluster, host, hostdata, containers, name, alias) {
     zone += "                                        3H )        ; minimum" + br;
     zone += "        IN         NS        ns1." + CDN + "." + br;
     zone += "        IN         NS        ns2." + CDN + "." + br;
+    zone += acme_challenge_line(container, name);
     //zone += "        IN         NS        ns3." + CDN + "." + br;
     //zone += "        IN         NS        ns4." + CDN + "." + br;
 
@@ -329,6 +352,34 @@ function get_container_zone(cluster, host, hostdata, containers, name, alias) {
     return zone;
 }
 
+// The _acme-challenge CNAME for a zone file (base container + its aliases),
+// or "" when the _acme zone is not active or the zone cannot carry it.
+function acme_challenge_line(container, name) {
+    if (!acme_active) return "";
+    var plan = acmezoneLib.challengePlan(container, name, container.aliases, CDN);
+    return plan.cname ? acmezoneLib.challengeLine(plan.target) : "";
+}
+
+// Record every generated zone for the DNS-01 manifest (primary only). NS is
+// the DNS-scan result stored with the container (dns-scan.js), or null.
+function acme_manifest_add(cluster, host, containers, name) {
+    var container = containers[name];
+    var plan = acmezoneLib.challengePlan(container, name, container.aliases, CDN);
+    var zones = [name].concat(Array.isArray(container.aliases) ? container.aliases : []);
+    zones.forEach(function (zone) {
+        var scan = container.dns && container.dns[zone];
+        acme_manifest_zones.push({
+            zone: zone,
+            container: name,
+            host: host,
+            cluster: cluster,
+            ns: scan && Array.isArray(scan.NS) ? scan.NS : null,
+            dns01: acme_active && plan.cname,
+            reason: !acme_active ? "acme zone inactive" : plan.reason,
+        });
+    });
+}
+
 // Zone files are planned in memory first.  A read/render failure therefore
 // leaves both the installed zones and srvctl.conf untouched instead of
 // publishing a partial generation.
@@ -402,6 +453,7 @@ function get_conf(cluster, host) {
             var zonefile = "/var/named/srvctl/" + i + ".zone";
             conf += primary_zone_statement(i, zonefile);
             plan_container_zone(zonefile, get_container_zone(cluster, host, hostdata, containers, i));
+            acme_manifest_add(cluster, host, containers, i);
             if (containers[i].aliases)
                 containers[i].aliases.forEach(function (j) {
                     conf += primary_zone_statement(j, zonefile);
@@ -429,6 +481,7 @@ function make_conf() {
     var zone_sources = [];
     pending_zone_updates = [];
     listed_domain_names = [];
+    acme_manifest_zones = [];
 
     Object.keys(clusters).forEach(function(cluster) {
         Object.keys(clusters[cluster]).forEach(function(host) {
@@ -451,7 +504,22 @@ function make_conf() {
         });
     });
 
+    conf += acme_zone_conf();
+
     return conf;
+}
+
+// The DNS-01 challenge zone declaration. Same notify/transfer ACLs as every
+// generated zone (replica_transfer_clients); only its update policy differs.
+function acme_zone_conf() {
+    if (!acme_active) return "";
+    if (is_master) {
+        return "## DNS-01 challenge zone" + br +
+            acmezoneLib.primaryAcmeStatement(primary_zone_statement(ACME_ZONE, ACME_SEED_FILE),
+                ACME_ZONE, ACME_KEY_FILE) + br;
+    }
+    return "## DNS-01 challenge zone" + br +
+        replica_zone_statement(ACME_ZONE, "/var/named/srvctl/" + ACME_ZONE + ".slave.zone") + br;
 }
 
 // Fetch every peer before rendering. A bounded fresh HTTPS snapshot wins;
@@ -499,6 +567,16 @@ function publish_generated_config(conf) {
     });
     atomicWriteFileSync("/var/named/srvctl.conf", conf);
     msg("wrote named conf");
+    if (is_master && ACME_ZONE) {
+        atomicWriteFileSync(ACME_MANIFEST_NEXT, JSON.stringify(acmezoneLib.buildManifest({
+            generatedAt: new Date().toISOString(),
+            cdn: CDN,
+            active: acme_active,
+            conf: conf,
+            zones: acme_manifest_zones,
+        }), null, 2) + br);
+        msg("wrote DNS-01 zone manifest (pending activation) " + ACME_MANIFEST_NEXT);
+    }
 }
 
 async function main() {

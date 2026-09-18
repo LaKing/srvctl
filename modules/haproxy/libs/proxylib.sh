@@ -38,8 +38,8 @@ function load_certificate_folder_files {
 
 ## regenerate_haproxy_conf: refresh /var/haproxy certificates, re-render
 ## /etc/haproxy/haproxy.cfg via haproxycfg, then reload the service —
-## except for the hourly cron run (ARG '#cron.hourly'), which deliberately
-## regenerates without reloading.
+## except for the hourly cron run (ARG '#cron.hourly'), which reloads only
+## when the served certificate set changed since the last reload.
 function regenerate_haproxy_conf {
     ## static ve-host-certificates with priority from etc
     ## container certificates from gluster share
@@ -78,11 +78,50 @@ function regenerate_haproxy_conf {
     fi
 
     haproxycfg
-    ## reload (not restart) keeps existing connections alive
-    if [[ $ARG == "#cron.hourly" ]]
+    ## reload (not restart) keeps existing connections alive. The hourly cron
+    ## run still skips it, unless the served certificate set differs from the
+    ## one haproxy last loaded (a renewal or a new wildcard): then it reloads
+    ## too, so renewals become active without manual action.
+    if [[ $ARG == "#cron.hourly" ]] && ! haproxy_certificates_changed
     then
         msg "Skipping reload for automatic regeneration #cron.hourly"
+    elif reload_haproxy
+    then
+        haproxy_record_reloaded
     else
-        reload_haproxy
+        ## keep the previous record: the next hourly run sees the change
+        ## and retries the reload
+        err "haproxy did not load the new certificate set; the next run retries"
     fi
+}
+
+## haproxy_certificates_listing: checksum listing of the served cert dir.
+function haproxy_certificates_listing {
+    local dir="${SC_HAPROXY_CERT_DIR:-/var/haproxy}" f
+    for f in "$dir"/*.pem
+    do
+        [[ -f "$f" ]] || continue
+        sha256sum -- "$f"
+    done | LC_ALL=C sort
+}
+
+## haproxy_certificates_changed: 0 when the served certificate set differs
+## from the listing recorded after the last successful reload (or none was
+## recorded). The record lives outside the crt directory, which haproxy loads
+## whole. A crash between the certificate sync and the reload leaves the old
+## record, so the next run still reloads.
+function haproxy_certificates_changed {
+    local record="${SC_HAPROXY_RELOADED_LIST:-/var/srvctl3/acme/haproxy-reloaded.list}"
+    [[ -f "$record" ]] || return 0
+    [[ "$(haproxy_certificates_listing)" != "$(cat "$record")" ]]
+}
+
+## haproxy_record_reloaded: remember what haproxy now serves. Called only
+## after reload_haproxy reported the reload loaded; still refuses when the
+## unit is not running.
+function haproxy_record_reloaded {
+    local record="${SC_HAPROXY_RELOADED_LIST:-/var/srvctl3/acme/haproxy-reloaded.list}"
+    systemctl is-active --quiet haproxy.service || return 0
+    mkdir -p "${record%/*}"
+    haproxy_certificates_listing > "$record.tmp.$$" && mv -f "$record.tmp.$$" "$record"
 }

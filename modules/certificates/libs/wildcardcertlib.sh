@@ -4,49 +4,15 @@
 ##   certificates/libs/wildcardcertlib.sh — wildcard certificate fan-out.
 ##
 ##   Sourced by load_libs whenever the certificates module is enabled.
-##   check_wildcard_pem inspects a pem; apply_wildcard_certificates copies
+##   apply_wildcard_certificates copies
 ##   admin-installed wildcard certs from /etc/srvctl/cert/*/ into
 ##   $SC_DATASTORE_DIR/cert/<container>.pem for every matching container.
 ##   Only entry point: this module's regenerate_certificates hook
 ##   (invoked by the haproxy and named modules).
 ##
 
-## check_wildcard_pem PEM: echo the wildcard base domain when the pem's
-## first certificate is unexpired (7-day checkend) and its subject is a
-## wildcard CN; otherwise echo the literal string "false". The echoed
-## string is the protocol — callers compare against "false".
-## Both subject spellings must stay supported:
-## "subject=CN = *.X" (OpenSSL 1.x) and "subject=CN=*.X" (OpenSSL 3.x).
-function check_wildcard_pem { ## file
-    ## first certificate in pem file must be the certificate.
-    
-    local pem subject
-    pem="$1"
-    
-    ## check if we have a valid argument
-    if [[ -f "$pem" ]]
-    then
-        ## check if the certificate is not expired
-        if openssl x509 -checkend 604800 -noout -in "$pem" > /dev/null
-        then
-            ## check if it is a wildcard certificate
-            subject="$(openssl x509 -in "$pem" -noout --subject)"
-            if [[ $subject == "subject=CN = *."* ]]
-            then
-                ## return the domain of the wildcard certificate
-                echo "${subject:15}"
-                return
-            elif [[ $subject == "subject=CN=*."* ]]
-            then
-                ## OpenSSL 3.x format without spaces
-                echo "${subject:13}"
-                return
-            fi
-        fi
-    fi
-    
-    echo false
-}
+## check_wildcard_pem (the admin wildcard rule) lives in wildcardgatelib.sh,
+## shared with certselect and the letsencrypt http-01 gate.
 
 ## apply_wildcard_certificates: for every /etc/srvctl/cert/*/*.pem that is
 ## a valid wildcard cert, copy it to $SC_DATASTORE_DIR/cert/$c.pem for each

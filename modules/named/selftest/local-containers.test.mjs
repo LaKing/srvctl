@@ -10,6 +10,7 @@ import net from "node:net";
 
 const require = createRequire(import.meta.url);
 const { SERIAL_PLACEHOLDER, planZoneUpdate } = require("../lib/zonefile.js");
+const acmezoneLib = require("../lib/acmezone.js");
 
 const namedSource = fs.readFileSync(new URL("../named.js", import.meta.url), "utf8");
 const getConfStart = namedSource.indexOf("function get_container_zone(");
@@ -67,6 +68,10 @@ const context = {
     net,
     planZoneUpdate,
     SERIAL_PLACEHOLDER,
+    acmezoneLib,
+    // the _acme zone is not active here: zones must render exactly as before
+    acme_active: false,
+    acme_manifest_zones: [],
     tab: "\t",
     msg() {},
     err(message) { errors.push(message); },

@@ -8,7 +8,8 @@
 ##     install_acme            — update-install-host hook payload
 ##     regenerate_letsencrypt  — regenerate_certificates hook payload
 ##
-##   Touches /etc/letsencrypt/{cli.ini,ca.pem,live/}, /var/acme (challenge
+##   Touches /etc/letsencrypt/{cli.ini,ca.pem,live/}, /var/srvctl3/acme
+##   (DNS-01 handover state, bundles, status), /var/acme (challenge
 ##   webroot, owned acme:acme, uid 528), /etc/systemd/system/
 ##   acme-server.service and $SC_DATASTORE_DIR/cert/. The unit name
 ##   acme-server.service, the acme user, the /var/acme webroot and the
@@ -81,13 +82,39 @@ WantedBy=multi-user.target
 }
 
 
-## regenerate_letsencrypt: regenerate_certificates hook payload. Makes sure
-## acme-server.service is running (http-01 challenges would fail without
-## it), prepares $SC_DATASTORE_DIR/cert and /etc/letsencrypt/live, then
-## runs letsencrypt.js over all container domains (letsencrypt_main,
-## bashlib.sh). Errors out without running anything when the service
-## cannot be started.
+## acme_snapshot_manifest: copy the committed DNS-01 zone manifest
+## (named/libs/acmelib.sh) together with the hash of the live srvctl.conf,
+## both read under a shared hold of the named activation lock, so the pair
+## is consistent even while a named regenerate runs. letsencrypt.js issues
+## DNS-01 only when the two hashes agree. No manifest (non-DNS host, or the
+## _acme zone not set up yet) leaves no snapshot.
+function acme_snapshot_manifest {
+    local dir named conf lock
+    dir="${SC_ACME_DIR:-/var/srvctl3/acme}"
+    named="${SC_NAMED_STATE_DIR:-/var/srvctl3/named}"
+    conf="${SC_NAMED_CONF:-/var/named/srvctl.conf}"
+    lock="${SC_NAMED_ACTIVATE_LOCK:-/run/srvctl-named-activate.lock}"
+    mkdir -p "$dir"
+    rm -f "$dir/manifest.snapshot.json" "$dir/manifest.live.sha256"
+    [[ -f "$named/acme-zones.json" ]] || return 0
+    # shellcheck disable=SC2016 # expanded by the inner bash
+    if ! flock -s -w "${SC_ACME_SNAPSHOT_WAIT:-60}" "$lock" bash -c 'cp -f "$1" "$2" && sha256sum < "$3" > "$4"' \
+        _ "$named/acme-zones.json" "$dir/manifest.snapshot.json" "$conf" "$dir/manifest.live.sha256"
+    then
+        rm -f "$dir/manifest.snapshot.json" "$dir/manifest.live.sha256"
+        err "DNS-01: could not snapshot the zone manifest; no DNS-01 issuance this run"
+    fi
+    return 0
+}
+
+## regenerate_letsencrypt: regenerate_certificates hook payload. Tries to
+## make sure acme-server.service is running, prepares $SC_DATASTORE_DIR/cert
+## and /etc/letsencrypt/live, snapshots the DNS-01 zone manifest, then runs
+## letsencrypt.js (letsencrypt_main, bashlib.sh). When acme-server cannot be
+## started only http-01 is unavailable: DNS-01 issuance, wildcard
+## distribution and the handover state machine still run.
 function regenerate_letsencrypt {
+    local http01=true
 
     if [[ "$(systemctl is-active acme-server.service)" != "active" ]]
     then
@@ -96,18 +123,21 @@ function regenerate_letsencrypt {
         run systemctl status acme-server.service --no-pager
     fi
 
-    if [[ "$(systemctl is-active acme-server.service)" == "active" ]]
+    if [[ "$(systemctl is-active acme-server.service)" != "active" ]]
     then
-
-        mkdir -p "$SC_DATASTORE_DIR/cert"
-        mkdir -p /etc/letsencrypt/live
-
-        msg "Regenerate letsencrypt certificates"
-        letsencrypt_main
-    else
-
-        err "Acme server is not running! "
+        err "Acme server is not running! http-01 issuance is unavailable this run."
         systemctl status acme-server.service --no-pager
-
+        http01=false
     fi
+
+    mkdir -p "$SC_DATASTORE_DIR/cert"
+    mkdir -p /etc/letsencrypt/live
+
+    acme_snapshot_manifest
+
+    msg "Regenerate letsencrypt certificates"
+    local -x SC_ACME_COMMAND="$CMD"
+    local -x SC_ACME_HTTP01_AVAILABLE="$http01"
+    local -x SC_ACME_HTTP01_FALLBACK="${SC_ACME_HTTP01_FALLBACK:-false}"
+    letsencrypt_main
 }

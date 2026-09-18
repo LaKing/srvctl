@@ -19,7 +19,12 @@
     exit the whole in-memory containers object is written back to
     $SC_DATASTORE_DIR/containers.json (2-space pretty-printed). The
     letsencrypt module reads this data to decide whether a domain points
-    at this host before requesting certificates. Exits 0 on any normal
+    at this host before requesting certificates, and classifies zones as
+    served by our DNS or not from the NS results. It also scans every
+    configured host name (the host keys of /etc/srvctl/clusters.json): A,
+    and NS walked up label by label until a zone answers, into
+    ${SC_ACME_DIR:-/var/srvctl3/acme}/host-dns.json (written atomically,
+    never into containers data). Exits 0 on any normal
     run; a nonzero exit would abort the whole srvctl run via the hook's
     exif.
 
@@ -182,7 +187,63 @@ function scan() {
     });
 }
 
+// Host names: A plus the NS of the closest enclosing zone, for the
+// letsencrypt host-name path (DNS-01 via the primary or http-01 locally).
+const HOST_DNS_FILE = (process.env.SC_ACME_DIR || "/var/srvctl3/acme") + "/host-dns.json";
+var host_dns = {};
+
+function scan_host_ns(host, name) {
+    dns.resolveNs(name, function (err, addresses) {
+        if (!err && Array.isArray(addresses) && addresses.length > 0) {
+            host_dns[host].NS = addresses;
+            host_dns[host].zone = name;
+            return;
+        }
+        var parent = name.substring(name.indexOf(".") + 1);
+        if (parent.indexOf(".") > 0) return scan_host_ns(host, parent);
+        host_dns[host].state = host_dns[host].state === "OK" ? "NS-UNKNOWN" : host_dns[host].state;
+    });
+}
+
+function scan_hosts() {
+    var hostnames = [];
+    try {
+        var clusters = require("../containers/lib/cluster-config.js")
+            .readClusters(process.env.SC_CLUSTERS_FILE || "/etc/srvctl/clusters.json").clusters;
+        Object.keys(clusters).forEach(function (cluster) {
+            Object.keys(clusters[cluster] || {}).forEach(function (host) {
+                if (host.indexOf(".") > 0) hostnames.push(host.toLowerCase());
+            });
+        });
+    } catch (error) {
+        return ntc("DNS Scan: no configured host names (" + error.message + ")");
+    }
+    hostnames.forEach(function (host) {
+        host_dns[host] = { A: [], NS: [], zone: null, timestamp: NOW_T, state: "UNKNOWN" };
+        dns.resolve4(host, function (err, addresses) {
+            if (err) host_dns[host].state = err.code;
+            else {
+                host_dns[host].state = "OK";
+                host_dns[host].A = addresses;
+            }
+        });
+        scan_host_ns(host, host);
+    });
+}
+
+function write_host_dns() {
+    try {
+        fs.mkdirSync(require("path").dirname(HOST_DNS_FILE), { recursive: true });
+        var tmp = HOST_DNS_FILE + ".tmp." + process.pid;
+        fs.writeFileSync(tmp, JSON.stringify(host_dns, null, 2) + br, { mode: 0o644 });
+        fs.renameSync(tmp, HOST_DNS_FILE);
+    } catch (error) {
+        ntc("DNS Scan: could not write " + HOST_DNS_FILE + ": " + error.message);
+    }
+}
+
 scan();
+scan_hosts();
 
 process.exitCode = 0;
 
@@ -196,6 +257,7 @@ process.exitCode = 0;
 // is silently clobbered with the copy loaded at startup.
 process.on("exit", function () {
     datastore.save_type("containers", containers); // was monolithic write, lost on v4 per-entity
+    write_host_dns();
 });
 
 exit();
