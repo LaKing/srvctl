@@ -28,11 +28,11 @@ mkdir -p /etc/yum.repos.d
 
 cat > /etc/yum.repos.d/mcallegari79.repo << EOF
 [home_mcallegari79]
-name=Q Light Controller Plus (Fedora_38)
+name=Q Light Controller Plus (Fedora_43)
 type=rpm-md
-baseurl=https://download.opensuse.org/repositories/home:/mcallegari79/Fedora_38/
+baseurl=https://download.opensuse.org/repositories/home:/mcallegari79/Fedora_43/
 gpgcheck=1
-gpgkey=https://download.opensuse.org/repositories/home:/mcallegari79/Fedora_38/repodata/repomd.xml.key
+gpgkey=https://download.opensuse.org/repositories/home:/mcallegari79/Fedora_43/repodata/repomd.xml.key
 enabled=1
 
 EOF
