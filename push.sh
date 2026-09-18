@@ -66,6 +66,19 @@ fi
 
 if [ -z "$(git status --porcelain)" ]
 then
+    ## nothing to commit - but commits made outside push.sh may be unpushed
+    if git remote | grep -q . && git rev-parse --abbrev-ref '@{u}' > /dev/null 2>&1 \
+        && [ "$(git rev-list --count '@{u}..HEAD')" -gt 0 ]
+    then
+        echo "No files changed. $(cat version) - pushing $(git rev-list --count '@{u}..HEAD') local commit(s)."
+        if git push
+        then
+            echo "PUSH $(cat version) - OK."
+            exit 0
+        fi
+        echo "WARNING: PUSH FAILED - re-run push or push manually."
+        exit 4
+    fi
     echo "No files changed. $(cat version) - nothing to commit."
     exit 0
 fi
