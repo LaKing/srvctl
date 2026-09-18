@@ -19,6 +19,7 @@
 #     issue       knobs cap=1, sc regenerate: the certbot run, bundle, index, TXT cleanup
 #     serving     sc regenerate on --serving-host, verify handover and HAProxy SNI
 #     status      dump status / index / handover / issue-state for the zone
+#     reset       forget the zone's failures (clears its issuance backoff)
 #     hold        knobs cap=0: freeze issuance, keep everything else as it is
 #     open        knobs cap=<n> and allowlist removed: convert every eligible zone
 #
@@ -54,7 +55,7 @@ do
         --cap) OPEN_CAP="$2"; shift 2 ;;
         --yes) YES=true; shift ;;
         -h|--help) sed -n '2,32p' "$0" | cut -c3-; exit 0 ;;
-        preflight|code|activate|secondary|issue|serving|status|hold|open) PHASES+=("$1"); shift ;;
+        preflight|code|activate|secondary|issue|serving|status|reset|hold|open) PHASES+=("$1"); shift ;;
         *) echo "unknown argument: $1"; exit 2 ;;
     esac
 done
@@ -209,7 +210,9 @@ phase_activate() {
     [[ "$(json "$manifest" 'd.confSha256')" == "$live" ]] && ok "manifest hash matches the live srvctl.conf" || fail "manifest hash != live srvctl.conf (a regenerate of lag; run it again)"
     [[ -f /etc/letsencrypt/srvctl-acme-dns.conf ]] && ok "hook config written: $(tr '\n' ' ' < /etc/letsencrypt/srvctl-acme-dns.conf)" || warn "hook config not written yet"
     local skipped; skipped="$(json "$ACME_DIR/status.json" 'd.dns01 && d.dns01.skipped')"
-    [[ -z $skipped ]] && ok "letsencrypt run reached the DNS-01 phase" || fail "DNS-01 phase skipped: $skipped"
+    if [[ -z $skipped ]]; then ok "letsencrypt run reached the DNS-01 phase"
+    elif [[ $skipped == "no manifest" ]]; then warn "letsencrypt ran before named in this regenerate (one regenerate of lag by design); the next regenerate uses the manifest committed just now"
+    else fail "DNS-01 phase skipped: $skipped"; fi
     say "index entry for $ZONE (expected: deferred by the cap)"
     json "$ACME_DIR/bundles/index.json" 'JSON.stringify(d.entries && d.entries[process.env.ZONE], null, 1)'
     echo
@@ -247,11 +250,12 @@ phase_issue() {
         [[ -f "$ACME_DIR/log/$ZONE.log" ]] && { say "tail of $ACME_DIR/log/$ZONE.log"; tail -40 "$ACME_DIR/log/$ZONE.log"; }
         say "issue-state"; json "$ACME_DIR/issue-state.json" 'JSON.stringify(d[process.env.ZONE])'; echo
     fi
-    say "alerts"; json "$ACME_DIR/status.json" 'JSON.stringify(d.alerts || [], null, 1)'; echo
+    say "alerts"; json "$ACME_DIR/status.json" 'JSON.stringify((d.alerts || []).concat((d.names && d.names[process.env.ZONE] && d.names[process.env.ZONE].alerts) || []), null, 1)'; echo
     local txt; txt="$(dig @127.0.0.1 TXT "$ZONE._acme.$CDN" +short)"
     [[ -z $txt ]] && ok "challenge TXT cleaned up" || warn "challenge TXT still present: $txt (reconcile removes it on the next run once certbot has exited)"
-    local leftovers=("$ACME_DIR"/hook/*)
-    [[ -e ${leftovers[0]} ]] && warn "hook state files left: ${leftovers[*]##*/}" || ok "no stale hook state"
+    local leftovers=("$ACME_DIR"/hook/inflight/*.rec)
+    [[ -e ${leftovers[0]} ]] && warn "in-flight challenge records left: ${leftovers[*]##*/} (reconcile handles them once their certbot has exited)" || ok "no in-flight challenge records"
+    [[ -f /etc/letsencrypt/srvctl-dns01.ini ]] && ok "DNS-01 certbot config: $(grep -v '^##' /etc/letsencrypt/srvctl-dns01.ini | tr '\n' ' ')" || warn "no /etc/letsencrypt/srvctl-dns01.ini (code older than the -c fix?)"
     [[ -f "/var/srvctl3/datastore/cert/wildcard/$ZONE.pem" ]] && ok "primary deployed its own copy to datastore cert/wildcard/$ZONE.pem" || warn "no local wildcard copy (fine if this host serves nothing for $ZONE)"
 }
 
@@ -279,9 +283,22 @@ phase_status() {
     echo "dns01:"; json "$ACME_DIR/status.json" 'JSON.stringify(d.dns01, null, 1)'; echo
     echo "index entry:"; json "$ACME_DIR/bundles/index.json" 'JSON.stringify(d.entries && d.entries[process.env.ZONE], null, 1)'; echo
     echo "issue-state:"; json "$ACME_DIR/issue-state.json" 'JSON.stringify(d[process.env.ZONE])'; echo
-    echo "alerts:"; json "$ACME_DIR/status.json" 'JSON.stringify(d.alerts || [], null, 1)'; echo
+    echo "alerts:"; json "$ACME_DIR/status.json" 'JSON.stringify((d.alerts || []).concat((d.names && d.names[process.env.ZONE] && d.names[process.env.ZONE].alerts) || []), null, 1)'; echo
     [[ -s "$ACME_DIR/bundles/$ZONE.pem" ]] && { echo "bundle:"; cert_report "$ACME_DIR/bundles/$ZONE.pem"; }
     echo "all index states:"; json "$ACME_DIR/bundles/index.json" 'Object.entries(d.entries||{}).map(([k,v]) => k + " " + v.state + (v.lastError ? " (" + v.lastError + ")" : "")).join("\n")'; echo
+}
+
+phase_reset() {
+    say "reset: forget $ZONE's issuance failures so the next regenerate may retry at once"
+    local f="$ACME_DIR/issue-state.json"
+    [[ -f $f ]] || { ok "no issue-state file; nothing to reset"; return; }
+    confirm "remove $ZONE from $f (clears its backoff)?" || return
+    /bin/node -e '
+        const fs = require("fs"); const f = process.argv[1], z = process.argv[2];
+        const d = JSON.parse(fs.readFileSync(f, "utf8")); const had = z in d; delete d[z];
+        fs.writeFileSync(f + ".tmp", JSON.stringify(d, null, 1)); fs.renameSync(f + ".tmp", f);
+        process.stdout.write(had ? "removed" : "absent");
+    ' "$f" "$ZONE" | grep -q removed && ok "backoff cleared for $ZONE" || ok "$ZONE had no recorded failures"
 }
 
 phase_hold() {
