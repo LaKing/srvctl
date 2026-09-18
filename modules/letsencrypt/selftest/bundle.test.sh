@@ -3,7 +3,7 @@
 # modules/letsencrypt/selftest/bundle.test.sh — deployed bundle composition.
 #
 # Generates real certificates with openssl (an expired root, a valid
-# intermediate, a valid leaf) and drives libs/bundlelib.js to prove: a bundle
+# intermediate, a valid leaf) and drives bundlelib.js to prove: a bundle
 # is the private key followed by certbot's fullchain and nothing else; a
 # bundle written by an earlier version with the expired DST Root CA X3
 # appended is detected as carrying an expired block (so letsencrypt.js
@@ -13,7 +13,7 @@
 
 set -u
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd -P)"
-LIB="$REPO/modules/letsencrypt/libs/bundlelib.js"
+LIB="$REPO/modules/letsencrypt/bundlelib.js"
 
 pass=0; fail=0
 ok() { if [[ "$2" == "$3" ]]; then pass=$((pass + 1)); else fail=$((fail + 1)); echo "  FAIL $1: got '$2' want '$3'"; fi; }

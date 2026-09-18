@@ -1,5 +1,8 @@
 /*
- * srvctl letsencrypt module — libs/bundlelib.js
+ * srvctl letsencrypt module — bundlelib.js
+ *
+ * Lives in the module root, not libs/: commonlib.sh sources every file under
+ * every module's libs directory as a bash library, and this file is Node.
  *
  * Pure helpers for the deployed certificate bundle. Kept free of datastore
  * and environment access so modules/letsencrypt/selftest/bundle.test.sh can

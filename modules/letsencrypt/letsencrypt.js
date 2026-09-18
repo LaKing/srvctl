@@ -48,7 +48,7 @@ function out(msg) {
 // includes
 const fs = require("fs");
 const datastore = require("../datastore/lib.js");
-const bundlelib = require("./libs/bundlelib.js");
+const bundlelib = require("./bundlelib.js");
 const execSync = require("child_process").execSync;
 const https = require("https");
 
