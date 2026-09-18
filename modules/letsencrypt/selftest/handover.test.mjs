@@ -225,6 +225,21 @@ function mode(file) {
     eq(idx["b.test"].state, "issued", "b.test issued");
 }
 
+{   // SC_ACME_DNS01_ONLY: a controlled rollout issues only the listed names;
+    // the others stay pending (state held on every host) until the list grows
+    const w = world("r2.test", { SC_TEST_STEPS: "primary", SC_ACME_DNS01_ONLY: "B.test, c.test." });
+    manifest(w, [{ zone: "a.test", dns01: true, ns: OURS }, { zone: "b.test", dns01: true, ns: OURS }]);
+    drive(w);
+    let idx = readIndex(w);
+    eq(certbotCalls(w).length, 1, "allowlist: one issuance");
+    eq(idx["b.test"].state, "issued", "allowlisted name issued");
+    eq(idx["a.test"].state + "/" + idx["a.test"].lastError, "pending/deferred: not in SC_ACME_DNS01_ONLY", "other name deferred");
+    drive(w, { SC_ACME_DNS01_ONLY: "" });
+    idx = readIndex(w);
+    eq(certbotCalls(w).length, 2, "empty allowlist: everything issues");
+    eq(idx["a.test"].state, "issued", "a.test issued once unrestricted");
+}
+
 {   // an unservable bundle already in bundles/ (foreign key, e.g. planted or
     // corrupted after publication) is never advertised and never suppresses
     // renewal: the real primaryPhase renews it from the dedicated lineage

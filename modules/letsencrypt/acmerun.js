@@ -35,6 +35,11 @@ const bundlelib = require("./bundlelib.js");
 const INDEX_MAX_AGE = 26 * 3600000;
 const RETIRE_MIN_DAYS = 30;
 
+function onlyNames(value) {
+    const names = String(value || "").split(/[\s,]+/).map(plan.normalizeName).filter(Boolean);
+    return names.length ? new Set(names) : null;
+}
+
 function config(env) {
     const acmeDir = env.SC_ACME_DIR || "/var/srvctl3/acme";
     const datastoreCert = (env.SC_DATASTORE_DIR || "/var/srvctl3/datastore") + "/cert";
@@ -70,6 +75,10 @@ function config(env) {
         http01: env.SC_ACME_HTTP01_AVAILABLE !== "false",
         staging: env.SC_LETSENCRYPT_STAGING === "true",
         maxIssue: Number(env.SC_ACME_MAX_ISSUE_PER_RUN || 10),
+        // SC_ACME_DNS01_ONLY: space- or comma-separated names; when set, only
+        // these are issued or renewed (a controlled rollout). Other candidates
+        // stay pending, keeping every serving host in its current state.
+        only: onlyNames(env.SC_ACME_DNS01_ONLY),
         crashAt: env.SC_ACME_CRASH_AT || "",
         now: env.SC_ACME_NOW ? Date.parse(env.SC_ACME_NOW) : Date.now(),
     };
@@ -519,7 +528,9 @@ class AcmeRun {
             const st = issueState[name] || { failures: 0, lastFailure: 0 };
             let lastError = null;
             if (plan.renewalDue(view)) {
-                if (cfg.now < plan.backoffUntil(st.failures, st.lastFailure)) {
+                if (cfg.only && !cfg.only.has(name)) {
+                    lastError = "deferred: not in SC_ACME_DNS01_ONLY";
+                } else if (cfg.now < plan.backoffUntil(st.failures, st.lastFailure)) {
                     lastError = "backing off after " + st.failures + " failure(s)";
                 } else if (issued >= cfg.maxIssue) {
                     lastError = "deferred: per-run issuance cap reached";

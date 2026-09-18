@@ -77,6 +77,26 @@ acme_snapshot_manifest
 wait
 ok "another shared holder does not block the snapshot" "$([[ -e "$SC_ACME_DIR/manifest.snapshot.json" ]] && echo yes || echo no)" "yes"
 
+# --- operator knobs reach letsencrypt.js -----------------------------------------
+# /etc/srvctl/*.conf is sourced, not exported; regenerate_letsencrypt hands the
+# DNS-01 knobs to the node process only when they are set.
+# shellcheck disable=SC2329 # replaces systemctl/mkdir/letsencrypt_main for an unprivileged run
+systemctl() { echo active; }
+# shellcheck disable=SC2329
+mkdir() { :; }
+# shellcheck disable=SC2329
+acme_snapshot_manifest() { :; }
+# shellcheck disable=SC2329
+letsencrypt_main() { env | grep -E '^SC_(ACME_(MAX_ISSUE_PER_RUN|DNS01_ONLY|HTTP01_FALLBACK)|LETSENCRYPT_STAGING|WILDCARD_EXCLUDE)=' | sort | tr '\n' '|'; }
+# shellcheck disable=SC2034 # read by the sourced lib
+SC_DATASTORE_DIR="$TMP/ds" CMD=regenerate
+ok "unset knobs: only the fallback default is exported" "$(regenerate_letsencrypt 2> /dev/null | tail -1)" "SC_ACME_HTTP01_FALLBACK=false|"
+# shellcheck disable=SC2034 # read by the sourced lib
+SC_ACME_MAX_ISSUE_PER_RUN=0 SC_ACME_DNS01_ONLY="a.test b.test" SC_LETSENCRYPT_STAGING=true
+ok "set knobs are exported (0 included)" "$(regenerate_letsencrypt 2> /dev/null | tail -1)" \
+  "SC_ACME_DNS01_ONLY=a.test b.test|SC_ACME_HTTP01_FALLBACK=false|SC_ACME_MAX_ISSUE_PER_RUN=0|SC_LETSENCRYPT_STAGING=true|"
+unset SC_ACME_MAX_ISSUE_PER_RUN SC_ACME_DNS01_ONLY SC_LETSENCRYPT_STAGING
+
 echo ""
 echo "runlock.test: $pass passed, $fail failed"
 exit $(( fail > 0 ? 1 : 0 ))

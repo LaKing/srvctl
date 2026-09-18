@@ -139,5 +139,12 @@ function regenerate_letsencrypt {
     local -x SC_ACME_COMMAND="$CMD"
     local -x SC_ACME_HTTP01_AVAILABLE="$http01"
     local -x SC_ACME_HTTP01_FALLBACK="${SC_ACME_HTTP01_FALLBACK:-false}"
+    ## /etc/srvctl/*.conf is sourced, not exported: hand the other operator
+    ## knobs to the node process only when they are set
+    local knob
+    for knob in SC_ACME_MAX_ISSUE_PER_RUN SC_ACME_DNS01_ONLY SC_LETSENCRYPT_STAGING SC_WILDCARD_EXCLUDE
+    do
+        [[ -n "${!knob:-}" ]] && export "${knob?}"
+    done
     letsencrypt_main
 }
