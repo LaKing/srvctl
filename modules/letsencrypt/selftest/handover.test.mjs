@@ -111,6 +111,7 @@ function world(hostname, extra) {
         SC_CLUSTERS_FILE: writeClusters(dir),
         SC_ACME_HOOK_CONF: path.join(dir, "hook.conf"),
         SC_ACME_HOOK_LOCK: path.join(dir, "hook.lock"),
+        SC_ACME_CERTBOT_INI: path.join(dir, "dns01.ini"),
         SC_ACME_KEY_FILE: path.join(dir, "acme.key"),
         SC_LETSENCRYPT_BIN: fakeCertbot(dir),
         SC_DIG_BIN: "/bin/false",
@@ -166,10 +167,12 @@ function mode(file) {
     eq(r.code, 0, "primary run exits 0: " + r.stderr);
     const calls = certbotCalls(w);
     eq(calls.length, 2, "DNS-01 issued for the two eligible zones");
-    eq(calls[0], "certonly --non-interactive --agree-tos --manual --preferred-challenges dns --manual-auth-hook " +
+    eq(calls[0], "-c " + w.env.SC_ACME_CERTBOT_INI + " certonly --non-interactive --agree-tos --manual --preferred-challenges dns --manual-auth-hook " +
         path.join(path.dirname(DRIVER), "../apps/acme-dns-hook.sh") + " auth --manual-cleanup-hook " +
         path.join(path.dirname(DRIVER), "../apps/acme-dns-hook.sh") + " cleanup --cert-name srvctl-wildcard-a.test " +
         "--keep-until-expiring -d a.test -d *.a.test", "exact certbot argv");
+    const ini = fs.readFileSync(w.env.SC_ACME_CERTBOT_INI, "utf8").split("\n").filter((l) => l && !l.startsWith("#")).sort();
+    eq(ini, ["authenticator = manual", "email = webmaster@cdn.test", "text = True"], "DNS-01 certbot ini: authenticator pinned to manual, no webroot settings");
     const idx = readIndex(w);
     eq(idx["a.test"].state, "issued", "a.test issued");
     eq(idx["a.test"].sha256, sha256(fs.readFileSync(path.join(w.acme, "bundles/a.test.pem"))), "index sha256 of the bundle");

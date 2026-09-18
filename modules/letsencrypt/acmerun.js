@@ -63,6 +63,7 @@ function config(env) {
         manifestSnapshot: env.SC_ACME_MANIFEST_SNAPSHOT || acmeDir + "/manifest.snapshot.json",
         manifestLiveSha: env.SC_ACME_MANIFEST_LIVE_SHA || acmeDir + "/manifest.live.sha256",
         hookConf: env.SC_ACME_HOOK_CONF || "/etc/letsencrypt/srvctl-acme-dns.conf",
+        certbotIni: env.SC_ACME_CERTBOT_INI || "/etc/letsencrypt/srvctl-dns01.ini",
         hookLock: env.SC_ACME_HOOK_LOCK || "/run/srvctl-acme-records.lock",
         acmeKeyFile: env.SC_ACME_KEY_FILE || "/var/named/srvctl-acme.key",
         hook: path.join(__dirname, "apps/acme-dns-hook.sh"),
@@ -353,6 +354,23 @@ class AcmeRun {
 
     // ---------------------------------------------------------- primary ---
 
+    // certbot config for the DNS-01 runs: cli.ini pins authenticator = webroot,
+    // which certbot rejects together with --manual, so those runs read this
+    // file instead (-c). No authenticator here; the command line sets it.
+    writeCertbotIni() {
+        const lines = [
+            "## srvctl generated: certbot configuration for the DNS-01 wildcard runs.",
+            "## /etc/letsencrypt/cli.ini pins authenticator = webroot, which certbot",
+            "## refuses to combine with --manual; those runs read this file instead.",
+            "## certbot may still read cli.ini alongside this file; this later file wins",
+            "## on duplicates, so the authenticator is pinned to manual here as well.",
+            "authenticator = manual",
+            "email = webmaster@" + this.cfg.cdn,
+            "text = True",
+        ];
+        atomicWrite(this.cfg.certbotIni, lines.join("\n") + "\n", 0o644);
+    }
+
     writeHookConf() {
         const t = this.topology;
         const secondaries = t.replicaIps.join(" ");
@@ -481,6 +499,7 @@ class AcmeRun {
             return;
         }
         this.writeHookConf();
+        this.writeCertbotIni();
         try {
             this.status.dns01.reconcile = this.runHook("reconcile").trim();
         } catch (error) {
@@ -536,7 +555,7 @@ class AcmeRun {
                     lastError = "deferred: per-run issuance cap reached";
                 } else {
                     issued++;
-                    if (this.certbot(plan.certbotDns01Args(name, cfg.hook, cfg.staging), name) && this.publish(name)) {
+                    if (this.certbot(plan.certbotDns01Args(name, cfg.hook, cfg.staging, cfg.certbotIni), name) && this.publish(name)) {
                         view = this.bundleView(bundlePath, name);
                         issueState[name] = { failures: 0, lastFailure: 0 };
                     } else {

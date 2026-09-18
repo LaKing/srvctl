@@ -197,14 +197,18 @@ function backoffUntil(failures, lastFailure) {
     return lastFailure + hours * 3600000;
 }
 
-function certbotDns01Args(name, hook, staging) {
-    const args = ["certonly", "--non-interactive", "--agree-tos",
+// ini: the dedicated certbot config for DNS-01 runs. /etc/letsencrypt/cli.ini
+// (install_acme) pins "authenticator = webroot", and certbot refuses that
+// together with --manual ("Too many flags setting configurators"); -c makes
+// certbot read the given file instead of the defaults.
+function certbotDns01Args(name, hook, staging, ini) {
+    const args = (ini ? ["-c", ini] : []).concat(["certonly", "--non-interactive", "--agree-tos",
         "--manual", "--preferred-challenges", "dns",
         "--manual-auth-hook", hook + " auth",
         "--manual-cleanup-hook", hook + " cleanup",
         "--cert-name", "srvctl-wildcard-" + name,
         "--keep-until-expiring",
-        "-d", name, "-d", "*." + name];
+        "-d", name, "-d", "*." + name]);
     if (staging) args.push("--test-cert");
     return args;
 }

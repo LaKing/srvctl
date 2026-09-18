@@ -47,6 +47,8 @@ eq(plan.certbotDns01Args("a.test", "/h.sh", false), ["certonly", "--non-interact
     "--manual-cleanup-hook", "/h.sh cleanup", "--cert-name", "srvctl-wildcard-a.test",
     "--keep-until-expiring", "-d", "a.test", "-d", "*.a.test"], "DNS-01 args, dedicated lineage, no --expand/--webroot");
 eq(plan.certbotDns01Args("a.test", "/h.sh", true).slice(-1), ["--test-cert"], "staging flag");
+eq(plan.certbotDns01Args("a.test", "/h.sh", false, "/etc/letsencrypt/srvctl-dns01.ini").slice(0, 3), ["-c", "/etc/letsencrypt/srvctl-dns01.ini", "certonly"],
+    "dedicated certbot config first (-c replaces cli.ini, whose authenticator = webroot conflicts with --manual)");
 eq(plan.certbotHostArgs("r2.test", false), ["certonly", "--non-interactive", "--agree-tos", "--keep-until-expiring",
     "--webroot", "--webroot-path", "/var/acme/", "--cert-name", "r2.test", "-d", "r2.test"], "host http-01 args");
 eq(plan.certbotDns01Args("a.test", "/h.sh").includes("--expand"), false, "never --expand");
