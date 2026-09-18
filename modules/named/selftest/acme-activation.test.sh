@@ -7,8 +7,9 @@
 #                              regenerates are serialized; the DNS-01
 #                              manifest is committed only after a successful
 #                              restart and only when its confSha256 is the
-#                              live srvctl.conf; a crash before the commit is
-#                              healed by the next regenerate.
+#                              live srvctl.conf; a failed generation, restart
+#                              or commit fails the regenerate; a crash before
+#                              the commit is healed by the next regenerate.
 #   named_prepare_acme_zone    primary only: tsig-keygen -a hmac-sha256 key
 #                              (0640, root:named) and a seed zone, each only
 #                              if missing; replica: slave zone enabled only
@@ -123,6 +124,26 @@ live_matches() { [[ "$(node -e 'process.stdout.write(JSON.parse(require("fs").re
 GEN=a RESTART_RC=1 named_regenerate_activate; rc=$?
 ok "failed restart: regenerate fails" "$rc" "1"
 ok "failed restart: nothing committed" "$(committed)" "none"
+
+# failed generation: reported, BIND is not restarted, nothing committed
+# shellcheck disable=SC2329 # called by named_regenerate_activate
+namedcfg() { echo "namedcfg-fail" >> "$LOG"; return 1; }
+: > "$LOG"; : > "$ERRS"
+named_regenerate_activate; rc=$?
+ok "failed namedcfg: regenerate fails" "$rc" "1"
+ok "failed namedcfg: reported" "$(grep -c 'generation failed' "$ERRS")" "1"
+ok "failed namedcfg: no restart, nothing committed" "$(grep -c '^restart' "$LOG")/$(committed)" "0/none"
+unset -f namedcfg
+# shellcheck disable=SC2329
+namedcfg() {
+    local gen="${GEN:-g}"
+    echo "namedcfg-start $gen" >> "$LOG"
+    sleep "${SLOW:-0}"
+    echo "conf $gen" > "$SC_NAMED_CONF"
+    printf '{"confSha256":"%s","gen":"%s"}\n' "$(sha256sum < "$SC_NAMED_CONF" | cut -d' ' -f1)" "$gen" \
+        > "$SC_NAMED_STATE_DIR/acme-zones.next.json"
+    echo "namedcfg-end $gen" >> "$LOG"
+}
 GEN=b named_regenerate_activate; rc=$?
 ok "successful activation" "$rc" "0"
 ok "manifest committed for the active configuration" "$(committed)/$(live_matches)" "b/yes"
@@ -131,7 +152,8 @@ ok "manifest committed for the active configuration" "$(committed)/$(live_matche
 # shellcheck disable=SC2329 # called by named_regenerate_activate
 namedcfg() { GEN=c; echo "conf c" > "$SC_NAMED_CONF"; printf '{"confSha256":"%s","gen":"c"}\n' "stale" > "$SC_NAMED_STATE_DIR/acme-zones.next.json"; }
 : > "$ERRS"
-named_regenerate_activate
+named_regenerate_activate; rc=$?
+ok "hash mismatch: regenerate fails" "$rc" "1"
 ok "hash mismatch: previous manifest kept" "$(committed)" "b"
 ok "hash mismatch: reported" "$(grep -c 'does not match the active BIND configuration' "$ERRS")" "1"
 unset -f namedcfg

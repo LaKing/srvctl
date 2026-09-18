@@ -10,7 +10,9 @@
 ##                              restart_named -> manifest commit, so the
 ##                              DNS-01 zone list always matches the activated
 ##                              BIND configuration, even when regenerates
-##                              overlap.
+##                              overlap. Fails (aborting the regenerate) when
+##                              generation, restart or the manifest commit
+##                              fails; a prepare problem is reported only.
 ##   named_prepare_acme_zone    primary: create the TSIG key (tsig-keygen,
 ##                              hmac-sha256) and the seed zone, each only if
 ##                              missing (BIND owns the zone file and journal
@@ -149,12 +151,18 @@ function named_regenerate_activate {
         return 1
     fi
 
+    ## prepare degrades on its own (every failure path reports and returns 0,
+    ## leaving the zone as it is); the three steps after it decide the result.
     named_prepare_acme_zone
-    namedcfg
-    if restart_named
+    if ! namedcfg
     then
-        named_commit_acme_manifest
-    else
+        err "named configuration generation failed; BIND is not restarted"
+        rc=1
+    elif ! restart_named
+    then
+        rc=1
+    elif ! named_commit_acme_manifest
+    then
         rc=1
     fi
 
