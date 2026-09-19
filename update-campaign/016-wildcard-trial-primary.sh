@@ -12,7 +12,9 @@
 #   bash 016-wildcard-trial-primary.sh [options] [phase ...]
 #
 #   phases (default: all, in this order)
-#     preflight   role, binaries, branch, staging flag, public NS of the zone
+#     preflight   role, binaries, branch, staging flag, public NS of the zone,
+#                 every public NS of the company zone serves _acme (or delegates)
+#     delegation  print the _acme delegation records for the company zone
 #     code        git fetch / checkout wildcard-certificates / pull, sc update-install
 #     activate    knobs cap=0 + allowlist, sc regenerate: _acme zone, CNAME, manifest
 #     secondary   sc regenerate on every replica over root ssh, verify from here
@@ -55,7 +57,7 @@ do
         --cap) OPEN_CAP="$2"; shift 2 ;;
         --yes) YES=true; shift ;;
         -h|--help) sed -n '2,32p' "$0" | cut -c3-; exit 0 ;;
-        preflight|code|activate|secondary|issue|serving|status|reset|hold|open) PHASES+=("$1"); shift ;;
+        preflight|code|activate|secondary|issue|serving|status|reset|hold|open|delegation) PHASES+=("$1"); shift ;;
         *) echo "unknown argument: $1"; exit 2 ;;
     esac
 done
@@ -135,6 +137,46 @@ cert_report() { ## pem
     if openssl x509 -in "$pem" -noout -issuer 2> /dev/null | grep -qi 'fake\|staging'; then fail "STAGING certificate — never distribute this"; fi
 }
 
+## Let's Encrypt resolves _acme-challenge.<zone> -> <zone>._acme.<cdn> through
+## the public NS set of <cdn>. Every one of those servers must either serve the
+## _acme child zone or delegate it; a server that only holds the hand-maintained
+## company zone answers from that zone instead (a wildcard TXT there is what
+## "Incorrect TXT record ... found" looks like on the CA side).
+check_company_zone_servers() {
+    say "public name servers of $CDN: each must serve _acme.$CDN or delegate it"
+    local ns ips ip probe soa txt referral bad=0
+    probe="probe-$RANDOM-$RANDOM._acme.$CDN"
+    ns="$(dig @8.8.8.8 NS "$CDN" +short | sort)"
+    [[ -n $ns ]] || { fail "no public NS answer for $CDN"; return; }
+    while read -r n; do
+        [[ -z $n ]] && continue
+        ips="$(dig +short A "${n%.}" | tr '\n' ' ')"
+        for ip in $ips; do
+            soa="$(dig "@$ip" SOA "_acme.$CDN" +short +norecurse +time=3 +tries=1)"
+            referral="$(dig "@$ip" NS "_acme.$CDN" +norecurse +time=3 +tries=1 | awk '$4 == "NS" && $1 ~ /^_acme\./ {print $5}' | tr '\n' ' ')"
+            txt="$(dig "@$ip" TXT "$probe" +short +norecurse +time=3 +tries=1)"
+            if [[ -n $soa ]]; then ok "$n ($ip) serves _acme.$CDN"
+            elif [[ -n $referral ]]; then ok "$n ($ip) delegates _acme.$CDN to $referral"
+            else fail "$n ($ip) neither serves nor delegates _acme.$CDN — the CA can land here; add the delegation (phase: delegation) or make it a DNS replica"; bad=1; fi
+            [[ -z $txt ]] || { fail "$n ($ip) answers TXT $txt for a random name under _acme.$CDN (wildcard in the $CDN zone shadows the challenge zone)"; bad=1; }
+        done
+    done <<< "$ns"
+    txt="$(dig @8.8.8.8 TXT "$probe" +short +time=3 +tries=1)"
+    [[ -z $txt ]] && ok "public resolver: no TXT for a random name under _acme.$CDN" || { fail "public resolver returns TXT $txt for a random name under _acme.$CDN"; bad=1; }
+    [[ $bad -eq 0 ]] && ok "the challenge zone is reachable through every public NS of $CDN"
+}
+
+phase_delegation() {
+    say "records for the hand-maintained $CDN zone (raise its serial, reload, then re-run preflight)"
+    cat << EOF
+; DNS-01 challenge-zone delegation — add to the $CDN zone (e.g. the file behind /var/named/d250.conf)
+_acme                          IN NS    ns1.$CDN.
+_acme                          IN NS    ns2.$CDN.
+EOF
+    echo "  glue is not needed while ns1/ns2.$CDN are defined in the $CDN zone itself."
+    echo "  Servers that hold $CDN but are not DNS replicas then refer _acme queries to ns1/ns2 instead of answering from $CDN's own records."
+}
+
 # --- phases --------------------------------------------------------------------
 phase_preflight() {
     say "preflight"
@@ -167,6 +209,8 @@ phase_preflight() {
     done <<< "$ns"
     dig @127.0.0.1 SOA "$ZONE" +short | grep -q . && ok "$ZONE is served by this BIND" || fail "$ZONE has no SOA on this BIND (is it a container domain here?)"
     if [[ $bad -eq 0 ]]; then ok "$ZONE qualifies for DNS-01"; fi
+
+    check_company_zone_servers
 
     local h ip
     while IFS=$'\t' read -r h ip; do
