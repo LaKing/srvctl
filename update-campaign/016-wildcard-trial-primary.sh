@@ -324,11 +324,18 @@ phase_serving() {
     echo "  handover entry on $SERVING_HOST: ${st:-<none>}"
     [[ $st == *WILDCARD* ]] && ok "state WILDCARD" || fail "state is not WILDCARD yet (a bundle needs a third of its lifetime left and a valid pull; see status.json there)"
     ssh -o BatchMode=yes "root@$SERVING_HOST" test -s "/var/srvctl3/datastore/cert/wildcard/$ZONE.pem" && ok "wildcard bundle installed on $SERVING_HOST" || fail "no cert/wildcard/$ZONE.pem on $SERVING_HOST"
-    local name subj
+    ## certbot puts the first requested name in the subject, so the wildcard's
+    ## subject is CN=<zone> like the old per-domain certificate: compare the
+    ## served leaf's fingerprint with the issued bundle, and show its SAN.
+    local name served want san
+    want="$(openssl x509 -in "$ACME_DIR/bundles/$ZONE.pem" -noout -fingerprint -sha256 2> /dev/null)"
     for name in "$ZONE" "www.$ZONE"
     do
-        subj="$(openssl s_client -servername "$name" -connect "$SERVING_HOST:443" < /dev/null 2> /dev/null | openssl x509 -noout -subject 2> /dev/null)"
-        [[ $subj == *"CN = *.$ZONE"* || $subj == *"CN=*.$ZONE"* ]] && ok "SNI $name -> $subj" || fail "SNI $name -> ${subj:-no certificate} (expected CN=*.$ZONE)"
+        served="$(openssl s_client -servername "$name" -connect "$SERVING_HOST:443" < /dev/null 2> /dev/null | openssl x509 -noout -fingerprint -sha256 2> /dev/null)"
+        san="$(openssl s_client -servername "$name" -connect "$SERVING_HOST:443" < /dev/null 2> /dev/null | openssl x509 -noout -ext subjectAltName 2> /dev/null | tail -1 | sed 's/^ *//')"
+        if [[ -n $served && $served == "$want" ]]; then ok "SNI $name -> the issued wildcard ($san)"
+        elif [[ -n $served ]]; then fail "SNI $name -> a different certificate ($san); wildcard not active in HAProxy yet"
+        else fail "SNI $name -> no certificate"; fi
     done
 }
 
