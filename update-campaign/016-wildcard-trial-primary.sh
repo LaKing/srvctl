@@ -193,10 +193,15 @@ phase_preflight() {
     else ok "staging flag not set"; fi
 
     local branch dirty
-    branch="$(git -C "$SC_DIR" branch --show-current 2> /dev/null)"
-    dirty="$(git -C "$SC_DIR" status --porcelain 2> /dev/null | wc -l)"
-    [[ $branch == "$BRANCH" ]] && ok "checkout on $BRANCH" || warn "checkout on '$branch' — the code phase switches to $BRANCH"
-    [[ $dirty -eq 0 ]] && ok "checkout clean" || warn "$dirty uncommitted path(s) in $SC_DIR"
+    if git -C "$SC_DIR" rev-parse --git-dir > /dev/null 2>&1
+    then
+        branch="$(git -C "$SC_DIR" branch --show-current 2> /dev/null)"
+        dirty="$(git -C "$SC_DIR" status --porcelain 2> /dev/null | wc -l)"
+        [[ $branch == "$BRANCH" ]] && ok "checkout on $BRANCH" || warn "checkout on '$branch' — the code phase switches to $BRANCH"
+        [[ $dirty -eq 0 ]] && ok "checkout clean" || warn "$dirty uncommitted path(s) in $SC_DIR"
+    else
+        ok "$SC_DIR is not a git checkout (code arrives by /bin/pop or rsync); version $(cat "$SC_DIR/version" 2> /dev/null)"
+    fi
     [[ -f "$SC_DIR/modules/letsencrypt/acmerun.js" ]] && ok "DNS-01 code present" || warn "DNS-01 code not present yet (code phase)"
 
     say "public name servers of $ZONE (via 8.8.8.8, as dns-scan.js sees them)"
@@ -223,6 +228,12 @@ phase_preflight() {
 
 phase_code() {
     say "code: $SC_DIR -> $BRANCH"
+    if ! git -C "$SC_DIR" rev-parse --git-dir > /dev/null 2>&1
+    then
+        warn "$SC_DIR is not a git checkout; refresh it the way this host gets code (e.g. /bin/pop), then re-run"
+        [[ -x /bin/pop ]] && confirm "run /bin/pop now?" && /bin/pop
+        discover; return
+    fi
     confirm "git fetch, checkout $BRANCH and fast-forward pull in $SC_DIR?" || { warn "code phase skipped"; return; }
     git -C "$SC_DIR" fetch origin || die "git fetch failed"
     git -C "$SC_DIR" checkout "$BRANCH" || die "git checkout $BRANCH failed (uncommitted changes?)"

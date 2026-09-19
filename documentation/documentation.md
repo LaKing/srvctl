@@ -1860,7 +1860,7 @@ Zones served by our DNS get a `domain` + `*.domain` certificate via DNS-01, issu
 
 **Limits under indefinite outages.** With D-B off, a managed wildcard lapses if the primary or the pull path stays down past its expiry: http-01 is only unblocked once the wildcard is no longer servable (under one day left). With D-B on, coverage lapses only if local http-01 fails too. http-01 cannot re-cover names that are not in a container's domain list, names whose A record points elsewhere, or container names skipped by the http-01 path (`mail.*`, devel/local, dotless). A LEAVING wildcard that cannot be fully replaced is served until it stops being servable.
 
-**Company-zone delegation (for review, never applied by srvctl).** `named_acme_delegation_records` prints the records to add to the hand-maintained company zone (`/var/named/d250.conf`); without them `_acme` still resolves while the company zone's NS are our primary and secondary:
+**Company-zone delegation (prerequisite; never applied by srvctl).** Let's Encrypt resolves `<zone>._acme.<company-domain>` through the *public* NS set of the company domain. Every one of those servers must serve the `_acme` zone (our primary and replicas do) or delegate it; a server that only holds the company zone answers from that zone instead, and a wildcard TXT there is what the CA reports as `Incorrect TXT record "v=spf1 …" found`. For d250.hu the public NS are ns1/ns2.c3.hu, so the delegation must be added there (the copy behind `/var/named/d250.conf` on the primary is private). `named_acme_delegation_records` prints the records; `update-campaign/016-wildcard-trial-primary.sh preflight` verifies every public NS:
 
 ```
 _acme                          IN NS    ns1.<company-domain>.
