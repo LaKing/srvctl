@@ -7,8 +7,9 @@
 ##   commands, and hourly from cron). All functions from
 ##   libs/regenlib.sh: import stray /srv containers into the database and
 ##   re-enable their units, create locally-missing containers assigned to
-##   this host, repair ownership, apply per-container resource limits
-##   (libs/limitslib.sh), and rewrite /etc/hosts. The literal
+##   this host, repair ownership (including TLS files that host-side
+##   writers left owned by host root), apply per-container resource
+##   limits (libs/limitslib.sh), and rewrite /etc/hosts. The literal
 ##   '#cron.hourly' ARG (matching the installed cron script exactly)
 ##   additionally enforces disk quotas.
 ##
@@ -16,6 +17,7 @@
 check_container_directories
 check_container_database
 check_container_ownership
+check_container_pki_ownership
 secure_share_containers
 apply_all_container_limits
 

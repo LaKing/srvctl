@@ -128,7 +128,15 @@ function sync_haproxy_certificates {
 
     ## 3) PRUNE: remove stale shadows, superseded per-domain copies of now
     ##    wildcard-covered domains, expired leftovers, and the non-servable CA
-    ##    bundle — anything not in the desired set just built.
+    ##    bundle — anything not in the desired set just built. Never down to
+    ##    an empty set: 'crt /var/haproxy' without a certificate stops haproxy
+    ##    from loading its config, so an unavailable datastore or admin dir
+    ##    must not take every site down.
+    if [[ ${#desired[@]} == 0 ]]
+    then
+        err "No servable certificate found; $hadir left as it is"
+        return 0
+    fi
     for src in "$hadir"/*.pem
     do
         [[ -f "$src" ]] || continue

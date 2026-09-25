@@ -77,6 +77,32 @@ acme_snapshot_manifest
 wait
 ok "another shared holder does not block the snapshot" "$([[ -e "$SC_ACME_DIR/manifest.snapshot.json" ]] && echo yes || echo no)" "yes"
 
+# --- acme-server setup is repaired by regenerate ----------------------------------
+# ensure_acme_server rewrites a missing or stale unit (restarting the server
+# only then) and leaves an up-to-date one alone.
+CALLS="$TMP/calls"
+# shellcheck disable=SC2329 # stand-ins for an unprivileged run
+systemctl() { echo "systemctl $*" >> "$CALLS"; }
+# shellcheck disable=SC2329
+getent() { return 0; }
+# shellcheck disable=SC2329
+chown() { :; }
+UNIT="$TMP/acme-server.service"
+: > "$CALLS"
+ensure_acme_server "$UNIT" "$TMP/webroot"
+ok "missing unit is written" "$(grep -c "ExecStart=/bin/node $SC_INSTALL_DIR/modules/letsencrypt/apps/acme-server.js" "$UNIT")" "1"
+ok "new unit: daemon-reload and try-restart" "$(tr '\n' '|' < "$CALLS")" "systemctl daemon-reload|systemctl try-restart acme-server.service|"
+ok "webroot created" "$([[ -d $TMP/webroot ]] && echo yes || echo no)" "yes"
+: > "$CALLS"
+ensure_acme_server "$UNIT" "$TMP/webroot"
+ok "unchanged unit: no systemctl call" "$(cat "$CALLS")" ""
+sed -i 's|ExecStart=.*|ExecStart=/bin/node /usr/local/share/srvctl/modules/certificates/acme-server.js|' "$UNIT"
+ensure_acme_server "$UNIT" "$TMP/webroot"
+ok "stale ExecStart is repaired" "$(grep -c "apps/acme-server.js" "$UNIT")" "1"
+ok "stale unit: server restarted" "$(tr '\n' '|' < "$CALLS")" "systemctl daemon-reload|systemctl try-restart acme-server.service|"
+ok "no temp file left" "$(find "$TMP" -maxdepth 1 -name 'acme-server.service.*' | wc -l)" "0"
+unset -f systemctl getent chown
+
 # --- operator knobs reach letsencrypt.js -----------------------------------------
 # /etc/srvctl/*.conf is sourced, not exported; regenerate_letsencrypt hands the
 # DNS-01 knobs to the node process only when they are set.
@@ -87,15 +113,31 @@ mkdir() { :; }
 # shellcheck disable=SC2329
 acme_snapshot_manifest() { :; }
 # shellcheck disable=SC2329
-letsencrypt_main() { env | grep -E '^SC_(ACME_(MAX_ISSUE_PER_RUN|DNS01_ONLY|HTTP01_FALLBACK)|LETSENCRYPT_STAGING|WILDCARD_EXCLUDE)=' | sort | tr '\n' '|'; }
+ensure_acme_server() { :; }
+# shellcheck disable=SC2329
+letsencrypt_main() { env | grep -E '^SC_(ACME_(MAX_ISSUE_PER_RUN|HTTP01_MAX_PER_RUN|DNS01_ONLY|HTTP01_FALLBACK)|LETSENCRYPT_STAGING|WILDCARD_EXCLUDE)=' | sort | tr '\n' '|'; }
 # shellcheck disable=SC2034 # read by the sourced lib
 SC_DATASTORE_DIR="$TMP/ds" CMD=regenerate
 ok "unset knobs: only the fallback default is exported" "$(regenerate_letsencrypt 2> /dev/null | tail -1)" "SC_ACME_HTTP01_FALLBACK=false|"
 # shellcheck disable=SC2034 # read by the sourced lib
-SC_ACME_MAX_ISSUE_PER_RUN=0 SC_ACME_DNS01_ONLY="a.test b.test" SC_LETSENCRYPT_STAGING=true
+SC_ACME_MAX_ISSUE_PER_RUN=0 SC_ACME_DNS01_ONLY="a.test b.test" SC_LETSENCRYPT_STAGING=true SC_ACME_HTTP01_MAX_PER_RUN=3
 ok "set knobs are exported (0 included)" "$(regenerate_letsencrypt 2> /dev/null | tail -1)" \
-  "SC_ACME_DNS01_ONLY=a.test b.test|SC_ACME_HTTP01_FALLBACK=false|SC_ACME_MAX_ISSUE_PER_RUN=0|SC_LETSENCRYPT_STAGING=true|"
-unset SC_ACME_MAX_ISSUE_PER_RUN SC_ACME_DNS01_ONLY SC_LETSENCRYPT_STAGING
+  "SC_ACME_DNS01_ONLY=a.test b.test|SC_ACME_HTTP01_FALLBACK=false|SC_ACME_HTTP01_MAX_PER_RUN=3|SC_ACME_MAX_ISSUE_PER_RUN=0|SC_LETSENCRYPT_STAGING=true|"
+unset SC_ACME_MAX_ISSUE_PER_RUN SC_ACME_DNS01_ONLY SC_LETSENCRYPT_STAGING SC_ACME_HTTP01_MAX_PER_RUN
+
+# --- a failed letsencrypt run never aborts the certificate hook -----------------
+# (the haproxy sync after it must still serve the existing certificates)
+# shellcheck disable=SC2329
+letsencrypt_main() { return 1; }
+: > "$ERRS"
+regenerate_letsencrypt > /dev/null 2>&1
+ok "failed run: regenerate_letsencrypt returns 0" "$?" "0"
+ok "failed run: error logged" "$(grep -c 'letsencrypt run failed (exit 1)' "$ERRS")" "1"
+# shellcheck disable=SC2329
+letsencrypt_main() { return 0; }
+: > "$ERRS"
+regenerate_letsencrypt > /dev/null 2>&1
+ok "clean run: no error" "$(grep -c 'letsencrypt run failed' "$ERRS")" "0"
 
 echo ""
 echo "runlock.test: $pass passed, $fail failed"

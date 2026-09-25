@@ -196,19 +196,26 @@ function check_checkend(cert_file) {
 function check_datastore_cert(domain) {
     // TODO no need to check this certificate in the LE module.
     var cert_file = SC_CONTAINERS_CERT_DIR + "/" + domain + ".pem";
-    var cmd = "openssl x509 -noout -subject -in " + cert_file;
 
     if (fs.existsSync(cert_file)) {
-        var cn = "";
+        var names;
         try {
-            cn = execSync(cmd).toString();
+            // Use the same explicit name format for both DNs. Self-issued
+            // placeholders must not suppress issuance for their ten-year life.
+            // This is a placeholder check, not certificate trust validation.
+            names = require("child_process").execFileSync("openssl", [
+                "x509", "-noout", "-subject", "-issuer", "-nameopt", "RFC2253", "-in", cert_file,
+            ], { encoding: "utf8" });
         } catch (err) {
             console.log("Letsencypt check_domain failure for ", domain, err);
             return false;
         }
 
-        if (cn.indexOf("emailAddress = webmaster@") > 0) {
-            console.log("Selfsigned certiciate in the datastore for ", domain);
+        var subject = names.match(/^subject\s*=\s*(.*)$/m);
+        var issuer = names.match(/^issuer\s*=\s*(.*)$/m);
+        if (!subject || !issuer) return false;
+        if (subject[1] === issuer[1]) {
+            console.log("Self-issued certificate in the datastore for ", domain);
             return false;
         }
 
@@ -252,7 +259,10 @@ function letsencrypt_deploy(domain) {
 
     var pem = bundlelib.composeBundle(privkey, fullchain);
 
-    fs.writeFileSync(SC_CONTAINERS_CERT_DIR + "/" + domain + ".pem", pem);
+    // the bundle holds the private key: owner-only, also for an existing file
+    var datastore_pem = SC_CONTAINERS_CERT_DIR + "/" + domain + ".pem";
+    fs.writeFileSync(datastore_pem, pem, { mode: 0o600 });
+    fs.chmodSync(datastore_pem, 0o600);
 
     msg(SC_CONTAINERS_CERT_DIR + "/" + domain + " letsencrypt certificate deployed. " + SC_CONTAINERS_CERT_DIR + "/" + domain + ".pem");
 
@@ -397,12 +407,33 @@ function check_container_domain(name, domain) {
     return true;
 }
 
+// Per-run cap on http-01 certbot calls. Containers are visited in random
+// order, so domains that keep failing cannot starve the rest run after run.
+var max_certbot_calls = parseInt(process.env.SC_ACME_HTTP01_MAX_PER_RUN, 10);
+if (!(max_certbot_calls > 0)) max_certbot_calls = 10;
+var certbot_calls = 0;
+
+function shuffle(list) {
+    for (var i = list.length - 1; i > 0; i--) {
+        var j = Math.floor(Math.random() * (i + 1));
+        var t = list[i];
+        list[i] = list[j];
+        list[j] = t;
+    }
+    return list;
+}
+
 // Check every domain of one container (name + aliases + altnames +
 // subdomains, per datastore.container_domains) and request/deploy where due.
 function check_container(name) {
     let domains = datastore.container_domains(name);
     for (let n in domains) {
         if (check_container_domain(name, domains[n])) {
+            if (certbot_calls >= max_certbot_calls) {
+                ntc(name, domains[n], "deferred: " + max_certbot_calls + " certbot calls this run (SC_ACME_HTTP01_MAX_PER_RUN)");
+                continue;
+            }
+            certbot_calls++;
             msg("-->", name, domains[n]);
             run_on_container_domain(name, domains[n]);
         }
@@ -436,7 +467,7 @@ function main() {
     }
     acme.computeGate(served);
 
-    Object.keys(containers).forEach(function (i) {
+    shuffle(Object.keys(containers)).forEach(function (i) {
         // mail containers get their certificates elsewhere, never here
         if (i.substring(0, 5) === "mail.") return;
 

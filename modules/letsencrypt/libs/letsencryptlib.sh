@@ -25,6 +25,58 @@
 ## and removes any stale /etc/letsencrypt/ca.pem left by earlier versions. Runs on every
 ## update-install (twice, in fact — the certificates module hook also calls
 ## it); re-runs only regenerate the same files.
+## ensure_acme_server: create-if-missing setup of the http-01 challenge
+## responder: the acme system user (uid 528), the /var/acme webroot and
+## acme-server.service. Runs on every regenerate as well as from install_acme,
+## because hosts that never re-ran update-install can carry a unit from an
+## old layout (ExecStart pointing at a file that no longer exists), which
+## silently disables http-01. The unit is rewritten, and a running server
+## restarted, only when its content differs. Never fails the caller.
+function ensure_acme_server { ## [unit-file] [webroot]
+    local unit webroot tmp
+    unit="${1:-/etc/systemd/system/acme-server.service}"
+    webroot="${2:-/var/acme}"
+
+    if ! getent passwd acme > /dev/null
+    then
+        useradd -r -u 528 -c "Letsencrypt-acme-server" acme || err "could not create the acme user"
+    fi
+    mkdir -p "$webroot"
+    getent passwd acme > /dev/null && chown acme:acme "$webroot"
+
+    tmp="$(mktemp "$unit.XXXXXX")" || { err "could not write $unit"; return 0; }
+    echo "## srvctl generated
+[Unit]
+Description=Letsencrypt server.
+After=syslog.target network.target
+
+[Service]
+Type=simple
+ExecStart=/bin/node $SC_INSTALL_DIR/modules/letsencrypt/apps/acme-server.js
+User=acme
+Group=acme
+
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target" > "$tmp"
+
+    if cmp -s "$tmp" "$unit"
+    then
+        rm -f "$tmp"
+    else
+        chmod 644 "$tmp"
+        mv -f "$tmp" "$unit"
+        ## cleanup of the legacy unit location
+        rm -f /lib/systemd/system/acme-server.service
+        msg "Updated $unit"
+        systemctl daemon-reload
+        systemctl try-restart acme-server.service
+    fi
+    return 0
+}
+
 function install_acme {
 
     msg "Installing letsencrypt and the acme-server"
@@ -40,41 +92,13 @@ authenticator = webroot
 webroot-path = /var/acme
     " > /etc/letsencrypt/cli.ini
 
-    mkdir -p /var/acme
-    ## FIXME(v4): useradd is unguarded — on re-install it prints
-    ## "useradd: user 'acme' already exists" on stderr (non-fatal noise);
-    ## guard with getent/id or wrap in eyif.
-    useradd -r -u 528 -c "Letsencrypt-acme-server" acme
-    chown acme:acme /var/acme
-
-    echo "## $SRVCTL generated
-[Unit]
-Description=Letsencrypt server.
-After=syslog.target network.target
-
-[Service]
-Type=simple
-ExecStart=/bin/node $SC_INSTALL_DIR/modules/letsencrypt/apps/acme-server.js
-User=acme
-Group=acme
-
-Restart=always
-RestartSec=3
-
-[Install]
-WantedBy=multi-user.target
-    " > /etc/systemd/system/acme-server.service
-
-    ## cleanup of the legacy unit location. TODO remove
-    rm -fr /lib/systemd/system/acme-server.service
+    ensure_acme_server
 
     ## Earlier versions installed a vendored DST Root CA X3 (expired
     ## 2021-09-30) here and letsencrypt.js appended it to every bundle.
     ## Nothing reads the file any more; a stale copy is removed so it cannot
     ## be mistaken for a live input.
     rm -f /etc/letsencrypt/ca.pem
-
-    systemctl daemon-reload
 
     run systemctl enable acme-server.service
     run systemctl start acme-server.service
@@ -107,14 +131,18 @@ function acme_snapshot_manifest {
     return 0
 }
 
-## regenerate_letsencrypt: regenerate_certificates hook payload. Tries to
-## make sure acme-server.service is running, prepares $SC_DATASTORE_DIR/cert
+## regenerate_letsencrypt: regenerate_certificates hook payload. Repairs the
+## acme-server setup (ensure_acme_server), tries to make sure
+## acme-server.service is running, prepares $SC_DATASTORE_DIR/cert
 ## and /etc/letsencrypt/live, snapshots the DNS-01 zone manifest, then runs
 ## letsencrypt.js (letsencrypt_main, bashlib.sh). When acme-server cannot be
 ## started only http-01 is unavailable: DNS-01 issuance, wildcard
-## distribution and the handover state machine still run.
+## distribution and the handover state machine still run. Always returns 0:
+## a failed run is logged, and the haproxy sync still runs after it.
 function regenerate_letsencrypt {
-    local http01=true
+    local http01=true rc
+
+    ensure_acme_server
 
     if [[ "$(systemctl is-active acme-server.service)" != "active" ]]
     then
@@ -142,9 +170,15 @@ function regenerate_letsencrypt {
     ## /etc/srvctl/*.conf is sourced, not exported: hand the other operator
     ## knobs to the node process only when they are set
     local knob
-    for knob in SC_ACME_MAX_ISSUE_PER_RUN SC_ACME_DNS01_ONLY SC_LETSENCRYPT_STAGING SC_WILDCARD_EXCLUDE
+    for knob in SC_ACME_MAX_ISSUE_PER_RUN SC_ACME_HTTP01_MAX_PER_RUN SC_ACME_DNS01_ONLY SC_LETSENCRYPT_STAGING SC_WILDCARD_EXCLUDE
     do
         [[ -n "${!knob:-}" ]] && export "${knob?}"
     done
+    ## a failed or skipped run (lock timeout, node error) must not abort the
+    ## regenerate_certificates hook: the haproxy sync that follows serves the
+    ## certificates that already exist
     letsencrypt_main
+    rc=$?
+    [[ $rc == 0 ]] || err "letsencrypt run failed (exit $rc); serving the existing certificates"
+    return 0
 }

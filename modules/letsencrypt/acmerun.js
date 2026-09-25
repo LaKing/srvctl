@@ -101,7 +101,10 @@ function fsyncDir(dir) {
     }
 }
 
-function atomicWrite(file, data, mode) {
+// owner: optional { uid, gid }; the rename replaces the inode, so a file
+// inside a PrivateUsers= rootfs must be chowned or it lands as host root,
+// which the container sees as nobody and cannot read.
+function atomicWrite(file, data, mode, owner) {
     fs.mkdirSync(path.dirname(file), { recursive: true });
     const tmp = file + ".tmp." + process.pid;
     const fd = fs.openSync(tmp, "w", mode || 0o600);
@@ -111,6 +114,7 @@ function atomicWrite(file, data, mode) {
     } finally {
         fs.closeSync(fd);
     }
+    if (owner) fs.chownSync(tmp, owner.uid, owner.gid);
     fs.chmodSync(tmp, mode || 0o600);
     fs.renameSync(tmp, file);
     fsyncDir(path.dirname(file));
@@ -724,10 +728,13 @@ class AcmeRun {
         const current = plan.certMeta(readText(path.join(pki, "certs/localhost.crt")) || "");
         if (current && current.notAfter >= meta.notAfter) return;
         const parts = splitBundle(text);
-        atomicWrite(path.join(pki, "private/localhost.key"), parts.privkey, 0o600);
-        atomicWrite(path.join(pki, "certs/localhost.crt"), parts.fullchain, 0o644);
-        atomicWrite(path.join(pki, "certs", name + ".pem"), text, 0o600);
-        atomicWrite(path.join(pki, "certs/localhost.pem"), text, 0o600);
+        // the directories carry the container root's shifted uid/gid
+        const priv = fs.statSync(path.join(pki, "private"));
+        const certs = fs.statSync(path.join(pki, "certs"));
+        atomicWrite(path.join(pki, "private/localhost.key"), parts.privkey, 0o600, priv);
+        atomicWrite(path.join(pki, "certs/localhost.crt"), parts.fullchain, 0o644, certs);
+        atomicWrite(path.join(pki, "certs", name + ".pem"), text, 0o600, certs);
+        atomicWrite(path.join(pki, "certs/localhost.pem"), text, 0o600, certs);
     }
 
     // The one wildcard rule for every served domain, after installs.

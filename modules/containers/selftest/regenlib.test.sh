@@ -464,6 +464,25 @@ else
 fi
 ok "final msg does not mask aggregate status" "$rc" "23"
 
+echo "== container TLS file ownership =="
+# Creating host-root files needs root, so ownership comes from stubs:
+# shifted/ is uid-shifted with one host-root key, plain/ is not shifted.
+probe_pki_ownership() {
+    local srv="$1"
+    declare -a CHOWNS=()
+    stat() { [[ ${*: -1} == */plain/* ]] && echo 0 || echo 655360; }
+    find() { [[ $1 == */shifted/*/private ]] && printf '%s\0' "$1/localhost.key"; }
+    run() { CHOWNS+=("$*"); }
+    check_container_pki_ownership "$srv"
+    printf '%s\n' "${CHOWNS[@]}"
+}
+PKI_ROOT="$(mktemp -d)"
+mkdir -p "$PKI_ROOT"/{shifted,plain}/rootfs/etc/pki/tls/{private,certs}
+ok "only host-root files in shifted rootfs are chowned" \
+    "$(probe_pki_ownership "$PKI_ROOT")" \
+    "chown --reference=$PKI_ROOT/shifted/rootfs/etc/pki/tls/private $PKI_ROOT/shifted/rootfs/etc/pki/tls/private/localhost.key"
+rm -rf "$PKI_ROOT"
+
 echo ""
 echo "regenlib.test: $pass passed, $fail failed"
 exit $(( fail > 0 ? 1 : 0 ))

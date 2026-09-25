@@ -420,6 +420,26 @@ function check_container_ownership() {
     done
 }
 
+## A host-side writer that replaces a file (write + rename) leaves it owned
+## by host root, which a PrivateUsers= container sees as nobody:nobody and
+## cannot read — a 0600 localhost.key breaks the container's TLS. Hand such
+## TLS files back to the owner of their directory (the container root's
+## shifted uid). Directories owned by host root are not uid-shifted; skip.
+function check_container_pki_ownership() { ## [srv-root]
+    local srv F D
+    srv="${1:-/srv}"
+    msg "Checking TLS file ownership in containers"
+    for D in "$srv"/*/rootfs/etc/pki/tls/private "$srv"/*/rootfs/etc/pki/tls/certs
+    do
+        [[ -d $D ]] || continue
+        [[ $(stat -c %u "$D") != 0 ]] || continue
+        while IFS= read -r -d '' F
+        do
+            run chown --reference="$D" "$F"
+        done < <(find "$D" -maxdepth 1 -type f -uid 0 -print0)
+    done
+}
+
 ## share/containers/<C>/users holds users' .password/.hash copies. nspawn
 ## binds each <C> into its own container as root, so host users need no
 ## access to the parent; keep it root-only.

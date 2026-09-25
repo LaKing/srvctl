@@ -171,6 +171,15 @@ ok "admin expiring later wins over managed"      "$(present2 example2.test.pem)/
 ok "managed expiring later wins over admin"      "$(present2 both.test.pem)/$(present2 wildcard.both.test.pem)" "no/yes"
 ok "managed wildcard deployed 0600"              "$(stat -c '%a' "$HA2/wildcard.le.test.pem")" "600"
 
+# --- nothing servable (datastore unavailable, admin dir empty): no prune -------
+# shellcheck disable=SC2329
+err() { echo "$*" >> "$TMP/errs3"; }
+HA3="$TMP/ha3"; mkdir -p "$HA3" "$TMP/empty/cert"
+echo "old" > "$HA3/still.served.pem"
+SC_DATASTORE_DIR="$TMP/empty" SC_ADMIN_CERT_DIR="$TMP/empty/admin" sync_haproxy_certificates "$HA3"
+ok "empty desired set: served certs kept"    "$([[ -f $HA3/still.served.pem ]] && echo yes || echo no)" "yes"
+ok "empty desired set: error logged"         "$(grep -c 'No servable certificate' "$TMP/errs3")" "1"
+
 echo ""
 echo "certselect.test: $pass passed, $fail failed"
 exit $(( fail > 0 ? 1 : 0 ))

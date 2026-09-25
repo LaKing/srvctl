@@ -61,6 +61,9 @@ backup_ve "$C"
 
 del container "$C"
 
+# Stop publishing this container's certificate at the next HAProxy sync.
+rm -f -- "${SC_DATASTORE_DIR:?}/cert/$C.pem"
+
 rm -fr /var/srvctl3/storage/static/"$C"
 
 ## https://www.cyberciti.biz/tips/nfs-stale-file-handle-error-and-solution.html

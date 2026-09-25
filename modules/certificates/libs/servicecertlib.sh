@@ -150,10 +150,10 @@ function install_service_hostcertificate() { ## path
         
     else
         err "ERROR Could not locate a certificate for $path"
-        ## FIXME(v4): bare 'exit' exits with the status of err (0), so this
-        ## hard failure terminates the srvctl run with exit code 0, masking
-        ## the error from update-install wrappers and cron.
-        exit
+        ## return, not exit: this runs in the postfix/perdition regenerate
+        ## hooks, where a bare exit ended the whole run with status 0 and
+        ## silently skipped every later hook
+        return 1
     fi
     
     if [[ -f $path/ca-bundle.pem ]]
