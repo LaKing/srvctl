@@ -12,6 +12,13 @@
 : "${SC_COMOUNT_STORAGE:=/var/srvctl3/comount}"
 : "${SC_COMOUNT_UNIT_DIR:=/etc/systemd/system}"
 
+## Sources are reached only through root-made mounts, so host users need no
+## access to the storage tree; 0700 keeps them from reading other sites' data.
+function comount_secure_storage {
+    [[ -d $SC_COMOUNT_STORAGE ]] || return 0
+    chown root:root "$SC_COMOUNT_STORAGE" && chmod 0700 "$SC_COMOUNT_STORAGE"
+}
+
 function comount_valid_name {
     [[ $1 =~ ^[a-zA-Z0-9][a-zA-Z0-9_.-]*$ && $1 != *..* ]]
 }
@@ -367,6 +374,7 @@ function add_comount_to_containers {
     done
     msg "Assign $source and its files to $account ($SC_COMOUNT_SOURCE_UID:$SC_COMOUNT_SOURCE_GID)"
     run mkdir -p "$source" || return $?
+    comount_secure_storage || return $?
     run chown -hR "$SC_COMOUNT_SOURCE_UID:$SC_COMOUNT_SOURCE_GID" "$source" || return $?
     find "$source" -xdev -type d -exec chmod u+rwx {} + || return $?
     find "$source" -xdev -type f -exec chmod u+rw {} + || return $?
@@ -415,6 +423,7 @@ function remove_comount {
 
 function regenerate_comounts {
     local C containers host names name
+    comount_secure_storage || return $?
     containers="$(get cluster container_list)" || return $?
     for C in $containers
     do

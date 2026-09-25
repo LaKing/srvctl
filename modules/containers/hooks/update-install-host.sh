@@ -33,9 +33,7 @@ create_srvctl_nspawn_service
 run systemctl enable machines.target
 
 mkdir -p /var/srvctl3/share/containers
-## FIXME(v4): 'chown 750' uses a mode as owner — the directory ends up
-## owned by nonexistent UID 750 instead of being chmod'ed 750.
-chown 750 /var/srvctl3/share/containers
+secure_share_containers
 
 mkdir -p /var/srvctl3/share/common
 mkdir -p /var/srvctl3/share/lock

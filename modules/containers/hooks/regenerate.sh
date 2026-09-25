@@ -15,6 +15,7 @@
 check_container_directories
 check_container_database
 check_container_ownership
+secure_share_containers
 
 regenerate_etc_hosts
 

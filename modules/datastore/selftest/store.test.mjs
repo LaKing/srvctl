@@ -64,6 +64,66 @@ test("on-disk file is human-readable 2-space JSON with trailing newline", (dir) 
 
 // ---- validation -----------------------------------------------------------
 
+test("public inventory stays readable through writes and transactions under umask 077", (dir) => {
+  const previous = process.umask(0o077);
+  const mode = (file) => fs.statSync(file).mode & 0o777;
+  try {
+    const s = createStore(dir, { git: false });
+    for (const type of ["hosts", "users", "containers"]) {
+      const file = path.join(dir, type, "sample.json");
+      s.write(type, "sample", { generation: 1 });
+      assert.equal(mode(dir), 0o755);
+      assert.equal(mode(path.dirname(file)), 0o755);
+      assert.equal(mode(file), 0o644);
+      // Simulate a record left by the old writer, and private key material
+      // alongside the inventory. Only the inventory may become public.
+      fs.chmodSync(file, 0o600);
+      const privateDir = path.join(dir, type, "sample");
+      fs.mkdirSync(privateDir, { mode: 0o700 });
+      const key = path.join(privateDir, "private.key");
+      fs.writeFileSync(key, "secret", { mode: 0o600 });
+      s.transaction("update inventory", (tx) => {
+        tx.write(type, "sample", { generation: 2 });
+        tx.write(type, "new", { generation: 1 });
+      });
+      assert.equal(mode(file), 0o644);
+      s.write(type, "sample", { generation: 3 });
+      assert.equal(mode(file), 0o644);
+      assert.equal(mode(path.join(dir, type, "new.json")), 0o644);
+      assert.equal(mode(privateDir), 0o700);
+      assert.equal(mode(key), 0o600);
+      // When run as root, prove another uid can actually traverse and read.
+      if (process.getuid?.() === 0) {
+        const raw = execFileSync(process.execPath,
+          ["-e", "process.stdout.write(require('fs').readFileSync(process.argv[1]))", file],
+          { uid: 65534, gid: 65534, encoding: "utf8" });
+        assert.equal(JSON.parse(raw).generation, 3);
+      }
+    }
+    s.write("secrets", "sample", { secret: true });
+    assert.equal(mode(path.join(dir, "secrets/sample.json")), 0o600);
+  } finally {
+    process.umask(previous);
+  }
+});
+
+test("migration publishes readable records under umask 077", (dir) => {
+  const previous = process.umask(0o077);
+  try {
+    for (const type of ["hosts", "users", "containers"]) {
+      fs.writeFileSync(path.join(dir, `${type}.json`), JSON.stringify({ sample: {} }));
+    }
+    const dst = path.join(dir, "store");
+    migrateToPerEntity(dir, createStore(dst, { git: false }));
+    for (const type of ["hosts", "users", "containers"]) {
+      assert.equal(fs.statSync(path.join(dst, type, "sample.json")).mode & 0o777, 0o644);
+      assert.equal(fs.statSync(path.join(dst, type)).mode & 0o777, 0o755);
+    }
+  } finally {
+    process.umask(previous);
+  }
+});
+
 test("validator rejects a bad record and preserves the old file", (dir) => {
   const validators = {
     users: (rec) => {

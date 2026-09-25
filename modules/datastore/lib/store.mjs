@@ -26,6 +26,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
+import permissions from "./permissions.js";
 
 const LOCK_STALE_MS = 30_000; // a lock older than this is considered abandoned
 const LOCK_WAIT_MS = 10_000; // how long to wait for a contended lock
@@ -69,7 +70,7 @@ function serialize(record) {
 
 // Write `data` to `target` atomically: temp in the same dir, fsync the file,
 // rename over target, fsync the directory so the rename is durable.
-function atomicWrite(target, data) {
+function atomicWrite(target, data, mode) {
   const dir = path.dirname(target);
   fs.mkdirSync(dir, { recursive: true });
   // Unique temp name in the SAME directory (rename is only atomic within a fs).
@@ -79,6 +80,9 @@ function atomicWrite(target, data) {
   try {
     fd = fs.openSync(tmp, "wx", 0o600);
     fs.writeSync(fd, data);
+    // Publish a complete record with its final permissions, even under umask
+    // 077. Renaming a 0600 temporary over a 0644 record loses reader access.
+    fs.fchmodSync(fd, mode);
     fs.fsyncSync(fd);
     fs.closeSync(fd);
     fd = undefined;
@@ -300,7 +304,8 @@ export function createStore(rootDir, options = {}) {
     acquireLock();
     try {
       validate(type, record, id);
-      atomicWrite(filePath(type, id), serialize(record));
+      permissions.prepareTypeDirectory(root, type);
+      atomicWrite(filePath(type, id), serialize(record), permissions.recordMode(type));
       gitCommit(`write ${type}/${id}`);
     } finally {
       releaseLock();
@@ -397,7 +402,8 @@ export function createStore(rootDir, options = {}) {
       }
       for (const [k, data] of writes) {
         const [type, id] = splitKey(k);
-        atomicWrite(filePath(type, id), data);
+        permissions.prepareTypeDirectory(root, type);
+        atomicWrite(filePath(type, id), data, permissions.recordMode(type));
       }
       gitCommit(message);
       return result;

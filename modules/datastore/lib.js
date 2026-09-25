@@ -70,6 +70,7 @@ var fs = require("fs");
 var path = require("path");
 var spawnSync = require("child_process").spawnSync;
 var hostTopology = require("./lib/host-topology.js");
+var permissions = require("./lib/permissions.js");
 
 function return_error(msg) {
     console.error("LIB-ERROR:", msg);
@@ -193,10 +194,11 @@ function save_type(type, map) {
         return;
     }
 
-    var dir = process.env.SC_DATASTORE_DIR + "/" + type;
-    try { fs.mkdirSync(dir, { recursive: true }); } catch (e) { if (e.code !== "EEXIST") throw e; }
+    var dir = permissions.prepareTypeDirectory(process.env.SC_DATASTORE_DIR, type);
     Object.keys(map).forEach(function (id) {
-        fs.writeFileSync(dir + "/" + id + ".json", JSON.stringify(map[id], null, 2) + "\n");
+        var file = dir + "/" + id + ".json";
+        fs.writeFileSync(file, JSON.stringify(map[id], null, 2) + "\n");
+        fs.chmodSync(file, permissions.recordMode(type));
     });
 }
 exports.save_type = save_type;
