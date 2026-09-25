@@ -26,7 +26,7 @@ detect() {
   echo everyone
 }
 
-# module/command : expected class  (WP-E.2.b agreed classification — ALL 38)
+# module/command : expected class  (WP-E.2.b agreed classification — ALL 39)
 declare -A MANIFEST=(
   # owner_only — resource-scoped (root or the resource owner)
   [containers/destroy-ve]=owner_only     [containers/remove-ve]=owner_only
@@ -37,7 +37,7 @@ declare -A MANIFEST=(
   # operators_only — provisioning + co-worker host tasks (root or operator)
   [containers/add-ve]=operators_only     [containers/add-network-ve]=operators_only
   [codepad/add-codepad]=operators_only   [saslauthd/testsaslauthd]=operators_only
-  [saslauthd/fix-saslauthd]=operators_only
+  [saslauthd/fix-saslauthd]=operators_only [containers/limit-ve]=operators_only
   # root_only — host/cluster admin, code, host maintenance
   [srvctl/update-install]=root_only      [usersonhost/add-reseller]=root_only
   [containers/regenerate]=root_only      [srvctl/customize]=root_only

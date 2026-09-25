@@ -5,9 +5,11 @@
 ##   enforcement.
 ##
 ##   Called from hooks/regenerate.sh only for the '#cron.hourly' ARG.
-##   Records each local container's du (KB) in the datastore and
+##   Records each local container's rootfs du (KB) in the datastore and
 ##   stops+disables containers exceeding their 'quota' key (datastore
-##   default 250000000 KB).
+##   default 250000000 KB). Only /srv/$C/rootfs is measured: the rest of
+##   /srv/$C holds host-side config, and host mounts such as comount's
+##   /srv/$C/comount/NAME would otherwise count shared data per member.
 ##
 
 ## FIXME(v4): dead — nothing reads SIZE_LIMIT; it duplicates the
@@ -26,9 +28,9 @@ function all_containers_quota_check() {
 
     for C in $list
     do
-        if [[ -d /srv/$C ]]
+        if [[ -d /srv/$C/rootfs ]]
         then
-        	size="$(du -s /srv/"$C" | awk '{print $1;}')"
+        	size="$(du -s /srv/"$C"/rootfs | awk '{print $1;}')"
 
             msg "$C $size"
 

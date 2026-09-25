@@ -47,6 +47,7 @@ owner_only container "$ARG"
 C="$ARG"
 
 rm -fr /etc/systemd/system/machines.target.wants/srvctl-nspawn@"$C".service
+rm -f "$(container_limits_dropin "$C")"
 
 ## legacy per-container unit from srvctl v2
 if [[ -f /etc/srvctl/containers/$C.service ]]

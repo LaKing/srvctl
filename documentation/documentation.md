@@ -1012,7 +1012,7 @@ Each container record (`$SC_DATASTORE_DIR/containers/<name>.json`) has:
 | `interface` | Network interface — optional override; otherwise derived from the IP octets |
 | `http_port` | HTTP port (default 80) |
 | `https_port` | HTTPS port (default 443) |
-| `quota` | Disk quota in 1K blocks, compared against `du -s /srv/<name>` (default 250000000, i.e. roughly 250 GB) |
+| `quota` | Disk quota in 1K blocks, compared against `du -s /srv/<name>/rootfs` (default 250000000, i.e. roughly 250 GB) |
 | `du` | Last measured size in 1K blocks, written by the hourly quota check |
 | `mapped_ports` | Array of port mappings: `{proto, comment, container_port, user, timestamp, host_port}` |
 | `users` | Array of usernames with access |
@@ -1309,6 +1309,8 @@ By default srvctl manages the container network itself. The generated nspawn fil
 | Device policy | Closed (whitelist) |
 | Allowed devices | `/dev/net/tun` rwm, `char-pts` rw, `/dev/loop-control` rw, `block-loop` rw, `block-blkext` rw, `/dev/mapper/control` rw, `block-device-mapper` rw |
 
+**Per-container overrides.** Operators set CPU and memory limits for one container with `sc limit-ve VE [cpu=400%] [memory=8G] [memory-high=4G]`; `default` removes an override and no settings prints the current values. They are stored as the optional container fields `cpu_quota`, `memory_max` and `memory_high`. `apply_container_limits` (`libs/limitslib.sh`) turns them into the drop-in `/etc/systemd/system/srvctl-nspawn@C.service.d/50-srvctl-limits.conf` (removed when no field is set) and updates a running unit with `systemctl set-property --runtime`, so no restart is needed. The `regenerate` hook reapplies them for every local container, so limits follow a container between hosts. `remove-ve` deletes the drop-in. Unset fields keep the template values above.
+
 **Per-user slice — never applied.** `create_userslice_config` (`libs/systemlib.sh`) would write `/etc/systemd/system/user-.slice.d/50-srvctl.conf` with `CPUQuota=400%`, `MemoryMax=16G` and `MemoryHigh=8G`, but the function is dead code with no callers, so the drop-in is never created. Its 400% also contradicts the unit's 800%.
 
 **System-wide (`srvctl-sysctl.conf`)** — installed to `/etc/sysctl.d/` by the `update-install-host` hook:
@@ -1330,7 +1332,7 @@ A `kernel.pid_max=4194304` line is present but commented out. Note that every `r
 | Open files (`nofile`, soft and hard, for `*` and `root`) | 1048576 |
 | Locked memory (`memlock`, soft and hard, for `*`) | Unlimited |
 
-**Disk quota enforcement:** `all_containers_quota_check()` runs hourly — `hooks/regenerate.sh` calls it only when `ARG` is the literal `#cron.hourly`, which is exactly what `/etc/cron.hourly/srvctl-regenerate.sh` passes. It stores each container's `du -s /srv/<container>` (1K blocks) in the datastore and, when that exceeds the container's `quota` key, disables and stops `srvctl-nspawn@<container>`. The datastore default is `250000000` — 250,000,000 blocks, i.e. roughly 250 GB, not 250 MB. If the quota lookup returns nothing the arithmetic compares against 0 and a healthy container is stopped (FIXME in `libs/all_containers_quota_check.sh`).
+**Disk quota enforcement:** `all_containers_quota_check()` runs hourly — `hooks/regenerate.sh` calls it only when `ARG` is the literal `#cron.hourly`, which is exactly what `/etc/cron.hourly/srvctl-regenerate.sh` passes. It stores each container's `du -s /srv/<container>/rootfs` (1K blocks; the rest of `/srv/<container>`, including comount mounts under `comount/`, is not counted) in the datastore and, when that exceeds the container's `quota` key, disables and stops `srvctl-nspawn@<container>`. The datastore default is `250000000` — 250,000,000 blocks, i.e. roughly 250 GB, not 250 MB. If the quota lookup returns nothing the arithmetic compares against 0 and a healthy container is stopped (FIXME in `libs/all_containers_quota_check.sh`).
 
 ### Container Commands
 
