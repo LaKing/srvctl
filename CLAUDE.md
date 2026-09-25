@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-srvctl (v4 — the `version` file says `4.0.0.8`, branch `v4`) is a container farm manager for microsite hosting on Fedora servers. It uses **systemd-nspawn** containers and is written in **bash** and **JavaScript/Node.js**.
+srvctl (v4 — the `version` file says `4.0.0.12`; `master` is the one and only branch, and git mirrors the live file tree that production copies from) is a container farm manager for microsite hosting on Fedora servers. It uses **systemd-nspawn** containers and is written in **bash** and **JavaScript/Node.js**.
 The CLI is invoked as `srvctl` or `sc`; both are symlinks to `srvctl.sh`.
 srvctl is deployed across many production servers.
 
