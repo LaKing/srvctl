@@ -147,6 +147,15 @@ function check_container_ownership() {
     done
 }
 
+## share/containers/<C>/users holds users' .password/.hash copies. nspawn
+## binds each <C> into its own container as root, so host users need no
+## access to the parent; keep it root-only.
+function secure_share_containers() { ## [share-dir]
+    local D="${1:-/var/srvctl3/share/containers}"
+    [[ -d $D && ! -L $D ]] || return 0
+    chown root:root "$D" && chmod 0700 "$D"
+}
+
 function restore_uids() { ## C
     local C
     C="$1"

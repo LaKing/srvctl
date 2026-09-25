@@ -27,7 +27,7 @@ create_srvctl_nspawn_service
 run systemctl enable machines.target
 
 mkdir -p /var/srvctl3/share/containers
-chown 750 /var/srvctl3/share/containers
+secure_share_containers
 
 mkdir -p /var/srvctl3/share/common
 mkdir -p /var/srvctl3/share/lock
