@@ -25,10 +25,8 @@ argument container-name
 C="$ARG"
 username="${OPA,,}"
 
-## FIXME(v4): unanchored regex — =~ matches a substring, so any name
-## containing one lowercase letter passes (e.g. 'A!b'); anchor with ^...$
-## to actually enforce the 2-30 char pattern.
-if ! [[ "$username" =~ (([a-z]|[a-z_][a-z0-9_]{2,30})) ]]
+## anchored: =~ matches a substring, so without ^...$ any name containing one valid run would pass
+if ! [[ "$username" =~ ^([a-z]|[a-z_][a-z0-9_]{2,30})$ ]]
 then
     err "Invalid username: $username"
     exit 22

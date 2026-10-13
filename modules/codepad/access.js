@@ -8,8 +8,9 @@
 
     Run by configure_codepad_access (this module's regenerate hook) as
     /bin/node access.js. For every container in the datastore, copies each
-    authorized user's files matching *.hash, *.password and *.ip (in practice
-    the dotfiles .hash/.password/.ip written by the usersonhost module) from
+    authorized user's files matching *.hash and *.ip (in practice the
+    dotfiles .hash/.ip written by the usersonhost module; never .password, of
+    which only its SHA-512 is published, as .srvctl.hash) from
     $SC_DATASTORE_DIR/users/<u>/ into
     /var/srvctl3/share/containers/<c>/users/<u>/, which is bind-mounted
     read-only into the container so the in-container codepad server can
@@ -41,6 +42,7 @@ const rok = require(lablib).rok;
 
 // includes
 var fs = require('fs');
+var crypto = require('crypto');
 var datastore = require('../datastore/lib.js');
 const execSync = require('child_process').execSync;
 
@@ -132,16 +134,25 @@ function copy_access_keys(c,u) {
         }
     }
     
-    // FIXME(v4): high — this copies the user's PLAINTEXT .password file
-    // (also the user's host login password) into a share readable by every
-    // process inside the container; the .hash alone would suffice for
-    // codepad auth.
-    var password;
-    for (i = 0; i < files.length; i++) { 
-        if (files[i].split('.')[1] === 'password') {
-            password = fs.readFileSync(SC_DATASTORE_DIR + "/users/" + u + "/" + files[i]);
-            fs.writeFileSync(dir + '/' + files[i], password);
-        }
+    // The plaintext .password (also the user's host login password) is never
+    // published: the share is readable by every process inside the container.
+    // It stays in the root-only datastore. A copy left by an earlier version is
+    // removed, because codepad reads .password BEFORE .hash and refuses the
+    // login when one exists but cannot be read.
+    for (i = 0; i < files.length; i++) {
+        if (files[i].split('.')[1] === 'password' && fs.existsSync(dir + '/' + files[i])) fs.unlinkSync(dir + '/' + files[i]);
+    }
+
+    // What IS published of it is its SHA-512 hex as .srvctl.hash: the srvctl
+    // login is what haproxy basic auth admits, so a service behind it (devpanel
+    // proxy-user.mjs) can verify that same login. It is NOT .hash: that is the
+    // codepad credential, which may be a different password the user set for
+    // codepad, and both stay valid. Derived from .password on every run, so it
+    // cannot drift from what haproxy checks.
+    var passfile = SC_DATASTORE_DIR + "/users/" + u + "/.password";
+    if (fs.existsSync(passfile)) {
+        var login = fs.readFileSync(passfile, 'utf8').trim();
+        if (login) fs.writeFileSync(dir + '/.srvctl.hash', crypto.createHash('sha512').update(login, 'utf8').digest('hex'));
     }
   
     var ip;

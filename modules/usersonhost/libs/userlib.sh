@@ -63,6 +63,8 @@ function crate_user_password() { ## user
             password="$(new_password)"
             echo "$password" > "$passfile"
         fi
+        ## root-only: haproxy basicauth.js reads it as root, nothing else may
+        chmod 0600 "$passfile"
 
         #msg "Password-update for $user $password"
         echo "$password" | passwd "$user" --stdin 2> /dev/null 1> /dev/null

@@ -182,9 +182,9 @@ modules are available whenever this module is active.
   is invoked from two modules' update-install hooks; ca/gluster/openvpn each re-implement
   "root_CA_init + sign server cert" using this module's ext file — a v4 cert authority service should own
   that surface.
-- The commented-out `/root/crt.pem` import block (hooks/update-install-host.sh:10-31) and the unused
-  `ssl_cab` computation (domaincertlib.sh:86-91) are dead weight; decide intentionally whether root-import
-  is a wanted feature before deleting.
+- The commented-out `/root/crt.pem` import block (hooks/update-install-host.sh:10-31) is dead weight;
+  decide intentionally whether root-import is a wanted feature before deleting. (The unused `ssl_cab`
+  computation in domaincertlib.sh was removed: self-signed pems carry no CA bundle.)
 - Self-signed generation can drop the encrypt-then-strip passphrase dance entirely
   (domaincertlib.sh:184-194): generate an unencrypted key directly (`openssl genrsa` without `-des3`, or
   `crypto.generateKeyPairSync`), eliminating the password module dependency and the argv/config.txt leaks.

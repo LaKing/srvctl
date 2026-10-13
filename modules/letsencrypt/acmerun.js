@@ -733,8 +733,9 @@ class AcmeRun {
         const certs = fs.statSync(path.join(pki, "certs"));
         atomicWrite(path.join(pki, "private/localhost.key"), parts.privkey, 0o600, priv);
         atomicWrite(path.join(pki, "certs/localhost.crt"), parts.fullchain, 0o644, certs);
-        atomicWrite(path.join(pki, "certs", name + ".pem"), text, 0o600, certs);
-        atomicWrite(path.join(pki, "certs/localhost.pem"), text, 0o600, certs);
+        // the key lives only in private/; the certs copies carry the fullchain
+        atomicWrite(path.join(pki, "certs", name + ".pem"), parts.fullchain, 0o644, certs);
+        atomicWrite(path.join(pki, "certs/localhost.pem"), parts.fullchain, 0o644, certs);
     }
 
     // The one wildcard rule for every served domain, after installs.

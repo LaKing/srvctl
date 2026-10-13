@@ -92,7 +92,7 @@ function out {
     echo "$__result"
 }
 
-## run an internal mutating function: cfg container C update_ip|add_mapped_port ...
+## run an internal mutating function: cfg container C update_ip|add_mapped_port|add_alias|remove_alias ...
 function cfg {
 
     local __result

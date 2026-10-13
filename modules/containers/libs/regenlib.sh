@@ -440,7 +440,7 @@ function check_container_pki_ownership() { ## [srv-root]
     done
 }
 
-## share/containers/<C>/users holds users' .password/.hash copies. nspawn
+## share/containers/<C>/users holds users' .hash copies (never .password). nspawn
 ## binds each <C> into its own container as root, so host users need no
 ## access to the parent; keep it root-only.
 function secure_share_containers() { ## [share-dir]

@@ -22,7 +22,7 @@ import assert from "node:assert/strict";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
 import {
-  newUser, newReseller, newContainer, containerUpdateIp, containerAddMappedPort,
+  newUser, newReseller, newContainer, containerUpdateIp, containerAddMappedPort, containerAddAlias, containerRemoveAlias, MutatorError,
 } from "../lib/mutators.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -146,6 +146,22 @@ function captureV3Golden() {
   try { containerAddMappedPort(freshState(), "site.example.com", { proto: "tcp", container_port: 99999, comment: "x", SC_USER: "root", NOW }); }
   catch { threw = true; }
   check("add_mapped_port invalid throws", threw, true);
+}
+
+// aliases: v4 only (v3 had no writer), so checked against fixed expectations.
+{
+  const throws = (fn) => { try { fn(); return false; } catch (e) { return e instanceof MutatorError; } };
+  const st = { containers: { "a.hu": { aliases: ["old.hu"] }, "b.hu": { altnames: ["alt.hu"] } } };
+  check("add_alias appends", containerAddAlias(st, "a.hu", "new.hu"), ["old.hu", "new.hu"]);
+  check("add_alias first", containerAddAlias(st, "b.hu", "new.hu"), ["new.hu"]);
+  check("add_alias refuses a container name", throws(() => containerAddAlias(st, "a.hu", "b.hu")), true);
+  check("add_alias refuses an existing alias", throws(() => containerAddAlias(st, "b.hu", "old.hu")), true);
+  check("add_alias refuses an altname", throws(() => containerAddAlias(st, "a.hu", "alt.hu")), true);
+  check("add_alias refuses www.", throws(() => containerAddAlias(st, "a.hu", "www.new.hu")), true);
+  check("add_alias refuses junk", throws(() => containerAddAlias(st, "a.hu", "x hu; rm")), true);
+  check("add_alias refuses a bare label", throws(() => containerAddAlias(st, "a.hu", "localhost")), true);
+  check("remove_alias last drops the key", containerRemoveAlias(st, "a.hu", "old.hu"), undefined);
+  check("remove_alias unknown throws", throws(() => containerRemoveAlias(st, "a.hu", "nope.hu")), true);
 }
 
 console.log(`mutators.test: ${passed} passed, ${failures.length} failed`);

@@ -56,7 +56,10 @@ Mounts follow container stop/restart jobs and stop when no active unit needs
 them. Unchanged configuration does not restart containers; changed configuration
 restarts targets that were already running. Stopped containers remain stopped.
 The datastore UID allocation and rootfs passwd file support offline setup;
-rootfs ownership must match the allocated UID offset.
+rootfs ownership must match the allocated UID offset. Regeneration defers a
+container whose rootfs is missing (the containers hook provisions it later in
+the same run) or still `0:0` (shifted only at its first start), reports it, and
+continues; a later regenerate, such as the hourly cron run, applies its comounts.
 
 `remove-comount NAME CONTAINER` removes only that membership and its generated
 files. Source files and other memberships remain. Clearing a `comount-NAME`

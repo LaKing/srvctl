@@ -33,6 +33,8 @@ function out(msg) {
 
 // includes
 const fs = require("fs");
+const crypto = require("crypto");
+const child_process = require("child_process");
 const datastore = require("../datastore/lib.js");
 const password_lib = require("../password/lib.js");
 
@@ -96,10 +98,22 @@ var container = "";
 //if (DAT === 'user') user = ARG;
 
 // a js based implementation
+// Two credentials, deliberately separate: the datastore .password is the srvctl login
+// (host account, haproxy basic auth), and .hash is the codepad credential, which codepad
+// may also set from a password of the user's own (verifyCredentials consumes a .password
+// into .hash). So .hash follows .password only when srvctl itself sets a new password, or
+// when there is none yet; otherwise it is left alone. What publishes the srvctl login to
+// a container as a hash is codepad/access.js (`.srvctl.hash`).
+// The password never reaches a command line or a log: passwd reads it on stdin and the
+// digest is computed here, not by `echo | openssl` in a shell.
 function crate_user_password(user) {
     var userdata = SC_DATASTORE_DIR + "/users/" + user;
     var passfile = userdata + "/.password";
+    var hashfile = userdata + "/.hash";
     var userpass = "/home/" + user + "/.password";
+    var sha512 = function (text) {
+        return crypto.createHash("sha512").update(text, "utf8").digest("hex");
+    };
 
     var password;
     var passwork;
@@ -109,28 +123,22 @@ function crate_user_password(user) {
     if (password === undefined) password = password_lib.get_password();
 
     if (password !== passwork) {
-        if (passwork === undefined) passwork = password;
-        // FIXME(v4): [high] plaintext password disclosure — this msg() and
-        // the run() banner below both print the password to stdout (and any
-        // srvctl log) on every password change; the bash twin of this line
-        // (userlib.sh crate_user_password) is commented out, only this JS
-        // path leaks. Behavior-preserving tonight, must be silenced in v4.
-        msg("Password-update for user: " + user + " password: " + password);
-        run("echo " + password + " | passwd " + user + " --stdin 2> /dev/null 1> /dev/null");
-
-        //if (!fs.existsSync(passfile))
-        fs.writeFileSync(passfile, password);
-        //if (!fs.existsSync(userpass))
+        msg("Password-update for user: " + user);
+        try {
+            child_process.execFileSync("passwd", [user, "--stdin"], { input: password + "\n", stdio: ["pipe", "ignore", "ignore"] });
+        } catch (e) {
+            err("passwd failed for " + user);
+        }
+        // Root-only: haproxy.js (basicauth.js) reads it as root, nothing else may.
+        fs.writeFileSync(passfile, password, { mode: 0o600 });
         fs.writeFileSync(userpass, password);
-
-        run("echo -n $(echo -n " + password + " | openssl dgst -sha512 | cut -d ' ' -f 2) > " + userdata + "/.hash");
+        fs.writeFileSync(hashfile, sha512(password));
     }
 
-    if (!fs.existsSync(userdata + "/.hash")) {
+    // Also for a file written before this was enforced.
+    if (fs.existsSync(passfile)) fs.chmodSync(passfile, 0o600);
 
-        run("echo -n $(echo -n " + password + " | openssl dgst -sha512 | cut -d ' ' -f 2) > " + userdata + "/.hash");
-    }
-    //run("echo " + password + " > $(getent passwd " + user + " | cut -f6 -d:)/.password");
+    if (!fs.existsSync(hashfile)) fs.writeFileSync(hashfile, sha512(password));
 }
 
 function create_user_ssh(user) {

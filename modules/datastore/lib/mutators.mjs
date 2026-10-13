@@ -172,3 +172,32 @@ export function containerAddMappedPort(state, C, { proto, container_port, commen
   o.host_port = port;
   return o;
 }
+
+// ---- aliases ---------------------------------------------------------------
+
+// Alias domain: lowercase, at least two labels, no "www." (haproxy.js and
+// container_domains add the www. variant themselves).
+const DOMAIN_RE = /^(?!-)[a-z0-9-]{1,63}(\.(?!-)[a-z0-9-]{1,63})+$/;
+
+// containerAddAlias: the new aliases array of C. A domain already used as any
+// container's name, alias or altname is refused: haproxy would render a redirect
+// and a backend ACL for the same host, and certificates would be requested twice.
+export function containerAddAlias(state, C, domain) {
+  const { containers } = state;
+  if (!DOMAIN_RE.test(domain || "")) throw new MutatorError("invalid alias domain: " + domain);
+  if (domain.startsWith("www.")) throw new MutatorError("alias without www., the www. variant is added automatically");
+  Object.keys(containers).forEach(function (i) {
+    const used = [i].concat(containers[i].aliases || [], containers[i].altnames || []);
+    if (used.includes(domain)) throw new MutatorError(domain + " is already used by " + i);
+  });
+  return (containers[C].aliases || []).concat([domain]);
+}
+
+// containerRemoveAlias: the remaining aliases of C, or undefined when none is
+// left (the key is then deleted, as an absent key is the no-alias state).
+export function containerRemoveAlias(state, C, domain) {
+  const aliases = state.containers[C].aliases || [];
+  if (!aliases.includes(domain)) throw new MutatorError(C + " has no alias " + domain);
+  const rest = aliases.filter((a) => a !== domain);
+  return rest.length ? rest : undefined;
+}

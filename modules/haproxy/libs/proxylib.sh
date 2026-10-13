@@ -44,12 +44,22 @@ function regenerate_haproxy_conf {
     ## static ve-host-certificates with priority from etc
     ## container certificates from gluster share
 
-    local sccert_dir
+    local sccert_dir ds_dir
+    local -a ds_skipped=()
 
-    ## FIXME(v4): SC_DATASTORE_DIR may resolve to the read-only gluster dir,
-    ## an inconsistent pair with the hardcoded rw path below.
-    mkdir -p "$SC_DATASTORE_DIR/cert"
-    mkdir -p "$SC_DATASTORE_DIR/pki-validation"
+    ## SC_DATASTORE_DIR is the read-only gluster copy while SC_DATASTORE_RO_USE
+    ## stays true (datastore hooks/init.sh: only when the gluster mount fails),
+    ## so its dirs may not be writable. Read-only operation is supported: each
+    ## dir that cannot be created or written is skipped, one err names the
+    ## resolved paths, and what is there is still served.
+    for ds_dir in "$SC_DATASTORE_DIR/cert" "$SC_DATASTORE_DIR/pki-validation"
+    do
+        mkdir -p "$ds_dir" 2> /dev/null && [[ -w "$ds_dir" ]] || ds_skipped+=("$ds_dir")
+    done
+    if (( ${#ds_skipped[@]} ))
+    then
+        err "Datastore dir not writable, skipped: ${ds_skipped[*]}"
+    fi
 
     msg "Regenerate haproxy configs."
     ## the haproxy certificates will be loaded from /var/haproxy
@@ -67,7 +77,7 @@ function regenerate_haproxy_conf {
     then
         sync_haproxy_certificates /var/haproxy
     else
-        load_certificate_folder_files /var/srvctl3/datastore/cert
+        load_certificate_folder_files "$SC_DATASTORE_DIR/cert"
         for sccert_dir in /etc/srvctl/cert/*
         do
             load_certificate_folder_files "$sccert_dir"

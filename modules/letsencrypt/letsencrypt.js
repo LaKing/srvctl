@@ -27,11 +27,15 @@
  * Reads:  datastore containers/hosts JSON (datastore/lib.js),
  *         /etc/letsencrypt/live/<lineage>/{cert,fullchain,privkey}.pem,
  *         admin and managed wildcards through wildcardgatelib.sh.
- * Writes: $SC_DATASTORE_DIR/cert/<domain>.pem (privkey+fullchain) and,
- *         when /srv/<domain>/rootfs/etc/pki/tls/{private,certs} exist, the
- *         container's localhost.key / localhost.crt / <domain>.pem /
- *         localhost.pem; appends certbot output to /srv/<name>/
- *         letsencrypt<name>.log or letsencrypt-www.<name>.log.
+ * Writes: $SC_DATASTORE_DIR/cert/<domain>.pem (privkey+fullchain, 0600;
+ *         skipped with an err when that dir is not writable, e.g. the RO
+ *         datastore) and, when /srv/<domain>/rootfs/etc/pki/tls/{private,certs}
+ *         exist, the container's private/localhost.key (0600) and
+ *         certs/localhost.crt / <domain>.pem / localhost.pem (fullchain only;
+ *         pkilib.js); strips legacy private keys from every container's
+ *         certs/<C>.pem and certs/localhost.pem at the start of each run;
+ *         appends certbot output to /srv/<name>/letsencrypt<name>.log or
+ *         letsencrypt-www.<name>.log.
  *
  * Exit codes: 99 preset at load, 0 on completion (per-domain failures are
  * logged but do not change the exit code); the return_value/return_error
@@ -60,6 +64,7 @@ function out(msg) {
 const fs = require("fs");
 const datastore = require("../datastore/lib.js");
 const bundlelib = require("./bundlelib.js");
+const pkilib = require("./pkilib.js");
 const acmerun = require("./acmerun.js");
 const execSync = require("child_process").execSync;
 const https = require("https");
@@ -233,9 +238,12 @@ function check_datastore_cert(domain) {
 }
 
 // Bundle privkey + fullchain into $SC_DATASTORE_DIR/cert/<domain>.pem
-// and, when a container rootfs matches the domain, into its
-// /etc/pki/tls/{private,certs} files. Best-effort: any missing input just
-// logs an err and returns; the caller's exit code stays 0.
+// (0600, HAProxy needs key and certificate in one file) and, when a
+// container rootfs matches the domain, deploy the key to its
+// private/localhost.key (0600) and the fullchain alone to its certs files
+// (pkilib.deployContainer). Best-effort: any missing input or failed write
+// just logs an err, an unwritable datastore cert dir skips only the
+// datastore write; the caller's exit code stays 0.
 // FIXME(v4): per-domain deploy failures are invisible to the caller
 // (process still exits 0) — surface an aggregate non-zero exit code so
 // haproxy regenerate / cron can detect issuance failures.
@@ -259,26 +267,39 @@ function letsencrypt_deploy(domain) {
 
     var pem = bundlelib.composeBundle(privkey, fullchain);
 
-    // the bundle holds the private key: owner-only, also for an existing file
+    // SC_DATASTORE_DIR is the read-only gluster copy while SC_DATASTORE_RO_USE
+    // stays true (datastore init.sh: only when the gluster mount fails), so the
+    // cert dir may not be writable. Read-only operation is supported: skip the
+    // datastore write with an err naming the resolved path and still deploy to
+    // the container below. Latent at this commit — gluster/module-condition.sh
+    // is hard-disabled, so the RW dir is selected — but this check does not
+    // rely on that. The 0600 mode below is a permissions guarantee for the
+    // private key only; it does nothing for a read-only target.
     var datastore_pem = SC_CONTAINERS_CERT_DIR + "/" + domain + ".pem";
-    fs.writeFileSync(datastore_pem, pem, { mode: 0o600 });
-    fs.chmodSync(datastore_pem, 0o600);
+    var datastore_writable = true;
+    try {
+        fs.accessSync(SC_CONTAINERS_CERT_DIR, fs.constants.W_OK);
+    } catch (error) {
+        datastore_writable = false;
+        err("Datastore cert dir not writable (" + error.code + "), " + domain + " bundle not deployed to " + datastore_pem);
+    }
 
-    msg(SC_CONTAINERS_CERT_DIR + "/" + domain + " letsencrypt certificate deployed. " + SC_CONTAINERS_CERT_DIR + "/" + domain + ".pem");
+    if (datastore_writable) {
+        // the bundle holds the private key: owner-only, also for an existing file
+        try {
+            pkilib.writeFile(datastore_pem, pem, 0o600);
+            msg(SC_CONTAINERS_CERT_DIR + "/" + domain + " letsencrypt certificate deployed. " + datastore_pem);
+        } catch (error) {
+            err("Datastore bundle for " + domain + " not written (" + (error.code || error.message) + ") " + datastore_pem);
+        }
+    }
 
     // deploy certificate to container, if the domain name matches the container
-    if (fs.existsSync("/srv/" + domain + "/rootfs/etc/pki/tls/private") && fs.existsSync("/srv/" + domain + "/rootfs/etc/pki/tls/certs")) {
-        // /etc/pki/tls/private/localhost.key
-        fs.writeFileSync("/srv/" + domain + "/rootfs/etc/pki/tls/private/localhost.key", privkey);
-
-        // /etc/pki/tls/certs/localhost.crt
-        fs.writeFileSync("/srv/" + domain + "/rootfs/etc/pki/tls/certs/localhost.crt", fullchain);
-
-        fs.writeFileSync("/srv/" + domain + "/rootfs/etc/pki/tls/certs/" + domain + ".pem", pem);
-        fs.writeFileSync("/srv/" + domain + "/rootfs/etc/pki/tls/certs/localhost.pem", pem);
-
-        msg(domain + " container letsencrypt certificate deployed");
-    }
+    var deployed = pkilib.deployContainer(acme.cfg.srvRoot, domain, privkey, fullchain);
+    deployed.errors.forEach(function (e) {
+        err(domain + " container certificate not deployed to " + e.file + " (" + e.error + ")");
+    });
+    if (deployed.deployed) msg(domain + " container letsencrypt certificate deployed");
 }
 
 // Run 'letsencrypt certonly' (webroot http-01) for one domain, adding
@@ -305,7 +326,9 @@ function run_on_container_domain(name, domain) {
     var cmd =
         "letsencrypt certonly --non-interactive --agree-tos --keep-until-expiring --expand --webroot --webroot-path /var/acme/ -d " +
         domain +
-        " >> /srv/" +
+        " >> " +
+        acme.cfg.srvRoot +
+        "/" +
         name +
         "/letsencrypt" +
         name +
@@ -316,7 +339,9 @@ function run_on_container_domain(name, domain) {
             domain +
             " -d www." +
             domain +
-            " >> /srv/" +
+            " >> " +
+            acme.cfg.srvRoot +
+            "/" +
             name +
             "/letsencrypt-www." +
             name +
@@ -337,7 +362,7 @@ function run_on_container_domain(name, domain) {
     if (!le_dir) return err("No letsencrypt live dir for " + domain + " after certonly");
     var live_cert = "/etc/letsencrypt/live/" + le_dir + "/cert.pem";
     if (!check_checkend(live_cert)) {
-        return err("Letsencrypt cert for " + domain + " is still expired/expiring after certonly — not deploying. Check /srv/" + name + "/letsencrypt*.log");
+        return err("Letsencrypt cert for " + domain + " is still expired/expiring after certonly — not deploying. Check " + acme.cfg.srvRoot + "/" + name + "/letsencrypt*.log");
     }
 
     letsencrypt_deploy(domain);
@@ -453,6 +478,19 @@ function served_domains() {
 }
 
 function main() {
+    // Earlier versions wrote the private key into every deployed container's
+    // certs/<C>.pem and certs/localhost.pem with no mode. Clean every rootfs
+    // here, before the skips below, so containers that never reach
+    // letsencrypt_deploy again are covered too.
+    try {
+        pkilib.sweepContainers(acme.cfg.srvRoot).forEach(function (c) {
+            if (c.action === "error") err("Container TLS cleanup failed for " + c.file + " (" + c.error + ")");
+            else msg("Container TLS cleanup: " + c.action + " " + c.file);
+        });
+    } catch (error) {
+        err("Container TLS cleanup failed: " + error.message);
+    }
+
     var served = served_domains();
     // DNS-01 first: replay (J), primary issuance, pull, handover evaluation,
     // then the gate over every served name. A failure here never stops the

@@ -23,9 +23,8 @@ argument username
 ## local username password home
 username="${ARG,,}"
 
-## FIXME(v4): the regex is unanchored — any input containing one valid run
-## passes (e.g. "bad!name", "-flag"), defeating validation; anchor with ^...$.
-if ! [[ "$username" =~ ([a-z_][a-z0-9_]{0,30}) ]]
+## anchored: =~ matches a substring, so without ^...$ "bad!name" or "-flag" would pass
+if ! [[ "$username" =~ ^[a-z_][a-z0-9_]{0,30}$ ]]
 then
     err "Invalid username: $username"
     exit 22

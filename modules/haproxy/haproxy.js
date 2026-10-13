@@ -23,6 +23,9 @@
    get no use_backend ACLs; datastore keys read per container: aliases,
    altnames, static, proxy_ports, http_port, https_port, and the
    http-redirect/https-redirect keys set by the module's commands.
+   Basic auth: the 'basicauth' container key selects the ports, the access
+   users' datastore .password files the logins (basicauth.js); rendered as a
+   userlist per container and an auth rule in each protected backend.
    The codepad ports (9000/9001/9002, plus the unrendered 24678) are
    proxied to every container whose local rootfs has /var/codepad/codepad4.
    9000 and 24678 additionally keep the legacy -devel name / proxy_ports
@@ -51,6 +54,7 @@ function out(msg) {
 // includes
 var fs = require("fs");
 var datastore = require("../datastore/lib.js");
+var basicauth = require("./basicauth.js");
 
 const CMD = process.argv[2];
 // constants
@@ -113,6 +117,14 @@ for (var j = aa.length - 1; j > 0; j--) {
 }
 
 //containers = datastore.containers;
+
+// basic auth (see basicauth.js); a bad 'basicauth' key throws here, so haproxycfg
+// fails and the previous haproxy.cfg stays.
+var auth = basicauth.build(containers, datastore.users, process.env.SC_DATASTORE_DIR, msg);
+
+function basicauth_rule(c, n) {
+    return basicauth.rule(auth, c, n);
+}
 
 //if (DAT === 'container') container = ARG;
 //if (DAT === 'user') user = ARG;
@@ -484,6 +496,7 @@ function get_backends_for_http() {
     var str = "";
     Object.keys(containers).forEach(function (c) {
         str += br + "backend http:" + c;
+        str += basicauth_rule(c, 80);
         str += br + "    server http:" + c + " " + c + ":" + datastore.container_http_port(c);
         str += br + "";
     });
@@ -507,6 +520,7 @@ function get_backends_for_https() {
         // for https only
         //str += br + '    redirect scheme https if !{ ssl_fc }';
 
+        str += basicauth_rule(c, 443);
         str += br + "    server https:" + c + " " + c + ":" + datastore.container_https_port(c) + " ssl verify none alpn h2,http/1.1";
         str += br + "";
     });
@@ -530,6 +544,7 @@ function get_backends_for_port(n, ssl) {
         str += br + "backend port" + n + ":" + c;
         // for https only
         //str += br + '    redirect scheme https if !{ ssl_fc }';
+        str += basicauth_rule(c, n);
         str += br + "    server port" + n + ":" + c + " " + c + ":" + n;
         if (ssl)
             if (is_codepad_port(n)) str += " ssl verify none";
@@ -560,6 +575,7 @@ cfg += get_frontend_port(9200, true);
 cfg += get_frontend_port(8080, false);
 cfg += get_frontend_port(8443, true);
 
+cfg += basicauth.userlists(auth);
 cfg += get_backends_for_http();
 cfg += get_backends_for_https();
 
@@ -583,10 +599,15 @@ cfg += br + "    server default-server localhost:1282";
 
 cfg += br + "";
 
+// 0600: the cfg carries the basic auth (host login) passwords. haproxy reads it as root before
+// dropping privileges; the mode option only applies on creation, hence the chmod.
 function write_haproxy_cfg() {
-    fs.writeFile("/etc/haproxy/haproxy.cfg", cfg, function (err) {
+    fs.writeFile("/etc/haproxy/haproxy.cfg", cfg, { mode: 0o600 }, function (err) {
         if (err) return_error("WRITEFILE " + err);
-        else msg("wrote haproxy conf");
+        fs.chmod("/etc/haproxy/haproxy.cfg", 0o600, function (err) {
+            if (err) return_error("CHMOD " + err);
+            msg("wrote haproxy conf");
+        });
     });
 }
 

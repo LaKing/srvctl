@@ -21,7 +21,7 @@ import hostTopology from "./lib/host-topology.js";
 import { derivations } from "./lib/derive.mjs";
 import { generators, container_useruids } from "./lib/generators.mjs";
 import {
-  newUser, newReseller, newContainer, containerUpdateIp, containerAddMappedPort, MutatorError,
+  newUser, newReseller, newContainer, containerUpdateIp, containerAddMappedPort, containerAddAlias, containerRemoveAlias, MutatorError,
 } from "./lib/mutators.mjs";
 
 // ---- argv (v3 main.js positions) ------------------------------------------
@@ -249,6 +249,13 @@ function dispatch() {
           msg("Registering " + entry.proto + " port " + entry.host_port + " for " + C + ":" + entry.container_port); // v3 msg (sync)
           txWrite(tx, "containers", C, container, "wrote containers.json");
           return_value(undefined);
+        } else if (OPA === "add_alias" || OPA === "remove_alias") {
+          // aliases is an array, which put cannot write (it stores strings).
+          const state = { containers: st.containers };
+          const aliases = OPA === "add_alias" ? containerAddAlias(state, C, VAL) : containerRemoveAlias(state, C, VAL);
+          if (aliases === undefined) delete container.aliases;
+          else container.aliases = aliases;
+          txWrite(tx, "containers", C, container, "wrote containers.json");
         } else {
           throw new MutatorError("INTERNAL CFG FUNCTION DONT EXISTS");
         }

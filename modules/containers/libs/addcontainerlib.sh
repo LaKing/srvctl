@@ -69,11 +69,7 @@ function add_ve() { ## type name [bridge]
     add_ve_certificate "$C"
 
     ## use a selfsigned certificate temporary
-    ## FIXME(v4): 'run cat X > Y' redirects run's ANSI banner into the
-    ## target file — the pem below and resolved.conf further down each get
-    ## a garbage first line (tolerated by openssl/systemd today, breaks
-    ## strict parsers); use plain cat.
-    run cat "/srv/$C/cert/$C.pem" > "/var/srvctl3/datastore/cert/$C.pem"
+    cat "/srv/$C/cert/$C.pem" > "${SC_DATASTORE_DIR:?}/cert/$C.pem"
 
     setup_index_html "$C" "/srv/$C/rootfs/var/www/html"
     write_ve_postfix_conf "$C"
@@ -81,7 +77,7 @@ function add_ve() { ## type name [bridge]
     ln -s "/usr/lib/systemd/system/httpd.service" "/srv/$C/rootfs/etc/systemd/system/multi-user.target.wants/httpd.service"
 
     ## there is a bug somehwere, this is a hotfix
-    run cat "/usr/local/share/srvctl/modules/containers/conf/resolved.conf" > "/srv/$C/rootfs/etc/systemd/resolved.conf"
+    cat "/usr/local/share/srvctl/modules/containers/conf/resolved.conf" > "/srv/$C/rootfs/etc/systemd/resolved.conf"
 
     run systemctl enable "srvctl-nspawn@$C"
     if run systemctl start "srvctl-nspawn@$C" --no-pager
@@ -108,5 +104,7 @@ function add_ve_certificate() {
         create_selfsigned_domain_certificate "$C" "/srv/$C/cert"
         cat "/srv/$C/cert/$C.crt" > "/srv/$C/rootfs/etc/pki/tls/certs/localhost.crt"
         cat "/srv/$C/cert/$C.key" > "/srv/$C/rootfs/etc/pki/tls/private/localhost.key"
+        ## before the first start: PrivateUsersChown shifts the owner then
+        chmod 600 "/srv/$C/rootfs/etc/pki/tls/private/localhost.key"
     fi
 }

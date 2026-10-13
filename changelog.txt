@@ -8,6 +8,30 @@ notable operational changes are listed here.
 Unreleased (v4, in progress on top of 4.0.0.8)
 ----------------------------------------------
 
+Comount no longer blocks rootfs provisioning (2026-10-13)
+  * `sc regenerate` aborted with "Container C must have a rootfs" when a
+    container with comounts had no rootfs on its host: the comount hook runs
+    before the containers hook that provisions it. Regeneration now defers such
+    a container, and one whose fresh rootfs is still 0:0 before its first
+    start, with a notice; the rest of the run continues and a later regenerate
+    applies the comount.
+
+Plaintext passwords leave the container shares (2026-10-05)
+  * codepad access.js no longer copies a user's .password into
+    /var/srvctl3/share/containers/<C>/users/<u>/ (readable by every process in
+    the container) and deletes a copy left there. It publishes the srvctl login
+    as its SHA-512 hex, .srvctl.hash, derived from .password on every run;
+    .hash stays the separate codepad credential. The datastore .password is
+    chmod 0600 by usersonhost (JS and bash writers), read by root only.
+  * usersonhost no longer puts the password on a command line or in the log:
+    passwd reads it on stdin, the .hash digest is computed in Node rather than
+    by `echo | openssl`, and "Password-update" names only the user.
+
+Username validation is anchored
+  * add-user (host and VE), add-reseller, add-ve-user and add-vnc-user match
+    the whole name (^...$). Before, any input containing one valid run passed,
+    e.g. "a b!" or "x;rm"; add-vnc-user's value reaches a root-sourced file.
+
 Comount — shared writable directories across nspawn UID namespaces
   * New host-only comount module: add-codepad-comount-to-containers and
     add-root-comount-to-containers take PATH CONTAINER... with PATH inside the

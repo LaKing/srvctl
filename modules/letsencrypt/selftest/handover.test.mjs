@@ -187,7 +187,11 @@ function mode(file) {
     eq(sha256(fs.readFileSync(path.join(w.ds, "cert/wildcard/a.test.pem"))), idx["a.test"].sha256, "installed from the bundle");
     eq(fs.readFileSync(path.join(w.ds, "cert/a.test.pem"), "utf8"), perDomain, "per-domain datastore cert byte-identical");
     eq(r.out.suppressed, { "a.test": true, "www.a.test": true, "b.test": true }, "gate closes for covered names");
-    ok(fs.readFileSync(path.join(pki, "certs/a.test.pem"), "utf8").includes("PRIVATE KEY"), "rootfs deployed (later expiry)");
+    ok(fs.readFileSync(path.join(pki, "certs/a.test.pem"), "utf8").includes("BEGIN CERTIFICATE"), "rootfs deployed (later expiry)");
+    ok(!fs.readFileSync(path.join(pki, "certs/a.test.pem"), "utf8").includes("PRIVATE KEY"), "rootfs certs copy carries no private key");
+    ok(!fs.readFileSync(path.join(pki, "certs/localhost.pem"), "utf8").includes("PRIVATE KEY"), "rootfs localhost.pem carries no private key");
+    ok(fs.readFileSync(path.join(pki, "private/localhost.key"), "utf8").includes("PRIVATE KEY"), "rootfs key deployed");
+    eq(mode(path.join(pki, "private/localhost.key")), "600", "rootfs key 0600");
     const hookConf = fs.readFileSync(w.env.SC_ACME_HOOK_CONF, "utf8");
     ok(/^ACME_ZONE=_acme\.cdn\.test$/m.test(hookConf) && /^ACME_SECONDARIES=192\.0\.2\.3$/m.test(hookConf), "hook configuration");
     eq(mode(w.env.SC_ACME_HOOK_CONF), "600", "hook configuration 0600");

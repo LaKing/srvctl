@@ -23,11 +23,9 @@ username="${OPA,,}"
 ## check BEFORE the datastore write. Closes the old "no privilege check" gap.
 owner_only container "$C"
 
-## FIXME(v4): regex is unanchored, so any string containing a single
-## lowercase letter passes; the raw value is stored in the datastore and
-## ends up in /var/vncproxy/records, which start.sh sources as root bash
-## and splices into an unquoted sqlite INSERT — injection surface.
-if ! [[ "$username" =~ (([a-z]|[a-z_][a-z0-9_]{2,30})) ]]
+## anchored, and this is the only guard: the value is stored in the datastore and ends up in
+## /var/vncproxy/records, which start.sh sources as root bash and splices into an unquoted sqlite INSERT
+if ! [[ "$username" =~ ^([a-z]|[a-z_][a-z0-9_]{2,30})$ ]]
 then
     err "Invalid username: $username"
     exit 22

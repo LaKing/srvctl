@@ -23,6 +23,7 @@ const ctx = {
     br: "\n", SC_COMPANY_DOMAIN: "company.test",
     containers: { "shop.example": { aliases: ["alias.example"] }, "ext.example": {} },
     datastore: { container_http_port: () => 80, container_https_port: () => 443 },
+    basicauth_rule: () => "",
     msg() {}, ntc() {}, err() {},
     Object, Array,
 };

@@ -64,7 +64,8 @@ function check_pem { ## file
 ## create selfsigned certificate the hard way
 ## Layout produced in $2 (all names are API for haproxy/containers):
 ##   $domain.key (unencrypted), $domain.key.org (encrypted), $domain.csr,
-##   $domain.crt, $domain.pem = key first then crt, cert.pem = copy of it,
+##   $domain.crt, $domain.pem = key first then crt, cert.pem = copy of it
+##   (no CA bundle in either: a self-signed certificate has no chain),
 ##   plus config.txt / extfile.txt / random.txt scratch files.
 ## RSA 2048, 3650 days, CN=$domain, SAN DNS:$domain + DNS:*.$domain.
 ## If a still-valid $domain.pem exists, it is kept (exit 46 when the cert
@@ -114,15 +115,6 @@ function create_selfsigned_domain_certificate { ## for domain on path
     ## key
     ## CA signed crt
     ssl_pem="$cert_path/$domain.pem"
-
-    ## ca-bundle path — computed but not used anywhere in this function;
-    ## the global may be read by other code, so it is kept as-is (v4 decides).
-    ssl_cab="$cert_path/ca-bundle.pem"
-
-    if [[ ! -f $ssl_cab ]]
-    then
-        ssl_cab=''
-    fi
 
     if [[ -f $ssl_pem ]] && [[ -n "$(cat "$ssl_pem")" ]]
     then
@@ -248,9 +240,7 @@ EOF
     cat "$ssl_key" >  "$ssl_pem"
     cat "$ssl_crt" >> "$ssl_pem"
 
-    ## cert.pem - ready to use certificate chain for cert
-    ## key
-    ## CA signed crt
-    ## ca-bundle
+    ## cert.pem - byte copy of $domain.pem (key, then the self-signed crt;
+    ## no CA bundle, a self-signed certificate has no chain)
     cat "$ssl_pem" > "$cert_path/cert.pem"
 }

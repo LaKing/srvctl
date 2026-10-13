@@ -25,10 +25,9 @@ argument username
 ## the datastore key is the lowercased argument
 username="${ARG,,}"
 
-## FIXME(v4): unanchored regex (no ^...$) — any string merely containing a
-## valid 3+ char run passes (e.g. "a b!"), and the raw value flows into the
-## datastore key and later into adduser; anchor and share the validator.
-if ! [[ "$username" =~ ([a-z_][a-z0-9_]{2,30}) ]]
+## anchored: =~ matches a substring, and the value flows into the datastore key and adduser
+## FIXME(v4): share one validator with the other add-*user commands
+if ! [[ "$username" =~ ^[a-z_][a-z0-9_]{2,30}$ ]]
 then
     err "Invalid username: $username"
     exit 22

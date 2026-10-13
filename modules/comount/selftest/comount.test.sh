@@ -8,9 +8,10 @@ trap 'rm -rf "$tmp"' EXIT
 # shellcheck source=modules/comount/libs/comountlib.sh
 source "$SC_INSTALL_DIR/modules/comount/libs/comountlib.sh"
 
-declare -A records=() offsets=() active=() mounted=()
+declare -A records=() offsets=() owners=() active=() mounted=()
 fail_get=0 fail_start=0 count=0
 msg() { echo "$*" >> "$tmp/messages"; }
+ntc() { echo "$*" >> "$tmp/messages"; }
 err() { echo "$*" >> "$tmp/errors"; }
 debug() { :; }
 run() { printf '%s\n' "$*" >> "$tmp/calls"; "$@"; }
@@ -43,7 +44,7 @@ out() {
 stat() {
     if [[ ${!#} == "$SC_COMOUNT_ROOT"/*/rootfs ]]; then
         local c=${!#}; c=${c#"$SC_COMOUNT_ROOT/"}; c=${c%/rootfs}
-        echo "${offsets[$c]}:${offsets[$c]}"
+        echo "${owners[$c]:-${offsets[$c]}:${offsets[$c]}}"
     elif [[ ${!#} == "$SC_COMOUNT_STORAGE/as-root/"* && $2 == '%u:%g' ]]; then
         echo '0:0'
     elif [[ ${!#} == "$SC_COMOUNT_STORAGE/as-codepad/"* && $2 == '%u:%g' ]]; then
@@ -78,7 +79,7 @@ new_case() {
     SC_COMOUNT_ROOT="$tmp/case$count/srv"
     SC_COMOUNT_STORAGE="$tmp/case$count/storage"
     SC_COMOUNT_UNIT_DIR="$tmp/case$count/units"
-    records=(); active=(); mounted=(); offsets=()
+    records=(); active=(); mounted=(); offsets=(); owners=()
     offsets[src.test]=7798784; offsets[a.test]=7864320; offsets[b.test]=7929856
     fail_get=0; fail_start=0
     local c
@@ -263,6 +264,20 @@ rmdir "$SC_COMOUNT_ROOT/a.test/comount/assets.conf"
 expect 'identifier extension retained during orphan cleanup' assets.conf "$(comount_known_names a.test)"
 regenerate_comounts
 expect 'orphan bind removed by its exact name' no "$([[ -e $SC_COMOUNT_ROOT/a.test/binds/comount-assets.conf.binds ]] && echo yes || echo no)"
+
+# Regenerate runs before containers provisions a rootfs, and a fresh rootfs is
+# 0:0 until its first start: both defer that container, the rest still applies.
+new_case
+add_comount_to_containers codepad /srv/project a.test b.test
+rm -rf "$SC_COMOUNT_ROOT/a.test/rootfs" "$SC_COMOUNT_ROOT"/*/binds "$SC_COMOUNT_UNIT_DIR"
+owners[b.test]=0:0
+: > "$tmp/calls"
+regenerate_comounts
+expect 'deferred containers get no configuration' '' "$(cat "$tmp/calls")"
+expect 'both deferrals reported' 2 "$(grep -c 'deferred' "$tmp/messages")"
+unset 'owners[b.test]'
+regenerate_comounts
+expect 'shifted rootfs gets its comount' yes "$([[ -f $SC_COMOUNT_ROOT/b.test/binds/comount-project.binds ]] && echo yes || echo no)"
 
 # Command wrappers use the standard auth and argument guards before work.
 new_case

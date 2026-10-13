@@ -99,7 +99,7 @@ srvctl is a container farm manager for microsite hosting on Fedora servers. It u
 20. [Branding](#branding)
 21. [Password Generation](#password-generation)
 22. [Development Tools](#development-tools)
-    - [push.sh — Commit and Push](#pushsh--commit-and-push)
+    - [checkpoint.sh — Version, Commit and Push](#checkpointsh--version-commit-and-push)
 23. [Configuration Reference](#configuration-reference)
     - [System Directories](#system-directories)
     - [Key Environment Variables](#key-environment-variables)
@@ -1017,7 +1017,7 @@ Each container record (`$SC_DATASTORE_DIR/containers/<name>.json`) has:
 | `mapped_ports` | Array of port mappings: `{proto, comment, container_port, user, timestamp, host_port}` |
 | `users` | Array of usernames with access |
 | `vncusers` | Array of VNC users |
-| `aliases` | Domain aliases |
+| `aliases` | Array of alias domains, 301-redirected to the container; set with `set-ve-alias` (`put` would store a string) |
 | `altnames` | Alternative domain names |
 | `mx` | Whether container has MX records |
 | `use_gsuite` | Whether using Google Suite |
@@ -1341,6 +1341,7 @@ A `kernel.pid_max=4194304` line is present but commented out. Note that every `r
 | `add-ve <name> [type]` | Create a new container; type defaults to `fedora` and must already exist under `$SC_ROOTFS_DIR` |
 | `add-network-ve <name> <bridge>` | Create a fedora container on an existing `br-<bridge>` with DHCP |
 | `add-ve-user <name> <user>` | Add a user to a container, creating the datastore user if new (reseller only) |
+| `set-ve-alias <name> [alias [off]]` | Add an alias domain that 301-redirects (with its `www.`) to the container; `off` removes it, no domain lists them (owner/reseller/root) |
 | `backup-ve <name>` | Backup a container |
 | `destroy-ve <name>` | Permanently delete a container, no backup |
 | `remove-ve <name>` | Rsync-backup, then delete a container |
@@ -1739,6 +1740,28 @@ Both are `hs_only`, store the value under the container's `http-redirect` /
 `sudomize`), then run the `regenerate_certificates` hook and regenerate and
 reload HAProxy. All `/.well-known` paths are exempted from every redirect rule.
 
+`basicauth-ve-port VE [port|off]` puts HTTP basic auth in front of a container.
+Without a port every proxied port of the VE is protected (80, 443, 8080, 8443,
+9000-9002, 9200); with a port only that one, and repeating the command adds
+ports. `off` / `none` removes it. The ports are stored in the container key
+`basicauth` (`all` or e.g. `443,9000`), which holds no secret. The logins are
+the srvctl users with access to the VE — the same set as the codepad login
+(`codepad/access.js`): users with `access: "all"`, the owner, the container's
+`users[]` and the owner's reseller, never root; `readers[]` are not included.
+Their password is the one in `$SC_DATASTORE_DIR/users/<u>/.password` (0600, root only), which
+`usersonhost` keeps equal to the login password and `~/.password`; a user without
+one gets it from `regenerate_users`. `haproxy.js` (`modules/haproxy/basicauth.js`)
+renders a `userlist basicauth:<VE>` and an `http-request auth` rule in each
+protected backend, so every name, alias and subdomain is covered while
+`/.well-known` keeps its own backends. The same backends set
+`X-Robots-Tag: noindex, nofollow` on every response (`http-after-response`, so
+the 401 login challenge carries it too). A user whose name or password contains
+characters other than `A-Za-z0-9._-` is left out with a warning, never written
+into the cfg. Because the cfg now carries login passwords,
+`/etc/haproxy/haproxy.cfg` is written 0600. Ports 80 and 8080 are plain http:
+there the login password crosses the network in cleartext (port 80 only when
+`http-redirect` is `none`; the command warns).
+
 **Logging:** `hooks/update-install-host.sh` installs rsyslog and replaces
 `/etc/rsyslog.conf` wholesale — the stock Fedora content plus the UDP 514 input
 HAProxy logs to. `/etc/rsyslog.d/haproxy.conf` routes the `local2` facility to
@@ -1786,7 +1809,7 @@ The `certificates` module handles certificate lifecycle for containers and servi
 - RSA 2048, 3650 days (10 years), CN `$DOMAIN`.
 - SAN (Subject Alternative Name): `DNS:$DOMAIN` plus `DNS:*.$DOMAIN`.
 - Produces `$DOMAIN.key` (passphrase stripped), `$DOMAIN.key.org` (the encrypted original), `$DOMAIN.csr`, `$DOMAIN.crt`, `$DOMAIN.pem` and a byte copy of the pem as `cert.pem`, plus the `config.txt` / `extfile.txt` / `random.txt` scratch files.
-- PEM format is **private key followed by the certificate — no CA bundle**: a self-signed certificate has no chain, and the `ca-bundle.pem` path is computed in the function but never appended (the comment above the last `cat` still claims otherwise).
+- PEM format is **private key followed by the certificate — no CA bundle**: a self-signed certificate has no chain, so nothing is appended and no `ca-bundle.pem` is read or written.
 - Both combined pems contain the private key but are written with the default umask (0644); confidentiality depends on the directory modes set at `update-install`. The throwaway key passphrase is also persisted into `config.txt`.
 - A still-valid `$DOMAIN.pem` is left alone; a certificate present without its key file aborts with exit code 46.
 
@@ -1816,8 +1839,11 @@ The `letsencrypt` module automates public certificate acquisition: DNS-01 wildca
 - Per-domain skips: `www.` names (they ride along as a second `-d`), domains a **servable** wildcard covers per the shared rule in `modules/certificates/libs/wildcardgatelib.sh` (an admin wildcard with 7+ days left, or a managed DNS-01 wildcard with 1+ day left — exactly what HAProxy serves; an expired or invalid wildcard never blocks http-01) unless the covering name is in http-01 fallback or leaving DNS-01, a datastore certificate still valid for 7+ days, a live certbot lineage still valid for 7+ days (deployed, then skipped), domains not yet DNS-scanned, and domains whose scanned A record does not equal this host's `host_ip`.
 - Runs `letsencrypt certonly --non-interactive --agree-tos --keep-until-expiring --expand --webroot --webroot-path /var/acme/ -d <domain>` (plus `-d www.<domain>` when the www A record also points here), logging to `/srv/<name>/letsencrypt<name>.log` or `/srv/<name>/letsencrypt-www.<name>.log`.
 - Lineage selection tolerates certbot's `<domain>-0001` suffixes and picks the one with the latest `notAfter`; the freshly issued certificate is re-verified before deployment, because certbot can exit 0 while leaving an expired cert in place.
-- Deploys `privkey + fullchain` to `$SC_DATASTORE_DIR/cert/<domain>.pem` (mode 0600) and, when `/srv/<domain>/rootfs/etc/pki/tls/` exists, to the container's `private/localhost.key`, `certs/localhost.crt` (fullchain only), `certs/<domain>.pem` and `certs/localhost.pem`. Nothing is appended after certbot's `fullchain.pem`: it already carries the complete ISRG chain and a trust anchor does not belong in the presented chain (`modules/letsencrypt/bundlelib.js`).
-- A datastore bundle that carries an expired certificate block — as every bundle written by earlier versions did, with DST Root CA X3 (expired 2021-09-30) appended — is not treated as valid even when its leaf is; it is rebuilt from the certbot lineage on the next `regenerate_certificates` run, without a new certbot request. Bundle composition and the expired-block detection are covered by `modules/letsencrypt/selftest/bundle.test.sh`.
+- Deploys `privkey + fullchain` to `$SC_DATASTORE_DIR/cert/<domain>.pem` (mode 0600, set by an explicit chmod so an existing wider file is narrowed too; it keeps the key because HAProxy's `bind ssl crt` needs key and certificate in one file). When `/srv/<domain>/rootfs/etc/pki/tls/{private,certs}` exist, the container gets the key **only** in `private/localhost.key` (mode 0600, owned by the container root's shifted uid), and the fullchain alone, with no key, in `certs/localhost.crt`, `certs/<domain>.pem` and `certs/localhost.pem` (0644). The key is written first; if that fails the certs files are left as they were, so the container keeps a matching pair. The wildcard path (`acmerun.js` `deployRootfs`) writes the same layout. Nothing is appended after certbot's `fullchain.pem`: it already carries the complete ISRG chain and a trust anchor does not belong in the presented chain (`modules/letsencrypt/bundlelib.js`). The container writes live in `modules/letsencrypt/pkilib.js`; every directory below `rootfs` is opened by file descriptor with no symlink followed, and files are reached only through those descriptors (`/proc/self/fd/<fd>/<name>`). A directory the container renames or swaps for a symlink mid-run therefore cannot redirect a write outside the rootfs; the swap is reported. FIFOs, devices and sockets are never opened. Any such target is reported with an `err` and skipped. Covered by `modules/letsencrypt/selftest/pki.test.sh`.
+- Legacy cleanup: earlier versions also wrote the private key into `certs/<domain>.pem` and `certs/localhost.pem` with no mode. At the start of every `letsencrypt.js` run, before any skip, a sweep goes over every `/srv/<C>/rootfs/etc/pki/tls` (the directory listing, not the datastore). It strips `PRIVATE KEY` blocks from `certs/<C>.pem` and `certs/localhost.pem` and keeps their certificates; other files such as `certs/postfix.pem` are left alone. It also narrows a wider `private/localhost.key` to 0600, handing a host-root-owned key to the container root. It is idempotent and does not depend on issuance, so it covers containers that never reach deploy: wildcard-covered names, a still-valid datastore certificate, `mail.`/devel/local/dotless names, a missing lineage, failed issuance and `/srv` dirs unknown to the datastore. Not reached: runs that never get to `main()` (module disabled, the run lock waited out, a load failure; the next run catches up); rootfs not laid out as `/srv/<C>/rootfs/etc/pki/tls`; containers whose `etc`, `pki`, `tls`, `private` or `certs` is a symlink or not a directory, and targets replaced with a symlink, FIFO, device or socket (reported, left as they are); a `rootfs` that is itself a symlink (skipped); copies outside the live rootfs (backups, snapshots, templates); other file names under `certs/`; and the self-signed `$SC_DATASTORE_DIR/cert/<C>.pem` that `add-ve` writes (only `set_permissions` at `update-install` narrows that). `add_ve_certificate` now creates `private/localhost.key` at 0600.
+- Consumer search before narrowing those two files (no longer key-bearing, still present): (1) repository — nothing reads `certs/<C>.pem` or `certs/localhost.pem`; the only writers are `letsencrypt.js`, `acmerun.js` and `add_ve_certificate`. (2) distro packaging, checked on Fedora 44, the release container rootfs is built from: `rpm -qal | grep pki/tls/certs/` lists only CA hash links, and `grep -rIl certs/localhost.pem /usr/share /usr/lib /usr/libexec /etc` finds nothing. mod_ssl's `ssl.conf` uses `certs/localhost.crt` with `private/localhost.key`, dovecot uses `/etc/pki/dovecot`, postfix uses `certs/postfix.pem`, and sendmail uses `certs/sendmail.pem` (its `CACERT_PATH` reads hash links only). (3) deployed container filesystems, which the repository cannot see — a customer configuration may name these files. Residual risk **accepted**: the files keep their paths with the certificate, so only a configuration that took the key from them breaks, at its service's next restart. Before rollout, `grep -rlE 'certs/(localhost|[^/ ]+)\.pem' /srv/*/rootfs/etc` on each host finds such configurations.
+- Operator decision on already-exposed keys: **no blanket rotation**. Rotate and revoke (`certbot revoke --reason keycompromise`, then reissue) only the certificates of containers that host untrusted or multi-user code or shell accounts, or that show signs of compromise. Rationale: the wide files were readable only by non-root accounts inside the same container that serves the domain; certificates last at most 90 days, and certbot makes a new key on every renewal (srvctl sets no `reuse-key`), so exposure ends with the next renewal; keys from the wildcard path were already 0600. The owner can overrule this; rotation is done outside srvctl.
+- A datastore bundle that carries an expired certificate block — as every bundle written by earlier versions did, with DST Root CA X3 (expired 2021-09-30) appended — is not treated as valid even when its leaf is; it is rebuilt from the certbot lineage on the next `regenerate_certificates` run, without a new certbot request. Bundle composition, the expired-block detection and the served chain (key first, then the leaf and its intermediates only, each block unexpired, not self-signed and issuing the one before it) are covered by `modules/letsencrypt/selftest/bundle.test.sh`.
 - Per-domain failures are logged only: the process always exits 0, so a failed renewal is invisible to the caller and to cron. DNS-01 and handover alerts are also written to `/var/srvctl3/acme/status.json`.
 - When `acme-server.service` cannot be started, only http-01 is skipped (with an error); DNS-01 issuance, distribution and the handover state machine still run. `letsencrypt.js` runs under `flock /run/srvctl-letsencrypt.lock`.
 
@@ -2322,10 +2348,17 @@ never on a `mail.*` host.
   every container boot (`libs/mkrootfs_fedora_install_codepad.sh`).
 
 **Access management (`access.js`):**
-- Copies each authorized user's `*.hash`, `*.password` and `*.ip` files from
+- Copies each authorized user's `*.hash` and `*.ip` files from
   `$SC_DATASTORE_DIR/users/<u>/` into
   `/var/srvctl3/share/containers/<c>/users/<u>/`, which is bind-mounted read-only
-  into the container.
+  into the container. The plaintext `.password` is never published there (every
+  process in the container could read it) and a copy left by an earlier version
+  is deleted. Two credentials stay separate and valid: `.hash` is the codepad
+  credential (it may be a password the user set for codepad), and the srvctl
+  login — what haproxy basic auth checks — is published only as its SHA-512 hex,
+  `.srvctl.hash`, re-derived from the datastore `.password` on every run so it
+  cannot drift (devpanel verifies basic-auth logins against either). In the
+  datastore `.password` is 0600, read by root only (haproxy basic auth).
 - Authorized are: users with `access == "all"`, the container's primary user,
   every entry of its `users[]` list, and the primary user's reseller. `root` is
   always skipped. Driven by the module's `regenerate` hook through
@@ -2704,18 +2737,18 @@ files.
 
 ## Development Tools
 
-### push.sh — Commit and Push
+### checkpoint.sh — Version, Commit and Push
 
-`push.sh` sits in the project root and is **not** part of the srvctl command
-set; it is the Codepad push button for the srvctl source tree. Optional
+`checkpoint.sh` sits in the project root and is **not** part of the srvctl command
+set; it is the Codepad checkpoint button for the srvctl source tree (`push.sh` forwards to it). Optional
 arguments are appended to the commit message. It does not build, back up,
 beautify or generate README files.
 
 1. `cd`s to its own directory (exit 7 on failure) and requires a `.git` there (exit 6).
 2. Adds that directory to the caller's `git config --global safe.directory` once, so git's dubious-ownership guard does not block a tree owned by another user.
 3. Warns when the current branch is not `master`.
-4. Runs `shellcheck -x` over just the changed and untracked `.sh` files — informational, it never blocks the push. Exits 112 when shellcheck is not installed.
-5. Exits 0 when `git status --porcelain` is empty (nothing to commit).
+4. Runs `shellcheck -x` over just the changed and untracked `.sh` files — informational, it never blocks the checkpoint. Exits 112 when shellcheck is not installed.
+5. When `git status --porcelain` is empty: pushes local commits that are ahead of the upstream, otherwise exits 0.
 6. Increments the last field of the `version` file (`awk -F. -v OFS=. '{$NF++; print}'`) — only once there is something to commit.
 7. Falls back to `$USER@$HOSTNAME` as the commit identity when git has none configured.
 8. `git add -A .`, then commits with the new version (plus any arguments) as the message; exit 5 if the commit fails.
@@ -2908,6 +2941,7 @@ are marked as such.
 | `srvctl add-ve NAME [TYPE]` | Create a container from a base image. TYPE defaults to `fedora` and is accepted only if `$SC_ROOTFS_DIR/TYPE/etc/os-release` already exists — run `ls /var/srvctl3/rootfs` for the types a given host has |
 | `srvctl add-network-ve NAME BRIDGE` | Create a fedora container attached to an existing `br-BRIDGE`, with DHCP networking |
 | `srvctl add-ve-user VE USERNAME` | Create a cluster user and give it the container (reseller/root) |
+| `srvctl set-ve-alias VE [ALIAS [off]]` | Redirect ALIAS and www.ALIAS to the container (301, path kept, cached a day); `off` removes it, no ALIAS lists the aliases. Written via `cfg container VE add_alias\|remove_alias ALIAS`, which refuses a domain already used as any container's name, alias or altname, and a `www.` domain. Then refreshes DNS (when this host runs named), certificates and HAProxy |
 | `srvctl status [VE]` | With an argument, `systemctl status` of `srvctl-nspawn@VE`; without one, the cluster-wide table rendered by `containers/status.js` |
 | `srvctl recreate-ve VE` | Back up, wipe and rebuild the rootfs, restoring user data as far as possible |
 | `srvctl update-ve VE` | **Stub.** Stops the container's unit and then errors `Feature unimplemented`, leaving the container stopped (`containers/commands/update-ve.sh:39`) |

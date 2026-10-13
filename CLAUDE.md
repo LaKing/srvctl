@@ -19,7 +19,7 @@ version            # Current version string (4.0.0.8)
 modules/           # 37 plugin modules (see below)
 documentation/     # documentation.md and hints.txt
 update-campaign/   # v4 rework notes and work packages; notes, not shipped code
-push.sh            # Dev-only git commit+push helper, NOT a srvctl command
+checkpoint.sh      # Dev-only version + commit + push helper, NOT a srvctl command (push.sh forwards to it)
 production/        # Local live-config sandbox, gitignored and not part of the repo
 ```
 

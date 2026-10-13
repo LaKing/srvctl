@@ -429,6 +429,20 @@ function regenerate_comounts {
     do
         host="$(get container "$C" host)" || return $?
         [[ $host == "$HOSTNAME" ]] || continue
+        ## Hooks run in module order, so containers/hooks/regenerate.sh provisions
+        ## a missing rootfs only after this one. A fresh copy stays 0:0 until its
+        ## first start (PrivateUsersChown). Both are expected states, not errors;
+        ## a later regenerate (hourly cron) applies the comount once they pass.
+        if [[ ! -d $SC_COMOUNT_ROOT/$C/rootfs ]]
+        then
+            ntc "Comount for $C deferred: rootfs not provisioned yet"
+            continue
+        fi
+        if [[ $(stat -c '%u:%g' "$SC_COMOUNT_ROOT/$C/rootfs") == 0:0 ]]
+        then
+            ntc "Comount for $C deferred: rootfs not UID-shifted until its first start"
+            continue
+        fi
         names="$(comount_known_names "$C")" || return $?
         for name in $names
         do
