@@ -1022,6 +1022,7 @@ Each container record (`$SC_DATASTORE_DIR/containers/<name>.json`) has:
 | `mx` | Whether container has MX records |
 | `use_gsuite` | Whether using Google Suite |
 | `is_mail` | Whether this is a mail container |
+| `mail_ve` | Container that handles this container's mail: the host `/etc/hosts` points `mail.<name>` (and `mail.<alias>`) at its IP, so the host postfix MX delivery and the perdition map reach it. Set with `put container C mail_ve TARGET`, clear with `put container C mail_ve`. An unknown target leaves a `## [mail_ve …]` comment and keeps the own IP. The target's own postfix must accept the domain. |
 | `dns` | DNS scan results per domain |
 
 `all_containers_quota_check()` (`modules/containers/libs/all_containers_quota_check.sh`),

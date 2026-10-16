@@ -982,6 +982,12 @@ function cluster_etc_hosts() {
     str += "## containers" + br;
     Object.keys(containers).forEach(function (i) {
         if (containers[i].ip) {
+            // mail_ve: see cluster_etc_hosts in lib/generators.mjs.
+            var mip = containers[i].ip, target = containers[i].mail_ve;
+            if (target !== undefined) {
+                if (containers[target] && containers[target].ip) mip = containers[target].ip;
+                else str += "## [mail_ve " + target + " has no ip] mail." + i + br;
+            }
             str += containers[i].ip + "    " + i + br;
             if (i.indexOf(".") < 0) str += containers[i].ip + "    " + i + ".local" + br;
             if (i.indexOf(".") < 0) str += containers[i].ip + "    " + i + "." + process.env.SC_COMPANY_DOMAIN + br;
@@ -989,15 +995,15 @@ function cluster_etc_hosts() {
             if (containers["mail." + i] === undefined)
                 if (containers[i].is_mail === false) str += "## [disabled] " + containers[i].ip + "    mail." + i + br;
                 else {
-                  str += containers[i].ip + "    mail." + i + br;
-                  str += containers[i].ip + "    mail." + i + "." + process.env.SC_COMPANY_DOMAIN + br;
+                  str += mip + "    mail." + i + br;
+                  str += mip + "    mail." + i + "." + process.env.SC_COMPANY_DOMAIN + br;
                 }
             if (containers[i].aliases) {
                 for (const alias of containers[i].aliases) {
                     str += containers[i].ip + "    " + alias + br;
                     if (containers["mail." + i] === undefined)
                         if (containers[i].is_mail === false) str += "## [disabled] " + containers[i].ip + "    mail." + alias + br;
-                        else str += containers[i].ip + "    mail." + alias + br;
+                        else str += mip + "    mail." + alias + br;
                 }
             }
         }

@@ -8,6 +8,12 @@ notable operational changes are listed here.
 Unreleased (v4, in progress on top of 4.0.0.8)
 ----------------------------------------------
 
+Mail of a container handled by another container (2026-10-16)
+  * New container field mail_ve: `sc put container hangmaffia.hu mail_ve d250.hu`
+    points mail.hangmaffia.hu in the host /etc/hosts at the d250.hu container,
+    so inbound mail (MX lookup) and IMAP/POP3/SMTP AUTH (perdition) reach it.
+    The target's postfix must accept the domain (virtual_alias_domains).
+
 Comount no longer blocks rootfs provisioning (2026-10-13)
   * `sc regenerate` aborted with "Container C must have a rootfs" when a
     container with comounts had no rootfs on its host: the comount hook runs

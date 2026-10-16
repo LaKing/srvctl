@@ -262,23 +262,34 @@ export function generators(ctx) {
       if (hosts[i].hostnet) str += "10.15." + hosts[i].hostnet + ".0    " + i.split(".")[0] + BR;
     });
     str += "## containers" + BR;
+    // mail_ve hands a container's mail. names to another container: the host
+    // postfix (MX via these lines, smtp_host_lookup = native) and the perdition
+    // map (by name) then reach that one. A missing target keeps the own IP.
+    function mail_ip(i) {
+      const target = containers[i].mail_ve;
+      if (target === undefined) return containers[i].ip;
+      if (containers[target] && containers[target].ip) return containers[target].ip;
+      str += "## [mail_ve " + target + " has no ip] mail." + i + BR;
+      return containers[i].ip;
+    }
     Object.keys(containers).forEach(function (i) {
       if (containers[i].ip) {
+        const mip = mail_ip(i);
         str += containers[i].ip + "    " + i + BR;
         if (i.indexOf(".") < 0) str += containers[i].ip + "    " + i + ".local" + BR;
         if (i.indexOf(".") < 0) str += containers[i].ip + "    " + i + "." + SC_COMPANY_DOMAIN + BR;
         if (containers["mail." + i] === undefined)
           if (containers[i].is_mail === false) str += "## [disabled] " + containers[i].ip + "    mail." + i + BR;
           else {
-            str += containers[i].ip + "    mail." + i + BR;
-            str += containers[i].ip + "    mail." + i + "." + SC_COMPANY_DOMAIN + BR;
+            str += mip + "    mail." + i + BR;
+            str += mip + "    mail." + i + "." + SC_COMPANY_DOMAIN + BR;
           }
         if (containers[i].aliases) {
           for (const alias of containers[i].aliases) {
             str += containers[i].ip + "    " + alias + BR;
             if (containers["mail." + i] === undefined)
               if (containers[i].is_mail === false) str += "## [disabled] " + containers[i].ip + "    mail." + alias + BR;
-              else str += containers[i].ip + "    mail." + alias + BR;
+              else str += mip + "    mail." + alias + BR;
           }
         }
       }

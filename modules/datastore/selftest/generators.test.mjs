@@ -192,6 +192,25 @@ function captureV3Golden() {
   check("useruids root_uid header", out.includes("root_uid=" + root_uid), true);
 }
 
+// ---- Group D: mail_ve routes mail. names to another container (v4-only) ----
+
+{
+  const ctx = {
+    containers: {
+      "app.example.com": { user: "alice", ip: "10.20.1.5" },
+      "band.example.org": { user: "alice", ip: "10.20.1.6", mail_ve: "app.example.com", aliases: ["band.example.net"] },
+      "typo.example.org": { user: "alice", ip: "10.20.1.7", mail_ve: "nope.example.com" },
+    },
+    users: USERS, hosts: {}, HOSTNAME: "node1", SC_HOSTNET: 20, SC_COMPANY_DOMAIN: "example.com", hasLocalRootfs: () => false,
+  };
+  const lines = generators(ctx).cluster_etc_hosts().split("\n");
+  check("mail_ve: own name keeps own ip", lines.includes("10.20.1.6    band.example.org"), true);
+  check("mail_ve: mail. name goes to target", lines.includes("10.20.1.5    mail.band.example.org"), true);
+  check("mail_ve: mail. alias goes to target", lines.includes("10.20.1.5    mail.band.example.net"), true);
+  check("mail_ve: unknown target is reported", lines.includes("## [mail_ve nope.example.com has no ip] mail.typo.example.org"), true);
+  check("mail_ve: unknown target keeps own ip", lines.includes("10.20.1.7    mail.typo.example.org"), true);
+}
+
 console.log(`generators.test: ${passed} passed, ${failures.length} failed`);
 for (const f of failures) {
   console.log(`  FAIL ${f.name}`);
