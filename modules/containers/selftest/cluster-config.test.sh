@@ -381,6 +381,21 @@ cp "$canonical" "$SC_CLUSTER_CONFIG_VAR_ROOT/rootfs/deep/clusters.json"
 ok "audit prunes container rootfs" \
     "$(fails113 audit_cluster_config_paths "$canonical" "$legacy")" 0
 rm -rf "$SC_CLUSTER_CONFIG_VAR_ROOT/rootfs"
+mkdir -p "$SC_CLUSTER_CONFIG_VAR_ROOT/comount/as-codepad/srv"
+cp "$canonical" "$SC_CLUSTER_CONFIG_VAR_ROOT/comount/as-codepad/srv/clusters.json"
+ok "audit prunes comount storage" \
+    "$(fails113 audit_cluster_config_paths "$canonical" "$legacy")" 0
+rm -rf "$SC_CLUSTER_CONFIG_VAR_ROOT/comount"
+mkdir -p "$SC_CLUSTER_CONFIG_VAR_ROOT/bulk/a/b/c"
+cp "$canonical" "$SC_CLUSTER_CONFIG_VAR_ROOT/bulk/a/b/c/clusters.json"
+ok "audit does not walk below three levels" \
+    "$(fails113 audit_cluster_config_paths "$canonical" "$legacy")" 0
+rm -rf "$SC_CLUSTER_CONFIG_VAR_ROOT/bulk"
+mkdir -p "$SC_CLUSTER_CONFIG_VAR_ROOT/a/b"
+cp "$canonical" "$SC_CLUSTER_CONFIG_VAR_ROOT/a/b/clusters.json"
+ok "audit still finds a duplicate three levels deep" \
+    "$(fails113 audit_cluster_config_paths "$canonical" "$legacy")" 113
+rm -rf "$SC_CLUSTER_CONFIG_VAR_ROOT/a"
 mkdir -p "$SC_CLUSTER_CONFIG_VAR_ROOT/gluster/srvctl-data"
 cp "$canonical" "$SC_CLUSTER_CONFIG_VAR_ROOT/gluster/srvctl-data/clusters.json"
 ok "cheap audit checks pruned gluster datastore candidate" \

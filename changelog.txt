@@ -8,6 +8,12 @@ notable operational changes are listed here.
 Unreleased (v4, in progress on top of 4.0.0.8)
 ----------------------------------------------
 
+Root sc startup no longer walks the comount storage (2026-10-16)
+  * Every root `sc` call audits /var/srvctl3 for stray clusters.json copies.
+    The walk skipped container and bulk branches but not /var/srvctl3/comount,
+    whose shared project trees made each call on r2 take ~25 s before any
+    output. comount is now pruned and the walk is bounded to three levels.
+
 Mail of a container handled by another container (2026-10-16)
   * New command set-ve-mail-ve VE MAILVE [off] and container field mail_ve:
     `sc set-ve-mail-ve hangmaffia.hu d250.hu` points mail.hangmaffia.hu in the

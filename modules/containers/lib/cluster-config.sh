@@ -176,13 +176,18 @@ function audit_cluster_config_paths() {
         [[ -d $root ]] || continue
         if [[ $root == "$var_root" ]]
         then
-            ## These branches contain container operating systems, mounts, or
-            ## bulk/user data and can hold millions of files. They are not
-            ## srvctl configuration sources, so startup must never walk them.
-            if ! found="$(find "$root" \
+            ## This runs on every root invocation. The pruned branches contain
+            ## container operating systems, mounts, or bulk/user data (comount
+            ## holds shared project trees) with millions of files; walking an
+            ## unlisted one delays every `sc` call by seconds. -maxdepth bounds
+            ## the walk for bulk branches added later: srvctl config sits within
+            ## three levels of $root, and the known stale locations are checked
+            ## by name above.
+            if ! found="$(find "$root" -maxdepth 3 \
                 \( -path "$root/rootfs" -o -path "$root/mounts" -o \
                    -path "$root/storage" -o -path "$root/nfs" -o \
-                   -path "$root/share" -o -path "$root/gluster" \) -prune -o \
+                   -path "$root/share" -o -path "$root/gluster" -o \
+                   -path "$root/comount" \) -prune -o \
                 -name clusters.json -print)"
             then
                 echo "DATA-ERROR: cannot audit clusters configuration paths under $root" >&2
