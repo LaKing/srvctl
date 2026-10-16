@@ -28,7 +28,7 @@ systemctl() { $running; }
 ## Stands in for the in-container script: record it, add the main.cf references.
 systemd-run() {
     echo "systemd-run $2" >> "$tmp/calls"
-    printf 'virtual_alias_domains = hash:%s\nvirtual_alias_maps = hash:%s\n' "${*: -2:1}" "${*: -1}" >> "$SC_MAIL_VE_ROOT/$2/rootfs/etc/postfix/main.cf"
+    printf 'mydestination = localhost, hash:%s\n' "${*: -1}" >> "$SC_MAIL_VE_ROOT/$2/rootfs/etc/postfix/main.cf"
 }
 expect() {
     [[ $2 == "$3" ]] || { echo "FAIL $1: expected '$2', got '$3'"; exit 1; }
@@ -42,7 +42,7 @@ echo 'mydestination = localhost' > "$etc/main.cf"
 ve_map=$'d250.hu hangmaffia.hu\nd250.hu hangmaffia.org\nelsewhere.hu x.hu\n'
 regenerate_mail_ves
 expect 'domains map' $'# srvctl mail_ve\nhangmaffia.hu OK\nhangmaffia.org OK' "$(cat "$etc/srvctl-mail-ve-domains")"
-expect 'virtual map keeps the local part' $'# srvctl mail_ve\n@hangmaffia.hu @d250.hu\n@hangmaffia.org @d250.hu' "$(cat "$etc/srvctl-mail-ve")"
+expect 'no address rewriting map' no "$([[ -e $etc/srvctl-mail-ve ]] && echo yes || echo no)"
 expect 'maps owned by the container root' 1 "$(grep -c 'chown 7864320:7864320' "$tmp/calls")"
 expect 'applied inside the target once' 1 "$(grep -c 'systemd-run d250.hu' "$tmp/calls")"
 expect 'target not on this host is skipped' 0 "$(grep -c elsewhere "$tmp/calls" || true)"
@@ -59,13 +59,13 @@ expect 'a rewritten main.cf gets the references back' 1 "$(grep -c 'systemd-run 
 ve_map=$'d250.hu hangmaffia.hu\n'
 running=false
 regenerate_mail_ves
-expect 'stopped target is not written' '@hangmaffia.org @d250.hu' "$(grep -F hangmaffia.org "$etc/srvctl-mail-ve")"
+expect 'stopped target is not written' 'hangmaffia.org OK' "$(grep -F hangmaffia.org "$etc/srvctl-mail-ve-domains")"
 expect 'stopped target is reported' 1 "$(grep -c 'is not running' "$tmp/messages")"
 
 running=true
 ve_map=''
 regenerate_mail_ves
-expect 'former target is emptied' '# srvctl mail_ve' "$(cat "$etc/srvctl-mail-ve")"
+expect 'former target is emptied' '# srvctl mail_ve' "$(cat "$etc/srvctl-mail-ve-domains")"
 
 mkdir -p "$SC_MAIL_VE_ROOT/broken.hu/rootfs/etc/postfix"
 echo 'mydestination = localhost' > "$SC_MAIL_VE_ROOT/broken.hu/rootfs/etc/postfix/main.cf"
@@ -73,7 +73,7 @@ ve_map=$'broken.hu a.hu\nd250.hu hangmaffia.hu\n'
 real_systemd_run="$(declare -f systemd-run)"
 systemd-run() { [[ $2 != broken.hu ]] || return 1; eval "${real_systemd_run/systemd-run/inner_run}"; inner_run "$@"; }
 if regenerate_mail_ves; then echo 'FAIL broken target not reported'; exit 1; fi
-expect 'a failing target does not stop the others' '@hangmaffia.hu @d250.hu' "$(grep -F hangmaffia.hu "$etc/srvctl-mail-ve")"
+expect 'a failing target does not stop the others' 'hangmaffia.hu OK' "$(grep -F hangmaffia.hu "$etc/srvctl-mail-ve-domains")"
 eval "$real_systemd_run"
 
 ## Queue: postqueue -j emits one JSON object per line.

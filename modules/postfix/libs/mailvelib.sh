@@ -2,43 +2,40 @@
 ## Mail of a container handled by another one (container field mail_ve).
 ## The host side is generated elsewhere: cluster_etc_hosts points mail.<name>
 ## at the target, so the host postfix (MX) and perdition reach it. This lib
-## makes the target's own postfix accept those domains, with two maps that
-## srvctl owns completely; main.cf only gets a reference to each, once.
-## `@domain @target` keeps the local part: info@band.hu is delivered as
-## info@<target>, so the target's /etc/aliases decides (a pipe into an app,
-## a mailbox, or an unknown-user bounce).
+## makes the target's own postfix treat those domains as its own: a map that
+## srvctl owns completely, referenced once from mydestination.
+## mydestination, not a virtual alias: the address stays what was sent,
+## pufi@band.hu is delivered as pufi@band.hu (envelope, Delivered-To), and
+## the target's /etc/aliases and users decide by the local part. Unknown local
+## parts are rejected at SMTP time (local_recipient_maps), not bounced later.
 [[ $SRVCTL ]] || exit 4
 
 : "${SC_MAIL_VE_ROOT:=/srv}"
 SC_MAIL_VE_DOMAINS=/etc/postfix/srvctl-mail-ve-domains
-SC_MAIL_VE_VIRTUAL=/etc/postfix/srvctl-mail-ve
 
-## Map contents for one target from `get cluster mail_ve_map` lines.
-function mail_ve_maps {
+## Map content for one target from `get cluster mail_ve_map` lines.
+function mail_ve_map_content {
     local target="$1" map="$2" t domain
     MAIL_VE_DOMAINS_CONTENT='# srvctl mail_ve'$'\n'
-    MAIL_VE_VIRTUAL_CONTENT='# srvctl mail_ve'$'\n'
     while read -r t domain
     do
         [[ $t == "$target" && -n $domain ]] || continue
         MAIL_VE_DOMAINS_CONTENT+="$domain OK"$'\n'
-        MAIL_VE_VIRTUAL_CONTENT+="@$domain @$target"$'\n'
     done <<< "$map"
 }
 
-## Apply to one target: write the maps owned by its root, add the main.cf
-## references, postmap and reload inside the running container. A stopped
+## Apply to one target: write the map owned by its root, add the main.cf
+## reference, postmap and reload inside the running container. A stopped
 ## target is left untouched and reported; the next regenerate retries, since
-## nothing was written. Unchanged maps with references in place do nothing.
+## nothing was written. An unchanged map with the reference in place does nothing.
 function regenerate_mail_ve {
-    local target="$1" map="$2" etc="$SC_MAIL_VE_ROOT/$1/rootfs/etc/postfix" uid
+    local target="$1" map="$2" etc="$SC_MAIL_VE_ROOT/$1/rootfs/etc/postfix" file uid
+    file="$etc/${SC_MAIL_VE_DOMAINS##*/}"
     [[ -f $etc/main.cf ]] || { ntc "mail_ve target $target has no postfix on this host"; return 0; }
-    mail_ve_maps "$target" "$map"
-    if [[ $(cat "$etc/${SC_MAIL_VE_DOMAINS##*/}" 2> /dev/null)$'\n' == "$MAIL_VE_DOMAINS_CONTENT" &&
-          $(cat "$etc/${SC_MAIL_VE_VIRTUAL##*/}" 2> /dev/null)$'\n' == "$MAIL_VE_VIRTUAL_CONTENT" ]] &&
-       grep -q "hash:$SC_MAIL_VE_DOMAINS" "$etc/main.cf" && grep -q "hash:$SC_MAIL_VE_VIRTUAL" "$etc/main.cf"
+    mail_ve_map_content "$target" "$map"
+    if [[ $(cat "$file" 2> /dev/null)$'\n' == "$MAIL_VE_DOMAINS_CONTENT" ]] && grep -q "hash:$SC_MAIL_VE_DOMAINS" "$etc/main.cf"
     then
-        debug "mail_ve maps unchanged for $target"
+        debug "mail_ve map unchanged for $target"
         return 0
     fi
     if ! systemctl is-active --quiet "srvctl-nspawn@$target.service"
@@ -47,20 +44,18 @@ function regenerate_mail_ve {
         return 0
     fi
     uid="$(get container "$target" uid)" || return $?
-    msg "mail_ve: $target accepts $(grep -c ' OK$' <<< "$MAIL_VE_DOMAINS_CONTENT") domain(s)"
-    printf '%s' "$MAIL_VE_DOMAINS_CONTENT" > "$etc/${SC_MAIL_VE_DOMAINS##*/}" || return $?
-    printf '%s' "$MAIL_VE_VIRTUAL_CONTENT" > "$etc/${SC_MAIL_VE_VIRTUAL##*/}" || return $?
+    msg "mail_ve: $target accepts $(grep -c ' OK$' <<< "$MAIL_VE_DOMAINS_CONTENT") domain(s) as its own"
+    printf '%s' "$MAIL_VE_DOMAINS_CONTENT" > "$file" || return $?
     ## Host root shows up as nobody in the container; postfix wants root-owned maps.
-    chown "$uid:$uid" "$etc/${SC_MAIL_VE_DOMAINS##*/}" "$etc/${SC_MAIL_VE_VIRTUAL##*/}" || return $?
+    chown "$uid:$uid" "$file" || return $?
     # shellcheck disable=SC2016 ## expanded inside the container
     systemd-run -M "$target" --wait --pipe --collect --quiet /bin/bash -ec '
-        add() { local v; v="$(postconf -h "$1")"; [[ $v == *"hash:$2"* ]] || postconf -e "$1 = ${v:+$v, }hash:$2"; }
-        add virtual_alias_domains "$1"
-        add virtual_alias_maps "$2"
-        postmap "$1"; postmap "$2"
+        v="$(postconf -h mydestination)"
+        [[ $v == *"hash:$1"* ]] || postconf -e "mydestination = ${v:+$v, }hash:$1"
+        postmap "$1"
         postfix check
         postfix reload
-    ' bash "$SC_MAIL_VE_DOMAINS" "$SC_MAIL_VE_VIRTUAL" < /dev/null
+    ' bash "$SC_MAIL_VE_DOMAINS" < /dev/null
 }
 
 ## Every mail_ve target on this host, plus former targets whose maps must be
@@ -75,7 +70,7 @@ function regenerate_mail_ves {
     do
         [[ -n $target && -d $SC_MAIL_VE_ROOT/$target/rootfs ]] && targets[$target]=yes
     done <<< "$map"
-    for file in "$SC_MAIL_VE_ROOT"/*/rootfs"$SC_MAIL_VE_VIRTUAL"
+    for file in "$SC_MAIL_VE_ROOT"/*/rootfs"$SC_MAIL_VE_DOMAINS"
     do
         [[ -f $file ]] || continue
         target="${file#"$SC_MAIL_VE_ROOT/"}"

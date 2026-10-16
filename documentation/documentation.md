@@ -1022,7 +1022,7 @@ Each container record (`$SC_DATASTORE_DIR/containers/<name>.json`) has:
 | `mx` | Whether container has MX records |
 | `use_gsuite` | Whether using Google Suite |
 | `is_mail` | Whether this is a mail container |
-| `mail_ve` | Container that handles this container's mail: the host `/etc/hosts` points `mail.<name>` (and `mail.<alias>`) at its IP, so the host postfix MX delivery and the perdition map reach it. Set with `set-ve-mail-ve VE MAILVE` (clear with `off`), which also makes the target's postfix accept the domains (see *Mail of one container handled by another*). An unknown target leaves a `## [mail_ve …]` comment and keeps the own IP. |
+| `mail_ve` | Container that handles this container's mail: the host `/etc/hosts` points `mail.<name>` (and `mail.<alias>`) at its IP, so the host postfix MX delivery and the perdition map reach it. Set with `set-ve-mail-ve VE MAILVE` (clear with `off`), which also makes the target's postfix take the domains as its own (see *Mail of one container handled by another*). An unknown target leaves a `## [mail_ve …]` comment and keeps the own IP. |
 | `dns` | DNS scan results per domain |
 
 `all_containers_quota_check()` (`modules/containers/libs/all_containers_quota_check.sh`),
@@ -1962,7 +1962,7 @@ The `postfix` module manages SMTP on both hosts and containers.
 
 `set-ve-mail-ve VE MAILVE` (root) hands the mail of VE and its aliases to the container MAILVE on the same host; `off` gives it back, no MAILVE shows the setting. The MX of the domains stays `mail.VE`.
 - Host: `cluster_etc_hosts` points `mail.VE` (and `mail.<alias>`) at MAILVE, so the host postfix MX delivery (`smtp_host_lookup = native`) and the perdition map reach it.
-- MAILVE: `regenerate_mail_ves` (`libs/mailvelib.sh`, from the postfix `regenerate` hook and the command) writes two srvctl-owned maps into its `/etc/postfix`, `srvctl-mail-ve-domains` (`<domain> OK`) and `srvctl-mail-ve` (`@<domain> @MAILVE`), from `get cluster mail_ve_map`. It appends `hash:` references to `virtual_alias_domains` / `virtual_alias_maps` once, then postmaps and reloads inside the running container. The local part is kept, so `info@VE` is delivered as `info@MAILVE` and MAILVE's `/etc/aliases` decides (an app pipe, a mailbox, or an unknown-user bounce). Unchanged maps do nothing; a stopped target is skipped and retried at the next regenerate; a former target gets empty maps.
+- MAILVE: `regenerate_mail_ves` (`libs/mailvelib.sh`, from the postfix `regenerate` hook and the command) writes a srvctl-owned map into its `/etc/postfix`, `srvctl-mail-ve-domains` (`<domain> OK`), from `get cluster mail_ve_map`, appends a `hash:` reference to `mydestination` once, then postmaps and reloads inside the running container. MAILVE takes the domains as its own, so addresses are not rewritten: `info@VE` is delivered as `info@VE` (envelope and `Delivered-To`), and MAILVE's users and `/etc/aliases` decide by the local part. Unknown local parts are rejected at SMTP time (`local_recipient_maps`). Unchanged map does nothing; a stopped target is skipped and retried at the next regenerate; a former target gets an empty map; one failing target is reported without stopping the regenerate.
 - Order: the command configures MAILVE first and switches `/etc/hosts` only after that, and undoes the datastore write if MAILVE could not be configured. A raw `put container VE mail_ve` regenerates the other way round (containers hook before postfix), leaving a short window in which MAILVE relays the mail back to the host.
 
 ### Mail queue

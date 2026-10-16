@@ -3,7 +3,7 @@
 ## @@@ set-ve-mail-ve VE [MAILVE|off]
 ## @en Hand the mail of a VE to another VE, MAILVE: it receives and sends for the VE's domains
 ## &en Inbound mail and IMAP/POP3/SMTP logins for the VE and its aliases go to MAILVE.
-## &en MAILVE's postfix accepts those domains, keeping the local part: info@VE is delivered as info@MAILVE.
+## &en MAILVE's postfix takes those domains as its own; addresses stay unchanged, info@VE is delivered as info@VE.
 ## &en Without MAILVE the current setting is shown. 'off' or 'none' gives the mail back to the VE.
 ## &en MAILVE must run on this host; the MX of the VE's domains stays mail.VE.
 
@@ -50,7 +50,7 @@ systemctl is-active --quiet "srvctl-nspawn@$target.service" || { err "$target is
 
 old="$(get container "$C" mail_ve)"
 put container "$C" mail_ve "$target" > /dev/null
-if ! regenerate_mail_ves || ! grep -q " @$target$" "/srv/$target/rootfs$SC_MAIL_VE_VIRTUAL"
+if ! regenerate_mail_ves || ! grep -q " OK$" "/srv/$target/rootfs$SC_MAIL_VE_DOMAINS"
 then
     ## Undo, or the next regenerate would point mail.VE at a target that rejects it.
     if [[ -n $old ]]; then put container "$C" mail_ve "$old" > /dev/null; else put container "$C" mail_ve > /dev/null; fi
