@@ -314,6 +314,21 @@ export function generators(ctx) {
     return str;
   }
 
+  // "<target> <domain>" per line: the mail domains each mail_ve target must
+  // accept (the container name, without a mail. prefix, and its aliases).
+  // Consumer: regenerate_mail_ves (modules/postfix/libs/mailvelib.sh).
+  function cluster_mail_ve_map() {
+    let str = "";
+    Object.keys(containers).forEach(function (i) {
+      const target = containers[i].mail_ve;
+      if (target === undefined || containers[target] === undefined) return;
+      const own = i.substring(0, 5) === "mail." ? i.substring(5) : i;
+      const domains = [own].concat(Array.isArray(containers[i].aliases) ? containers[i].aliases : []);
+      for (const domain of domains) str += target + " " + normalize_container_domain(domain) + BR;
+    });
+    return str;
+  }
+
   function cluster_host_keys() {
     let str = "";
     Object.keys(hosts).forEach(function (i) {
@@ -390,6 +405,7 @@ export function generators(ctx) {
     user_uid,
     cluster_etc_hosts,
     cluster_postfix_relaydomains,
+    cluster_mail_ve_map,
     cluster_host_keys,
     cluster_user_list,
     cluster_container_list,

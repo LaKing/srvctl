@@ -6,7 +6,8 @@
 ##   Runs via 'run_hook regenerate' from 'sc regenerate' and from the
 ##   container-creating commands (add-ve, add-ve-user, add-network-ve,
 ##   add-codepad). Rewrites /etc/postfix/relaydomains from the datastore
-##   and postmaps it (libs/postfixlib.sh), then restarts the host
+##   and postmaps it (libs/postfixlib.sh), updates the postfix of mail_ve
+##   targets (libs/mailvelib.sh), then restarts the host
 ##   postfix.service (libs/systemdlib.sh).
 ##
 
@@ -16,6 +17,11 @@
 ## exif (see libs/systemdlib.sh).
 
 regenerate_etc_postfix_relaydomains
+
+## Targets of the container field mail_ve accept the handed-over domains. A
+## failing target is reported, not fatal: it must not stop the host postfix
+## restart below or the hooks of later modules.
+regenerate_mail_ves || ntc "mail_ve: see the errors above; the next regenerate retries"
 
 ## Refresh the SMTP TLS cert on every regenerate so a renewed host/wildcard cert
 ## reaches postfix WITHOUT a full update-install (previously it was installed

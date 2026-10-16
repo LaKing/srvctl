@@ -33,12 +33,12 @@ Each module under `modules/<name>/` follows this pattern:
 ```
 module-condition.sh   # Decides if the module is active; must print "true" on stdout
 command.sh            # Optional per-module fallback command (only containers, srvctl)
-commands/*.sh         # CLI commands exposed to users (38 files across all modules)
-hooks/*.sh            # Lifecycle hooks (84 files; see hook names below)
+commands/*.sh         # CLI commands exposed to users (49 files across all modules)
+hooks/*.sh            # Lifecycle hooks (88 files; see hook names below)
 libs/*.sh             # Bash libraries, sourced by load_libs when the module is enabled
 lib/*.mjs, *.js       # Node.js libraries (containers, datastore, named, srvctl only)
-selftest/             # *.test.sh / *.test.mjs (certificates, containers, datastore,
-                      #   named, srvctl only)
+selftest/             # *.test.sh / *.test.mjs (certificates, comount, containers,
+                      #   datastore, haproxy, letsencrypt, named, postfix, srvctl)
 conf/                 # Configuration templates (only containers, perdition,
                       #   postfix, saslauthd)
 ```
@@ -94,7 +94,7 @@ listed for everyone.
   - Root means `sc_is_root`: `SC_USER == root` **and** uid 0. Plain uid 0 is not enough — the NOPASSWD sudoers entry lets any user reach uid 0 with `SC_USER` still their own name.
   - `authorize` still exists but is an inert **stub** (`authlib.sh:151-165`): a non-root caller only gets `DEV (Authorization implementation not complete.)` printed and execution *continues*. It denies nothing; do not use it as a gate.
   - `hs_only` / `ve_only` are also **inert** (`authlib.sh:204-228`): `SC_ON_HS` / `SC_ON_VE` are never assigned, so `if $SC_ON_HS` runs an empty command (status 0) and both always pass. Real host/VE separation comes from module-activation conditions plus `root_only`.
-- **Guard**: files that must not run standalone start with `[[ $SRVCTL ]] || exit <n>`, but the code is **not** consistent about `<n>`. 26 occurrences use `exit 4` (20 shipped commands/hooks plus 6 selftest auth fixtures); 6 use `exit 10` (`commonlib.sh:13`, `modules/certificates/libs/certselectlib.sh:27` and the four fixture command files under `modules/srvctl/selftest/sandbox/fixture-modules/` — two modules, `harnessa` and `harnessb`, with two commands each). Use `exit 4` in new commands and hooks. Only 17 of the 38 `modules/*/commands/*.sh` carry the guard at all — several unguarded files carry a `FIXME(v4)` about it (e.g. `modules/ve/commands/status.sh:11`, whose comment still calls `exit 10` "standard"). Put the guard *after* the `## @en` block so the hint stays inside the first 10 lines.
+- **Guard**: files that must not run standalone start with `[[ $SRVCTL ]] || exit <n>`, but the code is **not** consistent about `<n>`. 43 occurrences use `exit 4` (shipped commands, hooks and libs plus the selftest auth fixtures); 6 use `exit 10` (`commonlib.sh:13`, `modules/certificates/libs/certselectlib.sh:27` and the four fixture command files under `modules/srvctl/selftest/sandbox/fixture-modules/` — two modules, `harnessa` and `harnessb`, with two commands each). Use `exit 4` in new commands and hooks. Only 28 of the 49 `modules/*/commands/*.sh` carry the guard at all — several unguarded files carry a `FIXME(v4)` about it (e.g. `modules/ve/commands/status.sh:11`, whose comment still calls `exit 10` "standard"). Put the guard *after* the `## @en` block so the hint stays inside the first 10 lines.
 - ShellCheck compliance is expected (`# shellcheck disable=SCXXXX` for intentional exceptions).
 
 ## Execution Flow
@@ -111,7 +111,7 @@ listed for everyone.
 
 No build step and no package manifest. Install by cloning to `/usr/local/share/srvctl` and running `bash srvctl/srvctl.sh` as root; `init.sh:32-62` then creates the `/bin/sc` and `/bin/srvctl` symlinks and, when `/etc/bash_completion.d` exists, `srvctl-completion`. All three point back into the clone, so upgrading is a `git pull` (`sc update-install`).
 
-Tests: no CI and no top-level runner. Per-module selftests live in `modules/*/selftest/` (27 `*.test.sh` / `*.test.mjs` files under certificates, containers, datastore, named and srvctl). `modules/datastore/selftest/run.sh` and `modules/named/selftest/run.sh` aggregate their own module's tests and return non-zero on any failure; the rest are run directly with `bash <file>` or `node <file>`.
+Tests: no CI and no top-level runner. Per-module selftests live in `modules/*/selftest/` (48 `*.test.sh` / `*.test.mjs` files under certificates, comount, containers, datastore, haproxy, letsencrypt, named, postfix and srvctl). `modules/datastore/selftest/run.sh` and `modules/named/selftest/run.sh` aggregate their own module's tests and return non-zero on any failure; the rest are run directly with `bash <file>` or `node <file>`.
 
 ## Configuration Locations
 

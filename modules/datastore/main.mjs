@@ -172,6 +172,7 @@ const CONTAINER_FNS = {
 };
 const CLUSTER_FNS = {
   etc_hosts: g.cluster_etc_hosts, postfix_relaydomains: g.cluster_postfix_relaydomains,
+  mail_ve_map: g.cluster_mail_ve_map,
   host_keys: g.cluster_host_keys, user_list: g.cluster_user_list,
   container_list: g.cluster_container_list, host_list: g.cluster_host_list,
   host_ip_list: g.cluster_host_ip_list,

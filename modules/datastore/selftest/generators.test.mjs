@@ -209,6 +209,8 @@ function captureV3Golden() {
   check("mail_ve: mail. alias goes to target", lines.includes("10.20.1.5    mail.band.example.net"), true);
   check("mail_ve: unknown target is reported", lines.includes("## [mail_ve nope.example.com has no ip] mail.typo.example.org"), true);
   check("mail_ve: unknown target keeps own ip", lines.includes("10.20.1.7    mail.typo.example.org"), true);
+  check("mail_ve map: name and aliases, unknown target left out", generators(ctx).cluster_mail_ve_map(),
+    "app.example.com band.example.org\napp.example.com band.example.net\n");
 }
 
 console.log(`generators.test: ${passed} passed, ${failures.length} failed`);
