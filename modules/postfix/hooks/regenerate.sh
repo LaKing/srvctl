@@ -7,7 +7,8 @@
 ##   container-creating commands (add-ve, add-ve-user, add-network-ve,
 ##   add-codepad). Rewrites /etc/postfix/relaydomains from the datastore
 ##   and postmaps it (libs/postfixlib.sh), updates the postfix of mail_ve
-##   targets (libs/mailvelib.sh), then restarts the host
+##   targets (libs/mailvelib.sh), brings inbound mail authentication up
+##   to date (libs/mailauthregeneratelib.sh), then restarts the host
 ##   postfix.service (libs/systemdlib.sh).
 ##
 
@@ -32,5 +33,10 @@ if command -v install_service_hostcertificate > /dev/null 2>&1 && [[ -d /etc/pos
 then
     install_service_hostcertificate /etc/postfix
 fi
+
+## Inbound mail authentication (libs/mailauthregeneratelib.sh): this is how it
+## reaches hosts that never rerun update-install. Before the restart below,
+## which loads the changed main.cf/master.cf.
+mailauth_regenerate
 
 restart_postfix

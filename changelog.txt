@@ -8,6 +8,30 @@ notable operational changes are listed here.
 Unreleased (v4, in progress on top of 4.0.0.8)
 ----------------------------------------------
 
+Inbound mail authentication on the gateway; no more signing of inbound mail (2026-10-16)
+  * Security: the 127.0.0.1:10025 reinjection after amavis ran OpenDKIM again
+    from 127.0.0.1 (an InternalHost), so a spoofed `From: x@d250.hu` from the
+    internet left the gateway with a valid d250.hu DKIM-Signature. 10025 now
+    runs no signing milter; mail is signed once, on the first pass, for
+    containers (10.0.0.0/8), SMTP AUTH (25/465) and local mail.
+  * SPF (pyspf-milter), DKIM verification (OpenDKIM) and DMARC (OpenDMARC) on
+    the port-25 smtpd. Containers get ONE trusted header,
+    `Authentication-Results: <gateway>; spf=…; dkim=…; dmarc=…` (authserv-id
+    = host name, e.g. r2.d250.hu), merged on 10025 by apps/armerge.py. Every
+    incoming Authentication-Results and Received-SPF is dropped first, so a
+    sender cannot forge a pass.
+  * Record only by default. `SC_MAIL_SPF_REJECT_HARDFAIL=true` rejects SPF
+    hardfails, `SC_MAIL_DMARC_HONOUR_POLICY=true` honours the sender's DMARC
+    policy; both take effect at the next `sc regenerate`.
+  * Rollout through `sc regenerate`, since production hosts never rerun
+    update-install: missing packages are installed, and only the milter and
+    header_checks keys of main.cf/master.cf and the AuthservID and
+    AlwaysAddARHeader keys of opendkim.conf are set (postconf). Local edits
+    in those files are kept. Services restart only when their config changed.
+  * Why r2 showed no Authentication-Results before: OpenDKIM's field from the
+    first pass was deleted by amavisd (same authserv-id as its $myhostname),
+    and the second pass signed instead of verifying.
+
 Root sc startup no longer walks the comount storage (2026-10-16)
   * Every root `sc` call audits /var/srvctl3 for stray clusters.json copies.
     The walk skipped container and bulk branches but not /var/srvctl3/comount,
