@@ -8,6 +8,15 @@ notable operational changes are listed here.
 Unreleased (v4, in progress on top of 4.0.0.8)
 ----------------------------------------------
 
+No DKIM signing of inbound mail on regenerate-only hosts (2026-10-17)
+  * Every `sc regenerate` sets an empty smtpd_milters override on the amavis
+    reinjection listener (*:10025) in /etc/postfix/master.cf, so OpenDKIM no
+    longer signs inbound mail (a spoofed From: of our domains got our
+    signature). Only that one master.cf parameter is changed.
+  * The inbound mail authentication below is no longer rolled out by
+    regenerate: not yet verified on a live host. update-install still
+    installs it.
+
 Inbound mail authentication on the gateway; no more signing of inbound mail (2026-10-16)
   * Security: the 127.0.0.1:10025 reinjection after amavis ran OpenDKIM again
     from 127.0.0.1 (an InternalHost), so a spoofed `From: x@d250.hu` from the

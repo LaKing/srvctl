@@ -16,7 +16,3 @@
 ##
 
 regenerate_opendkim
-
-## Hosts that only run regenerate keep an /etc/opendkim.conf from an old
-## update-install; this adds the inbound verification keys to it.
-regenerate_opendkim_conf "${MAILAUTH_INTERNAL_ID:-srvctl-internal.invalid}"

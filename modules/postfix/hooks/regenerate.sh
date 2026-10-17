@@ -7,8 +7,8 @@
 ##   container-creating commands (add-ve, add-ve-user, add-network-ve,
 ##   add-codepad). Rewrites /etc/postfix/relaydomains from the datastore
 ##   and postmaps it (libs/postfixlib.sh), updates the postfix of mail_ve
-##   targets (libs/mailvelib.sh), brings inbound mail authentication up
-##   to date (libs/mailauthregeneratelib.sh), then restarts the host
+##   targets (libs/mailvelib.sh), removes DKIM signing from the amavis
+##   reinjection (libs/postfixlib.sh), then restarts the host
 ##   postfix.service (libs/systemdlib.sh).
 ##
 
@@ -34,9 +34,10 @@ then
     install_service_hostcertificate /etc/postfix
 fi
 
-## Inbound mail authentication (libs/mailauthregeneratelib.sh): this is how it
-## reaches hosts that never rerun update-install. Before the restart below,
-## which loads the changed main.cf/master.cf.
-mailauth_regenerate
+## No DKIM signing on the amavis reinjection (libs/postfixlib.sh). Before the
+## restart below, which loads the changed master.cf. The inbound mail
+## authentication (mailauth_regenerate, libs/mailauthregeneratelib.sh) is
+## deliberately not rolled out here: it is not yet verified on a live host.
+regenerate_reinjection_milters
 
 restart_postfix

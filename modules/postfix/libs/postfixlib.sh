@@ -111,3 +111,25 @@ function write_postfix_main {
 
     run systemctl restart postfix
 }
+
+## regenerate_reinjection_milters [postfix config dir, default /etc/postfix]
+## The amavis reinjection listener (*:10025) must not run OpenDKIM: its client
+## is 127.0.0.1, an opendkim InternalHost, so it signed inbound mail, including
+## a spoofed "From: <one of our domains>" from the internet. Outgoing mail is
+## signed on the first pass (container, SMTP AUTH and local clients). Hosts
+## only run regenerate, so the one master.cf override is set in place. An
+## override without the opendkim socket or a $parameter (empty, or the
+## mailauth merger) stays.
+function regenerate_reinjection_milters() {
+    local dir="${1:-/etc/postfix}" svc value found=false
+    [[ -f $dir/master.cf ]] || return 0
+    for svc in $(postconf -c "$dir" -M 2> /dev/null | awk '$2 == "inet" && $1 ~ /:10025$/ { print $1 }')
+    do
+        found=true
+        value="$(postconf -c "$dir" -P 2> /dev/null | awk -v k="$svc/inet/smtpd_milters" '$1 == k { sub(/^[^=]*= ?/, ""); print "set:" $0 }')"
+        [[ $value == set:* && $value != *:8891* && $value != *\$* ]] && continue
+        postconf -c "$dir" -P "$svc/inet/smtpd_milters=" && msg "postfix: no milters on the $svc reinjection (inbound mail is not DKIM-signed)"
+    done
+    $found || err "postfix: no *:10025 reinjection listener in $dir/master.cf; DKIM signing of inbound mail not checked"
+    return 0
+}
