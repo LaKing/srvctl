@@ -1933,7 +1933,7 @@ The `postfix` module manages SMTP on both hosts and containers.
 - Trusts: `127.0.0.0/8`, `10.0.0.0/8`, `192.168.0.0/16`, `[::1]/128`, `[fe80::]/64`.
 - Relays `$mydomain` plus `hash:/etc/postfix/relaydomains` (the generated map).
 - TLS with certificates at `/etc/postfix/crt.pem` and `key.pem`, `smtpd_tls_security_level = may`, used for both `smtpd` and outbound `smtp`.
-- SASL authentication enabled (`smtpd_sasl_type = cyrus`); `smtpd_recipient_restrictions = permit_mynetworks, permit_sasl_authenticated`.
+- No SMTP AUTH: `smtpd_sasl_auth_enable = no` and no `smtps` (465) listener. Its backend was saslauthd → rimap → perdition's IMAP on 127.0.0.1:143, and perdition is no longer installable. `regenerate_smtp_auth` (`libs/postfixlib.sh`) turns AUTH off on every `regenerate` where `/usr/sbin/perdition.imap4` is missing (smtps removed with `postconf -MX`, the main.cf key set); a host that still has perdition keeps it. `smtpd_sasl_type = cyrus` and `smtpd_recipient_restrictions = permit_mynetworks, permit_sasl_authenticated` stay; relaying is for `mynetworks` only.
 - Content filter: Amavis virus scanner (`127.0.0.1:10024`).
 - OpenDKIM milter at `127.0.0.1:8891`, `milter_default_action = accept` (mail still flows unsigned when opendkim is down). Not on the `127.0.0.1:10025` amavis reinjection (`conf/hs-master.cf` sets `-o smtpd_milters=`; see below).
 - 25 MB message size limit (`message_size_limit = 26214400`).
@@ -1956,7 +1956,7 @@ The `postfix` module manages SMTP on both hosts and containers.
 
 **Regenerate (`hooks/regenerate.sh`):** rewrites the relay map, re-installs the host certificate so a renewed cert reaches SMTP without a full `update-install`, removes DKIM signing from the amavis reinjection (`regenerate_reinjection_milters`, see below), then does a full restart (not a reload) of `postfix.service`.
 
-**Firewall (`hooks/firewalld.sh`):** the stock firewalld services `smtp` (25/tcp) and `smtps` (465/tcp).
+**Firewall (`hooks/firewalld.sh`):** the stock firewalld service `smtp` (25/tcp). The global firewalld hook still opens `smtps` (465) on every host (see the firewalld module); with no listener it is refused.
 
 ### No DKIM signing of inbound mail (`regenerate_reinjection_milters`)
 

@@ -8,7 +8,8 @@
 ##   add-codepad). Rewrites /etc/postfix/relaydomains from the datastore
 ##   and postmaps it (libs/postfixlib.sh), updates the postfix of mail_ve
 ##   targets (libs/mailvelib.sh), removes DKIM signing from the amavis
-##   reinjection (libs/postfixlib.sh), then restarts the host
+##   reinjection and SMTP AUTH without a backend (libs/postfixlib.sh),
+##   then restarts the host
 ##   postfix.service (libs/systemdlib.sh).
 ##
 
@@ -37,5 +38,8 @@ fi
 ## No DKIM signing on the amavis reinjection (libs/postfixlib.sh). Before the
 ## restart below, which loads the changed master.cf.
 regenerate_reinjection_milters
+
+## SMTP AUTH off where its backend is missing (libs/postfixlib.sh)
+regenerate_smtp_auth
 
 restart_postfix

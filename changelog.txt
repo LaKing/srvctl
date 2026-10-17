@@ -8,6 +8,15 @@ notable operational changes are listed here.
 Unreleased (v4, in progress on top of 4.0.0.8)
 ----------------------------------------------
 
+No SMTP AUTH without its backend (2026-10-17)
+  * SMTP AUTH (smtps 465 and AUTH on port 25) authenticated through
+    saslauthd -> rimap -> perdition, which is no longer installable. On r2
+    no login had succeeded in 60 days while password sprayers tried every
+    few seconds. regenerate now removes the smtps listener and sets
+    smtpd_sasl_auth_enable = no wherever /usr/sbin/perdition.imap4 is
+    missing; the host templates ship without AUTH. r2 was switched by hand
+    the same day (also firewall-cmd --remove-service=smtps).
+
 Hourly regenerate mails root only on failure (2026-10-17)
   * /etc/cron.hourly/srvctl-regenerate.sh wrote ~56 KB to stdout every hour,
     which cron mailed to root: r2's /var/mail/root reached postfix's

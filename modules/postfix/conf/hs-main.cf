@@ -66,7 +66,8 @@ smtpd_use_tls = yes
 ## We use cyrus for PAM authentication of local users
 smtpd_sasl_type = cyrus
 
-smtpd_sasl_auth_enable = yes
+## no SMTP AUTH: its backend, perdition, is no longer installable (libs/postfixlib.sh regenerate_smtp_auth)
+smtpd_sasl_auth_enable = no
 smtpd_sasl_authenticated_header = yes
 smtpd_recipient_restrictions = permit_mynetworks, permit_sasl_authenticated
 ##, check_recipient_access, reject_unauth_destination

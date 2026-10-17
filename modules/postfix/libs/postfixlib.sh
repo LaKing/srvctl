@@ -133,3 +133,25 @@ function regenerate_reinjection_milters() {
     $found || err "postfix: no *:10025 reinjection listener in $dir/master.cf; DKIM signing of inbound mail not checked"
     return 0
 }
+
+## regenerate_smtp_auth [postfix config dir, default /etc/postfix]
+## SMTP AUTH checks passwords through saslauthd -> rimap -> perdition's IMAP
+## on 127.0.0.1:143 (saslauthd module). perdition is no longer installable, so
+## where it is missing no login can succeed and the smtps listener only serves
+## password sprayers (r2: 0 logins in 60 days). There SMTP AUTH is turned off:
+## the smtps service is removed from master.cf and smtpd_sasl_auth_enable = no.
+## A host that still has perdition keeps its AUTH. Only ever turns AUTH off.
+function regenerate_smtp_auth() {
+    local dir="${1:-/etc/postfix}"
+    [[ -f $dir/master.cf ]] || return 0
+    [[ -x ${SC_SMTP_AUTH_BACKEND:-/usr/sbin/perdition.imap4} ]] && return 0
+    if [[ -n $(postconf -c "$dir" -M smtps/inet 2> /dev/null) ]]
+    then
+        postconf -c "$dir" -MX smtps/inet && msg "postfix: smtps (465) removed, no SMTP AUTH backend (perdition)"
+    fi
+    if [[ $(postconf -c "$dir" -h smtpd_sasl_auth_enable 2> /dev/null) != no ]]
+    then
+        postconf -c "$dir" -e 'smtpd_sasl_auth_enable = no' && msg "postfix: SMTP AUTH off, no backend (perdition)"
+    fi
+    return 0
+}
