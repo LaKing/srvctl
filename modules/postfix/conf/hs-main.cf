@@ -78,19 +78,10 @@ message_size_limit=26214400
 ## virus scanner
 content_filter=smtp-amavis:[127.0.0.1]:10024
 
-## inbound mail authentication (libs/mailauthlib.sh): pyspf-milter (8892),
-## opendkim (8891, signs internal/authenticated mail, verifies the rest) and
-## opendmarc (8894). The 127.0.0.1:10025 reinjection runs only the
-## Authentication-Results merger (master.cf). Local mail is only signed.
-smtpd_milters           = inet:127.0.0.1:8892, inet:127.0.0.1:8891, inet:127.0.0.1:8894
-non_smtpd_milters       = inet:127.0.0.1:8891
+## opendkim
+smtpd_milters           = inet:127.0.0.1:8891
+non_smtpd_milters       = $smtpd_milters
 milter_default_action   = accept
-
-## drop every incoming Authentication-Results and Received-SPF before the
-## milters see the message; attached messages (body) are left alone
-header_checks           = regexp:/etc/postfix/srvctl-auth-header-checks
-mime_header_checks      =
-nested_header_checks    =
 
 ## Server to server encryption
 smtp_tls_cert_file = /etc/postfix/crt.pem                            

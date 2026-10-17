@@ -36,11 +36,11 @@ expect 'old: reported' 1 "$(grep -c 'no milters on the 127.0.0.1:10025 reinjecti
 before="$(sha256sum "$tmp/old/master.cf")"
 regenerate_reinjection_milters "$tmp/old"
 expect 'old: second run changes nothing' "$before" "$(sha256sum "$tmp/old/master.cf")"
-expect 'other services untouched' 'inet:127.0.0.1:8891' "$(postconf -c "$tmp/old" -P -h smtps/inet/smtpd_milters 2> /dev/null)"
+expect 'main.cf milters untouched' 'inet:127.0.0.1:8891' "$(postconf -c "$tmp/old" -h smtpd_milters 2> /dev/null)"
 
-fixture merger inet:127.0.0.1:8895
-regenerate_reinjection_milters "$tmp/merger"
-expect 'merger override kept' 'set:inet:127.0.0.1:8895' "$(override "$tmp/merger")"
+fixture other inet:127.0.0.1:8895
+regenerate_reinjection_milters "$tmp/other"
+expect 'other milter override kept' 'set:inet:127.0.0.1:8895' "$(override "$tmp/other")"
 
 fixture signing inet:127.0.0.1:8891
 regenerate_reinjection_milters "$tmp/signing"
@@ -48,6 +48,7 @@ expect 'opendkim override removed' 'set:' "$(override "$tmp/signing")"
 
 # shellcheck disable=SC2016 # a literal postfix $parameter reference
 fixture indirect '$non_smtpd_milters'
+postconf -c "$tmp/indirect" -e 'non_smtpd_milters = inet:127.0.0.1:8891' 2> /dev/null
 regenerate_reinjection_milters "$tmp/indirect"
 expect 'indirect parameter override removed' 'set:' "$(override "$tmp/indirect")"
 

@@ -117,9 +117,9 @@ function write_postfix_main {
 ## is 127.0.0.1, an opendkim InternalHost, so it signed inbound mail, including
 ## a spoofed "From: <one of our domains>" from the internet. Outgoing mail is
 ## signed on the first pass (container, SMTP AUTH and local clients). Hosts
-## only run regenerate, so the one master.cf override is set in place. An
-## override without the opendkim socket or a $parameter (empty, or the
-## mailauth merger) stays.
+## only run regenerate, so the one master.cf override is set in place
+## (conf/hs-master.cf has it for update-install). An override without the
+## opendkim socket or a $parameter (empty, or another milter) stays.
 function regenerate_reinjection_milters() {
     local dir="${1:-/etc/postfix}" svc value found=false
     [[ -f $dir/master.cf ]] || return 0

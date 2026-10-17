@@ -35,9 +35,7 @@ then
 fi
 
 ## No DKIM signing on the amavis reinjection (libs/postfixlib.sh). Before the
-## restart below, which loads the changed master.cf. The inbound mail
-## authentication (mailauth_regenerate, libs/mailauthregeneratelib.sh) is
-## deliberately not rolled out here: it is not yet verified on a live host.
+## restart below, which loads the changed master.cf.
 regenerate_reinjection_milters
 
 restart_postfix
