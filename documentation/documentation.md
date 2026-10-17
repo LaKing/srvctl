@@ -1021,6 +1021,8 @@ Each container record (`$SC_DATASTORE_DIR/containers/<name>.json`) has:
 | `altnames` | Alternative domain names |
 | `mx` | Whether container has MX records |
 | `use_gsuite` | Whether using Google Suite |
+| `use_google_spf` | Adds `include:_spf.google.com` to the generated SPF without touching the MX (`use_gsuite` also moves the MX to Google). Pair it with the Google Admin public key in `dkim-google-domainkey` (`p=…`, selector `google`) |
+| `spf_record` | Replaces the generated SPF TXT verbatim; `put` cannot store it, since the value contains spaces |
 | `is_mail` | Whether this is a mail container |
 | `mail_ve` | Container that handles this container's mail: the host `/etc/hosts` points `mail.<name>` (and `mail.<alias>`) at its IP, so the host postfix MX delivery and the perdition map reach it. Set with `set-ve-mail-ve VE MAILVE` (clear with `off`), which also makes the target's postfix take the domains as its own (see *Mail of one container handled by another*). An unknown target leaves a `## [mail_ve …]` comment and keeps the own IP. |
 | `dns` | DNS scan results per domain |

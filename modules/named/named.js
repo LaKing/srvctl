@@ -227,7 +227,9 @@ function get_container_zone(cluster, host, hostdata, containers, name, alias) {
 
     spf_string += " a mx";
 
-    if (container.use_gsuite) spf_string += " include:_spf.google.com";
+    // use_google_spf: Google only sends (Workspace/Gmail "send as"), the MX stays here;
+    // use_gsuite would also move the MX to Google.
+    if (container.use_gsuite || container.use_google_spf) spf_string += " include:_spf.google.com";
     if (container.use_mailchimp) spf_string += " include:servers.mcsv.net";
     if (container.use_mlsend) spf_string += " include:_spf.mlsend.com";
 
