@@ -2655,11 +2655,16 @@ runs the same regeneration on every host of the canonical
 across all clusters, then the global DNS publication primary and its replicas —
 locally or over ssh as appropriate, after checking that each host agrees on the topology checksum.
 
-**Cron job:** `/etc/cron.hourly/srvctl-regenerate.sh` (installed by the
-`containers` module's `update-install-host` hook) runs
+**Cron job:** `/etc/cron.hourly/srvctl-regenerate.sh` (written by
+`write_cron_regenerate`, `modules/containers/libs/cronlib.sh`, from both the
+`containers` `update-install-host` hook and every `regenerate`) runs
 `srvctl regenerate '#cron.hourly'` every hour. That literal argument is matched
 by the hooks: it additionally enforces container disk quotas
-(`all_containers_quota_check`) and makes haproxy skip its reload.
+(`all_containers_quota_check`) and makes haproxy skip its reload. The output of
+the last run is in `/var/log/srvctl-regenerate.log`; the job prints nothing,
+so cron mails root nothing, unless regenerate exits nonzero. (Mailing every
+run filled `/var/mail/root` up to postfix's `mailbox_size_limit`.) The cron
+run does not trigger `/bin/pop`: that runs only for interactive root calls.
 
 ### Utility Commands
 

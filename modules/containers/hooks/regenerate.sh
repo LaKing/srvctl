@@ -27,6 +27,9 @@ regenerate_etc_hosts
 ## https://github.com/systemd/systemd/issues/17992
 sysctl fs.inotify.max_user_watches=16777216
 
+## libs/cronlib.sh: the hourly job mails root only on failure
+write_cron_regenerate
+
 if [[ $ARG == "#cron.hourly" ]]
 then
 	all_containers_quota_check

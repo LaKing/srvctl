@@ -38,10 +38,4 @@ secure_share_containers
 mkdir -p /var/srvctl3/share/common
 mkdir -p /var/srvctl3/share/lock
 
-{
-    echo "#!/bin/bash"
-    echo ''
-    echo "/bin/bash /usr/local/share/srvctl/srvctl.sh regenerate '#cron.hourly'"
-} > /etc/cron.hourly/srvctl-regenerate.sh
-
-chmod +x /etc/cron.hourly/srvctl-regenerate.sh
+write_cron_regenerate
