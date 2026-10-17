@@ -61,7 +61,7 @@ try {
         basicauth_rule: (c, n) => basicauth.rule(auth, c, n),
         is_codepad_port: () => false,
     };
-    vm.runInNewContext(slice("function get_backends_for_http(", "\nvar cfg = "), ctx);
+    vm.runInNewContext(slice("function web_ve(", "\nvar cfg = "), ctx);
     const https = ctx.get_backends_for_https();
     ok(/backend https:shop\.example\n {4}http-request auth realm "shop\.example" unless \{ http_auth\(basicauth:shop\.example\) \}\n {4}http-after-response set-header X-Robots-Tag "noindex, nofollow"\n {4}server /.test(https), "auth rule and X-Robots-Tag before the server line");
     ok(!ctx.get_backends_for_http().includes("X-Robots-Tag"), "no X-Robots-Tag where there is no auth");

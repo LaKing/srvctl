@@ -1025,6 +1025,7 @@ Each container record (`$SC_DATASTORE_DIR/containers/<name>.json`) has:
 | `spf_record` | Replaces the generated SPF TXT verbatim; `put` cannot store it, since the value contains spaces |
 | `is_mail` | Whether this is a mail container |
 | `mail_ve` | Container that handles this container's mail: the host `/etc/hosts` points `mail.<name>` (and `mail.<alias>`) at its IP, so the host postfix MX delivery and the perdition map reach it. Set with `set-ve-mail-ve VE MAILVE` (clear with `off`), which also makes the target's postfix take the domains as its own (see *Mail of one container handled by another*). An unknown target leaves a `## [mail_ve …]` comment and keeps the own IP. |
+| `web_ve` | Container that serves this container's web: HAProxy sends the `http:<name>` / `https:<name>` backends (so every name, alias and subdomain) to its name and ports, Host header unchanged. Set with `set-ve-web-ve VE WEBVE` (clear with `off`). Redirects, basic auth and certificates stay the container's; other proxied ports do not follow. An unknown target falls back to the container itself |
 | `dns` | DNS scan results per domain |
 
 `all_containers_quota_check()` (`modules/containers/libs/all_containers_quota_check.sh`),
@@ -1737,6 +1738,7 @@ retries. No syntax check runs before a reload (`FIXME(v4)` in
 |---------|-------------|
 | `http-redirect VE [none\|https\|URL]` | Set or clear the container's HTTP redirect. No argument or `none` removes the key; an absent key means the default 301 http→https, `https` is a protocol flip, anything else is used verbatim as `redirect prefix <value>` |
 | `https-redirect VE [none\|http\|URL]` | Set or clear the container's HTTPS redirect. No argument, `none`, or an absent key serves https directly; `http` is a protocol flip, anything else is used verbatim |
+| `set-ve-web-ve VE [WEBVE\|off]` | Root only. Hand the http/https traffic of VE (all its names) to the container WEBVE, which needs a virtual host for them; stored in `web_ve`, then HAProxy is regenerated. `off` / `none` gives it back, no WEBVE shows the setting. A WEBVE that itself has `web_ve` is refused, since `haproxy.js` follows one step |
 
 Both are `hs_only`, store the value under the container's `http-redirect` /
 `https-redirect` datastore key (owner and reseller callers are escalated via
@@ -3073,6 +3075,7 @@ Inside a container, root only:
 |---------|-------------|
 | `srvctl http-redirect VE [none\|https\|URL]` | Place an HTTP redirect for the container in the proxy configuration. IPv4 only, default port. No argument, or `none`, removes the redirect |
 | `srvctl https-redirect VE [none\|http\|URL]` | The same for HTTPS traffic |
+| `srvctl set-ve-web-ve VE [WEBVE\|off]` | Serve the web of VE from the container WEBVE (root); `off` gives it back, no WEBVE shows the setting |
 | `srvctl override-in-address VE [none\|IP]` | Temporarily override the container's `IN A` record in the named zone file; `none` restores it |
 
 ### System Administration

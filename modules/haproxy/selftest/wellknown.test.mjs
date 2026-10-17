@@ -28,7 +28,7 @@ const ctx = {
     Object, Array,
 };
 vm.runInNewContext(slice("function ddn(", "\n}\n") + "\n}\n" + slice("function acl(", "\nfunction get_frontend_https(") +
-    slice("function get_backends_for_http(", "\nfunction get_backends_for_https("), ctx);
+    slice("function web_ve(", "\nfunction get_backends_for_https("), ctx);
 
 const http = ctx.get_frontend_http();
 ok(/^\s*acl letsencrypt-acl path_beg \/\.well-known\/acme-challenge\/$/m.test(http), "challenge ACL");

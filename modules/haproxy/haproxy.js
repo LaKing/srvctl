@@ -21,7 +21,7 @@
    ordered by descending domain-segment count so first-match ACLs prefer
    the most specific name; 'static' containers keep backends/redirects but
    get no use_backend ACLs; datastore keys read per container: aliases,
-   altnames, static, proxy_ports, http_port, https_port, and the
+   altnames, static, proxy_ports, http_port, https_port, web_ve, and the
    http-redirect/https-redirect keys set by the module's commands.
    Basic auth: the 'basicauth' container key selects the ports, the access
    users' datastore .password files the logins (basicauth.js); rendered as a
@@ -492,12 +492,22 @@ function get_frontend_port(n, ssl) {
     return str;
 }
 
+// web_ve (set-ve-web-ve): another container serves this VE's http/https. The
+// backend keeps this VE's name, so its ACLs, redirects and basic auth stay its
+// own; only the server line points at the target's name (via /etc/hosts) and
+// ports. The target's web server must have a virtual host for this VE's names.
+// An unknown target falls back to the VE itself. Other ports are not followed.
+function web_ve(c) {
+    var t = containers[c].web_ve;
+    return t !== undefined && containers[t] !== undefined ? t : c;
+}
+
 function get_backends_for_http() {
     var str = "";
     Object.keys(containers).forEach(function (c) {
         str += br + "backend http:" + c;
         str += basicauth_rule(c, 80);
-        str += br + "    server http:" + c + " " + c + ":" + datastore.container_http_port(c);
+        str += br + "    server http:" + c + " " + web_ve(c) + ":" + datastore.container_http_port(web_ve(c));
         str += br + "";
     });
 
@@ -521,7 +531,7 @@ function get_backends_for_https() {
         //str += br + '    redirect scheme https if !{ ssl_fc }';
 
         str += basicauth_rule(c, 443);
-        str += br + "    server https:" + c + " " + c + ":" + datastore.container_https_port(c) + " ssl verify none alpn h2,http/1.1";
+        str += br + "    server https:" + c + " " + web_ve(c) + ":" + datastore.container_https_port(web_ve(c)) + " ssl verify none alpn h2,http/1.1";
         str += br + "";
     });
 
