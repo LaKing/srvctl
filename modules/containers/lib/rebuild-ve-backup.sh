@@ -95,24 +95,38 @@ then
     ## mysql.proc from 10.2 under 10.4) make --routines/--events fail. Such a
     ## server cannot run its routines or events either, so the dump is retried
     ## without them rather than upgrading the old datadir.
-    ## A database whose tables this server cannot open (1146 or 1932, e.g. InnoDB files
-    ## copied in owned by root, seen on r2: eana.hu) is skipped: no application
-    ## can be using it. Its files stay in exrootfs.
+    ## Tables this server cannot open (InnoDB files copied in owned by root:
+    ## 1146/1932, seen on r2 eana.hu; a lost tablespace: 1030/194, seen on
+    ## mosolygoalmapecs.hu, a Wordfence scratch table) are probed first. All
+    ## broken: the database is skipped, no application can be using it. Some
+    ## broken: dumped without them. Their files stay in exrootfs either way.
     dumped=''
     for db in $dbs
     do
-        if ! mysqldump "${my[@]}" --single-transaction --routines --events --triggers --databases "$db" > "$B/db/$db.sql" 2> "$B/db/$db.err"
+        mapfile -t tables < <(mysql "${my[@]}" -N -e "select table_name from information_schema.tables where table_schema='$db' and table_type='BASE TABLE'")
+        skip=()
+        for t in "${tables[@]}"
+        do
+            mysql "${my[@]}" -e "select 1 from \`$db\`.\`$t\` limit 0" > /dev/null 2>&1 || skip+=("$t")
+        done
+        if ((${#skip[@]} > 0 && ${#skip[@]} == ${#tables[@]}))
         then
-            if grep -qE "doesn't exist( in engine)? \((1146|1932)\)" "$B/db/$db.err"
-            then
-                echo "== $db: SKIPPED, its tables cannot be opened on the old server either: $(grep -m1 -o "Table '[^']*'" "$B/db/$db.err")"
-                echo "brokendb=$db" >> "$B/manifest"
-                rm -f "$B/db/$db.sql" "$B/db/$db.err"
-                continue
-            fi
+            echo "== $db: SKIPPED, none of its ${#tables[@]} tables can be opened on the old server either"
+            echo "brokendb=$db" >> "$B/manifest"
+            continue
+        fi
+        ignore=()
+        for t in "${skip[@]}"
+        do
+            echo "== $db.$t: SKIPPED, the old server cannot open this table either"
+            echo "brokentable=$db.$t" >> "$B/manifest"
+            ignore+=("--ignore-table=$db.$t")
+        done
+        if ! mysqldump "${my[@]}" --single-transaction --routines --events --triggers "${ignore[@]}" --databases "$db" > "$B/db/$db.sql" 2> "$B/db/$db.err"
+        then
             grep -qE 'mysql\.(proc|event)|mysql_upgrade' "$B/db/$db.err" || { cat "$B/db/$db.err" >&2; fail "dump of $db failed"; }
             echo "== $db: system tables older than the server, dumping without routines and events (they could not run here either)"
-            mysqldump "${my[@]}" --single-transaction --triggers --databases "$db" > "$B/db/$db.sql" || fail "dump of $db failed"
+            mysqldump "${my[@]}" --single-transaction --triggers "${ignore[@]}" --databases "$db" > "$B/db/$db.sql" || fail "dump of $db failed"
             echo "noroutines=$db" >> "$B/manifest"
         fi
         rm -f "$B/db/$db.err"
