@@ -43,6 +43,25 @@ kind=static
 source /etc/os-release
 printf 'kind=%s\nos=%s %s\n' "$kind" "$ID" "$VERSION_ID" > "$B/manifest"
 
+## local units the snapshot let through (target in /srv/<dir> or /home): the
+## unit links themselves and the whole /srv/<dir> they point into. Stopped
+## before anything is saved, so the dumps and files are one moment of the app
+## (a job board taking payments, seen on r2: vendeglatosmunkak.hu); here and
+## not in the snapshot, because a resumed backup boots the old container again.
+localunits=()
+localpaths=()
+for w in /etc/systemd/system/multi-user.target.wants/*
+do
+    t="$(readlink "$w")" || continue
+    ## /srv/<C>/rootfs/...: a packaged unit linked with its host path by old srvctl
+    case "$t" in /srv/*/rootfs/*) continue ;; /srv/?*/* | /home/?*/*) ;; *) continue ;; esac
+    u="${w##*/}" && localunits+=("$u") && localpaths+=("$w")
+    [[ -L /etc/systemd/system/$u ]] && localpaths+=("/etc/systemd/system/$u")
+    [[ $t == /srv/* ]] && d="${t#/srv/}" && localpaths+=("/srv/${d%%/*}")
+done
+echo "localunits=${localunits[*]}" >> "$B/manifest"
+((${#localunits[@]})) && { systemctl stop "${localunits[@]}" || fail "local units do not stop: ${localunits[*]}"; }
+
 rpm -qa --qf '%{NAME}\n' | sort > "$B/reference/packages.txt"
 ## third-party dnf repositories set up by hand (MongoDB's, seen on r2:
 ## audreyshome.hu) with their local keys: without them the old package list
@@ -219,19 +238,7 @@ done > "$B/shadow"
 ## All of /var/www, not only html: a docroot can be elsewhere in it, through a
 ## symlink (/var/www/laravel -> html, seen on r2: app.printmagus.com).
 paths=(/var/www /home /var/spool/cron /etc/mariadb-*.conf)
-## local units the snapshot let through (target in /srv/<dir> or /home): the
-## unit links themselves and the whole /srv/<dir> they point into
-localunits=()
-for w in /etc/systemd/system/multi-user.target.wants/*
-do
-    t="$(readlink "$w")" || continue
-    ## /srv/<C>/rootfs/...: a packaged unit linked with its host path by old srvctl
-    case "$t" in /srv/*/rootfs/*) continue ;; /srv/?*/* | /home/?*/*) ;; *) continue ;; esac
-    u="${w##*/}" && localunits+=("$u") && paths+=("$w")
-    [[ -L /etc/systemd/system/$u ]] && paths+=("/etc/systemd/system/$u")
-    [[ $t == /srv/* ]] && d="${t#/srv/}" && paths+=("/srv/${d%%/*}")
-done
-echo "localunits=${localunits[*]}" >> "$B/manifest"
+paths+=("${localpaths[@]}")
 rpm -Va 2> /dev/null | awk '$2 == "c" && $1 ~ /5/ {print $3}' > "$B/reference/modified-configs.txt"
 for f in /etc/httpd/conf.d/*.conf /etc/phpMyAdmin/*
 do
