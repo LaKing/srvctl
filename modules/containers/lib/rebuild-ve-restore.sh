@@ -44,8 +44,13 @@ pkgs=(httpd mod_ssl)
 mapfile -t oldphp < <(grep '^php-' "$B/reference/packages.txt")
 dnf -y install --skip-unavailable "${pkgs[@]}" "${oldphp[@]}" || fail "package install failed"
 
-## files over the fresh tree, owners and modes as they were
-cp -a --reflink=auto "$B/files/." / || fail "file restore failed"
+## files over the fresh tree, owners and modes as they were. Path by path, so
+## only the saved trees themselves get their old attributes, never / or /var.
+[[ -f $B/paths ]] || fail "no $B/paths: backup made by an older rebuild-ve, roll back and rebuild"
+while read -r p
+do
+    cp -a --reflink=auto "$B/files$p" "$(dirname "$p")/" || fail "restore of $p failed"
+done < "$B/paths"
 
 ## databases: dumps carry CREATE DATABASE; grants recreate the accounts
 if [[ -n ${dbs// /} ]]

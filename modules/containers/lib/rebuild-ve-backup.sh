@@ -5,13 +5,14 @@
 ## puts back on the fresh rootfs, into /srv/backup:
 ##
 ##   manifest       kind=wordpress|php|static, os=, db=<databases>
-##   files/         the restored trees, copied with cp -a so the in-container
-##                  numeric owners survive (the host copies them on with cp -a,
-##                  and the new container's first start uid-shifts them)
+##   files/, paths  the restored trees, copied with cp -a --parents so the
+##                  in-container numeric owners survive (the host copies them on
+##                  with cp -a, the new container's first start uid-shifts them);
+##                  paths lists them, the restore copies path by path
 ##   db/<name>.sql  one logical dump per database; db/grants.sql the accounts
 ##   passwd group shadow   the uid 1000..59999 users and groups
-##   reference/     packages, enabled units, php.ini, rpm-owned httpd configs:
-##                  for reading, never restored
+##   reference/     packages, enabled units, php.ini, rpm-owned httpd configs,
+##                  the old root database credentials: for reading, never restored
 ##
 ## Must work on every release since Fedora 26 (bash 4.4, MariaDB 10.1+).
 ## Logical dumps, not the datadir: MariaDB 10.x files cannot simply be opened
@@ -39,7 +40,7 @@ printf 'kind=%s\nos=%s %s\n' "$kind" "$ID" "$VERSION_ID" > "$B/manifest"
 
 rpm -qa --qf '%{NAME}\n' | sort > "$B/reference/packages.txt"
 systemctl list-unit-files --state=enabled --no-legend 2>/dev/null | awk '{print $1}' > "$B/reference/units.txt"
-cp -a /etc/php.ini "$B/reference/" 2>/dev/null
+cp -a /etc/php.ini /root/.my.cnf /etc/mysqldump.conf "$B/reference/" 2>/dev/null
 
 ## database: every user database as its own dump, plus the accounts
 dbs=''
@@ -124,9 +125,11 @@ do
     grep "^$u:" /etc/shadow
 done > "$B/shadow"
 
-## files: the web root, homes, crontabs, the db client configs and the httpd
-## configs that no package owns (site vhosts, srvctl's wordpress confs)
-paths=(/var/www/html /home /var/spool/cron /root/.my.cnf /etc/mysqldump.conf /etc/mariadb-*.conf)
+## files: the web root, homes, crontabs, the per-site db configs and the httpd
+## configs that no package owns (site vhosts, srvctl's wordpress confs).
+## --parents keeps the source modes of the parent dirs; the umask 077 ones once
+## reached / and /var through a whole-tree restore and broke every service.
+paths=(/var/www/html /home /var/spool/cron /etc/mariadb-*.conf)
 for f in /etc/httpd/conf.d/*.conf
 do
     if rpm -qf "$f" > /dev/null 2>&1
@@ -137,8 +140,8 @@ done
 for p in "${paths[@]}"
 do
     [[ -e $p ]] || continue
-    mkdir -p "$B/files$(dirname "$p")"
-    cp -a --reflink=auto "$p" "$B/files$(dirname "$p")/" || fail "copy of $p failed"
+    cp -a --parents --reflink=auto "$p" "$B/files/" || fail "copy of $p failed"
+    echo "$p" >> "$B/paths"
 done
 
 echo "== backup of $(hostname) done: $(tr '\n' ' ' < "$B/manifest")"
