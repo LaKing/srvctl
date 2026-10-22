@@ -29,7 +29,7 @@ SC_REBUILD_SRV="${SC_REBUILD_SRV:-/srv}" ## test seam
 SC_REBUILD_PHASES=(snapshot backup swap restore check)
 SC_REBUILD_ERRORS='critical error|Error establishing a database connection|Fatal error|Parse error'
 ## content this rebuild cannot restore: refused unless SC_REBUILD_FORCE=true
-SC_REBUILD_UNSUPPORTED='var/lib/mongo var/lib/mongodb var/codepad nginx.service supervisord.service elasticsearch.service rabbitmq-server.service redis.service'
+SC_REBUILD_UNSUPPORTED='var/codepad nginx.service supervisord.service elasticsearch.service rabbitmq-server.service redis.service'
 
 function rebuild_ssh() { ## C [command...]
     ssh -o BatchMode=yes -o ConnectTimeout=5 "$@"

@@ -36,14 +36,15 @@ do
     usermod -p "$hash" "$name"
 done < "$B/shadow"
 
-## packages: the web stack, plus every php-* the old container had that still
-## exists (dnf5 skips the retired ones, e.g. php-mcrypt)
+## packages: the web stack, plus every package the old container had that
+## still exists (phpMyAdmin, git, ...; dnf5 skips retired names like
+## php-mcrypt, and with --skip-broken whatever would conflict).
 ## tar: the WordPress core download; the base image has none
 pkgs=(httpd mod_ssl tar)
 [[ $kind != static ]] && pkgs+=(php php-fpm php-mysqlnd php-gd php-xml php-mbstring php-intl php-zip php-opcache)
 [[ -n ${dbs// /} ]] && pkgs+=(mariadb-server)
-mapfile -t oldphp < <(grep '^php-' "$B/reference/packages.txt")
-dnf -y install --skip-unavailable "${pkgs[@]}" "${oldphp[@]}" || fail "package install failed"
+mapfile -t oldpkgs < <(grep -v '^gpg-pubkey$' "$B/reference/packages.txt")
+dnf -y install --skip-unavailable --skip-broken "${pkgs[@]}" "${oldpkgs[@]}" || fail "package install failed"
 
 ## files over the fresh tree, owners and modes as they were. Path by path, so
 ## only the saved trees themselves get their old attributes, never / or /var.
@@ -84,6 +85,14 @@ then
     rm -rf "$t"
 fi
 
+## services the old container had enabled, where the unit exists here.
+## NetworkManager would fight the srvctl-managed networkd setup.
+while read -r u
+do
+    case "$u" in *@* | NetworkManager* | srvctl*) continue ;; esac
+    systemctl cat "$u" > /dev/null 2>&1 && systemctl enable "$u" 2> /dev/null || echo "== not enabled, no such unit here: $u"
+done < "$B/reference/units.txt"
+
 [[ $kind != static ]] && { systemctl enable --now php-fpm || fail "php-fpm does not start"; }
 systemctl enable httpd
 systemctl restart httpd || fail "httpd does not start"
@@ -94,5 +103,6 @@ then
     curl -s -o /dev/null -w '== wp upgrade.php: HTTP %{http_code}\n' -H "Host: $(hostname)" 'http://127.0.0.1/wp-admin/upgrade.php?step=1'
 fi
 
+grep -q '^mongo=dumped' "$B/manifest" && echo "== NOTE: MongoDB was in use and is NOT restored (no Fedora package): dump in $B/mongo.archive.gz, data in exrootfs"
 chmod 700 "$B"
 echo "== restore of $(hostname) done"

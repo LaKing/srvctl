@@ -64,7 +64,7 @@ echo '<html><title>My Site</title>' > "$tmp/page"
 state() { tr '\n' ' ' 2> /dev/null < "$d/rebuild/state"; }
 
 ## unsupported content is refused before anything changes
-newold && mkdir -p "$d/rootfs/var/lib/mongo"
+newold && mkdir -p "$d/rootfs/var/codepad"
 rebuild_ve "$C" > /dev/null
 ok "unsupported refused" "$?" 1
 ok "nothing recorded" "$(state)" ""

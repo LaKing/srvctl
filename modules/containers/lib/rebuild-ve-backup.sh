@@ -10,6 +10,8 @@
 ##                  with cp -a, the new container's first start uid-shifts them);
 ##                  paths lists them, the restore copies path by path
 ##   db/<name>.sql  one logical dump per database; db/grants.sql the accounts
+##   mongo.archive.gz      mongodump of a MongoDB, if any: kept, never restored
+##                  (Fedora ships no MongoDB server)
 ##   passwd group shadow   the uid 1000..59999 users and groups
 ##   reference/     packages, enabled units, php.ini, rpm-owned httpd configs,
 ##                  the old root database credentials: for reading, never restored
@@ -118,6 +120,21 @@ then
     } > "$B/db/grants.sql"
 fi
 echo "db=$dbs" >> "$B/manifest"
+
+## MongoDB: dumped for the owner. mongodump retries until mongod answers.
+if [[ -d /var/lib/mongo || -d /var/lib/mongodb ]] && command -v mongodump > /dev/null
+then
+    systemctl start mongod 2> /dev/null
+    dumped=false
+    for _ in {1..30}
+    do
+        mongodump --quiet --gzip --archive="$B/mongo.archive.gz" 2> "$B/mongo.err" && { dumped=true; break; }
+        sleep 2
+    done
+    $dumped || { cat "$B/mongo.err" >&2; fail "mongodump failed"; }
+    rm -f "$B/mongo.err"
+    echo "mongo=dumped" >> "$B/manifest"
+fi
 
 ## users and groups of the site owners
 awk -F: '$3 >= 1000 && $3 < 60000' /etc/passwd > "$B/passwd"
