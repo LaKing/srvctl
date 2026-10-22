@@ -38,7 +38,8 @@ done < "$B/shadow"
 
 ## packages: the web stack, plus every php-* the old container had that still
 ## exists (dnf5 skips the retired ones, e.g. php-mcrypt)
-pkgs=(httpd mod_ssl)
+## tar: the WordPress core download; the base image has none
+pkgs=(httpd mod_ssl tar)
 [[ $kind != static ]] && pkgs+=(php php-fpm php-mysqlnd php-gd php-xml php-mbstring php-intl php-zip php-opcache)
 [[ -n ${dbs// /} ]] && pkgs+=(mariadb-server)
 mapfile -t oldphp < <(grep '^php-' "$B/reference/packages.txt")
@@ -52,16 +53,18 @@ do
     cp -a --reflink=auto "$B/files$p" "$(dirname "$p")/" || fail "restore of $p failed"
 done < "$B/paths"
 
-## databases: dumps carry CREATE DATABASE; grants recreate the accounts
+## databases: dumps carry CREATE DATABASE; grants recreate the accounts. A
+## rerun imports again: the dumps drop and recreate their tables.
 if [[ -n ${dbs// /} ]]
 then
+    sql="$(command -v mariadb || command -v mysql)"
     systemctl enable --now mariadb || fail "mariadb does not start"
     for db in $dbs
     do
-        mysql < "$B/db/$db.sql" || fail "import of $db failed"
+        "$sql" < "$B/db/$db.sql" || fail "import of $db failed"
     done
-    mysql < "$B/db/grants.sql" || fail "grants import failed"
-    mysql -e 'flush privileges'
+    "$sql" < "$B/db/grants.sql" || fail "grants import failed"
+    "$sql" -e 'flush privileges'
 fi
 
 ## WordPress: fresh core (wp-admin, wp-includes, root files) over the old
