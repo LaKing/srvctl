@@ -1752,6 +1752,7 @@ retries. No syntax check runs before a reload (`FIXME(v4)` in
 |---------|-------------|
 | `http-redirect VE [none\|https\|URL]` | Set or clear the container's HTTP redirect. No argument or `none` removes the key; an absent key means the default 301 http→https, `https` is a protocol flip, anything else is used verbatim as `redirect prefix <value>` |
 | `https-redirect VE [none\|http\|URL]` | Set or clear the container's HTTPS redirect. No argument, `none`, or an absent key serves https directly; `http` is a protocol flip, anything else is used verbatim |
+| `set-ve-redirect VE [URL [temporary]\|off]` | Send every http and https request of VE and www.VE to exactly URL (`redirect location`, path not appended), 301 or with `temporary` 302; `/.well-known` stays with the VE. Stored in the container fields `redirect` and `redirect_code`, rendered by `siteredirect.js` ahead of every other redirect of those names. The URL is checked to be one haproxy word (no spaces, quotes or `#`). Owner, reseller or root. Unlike `http-redirect`/`https-redirect`, which keep `redirect prefix` and 301 for host moves |
 | `set-ve-web-ve VE [WEBVE\|off]` | Root only. Hand the http/https traffic of VE (all its names) to the container WEBVE, which needs a virtual host for them; stored in `web_ve`, then HAProxy is regenerated. `off` / `none` gives it back, no WEBVE shows the setting. A WEBVE that itself has `web_ve` is refused, since `haproxy.js` follows one step |
 
 Both are `hs_only`, store the value under the container's `http-redirect` /
@@ -3091,6 +3092,7 @@ Inside a container, root only:
 |---------|-------------|
 | `srvctl http-redirect VE [none\|https\|URL]` | Place an HTTP redirect for the container in the proxy configuration. IPv4 only, default port. No argument, or `none`, removes the redirect |
 | `srvctl https-redirect VE [none\|http\|URL]` | The same for HTTPS traffic |
+| `srvctl set-ve-redirect VE [URL [temporary]\|off]` | Redirect the whole site of VE (http and https, VE and www.VE) to exactly URL, e.g. a Facebook page; `temporary` makes it 302 |
 | `srvctl set-ve-web-ve VE [WEBVE\|off]` | Serve the web of VE from the container WEBVE (root); `off` gives it back, no WEBVE shows the setting |
 | `srvctl override-in-address VE [none\|IP]` | Temporarily override the container's `IN A` record in the named zone file; `none` restores it |
 

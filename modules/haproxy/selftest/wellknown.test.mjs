@@ -24,6 +24,7 @@ const ctx = {
     containers: { "shop.example": { aliases: ["alias.example"] }, "ext.example": {} },
     datastore: { container_http_port: () => 80, container_https_port: () => 443 },
     basicauth_rule: () => "",
+    site_redirect: () => "",
     msg() {}, ntc() {}, err() {},
     Object, Array,
 };

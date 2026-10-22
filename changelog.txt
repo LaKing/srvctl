@@ -8,6 +8,13 @@ notable operational changes are listed here.
 Unreleased (v4, in progress on top of 4.0.0.8)
 ----------------------------------------------
 
+Whole-site redirect (2026-10-22)
+  * New command `sc set-ve-redirect VE [URL [temporary]|off]`: every http
+    and https request of VE and www.VE goes to exactly URL (haproxy
+    'redirect location', path not appended), 301 or 302 with 'temporary';
+    /.well-known stays with the VE. http-redirect/https-redirect are
+    unchanged (prefix, 301).
+
 Rebuild containers on the current base image (2026-10-22)
   * New root command `sc rebuild-ve VE [check|rollback|discard-old]` for
     WordPress, PHP and static containers of any Fedora release: logical

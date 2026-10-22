@@ -54,6 +54,7 @@ function out(msg) {
 // includes
 var fs = require("fs");
 var datastore = require("../datastore/lib.js");
+const site_redirect = require("./siteredirect.js").site_redirect;
 var basicauth = require("./basicauth.js");
 
 const CMD = process.argv[2];
@@ -337,8 +338,9 @@ function get_frontend_http() {
 
     str += br + get_well_known_acl();
 
-    // REDIRECT RULEs
+    // REDIRECT RULEs; a whole-site redirect (set-ve-redirect) comes first and wins
     Object.keys(containers).forEach(function (c) {
+        str += site_redirect(c, containers[c], rule_exeptions);
         str += br + redirect("http", c, "www." + c);
         // handle aliases
         // FIXME(v4): 'j' is an undeclared implicit global here and in every
@@ -402,8 +404,9 @@ function get_frontend_https() {
 
     str += br + get_well_known_acl();
 
-    // REDIRECT
+    // REDIRECT; a whole-site redirect (set-ve-redirect) comes first and wins
     Object.keys(containers).forEach(function (c) {
+        str += site_redirect(c, containers[c], rule_exeptions);
         str += br + redirect("https", c, "www." + c);
         // handle aliases
         if (containers[c].aliases) {
