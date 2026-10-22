@@ -65,6 +65,12 @@ then
         "$sql" < "$B/db/$db.sql" || fail "import of $db failed"
     done
     "$sql" < "$B/db/grants.sql" || fail "grants import failed"
+    ## old apps log in as root with its old password: keep that as an
+    ## alternative, socket access for root stays
+    if [[ -s $B/db/root.hash ]]
+    then
+        "$sql" -e "ALTER USER 'root'@'localhost' IDENTIFIED VIA unix_socket OR mysql_native_password USING '$(cat "$B/db/root.hash")'" || fail "root password restore failed"
+    fi
     "$sql" -e 'flush privileges'
 fi
 

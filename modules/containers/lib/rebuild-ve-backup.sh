@@ -9,12 +9,14 @@
 ##                  in-container numeric owners survive (the host copies them on
 ##                  with cp -a, the new container's first start uid-shifts them);
 ##                  paths lists them, the restore copies path by path
-##   db/<name>.sql  one logical dump per database; db/grants.sql the accounts
+##   db/<name>.sql  one logical dump per database; db/grants.sql the accounts;
+##                  db/root.hash the old root@localhost password hash, if any
 ##   mongo.archive.gz      mongodump of a MongoDB, if any: kept, never restored
 ##                  (Fedora ships no MongoDB server)
 ##   passwd group shadow   the uid 1000..59999 users and groups
 ##   reference/     packages, enabled units, php.ini, rpm-owned httpd configs,
-##                  the old root database credentials: for reading, never restored
+##                  modified-configs.txt (every changed rpm config file), the old
+##                  root database credentials: for reading, never restored
 ##
 ## Must work on every release since Fedora 26 (bash 4.4, MariaDB 10.1+).
 ## Logical dumps, not the datadir: MariaDB 10.x files cannot simply be opened
@@ -100,7 +102,10 @@ then
     ## at once, and a normal root may flush anyway.
     ## sql_mode='' lets GRANT create the account on the new server
     ## (NO_AUTO_CREATE_USER is in its default mode).
-    accounts="$(mysql "${my[@]}" -N -e "select user, host from mysql.user where user not in ('root', '', 'mysql', 'mariadb.sys', 'PUBLIC')")"
+    ## root@localhost is the new server's own (socket) account: its old password
+    ## goes to root.hash and is added as an alternative by the restore. Other
+    ## root accounts (127.0.0.1, ::1) are carried over like any other.
+    accounts="$(mysql "${my[@]}" -N -e "select user, host from mysql.user where user not in ('', 'mysql', 'mariadb.sys', 'PUBLIC')")"
     grants=''
     if [[ -n $accounts ]]
     then
@@ -114,6 +119,9 @@ then
             } | mysql "${my[@]}" -N
         )" || fail "grants export failed"
     fi
+    rootre="TO [\`']root[\`']@[\`']localhost[\`']"
+    grep -E "$rootre" <<< "$grants" | grep -oE "PASSWORD '\*[0-9A-F]{40}'" | head -n 1 | cut -d"'" -f2 > "$B/db/root.hash"
+    grants="$(grep -vE "$rootre" <<< "$grants")"
     {
         echo "SET SESSION sql_mode='';"
         [[ -n $grants ]] && printf '%s;\n' "${grants//$'\n'/$';\n'}"
@@ -144,16 +152,21 @@ do
     grep "^$u:" /etc/shadow
 done > "$B/shadow"
 
-## files: the web root, homes, crontabs, the per-site db configs and the httpd
-## configs that no package owns (site vhosts, srvctl's wordpress confs).
+## files: the web root, homes, crontabs, the per-site db configs, the httpd
+## configs that no package owns (site vhosts, srvctl's wordpress confs) and
+## the rpm configs changed here in httpd conf.d and phpMyAdmin (an opened
+## phpMyAdmin.conf, a config.inc.php). Other changed rpm configs (sshd_config,
+## php.ini, srvctl's postfix) are only listed: old ones can break new services.
 ## --parents keeps the source modes of the parent dirs; the umask 077 ones once
 ## reached / and /var through a whole-tree restore and broke every service.
 paths=(/var/www/html /home /var/spool/cron /etc/mariadb-*.conf)
-for f in /etc/httpd/conf.d/*.conf
+rpm -Va 2> /dev/null | awk '$2 == "c" && $1 ~ /5/ {print $3}' > "$B/reference/modified-configs.txt"
+for f in /etc/httpd/conf.d/*.conf /etc/phpMyAdmin/*
 do
-    if rpm -qf "$f" > /dev/null 2>&1
-    then cp -a "$f" "$B/reference/"
-    else paths+=("$f")
+    [[ -f $f ]] || continue
+    if ! rpm -qf "$f" > /dev/null 2>&1 || grep -qxF "$f" "$B/reference/modified-configs.txt"
+    then paths+=("$f")
+    else cp -a "$f" "$B/reference/"
     fi
 done
 for p in "${paths[@]}"
