@@ -7,9 +7,10 @@
 ##   Sourced by 'run_hook adjust-service' from modules/srvctl/command.sh
 ##   (which sets $service and $op) before the generic systemctl handling.
 ##   If $service names a container directory, escalates/authorizes and
-##   substitutes service=srvctl-nspawn@$service; a 'restart' is turned
-##   into stop + (the caller's) start because nspawn units cannot restart
-##   (systemd#2809). 'sc all-containers OP' is dispatched here as well,
+##   substitutes service=srvctl-nspawn@$service, then runs the OP itself
+##   and exits; a 'restart' is turned into stop + start because nspawn
+##   units cannot restart (systemd#2809). An empty OP falls through to the
+##   caller. 'sc all-containers OP' is dispatched here as well,
 ##   to all_containers (libs/statuslib.sh), and exits.
 ##
 
@@ -44,6 +45,18 @@ then
     then
         run systemctl stop "$service"
         run sleep 1
+    fi
+
+    ## Act here instead of handing back to command.sh: its unit lookup needs
+    ## the stopped instance to have a file under /etc/systemd/system/*/*,
+    ## which exists only while the machines.target.wants link does. A not
+    ## enabled container was stopped above and then reported "Invalid command".
+    ## service_action start/restart also re-enables it.
+    if [[ -n $op ]]
+    then
+        service_action "$service" "$op"
+        exif "$op $service failed"
+        exit_0
     fi
 fi
 
