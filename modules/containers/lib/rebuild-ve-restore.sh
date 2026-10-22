@@ -47,6 +47,7 @@ mapfile -t oldpkgs < <(grep -v '^gpg-pubkey$' "$B/reference/packages.txt")
 ## the old third-party repositories first, so their packages (MongoDB) resolve
 cp -a "$B"/repos/*.repo /etc/yum.repos.d/ 2> /dev/null
 cp -a "$B"/repos/keys/* /etc/pki/rpm-gpg/ 2> /dev/null
+[[ -s $B/repos/rpm-keys.asc ]] && rpm --import "$B/repos/rpm-keys.asc"
 ver="$(sed -n 's/^VERSION_ID=//p' /etc/os-release)"
 for r in free nonfree
 do
@@ -56,7 +57,13 @@ done
 ## no i686: names only in the list, so 32-bit libraries come as dependencies of
 ## dependencies, and their older builds in 'fedora' conflict with the x86_64
 ## ones from 'updates' (mesa-dri-drivers, seen on r2: audreyshome.hu)
-dnf -y install --skip-unavailable --skip-broken --exclude='*.i686' "${pkgs[@]}" "${oldpkgs[@]}" || fail "package install failed"
+## the base image already has Fedora's node (nodejs22-bin, for srvctl):
+## nodesource's 'nodejs' would conflict with it on /usr/bin/node, so the old
+## container gets Fedora's build of the same line instead (seen on r2:
+## vendeglatosmunkak.hu, nodesource 22.x)
+excl=('*.i686')
+rpm -qf /usr/bin/node > /dev/null 2>&1 && excl+=('nodejs')
+dnf -y install --skip-unavailable --skip-broken "${excl[@]/#/--exclude=}" "${pkgs[@]}" "${oldpkgs[@]}" || fail "package install failed"
 
 ## files over the fresh tree, owners and modes as they were. Path by path, so
 ## only the saved trees themselves get their old attributes, never / or /var.

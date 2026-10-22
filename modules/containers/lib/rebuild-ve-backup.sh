@@ -68,6 +68,9 @@ rpm -qa --qf '%{NAME}\n' | sort > "$B/reference/packages.txt"
 ## cannot be installed. rpm-owned ones (rpmfusion) come back through their
 ## release package in the restore.
 mkdir -p "$B/repos/keys"
+## keys imported straight into the rpm database have no file (zerotier's,
+## seen on r2: vendeglatosmunkak.hu); without them dnf drops the whole transaction
+rpm -q gpg-pubkey --qf '%{DESCRIPTION}\n' > "$B/repos/rpm-keys.asc" 2> /dev/null
 for f in /etc/yum.repos.d/*.repo /etc/pki/rpm-gpg/*
 do
     [[ -f $f ]] || continue

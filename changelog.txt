@@ -42,6 +42,10 @@ Rebuild containers on the current base image (2026-10-22)
   * rebuild-ve stops the local units before the backup, so the database
     dump and the files are one moment of the app; a write between the dump
     and the stop was lost before.
+  * rebuild-ve carries the keys imported into the rpm database (zerotier's
+    had no key file, and dnf dropped the whole transaction), and keeps the
+    base image's Fedora node when the old container used nodesource's: both
+    own /usr/bin/node.
   * add_ve's rootfs setup is now init_ve_rootfs, shared with rebuild-ve.
 
 Container OS upgrade survey (2026-10-22)
