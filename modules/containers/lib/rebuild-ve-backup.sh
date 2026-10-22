@@ -93,7 +93,8 @@ then
     dbs="$(mysql "${my[@]}" -N -e 'show databases' | grep -vxE 'mysql|information_schema|performance_schema|sys|#.*' | tr '\n' ' ')"
     ## System tables older than the server (mysql_upgrade never ran, seen on bp:
     ## mysql.proc from 10.2 under 10.4) make --routines/--events fail. Such a
-    ## server cannot run its routines or events either, so the dump is retried
+    ## server cannot run its routines or events either (it may also have disabled
+    ## the event scheduler, 1577, seen on r2: konok.hu), so the dump is retried
     ## without them rather than upgrading the old datadir.
     ## Tables this server cannot open (InnoDB files copied in owned by root:
     ## 1146/1932, seen on r2 eana.hu; a lost tablespace: 1030/194, seen on
@@ -124,7 +125,7 @@ then
         done
         if ! mysqldump "${my[@]}" --single-transaction --routines --events --triggers "${ignore[@]}" --databases "$db" > "$B/db/$db.sql" 2> "$B/db/$db.err"
         then
-            grep -qE 'mysql\.(proc|event)|mysql_upgrade' "$B/db/$db.err" || { cat "$B/db/$db.err" >&2; fail "dump of $db failed"; }
+            grep -qE 'mysql\.(proc|event)|mysql_upgrade|event scheduler is disabled' "$B/db/$db.err" || { cat "$B/db/$db.err" >&2; fail "dump of $db failed"; }
             echo "== $db: system tables older than the server, dumping without routines and events (they could not run here either)"
             mysqldump "${my[@]}" --single-transaction --triggers "${ignore[@]}" --databases "$db" > "$B/db/$db.sql" || fail "dump of $db failed"
             echo "noroutines=$db" >> "$B/manifest"
