@@ -60,9 +60,12 @@ if [[ -n ${dbs// /} ]]
 then
     sql="$(command -v mariadb || command -v mysql)"
     systemctl enable --now mariadb || fail "mariadb does not start"
+    ## innodb_strict_mode=0: tables the old server accepted, but whose rows
+    ## overflow in strict mode (408 varchar columns of a gallery plugin, seen on
+    ## r2: konok.hu, ERROR 1118), are created with a warning, as they were there.
     for db in $dbs
     do
-        "$sql" < "$B/db/$db.sql" || fail "import of $db failed"
+        { echo "SET SESSION innodb_strict_mode=0;"; cat "$B/db/$db.sql"; } | "$sql" || fail "import of $db failed"
     done
     "$sql" < "$B/db/grants.sql" || fail "grants import failed"
     ## old apps log in as root with its old password: keep that as an
