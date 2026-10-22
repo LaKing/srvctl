@@ -11,8 +11,9 @@
 ##                  paths lists them, the restore copies path by path
 ##   db/<name>.sql  one logical dump per database; db/grants.sql the accounts;
 ##                  db/root.hash the old root@localhost password hash, if any
-##   mongo.archive.gz      mongodump of a MongoDB, if any: kept, never restored
-##                  (Fedora ships no MongoDB server)
+##   mongo.archive.gz      mongodump of a MongoDB, if any: restored when the
+##                  server comes back from a third-party repository (Fedora has none)
+##   repos/         hand-made dnf repository files and their keys
 ##   passwd group shadow   the uid 1000..59999 users and groups
 ##   reference/     packages, enabled units, php.ini, rpm-owned httpd configs,
 ##                  modified-configs.txt (every changed rpm config file), the old
@@ -43,6 +44,17 @@ source /etc/os-release
 printf 'kind=%s\nos=%s %s\n' "$kind" "$ID" "$VERSION_ID" > "$B/manifest"
 
 rpm -qa --qf '%{NAME}\n' | sort > "$B/reference/packages.txt"
+## third-party dnf repositories set up by hand (MongoDB's, seen on r2:
+## audreyshome.hu) with their local keys: without them the old package list
+## cannot be installed. rpm-owned ones (rpmfusion) come back through their
+## release package in the restore.
+mkdir -p "$B/repos/keys"
+for f in /etc/yum.repos.d/*.repo /etc/pki/rpm-gpg/*
+do
+    [[ -f $f ]] || continue
+    rpm -qf "$f" > /dev/null 2>&1 && continue
+    case "$f" in *.repo) cp -a "$f" "$B/repos/" ;; *) cp -a "$f" "$B/repos/keys/" ;; esac
+done
 systemctl list-unit-files --state=enabled --no-legend 2>/dev/null | awk '{print $1}' > "$B/reference/units.txt"
 cp -a /etc/php.ini /root/.my.cnf /etc/mysqldump.conf "$B/reference/" 2>/dev/null
 ## a locally changed httpd.conf (a moved DocumentRoot) is offered to the restore,

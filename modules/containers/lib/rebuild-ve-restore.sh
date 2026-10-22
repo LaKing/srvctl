@@ -44,7 +44,19 @@ pkgs=(httpd mod_ssl tar)
 [[ $kind != static ]] && pkgs+=(php php-fpm php-mysqlnd php-gd php-xml php-mbstring php-intl php-zip php-opcache)
 [[ -n ${dbs// /} ]] && pkgs+=(mariadb-server)
 mapfile -t oldpkgs < <(grep -v '^gpg-pubkey$' "$B/reference/packages.txt")
-dnf -y install --skip-unavailable --skip-broken "${pkgs[@]}" "${oldpkgs[@]}" || fail "package install failed"
+## the old third-party repositories first, so their packages (MongoDB) resolve
+cp -a "$B"/repos/*.repo /etc/yum.repos.d/ 2> /dev/null
+cp -a "$B"/repos/keys/* /etc/pki/rpm-gpg/ 2> /dev/null
+ver="$(sed -n 's/^VERSION_ID=//p' /etc/os-release)"
+for r in free nonfree
+do
+    grep -qx "rpmfusion-$r-release" "$B/reference/packages.txt" || continue
+    dnf -y install "https://mirrors.rpmfusion.org/$r/fedora/rpmfusion-$r-release-$ver.noarch.rpm" || fail "rpmfusion-$r-release failed"
+done
+## no i686: names only in the list, so 32-bit libraries come as dependencies of
+## dependencies, and their older builds in 'fedora' conflict with the x86_64
+## ones from 'updates' (mesa-dri-drivers, seen on r2: audreyshome.hu)
+dnf -y install --skip-unavailable --skip-broken --exclude='*.i686' "${pkgs[@]}" "${oldpkgs[@]}" || fail "package install failed"
 
 ## files over the fresh tree, owners and modes as they were. Path by path, so
 ## only the saved trees themselves get their old attributes, never / or /var.
@@ -115,6 +127,28 @@ do
     systemctl cat "$u" > /dev/null 2>&1 && systemctl enable "$u" 2> /dev/null || echo "== not enabled, no such unit here: $u"
 done < "$B/reference/units.txt"
 
+## MongoDB, when its server came back with the old repository: before the
+## local units, which are its usual clients
+if grep -q '^mongo=dumped' "$B/manifest"
+then
+    if command -v mongod > /dev/null && command -v mongorestore > /dev/null
+    then
+        systemctl enable --now mongod || fail "mongod does not start"
+        ## mongod takes a while to accept connections after systemd says started
+        restored=false
+        for _ in $(seq 30)
+        do
+            mongorestore --quiet --drop --gzip --archive="$B/mongo.archive.gz" 2> "$B/mongo.err" && { restored=true; break; }
+            sleep 2
+        done
+        $restored || { cat "$B/mongo.err" >&2; fail "mongorestore failed"; }
+        rm -f "$B/mongo.err"
+        echo "== MongoDB restored"
+    else
+        echo "== NOTE: MongoDB was in use and is NOT restored (no server package here): dump in $B/mongo.archive.gz, data in exrootfs"
+    fi
+fi
+
 ## the local units (a Node app) came back with their tree: started now, the
 ## check tests them like httpd
 # shellcheck disable=SC2013 # a space-separated list of unit names
@@ -144,6 +178,5 @@ then
     curl -s -o /dev/null -w '== wp upgrade.php: HTTP %{http_code}\n' -H "Host: ${HOSTNAME:-$(cat /etc/hostname)}" 'http://127.0.0.1/wp-admin/upgrade.php?step=1'
 fi
 
-grep -q '^mongo=dumped' "$B/manifest" && echo "== NOTE: MongoDB was in use and is NOT restored (no Fedora package): dump in $B/mongo.archive.gz, data in exrootfs"
 chmod 700 "$B"
 echo "== restore of ${HOSTNAME:-$(cat /etc/hostname)} done"
