@@ -72,7 +72,9 @@ then
     fi
     mysql "${my[@]}" -e 'select 1' > /dev/null || fail "cannot connect to the database as root"
 
-    dbs="$(mysql "${my[@]}" -N -e 'show databases' | grep -vxE 'mysql|information_schema|performance_schema|sys' | tr '\n' ' ')"
+    ## '#'-names are datadir directories that SHOW DATABASES lists (#rocksdb of
+    ## MyRocks, #mysql50#...), not databases (seen on bp: gwrinsulation.com)
+    dbs="$(mysql "${my[@]}" -N -e 'show databases' | grep -vxE 'mysql|information_schema|performance_schema|sys|#.*' | tr '\n' ' ')"
     ## System tables older than the server (mysql_upgrade never ran, seen on bp:
     ## mysql.proc from 10.2 under 10.4) make --routines/--events fail. Such a
     ## server cannot run its routines or events either, so the dump is retried
