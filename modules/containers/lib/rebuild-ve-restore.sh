@@ -20,7 +20,7 @@ fail() {
 [[ -f $B/manifest ]] || fail "no $B/manifest"
 kind="$(sed -n 's/^kind=//p' "$B/manifest")"
 dbs="$(sed -n 's/^db=//p' "$B/manifest")"
-echo "== restore $(hostname): kind=$kind db=$dbs"
+echo "== restore ${HOSTNAME:-$(cat /etc/hostname)}: kind=$kind db=$dbs"
 
 ## users and groups with their old ids; an existing name or id is kept as is
 while IFS=: read -r name _ gid _
@@ -106,9 +106,9 @@ systemctl restart httpd || fail "httpd does not start"
 ## the WordPress database schema upgrade, as the dashboard would run it
 if [[ $kind == wordpress ]]
 then
-    curl -s -o /dev/null -w '== wp upgrade.php: HTTP %{http_code}\n' -H "Host: $(hostname)" 'http://127.0.0.1/wp-admin/upgrade.php?step=1'
+    curl -s -o /dev/null -w '== wp upgrade.php: HTTP %{http_code}\n' -H "Host: ${HOSTNAME:-$(cat /etc/hostname)}" 'http://127.0.0.1/wp-admin/upgrade.php?step=1'
 fi
 
 grep -q '^mongo=dumped' "$B/manifest" && echo "== NOTE: MongoDB was in use and is NOT restored (no Fedora package): dump in $B/mongo.archive.gz, data in exrootfs"
 chmod 700 "$B"
-echo "== restore of $(hostname) done"
+echo "== restore of ${HOSTNAME:-$(cat /etc/hostname)} done"

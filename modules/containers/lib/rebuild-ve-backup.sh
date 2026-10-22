@@ -189,5 +189,5 @@ do
     echo "$p" >> "$B/paths"
 done
 
-echo "== backup of $(hostname) done: $(tr '\n' ' ' < "$B/manifest")"
+echo "== backup of ${HOSTNAME:-$(cat /etc/hostname)} done: $(tr '\n' ' ' < "$B/manifest")"
 du -sh "$B" 2>/dev/null
