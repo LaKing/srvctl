@@ -48,7 +48,19 @@ cp -a /etc/php.ini /root/.my.cnf /etc/mysqldump.conf "$B/reference/" 2>/dev/null
 
 ## database: every user database as its own dump, plus the accounts
 dbs=''
-if [[ -d /var/lib/mysql/mysql ]]
+## a datadir left behind after the server package was removed (seen on r2:
+## severnaya-samoyed.hu) cannot be dumped and serves nothing: noted, kept in exrootfs
+dbserver=false
+for bin in /usr/libexec/mariadbd /usr/libexec/mysqld /usr/sbin/mariadbd /usr/sbin/mysqld
+do
+    [[ -x $bin ]] && dbserver=true
+done
+if [[ -d /var/lib/mysql/mysql ]] && ! $dbserver
+then
+    echo "== /var/lib/mysql exists but no database server is installed: not dumped, the files stay in exrootfs"
+    echo "nodbserver=/var/lib/mysql" >> "$B/manifest"
+fi
+if [[ -d /var/lib/mysql/mysql ]] && $dbserver
 then
     for unit in mariadb mysqld mysql
     do
