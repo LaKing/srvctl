@@ -64,10 +64,12 @@ function rebuild_stop() { ## C
     ! rebuild_is_running "$C"
 }
 
-## front page through haproxy: <dir>/<name>.html and <name>.status (code + title)
+## front page through haproxy: <dir>/<name>.html and <name>.status (code + title).
+## The query string bypasses page caches (WP Rocket, W3TC): a cached copy would
+## pass the check without running any PHP (seen on r2: amajomhoz.hu).
 function rebuild_fetch() { ## C name
     local C="$1" d="$SC_REBUILD_SRV/$1/rebuild" code title
-    code="$(curl -sk -m 30 -o "$d/$2.html" -w '%{http_code}' --resolve "$C:443:127.0.0.1" "https://$C/")"
+    code="$(curl -sk -m 60 -o "$d/$2.html" -w '%{http_code}' --resolve "$C:443:127.0.0.1" "https://$C/?srvctl-rebuild=$(date +%s)")"
     title="$(grep -oi '<title>[^<]*' "$d/$2.html" 2> /dev/null | head -n 1 | sed 's/^<title>//I')"
     printf '%s %s\n' "$code" "$title" > "$d/$2.status"
     msg "$2: HTTP $code, title: $title"
