@@ -225,7 +225,8 @@ localunits=()
 for w in /etc/systemd/system/multi-user.target.wants/*
 do
     t="$(readlink "$w")" || continue
-    case "$t" in /srv/?*/* | /home/?*/*) ;; *) continue ;; esac
+    ## /srv/<C>/rootfs/...: a packaged unit linked with its host path by old srvctl
+    case "$t" in /srv/*/rootfs/*) continue ;; /srv/?*/* | /home/?*/*) ;; *) continue ;; esac
     u="${w##*/}" && localunits+=("$u") && paths+=("$w")
     [[ -L /etc/systemd/system/$u ]] && paths+=("/etc/systemd/system/$u")
     [[ $t == /srv/* ]] && d="${t#/srv/}" && paths+=("/srv/${d%%/*}")

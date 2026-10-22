@@ -85,11 +85,13 @@ function rebuild_ve_snapshot() { ## C
     ## an enabled service defined here and not by a package: one whose unit
     ## lives in /srv/<dir> or /home (a Node app's /srv/app/bash/app.service) is
     ## carried by the backup with its tree; anywhere else it is an application
-    ## the restore cannot bring back. Links are read, never followed (container paths)
+    ## the restore cannot bring back. Links are read, never followed (container paths).
+    ## Old srvctl wrote some links with the host path of the rootfs
+    ## (/srv/<C>/rootfs/usr/lib/systemd/..., seen on r2: barscale.hu): packaged too.
     for w in "$r"/etc/systemd/system/multi-user.target.wants/*
     do
         [[ -L $w ]] || continue
-        case "$(readlink "$w")" in /usr/lib/systemd/* | /lib/systemd/* | ../* | /usr/share/* | /srv/?*/* | /home/?*/*) ;; *) found+=("${w##*/} (local unit)") ;; esac
+        case "$(readlink "$w")" in /usr/lib/systemd/* | /lib/systemd/* | ../* | /usr/share/* | /srv/*/rootfs/* | /srv/?*/* | /home/?*/*) ;; *) found+=("${w##*/} (local unit)") ;; esac
     done
     if ((${#found[@]})) && [[ ${SC_REBUILD_FORCE:-} != true ]]
     then

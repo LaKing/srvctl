@@ -37,6 +37,8 @@ Rebuild containers on the current base image (2026-10-22)
     resolves; a MongoDB comes back with mongorestore when its server is
     installable. i686 packages are excluded: their older builds conflicted
     with the x86_64 updates (mesa-dri-drivers).
+  * A unit link written with the host path of the rootfs by old srvctl
+    (/srv/VE/rootfs/usr/lib/systemd/...) is a packaged unit, not a local app.
   * add_ve's rootfs setup is now init_ve_rootfs, shared with rebuild-ve.
 
 Container OS upgrade survey (2026-10-22)
