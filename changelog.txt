@@ -12,8 +12,10 @@ Container OS upgrade survey (2026-10-22)
   * New root command `sc list-ve-releases [tsv]`: read-only list of the
     local containers, oldest OS release first, with unit state, whether the
     DNS points here, last web request, last file change, size, owner,
-    detected apps and a suggested class (dead? / simple / wordpress /
-    custom), to plan moving the containers to Fedora 44.
+    detected apps and a content class (simple / wordpress / custom), to
+    plan moving the containers to Fedora 44. Running state comes from
+    machinectl; liveness is not judged, since a stopped container may be
+    shut down on purpose.
   * `sc status` printed "stable fedora" for Fedora 36+ containers: it read
     os-release by line number and RELEASE_TYPE became the third line. It now
     reads ID and VERSION_ID by key.

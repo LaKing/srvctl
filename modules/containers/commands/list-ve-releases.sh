@@ -4,7 +4,7 @@
 ## @en List the OS release of every local container, with upgrade-planning facts
 ## &en One line per container under /srv, oldest release first: OS release, unit state, whether
 ## &en its DNS points here, last web request, last change under /var/www/html, /srv and /home,
-## &en size, owner, a suggested class (dead? / simple / wordpress / custom) and detected apps.
+## &en size, owner, content class (simple / wordpress / custom) and detected apps.
 ## &en Read-only. 'tsv' prints tab-separated values, to collect the lists of several hosts.
 
 ## run only with srvctl

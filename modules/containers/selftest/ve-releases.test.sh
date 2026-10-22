@@ -40,6 +40,13 @@ ln -s /etc/os-release "$r/usr/lib/os-release"
 ln -s /usr/lib/os-release "$r/etc/os-release"
 ln -s /etc "$r/srv"
 
+## old.example is registered with machined while its srvctl-nspawn@ unit is inactive: machinectl wins
+mkdir -p "$tmp/bin"
+printf '#!/bin/bash\necho "old.example container systemd-nspawn - -"\n' > "$tmp/bin/machinectl"
+printf '#!/bin/bash\necho inactive\nexit 3\n' > "$tmp/bin/systemctl"
+chmod +x "$tmp/bin/machinectl" "$tmp/bin/systemctl"
+PATH="$tmp/bin:$PATH"
+
 out="$(SC_VE_RELEASES_SRV="$srv" SC_DATASTORE_DIR="$ds" SC_HOST_IP=192.0.2.10 /bin/node "$REPO/modules/containers/lib/ve-releases.mjs" tsv)"
 ok "exit status" "$?" 0
 col() { awk -F'\t' -v ve="$1" -v n="$2" '$1 == ve { print $n }' <<< "$out"; }
@@ -56,7 +63,10 @@ ok "size from du" "$(col old.example 7)" "2.0G"
 ok "owner" "$(col old.example 8)" "alice"
 ok "custom unit listed, baseline httpd not" "$(col new.example 10)" "myapp"
 ok "wordpress detected" "$(col old.example 10)" "wp,mysql"
-ok "inactive unit makes it dead?" "$(col old.example 9)" "dead?"
+ok "running machine with inactive unit" "$(col old.example 3)" "running,unit:inactive"
+ok "wordpress class" "$(col old.example 9)" "wordpress"
+ok "stopped and disabled" "$(col new.example 3)" "inactive,disabled"
+ok "class is content only, not liveness" "$(col new.example 9)" "custom"
 ok "header first, oldest release first" "$(cut -f1 <<< "$out" | tr '\n' ' ')" "VE evil.example old.example new.example "
 
 echo "ve-releases: $pass passed, $fail failed"

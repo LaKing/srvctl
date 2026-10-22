@@ -29,7 +29,8 @@ const BASELINE = new Set(
     (
         "postfix dovecot httpd sshd rsyslog firewalld crond atd auditd chronyd ntpd systemd-networkd systemd-resolved remote-fs.target dnf-makecache.timer " +
         "NetworkManager sssd mcelog irqbalance smartd rngd sendmail sm-client abrtd abrt-ccpp abrt-oops abrt-vmcore abrt-xorg abrt-journal-core lvm2-monitor " +
-        "dbus-broker systemd-homed systemd-userdbd systemd-oomd mariadb mysqld nfs-client.target cups gssproxy livesys livesys-late"
+        "dbus-broker systemd-homed systemd-userdbd systemd-oomd mariadb mysqld nfs-client.target cups gssproxy livesys livesys-late " +
+        "dbus-daemon php-fpm avahi-daemon mdmonitor sysstat lm_sensors machines.target remote-cryptsetup.target remote-veritysetup.target authselect-apply-changes"
     ).split(" "),
 );
 const SKIP_DIRS = new Set(["node_modules", ".git", ".cache"]);
@@ -92,6 +93,20 @@ function lastChange(rootfs) {
     return { time: newest, capped: seen >= WALK_LIMIT };
 }
 
+// Machines registered with machined: the running truth, whatever unit started the container. A unit
+// state that disagrees is shown as unit:<state>. null when machinectl is unavailable; then the unit
+// state is all there is.
+function runningMachines() {
+    try {
+        const out = execFileSync("machinectl", ["list", "--no-legend", "--no-pager"], { encoding: "utf8", timeout: 5000 });
+        const names = out.split("\n").map((l) => l.trim().split(/\s+/)[0]);
+        return new Set(names.filter(Boolean));
+    } catch {
+        return null;
+    }
+}
+const RUNNING = runningMachines();
+
 function unitState(c) {
     let active = "inactive";
     try {
@@ -100,7 +115,9 @@ function unitState(c) {
         active = String(e.stdout || "").trim() || "unknown";
     }
     const enabled = fs.existsSync(`${WANTS}/srvctl-nspawn@${c}.service`);
-    return { active, enabled };
+    const running = RUNNING ? RUNNING.has(c) : active === "active";
+    const flags = [running && active !== "active" ? "unit:" + active : "", running || enabled ? "" : "disabled"].filter(Boolean);
+    return { running, state: [running ? "running" : active === "active" ? "stopped" : active, ...flags].join(",") };
 }
 
 // From the dns-scan results in the datastore record: here / away / none / ?.
@@ -125,8 +142,10 @@ function apps(rootfs) {
     return { found, custom };
 }
 
-function classify(row, a) {
-    if (row.active !== "active" || row.dns === "away" || row.dns === "none") return "dead?";
+// Content type only. Whether a container is abandoned is not decided here: a stopped one may be shut
+// down on purpose (e.g. the PHP containers during a vulnerability), so STATE, DNS and LAST-HTTP are
+// left for the operator to read.
+function classify(a) {
     if (a.custom.length || a.found.includes("mongo") || a.found.includes("codepad")) return "custom";
     if (a.found.includes("wp")) return "wordpress";
     return "simple";
@@ -146,16 +165,16 @@ function survey(c, record) {
         ve: c,
         os: `${os.id} ${os.version}`,
         version: Number(os.version) || 0,
-        active: unit.active,
-        state: unit.active + (unit.enabled ? "" : ",disabled"),
+        running: unit.running,
+        state: unit.state,
         dns: record ? dnsState(record) : "orphan",
         http: day(http),
         change: day(change.time) + (change.capped ? "+" : ""),
         size: record && record.du ? (record.du / 1048576).toFixed(1) + "G" : "?",
         owner: (record && record.user) || "-",
-        apps: [...a.found, ...a.custom].join(",") || "-",
+        apps: [...new Set([...a.found, ...a.custom.filter((u) => u !== "mongod" || !a.found.includes("mongo"))])].join(",") || "-",
     };
-    row.class = classify(row, a);
+    row.class = classify(a);
     return row;
 }
 
