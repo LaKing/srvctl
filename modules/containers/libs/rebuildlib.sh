@@ -82,6 +82,14 @@ function rebuild_ve_snapshot() { ## C
     do
         [[ -e $r/$m || -e $r/etc/systemd/system/multi-user.target.wants/$m ]] && found+=("$m")
     done
+    ## an enabled service defined here and not by a package (a Node app's
+    ## unit under /srv/app, seen on r2: konyvesjatek.hu) is an application the
+    ## restore cannot bring back; links are read, never followed (container paths)
+    for w in "$r"/etc/systemd/system/multi-user.target.wants/*
+    do
+        [[ -L $w ]] || continue
+        case "$(readlink "$w")" in /usr/lib/systemd/* | /lib/systemd/* | ../* | /usr/share/*) ;; *) found+=("${w##*/} (local unit)") ;; esac
+    done
     if ((${#found[@]})) && [[ ${SC_REBUILD_FORCE:-} != true ]]
     then
         err "$C has content rebuild-ve does not restore: ${found[*]} (SC_REBUILD_FORCE=true overrides)"

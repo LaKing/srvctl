@@ -70,6 +70,15 @@ ok "unsupported refused" "$?" 1
 ok "nothing recorded" "$(state)" ""
 ok "not started" "$([[ -f $tmp/running ]] && echo yes)" ""
 
+## an enabled unit defined outside the packages (an app under /srv) is refused too
+newold && mkdir -p "$d/rootfs/etc/systemd/system/multi-user.target.wants"
+ln -s /srv/app/bash/app.service "$d/rootfs/etc/systemd/system/multi-user.target.wants/app.service"
+ln -s /usr/lib/systemd/system/httpd.service "$d/rootfs/etc/systemd/system/multi-user.target.wants/httpd.service"
+ok "local unit refused" "$(rebuild_ve "$C" | grep -c 'app.service (local unit)')" 1
+rm "$d/rootfs/etc/systemd/system/multi-user.target.wants/app.service"
+ok "packaged unit alone passes preflight" "$(rebuild_ve_snapshot "$C" 2>&1 | grep -c 'rebuild-ve does not restore')" 0
+rm -f "$tmp/running" "$d/rebuild/was-running"
+
 ## a restore failure stops there; the rerun continues at restore only
 newold && touch "$tmp/restore-fails"
 rebuild_ve "$C" > /dev/null
