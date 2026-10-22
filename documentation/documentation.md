@@ -1186,6 +1186,18 @@ Only after `add_ve` returns does the command run the `add-ve`, `add_ve_<type>` a
 
 `tmp_rootfs` is deliberately kept as a rollback copy and the move is skipped when it already exists — so a second `recreate-ve` on the same container keeps the current rootfs and restores the *stale* `tmp_rootfs` content over it (FIXME in `commands/recreate-ve.sh`).
 
+#### Rebuild on a fresh base image (`srvctl rebuild-ve <container> [phase]`)
+
+Root only. Moves a WordPress, PHP or static site container, whatever its release, onto the current `fedora` base image. Unlike `recreate-ve` it backs up logically and from inside the container, keeps the old tree, and can be resumed and rolled back. Phases (`libs/rebuildlib.sh`), each recorded in `/srv/<C>/rebuild/state`, so a rerun continues at the phase that failed:
+
+1. **snapshot** — refuses content it cannot restore (mongo, codepad, nginx, supervisord, elasticsearch, rabbitmq, redis; `SC_REBUILD_FORCE=true` overrides), starts the old container if needed (with network), saves the front page through HAProxy as `rebuild/before.{html,status}`, then stops httpd, php-fpm and nginx in it.
+2. **backup** — `lib/rebuild-ve-backup.sh` runs inside it as root and writes `/srv/backup`: one `mysqldump --databases` per database plus `grants.sql` (accounts with their password hashes), the web root, `/home`, crontabs, the database client configs and the httpd configs no package owns (`cp -a`, numeric owners kept), the uid 1000–59999 users, and reference lists (packages, units, `php.ini`). Then the container is stopped.
+3. **swap** — the base image is copied to `newrootfs` with the old ssh host keys and `/srv/backup`, then `rootfs` → `exrootfs` and `newrootfs` → `rootfs` (two renames, so the hourly regenerate never sees a missing rootfs; `rebuild/moved` records them), then `init_ve_rootfs` (shared with `add_ve`) and the nspawn config. No uid arithmetic: the new tree is owned by host root, so `PrivateUsersChown` shifts all of it at the first start.
+4. **restore** — `lib/rebuild-ve-restore.sh` inside the new container: users and groups with their old ids, httpd/php/mariadb packages plus every old `php-*` that still exists, the files, the dumps and grants, for WordPress a fresh core around the old `wp-content` and `wp-config.php` (old database credentials) and `upgrade.php`.
+5. **check** — enabled services active, no failed units, front page HTTP 2xx/3xx without a PHP or WordPress error, title compared with the snapshot, last error log lines. A failure stops with non-zero.
+
+`rollback` puts `exrootfs` back (the new tree is kept as `rootfs.failed-<NOW>`) and starts the container only if it was running before. `discard-old` deletes `exrootfs` after a passed check and closes the rebuild, so a later `rebuild-ve` starts over. The backup stays in `/srv/backup` inside the container. Every run is appended to `/srv/<C>/rebuild/rebuild.log`. Not restored: `php.ini` changes (kept in `/srv/backup/reference`), packages other than php, mail queues.
+
 #### Destruction (`srvctl destroy-ve <container>`)
 
 Takes **no** backup — that is `remove-ve`.
@@ -1355,6 +1367,7 @@ A `kernel.pid_max=4194304` line is present but commented out. Note that every `r
 | `exec-all <command>` | Execute command on all running containers (root only) |
 | `map-port <name> [udp] <port> <description>` | Map a TCP/UDP port to the host; stops and starts the container to apply it |
 | `list-ve-releases [tsv]` | Read-only upgrade survey of the local containers, oldest OS release first (root only, see below) |
+| `rebuild-ve <name> [check\|rollback\|discard-old]` | Move a WordPress, PHP or static container onto the current fedora base image, keeping its data (root only, see below) |
 | `update-ve <name>` | Unimplemented stub — it stops the container, prints "Feature unimplemented" and leaves it **stopped** |
 
 `regenerate` recognises only `rootfs` and `all-hosts`; any other argument (including `all`) silently falls through to the plain single-host regenerate.
@@ -2975,6 +2988,7 @@ are marked as such.
 | `srvctl set-ve-alias VE [ALIAS [off]]` | Redirect ALIAS and www.ALIAS to the container (301, path kept, cached a day); `off` removes it, no ALIAS lists the aliases. Written via `cfg container VE add_alias\|remove_alias ALIAS`, which refuses a domain already used as any container's name, alias or altname, and a `www.` domain. Then refreshes DNS (when this host runs named), certificates and HAProxy |
 | `srvctl status [VE]` | With an argument, `systemctl status` of `srvctl-nspawn@VE`; without one, the cluster-wide table rendered by `containers/status.js` |
 | `srvctl recreate-ve VE` | Back up, wipe and rebuild the rootfs, restoring user data as far as possible |
+| `srvctl rebuild-ve VE [check\|rollback\|discard-old]` | Move a WordPress, PHP or static container to the current fedora base image: logical backup inside, fresh rootfs, restore, check; resumable, old tree kept as `exrootfs` for rollback (root only) |
 | `srvctl update-ve VE` | **Stub.** Stops the container's unit and then errors `Feature unimplemented`, leaving the container stopped (`containers/commands/update-ve.sh:39`) |
 | `srvctl destroy-ve VE` | Permanently delete the container, its files and its datastore records |
 | `srvctl remove-ve VE` | Back up the container (see Backup) and then delete it |

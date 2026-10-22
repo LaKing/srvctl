@@ -66,18 +66,12 @@ function add_ve() { ## type name [bridge]
     create_nspawn_container_filesystem "$C" "$T"
     create_nspawn_container_config "$C"
     
-    add_ve_certificate "$C"
+    init_ve_rootfs "$C"
 
     ## use a selfsigned certificate temporary
     cat "/srv/$C/cert/$C.pem" > "${SC_DATASTORE_DIR:?}/cert/$C.pem"
 
     setup_index_html "$C" "/srv/$C/rootfs/var/www/html"
-    write_ve_postfix_conf "$C"
-
-    ln -s "/usr/lib/systemd/system/httpd.service" "/srv/$C/rootfs/etc/systemd/system/multi-user.target.wants/httpd.service"
-
-    ## there is a bug somehwere, this is a hotfix
-    cat "/usr/local/share/srvctl/modules/containers/conf/resolved.conf" > "/srv/$C/rootfs/etc/systemd/resolved.conf"
 
     run systemctl enable "srvctl-nspawn@$C"
     if run systemctl start "srvctl-nspawn@$C" --no-pager
@@ -90,6 +84,23 @@ function add_ve() { ## type name [bridge]
         exit 17
     fi
     
+}
+
+## Per-container setup of a freshly copied base image, before its first start.
+## Shared by add_ve and rebuild_ve (libs/rebuildlib.sh), which must not touch
+## the datastore certificate.
+function init_ve_rootfs() { ## C
+    local C
+    C="$1"
+
+    add_ve_certificate "$C"
+    write_ve_postfix_conf "$C"
+
+    [[ -e "/srv/$C/rootfs/etc/systemd/system/multi-user.target.wants/httpd.service" ]] \
+        || ln -s "/usr/lib/systemd/system/httpd.service" "/srv/$C/rootfs/etc/systemd/system/multi-user.target.wants/httpd.service"
+
+    ## there is a bug somehwere, this is a hotfix
+    cat "/usr/local/share/srvctl/modules/containers/conf/resolved.conf" > "/srv/$C/rootfs/etc/systemd/resolved.conf"
 }
 
 ## TODO detect if domain has a wildcard certificate? Nah, containers should not access wildcard certificates. Unless the cert owner is the container owner? Naah, better not.

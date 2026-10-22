@@ -8,6 +8,16 @@ notable operational changes are listed here.
 Unreleased (v4, in progress on top of 4.0.0.8)
 ----------------------------------------------
 
+Rebuild containers on the current base image (2026-10-22)
+  * New root command `sc rebuild-ve VE [check|rollback|discard-old]` for
+    WordPress, PHP and static containers of any Fedora release: logical
+    database dumps and a file backup inside the old container (/srv/backup),
+    a fresh rootfs with the old tree kept as /srv/VE/exrootfs, restore with
+    the old WordPress config and credentials, then a check of services and
+    of the front page against a snapshot taken before. Resumable per phase,
+    log in /srv/VE/rebuild/rebuild.log.
+  * add_ve's rootfs setup is now init_ve_rootfs, shared with rebuild-ve.
+
 Container OS upgrade survey (2026-10-22)
   * New root command `sc list-ve-releases [tsv]`: read-only list of the
     local containers, oldest OS release first, with unit state, whether the
