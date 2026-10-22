@@ -111,7 +111,7 @@ listed for everyone.
 
 No build step and no package manifest. Install by cloning to `/usr/local/share/srvctl` and running `bash srvctl/srvctl.sh` as root; `init.sh:32-62` then creates the `/bin/sc` and `/bin/srvctl` symlinks and, when `/etc/bash_completion.d` exists, `srvctl-completion`. All three point back into the clone, so upgrading is a `git pull` (`sc update-install`).
 
-Tests: no CI and no top-level runner. Per-module selftests live in `modules/*/selftest/` (52 `*.test.sh` / `*.test.mjs` files under certificates, comount, containers, datastore, haproxy, letsencrypt, named, postfix and srvctl). `modules/datastore/selftest/run.sh` and `modules/named/selftest/run.sh` aggregate their own module's tests and return non-zero on any failure; the rest are run directly with `bash <file>` or `node <file>`.
+Tests: no CI and no top-level runner. Per-module selftests live in `modules/*/selftest/` (55 `*.test.sh` / `*.test.mjs` files under certificates, comount, containers, datastore, haproxy, letsencrypt, named, postfix and srvctl). `modules/datastore/selftest/run.sh` and `modules/named/selftest/run.sh` aggregate their own module's tests and return non-zero on any failure; the rest are run directly with `bash <file>` or `node <file>`.
 
 ## Configuration Locations
 

@@ -149,8 +149,17 @@ function load_resellers() {
 var resellers = load_resellers();
 exports.resellers = resellers;
 
+// A string here (from a put before main.mjs refused it) would be iterated as
+// characters by every consumer: "m1r0" became users m, 1 (uid 1, home /bin),
+// r and 0 (root). Read it as the single name it was meant to be.
 function load_containers() {
-    return load_type("containers");
+    var containers = load_type("containers");
+    Object.keys(containers).forEach(function (c) {
+        ["users", "readers", "vncusers"].forEach(function (field) {
+            if (typeof containers[c][field] === "string") containers[c][field] = [containers[c][field]];
+        });
+    });
+    return containers;
 }
 
 var containers = load_containers();

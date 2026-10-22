@@ -274,12 +274,18 @@ function make_share_mount(u, c, options, dir, source_path, uid, mountname) {
 
     if (!fs.existsSync(source_path)) return err(source_path + " dont exists.");
 
-    if (mounts.indexOf(source_path + " on " + dir + "/" + mountname + " type fuse") === -1)
-        run("bindfs " + options + " --mirror=" + u + " --create-for-user=" + uid + " --create-for-group=" + uid + " " + source_path + " " + dir + "/" + mountname);
+    // mount(8) prints resolved paths; comparing the raw path stacked one more
+    // bindfs on every regenerate wherever a home lies behind a symlink (/bin).
+    // Resolve the parent only: realpath on a stale fuse mountpoint throws.
+    const target = fs.realpathSync(dir) + "/" + mountname;
+    if (mounts.indexOf(fs.realpathSync(source_path) + " on " + target + " type fuse") === -1)
+        run("bindfs " + options + " --mirror=" + u + " --create-for-user=" + uid + " --create-for-group=" + uid + " " + source_path + " " + target);
 }
 
 function make_share(u, c, options) {
     // msg("Match domain-user " + c + " to " + u);
+    // getent also resolves numeric uids, so a stray "1" would mean bin (home /bin).
+    if (users[u] === undefined) return err("container " + c + " lists " + u + ", who is not a datastore user, skipping");
     var getent = get("getent passwd " + u);
     if (getent === undefined) return err("getent passwd " + u + " #returned undefined, skipping");
     var dir = getent.split(":")[5] + "/" + c;

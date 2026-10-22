@@ -977,7 +977,7 @@ process through the bash wrappers in `libs/bashlib.sh`:
 | Command | Usage | Description |
 |---------|-------|-------------|
 | `get` | `srvctl get container <name> <field>` | Retrieve a value (`get container <name> exist` returns true/false) |
-| `put` | `srvctl put container <name> <field> [<value>]` | Set a value; omitting the value deletes the field, `true`/`false` are stored as booleans |
+| `put` | `srvctl put container <name> <field> [<value>]` | Set a value; omitting the value deletes the field, `true`/`false` are stored as booleans. The list fields `users`, `vncusers`, `aliases` and `mapped_ports` are refused (deleting them still works); use their own `add` / `cfg` verb |
 | `new` | `srvctl new container <name> [<type>] [<bridge>]` | Create a new entry |
 | `del` | `srvctl del container <name>` | Delete an entry |
 | `out` | `srvctl out container <name> [json]` | Output in env-var or JSON format |

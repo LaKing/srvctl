@@ -194,6 +194,13 @@ if (DAT === undefined) return_error("MISSING DAT ARGUMENT: cluster | user | rese
 if (ARG === undefined) return_error("MISSING ARG ARGUMENT: containername / username / hostname / query");
 const VERBS = ["get", "put", "out", "cfg", "del", "new", "add"];
 const DATS = ["cluster", "user", "container", "host", "reseller"];
+// readers has no writer yet, so put still sets it; lib.js reads a string as one name.
+const ARRAY_WRITERS = {
+  users: "add container C user U",
+  vncusers: "add container C vncuser U",
+  aliases: "cfg container C add_alias|remove_alias A",
+  mapped_ports: "cfg container C add_mapped_port ...",
+};
 if (!VERBS.includes(CMD)) return_error("INVALID CMD ARGUMENT: " + CMD);
 if (!DATS.includes(DAT)) return_error("INVALID DAT ARGUMENT: " + DAT);
 
@@ -222,6 +229,9 @@ function dispatch() {
       return runMutation("put container " + ARG, (tx, st) => {
         const container = st.containers[ARG];
         if (container === undefined) throw new MutatorError("CONTAINER " + ARG + " DONT EXISTS");
+        // put stores a string; these fields are arrays with their own writer. A
+        // string users once made consumers iterate its characters as user names.
+        if (VAL !== undefined && ARRAY_WRITERS[OPA]) throw new MutatorError(OPA + " IS A LIST, USE: " + ARRAY_WRITERS[OPA]);
         if (VAL === undefined) delete container[OPA];
         else if (VAL === "true") container[OPA] = true;
         else if (VAL === "false") container[OPA] = false;
