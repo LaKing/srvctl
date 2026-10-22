@@ -45,6 +45,9 @@ printf 'kind=%s\nos=%s %s\n' "$kind" "$ID" "$VERSION_ID" > "$B/manifest"
 rpm -qa --qf '%{NAME}\n' | sort > "$B/reference/packages.txt"
 systemctl list-unit-files --state=enabled --no-legend 2>/dev/null | awk '{print $1}' > "$B/reference/units.txt"
 cp -a /etc/php.ini /root/.my.cnf /etc/mysqldump.conf "$B/reference/" 2>/dev/null
+## a locally changed httpd.conf (a moved DocumentRoot) is offered to the restore,
+## which takes it only if the new httpd accepts it
+rpm -Vf /etc/httpd/conf/httpd.conf 2> /dev/null | grep -qE '^..5.* /etc/httpd/conf/httpd.conf$' && cp -a /etc/httpd/conf/httpd.conf "$B/reference/httpd.conf.changed"
 
 ## database: every user database as its own dump, plus the accounts
 dbs=''
@@ -201,7 +204,9 @@ done > "$B/shadow"
 ## reached / and /var through a whole-tree restore and broke every service).
 ## Not cp --parents: coreutils 9.3 (Fedora 39) fails it with "preserving
 ## permissions for .../var/www: No such file or directory" after a full copy.
-paths=(/var/www/html /home /var/spool/cron /etc/mariadb-*.conf)
+## All of /var/www, not only html: a docroot can be elsewhere in it, through a
+## symlink (/var/www/laravel -> html, seen on r2: app.printmagus.com).
+paths=(/var/www /home /var/spool/cron /etc/mariadb-*.conf)
 rpm -Va 2> /dev/null | awk '$2 == "c" && $1 ~ /5/ {print $3}' > "$B/reference/modified-configs.txt"
 for f in /etc/httpd/conf.d/*.conf /etc/phpMyAdmin/*
 do

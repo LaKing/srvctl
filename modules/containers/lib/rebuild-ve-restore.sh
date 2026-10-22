@@ -54,6 +54,19 @@ do
     cp -a --reflink=auto "$B/files$p" "$(dirname "$p")/" || fail "restore of $p failed"
 done < "$B/paths"
 
+## a locally changed httpd.conf: taken over when the new httpd accepts it
+if [[ -f $B/reference/httpd.conf.changed ]]
+then
+    cp -a /etc/httpd/conf/httpd.conf /etc/httpd/conf/httpd.conf.rebuild-default
+    cp "$B/reference/httpd.conf.changed" /etc/httpd/conf/httpd.conf
+    if httpd -t > /dev/null 2>&1
+    then echo "== the old, locally changed httpd.conf is in use (new default: httpd.conf.rebuild-default)"
+    else
+        cp -a /etc/httpd/conf/httpd.conf.rebuild-default /etc/httpd/conf/httpd.conf
+        echo "== WARNING: the old httpd.conf is not accepted by this httpd, the default stays: diff $B/reference/httpd.conf.changed"
+    fi
+fi
+
 ## databases: dumps carry CREATE DATABASE; grants recreate the accounts. A
 ## rerun imports again: the dumps drop and recreate their tables.
 if [[ -n ${dbs// /} ]]
