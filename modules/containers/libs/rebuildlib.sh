@@ -159,7 +159,15 @@ function rebuild_ve_check() { ## C
     rebuild_fetch "$C" after
     before="$(cat "$d/before.status" 2> /dev/null)"
     after="$(cat "$d/after.status")"
-    [[ ${after%% *} =~ ^[23] ]] || { err "front page answers HTTP ${after%% *}"; bad=1; }
+    ## a site that served nothing before (a bare docroot's 403, seen on r2)
+    ## is not failed by the rebuild for answering the same
+    if [[ ! ${after%% *} =~ ^[23] ]]
+    then
+        if [[ ${after%% *} == "${before%% *}" ]]
+        then ntc "front page answers HTTP ${after%% *}, as it did before the rebuild"
+        else err "front page answers HTTP ${after%% *} (before: ${before%% *})"; bad=1
+        fi
+    fi
     grep -qiE "$SC_REBUILD_ERRORS" "$d/after.html" && { err "front page shows an error: $(grep -oiE "$SC_REBUILD_ERRORS" "$d/after.html" | head -n 1)"; bad=1; }
     [[ ${before#* } == "${after#* }" ]] || ntc "title changed: before '${before#* }', after '${after#* }'"
     rebuild_ssh "$C" 'tail -n 15 /var/log/php-fpm/www-error.log /var/log/httpd/error_log 2>/dev/null'

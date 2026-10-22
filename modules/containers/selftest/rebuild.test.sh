@@ -33,7 +33,7 @@ curl() {
     local out
     while (($#)); do [[ $1 == -o ]] && out="$2"; shift; done
     cat "$tmp/page" > "$out"
-    echo 200
+    cat "$tmp/code" 2> /dev/null || echo 200
 }
 # shellcheck source=/dev/null
 source "$REPO/modules/containers/libs/rebuildlib.sh"
@@ -120,6 +120,16 @@ rm -rf "$d/rootfs/srv/backup"
 rebuild_ve "$C" > /dev/null && rebuild_ve "$C" discard-old > /dev/null
 ok "discarded" "$(ls -d "$d"/exrootfs "$d"/rootfs.failed-* 2> /dev/null)" ""
 ok "closed, a later rebuild starts over" "$(state)$(compgen -G "$d/rebuild/state.done-*" | wc -l)" "1"
+
+## a front page that was 403 before passes when unchanged, fails when it was 200 before
+echo 403 > "$tmp/code" && echo '<title>Test Page</title>' > "$tmp/page"
+echo '403 Test Page' > "$d/rebuild/before.status"
+rebuild_ve_check "$C" > /dev/null
+ok "same non-2xx as before passes" "$?" 0
+echo '200 Test Page' > "$d/rebuild/before.status"
+rebuild_ve_check "$C" > /dev/null
+ok "new non-2xx fails" "$?" 1
+rm -f "$tmp/code"
 
 ok "unknown phase" "$(rebuild_ve "$C" bogus > /dev/null; echo $?)" 32
 
