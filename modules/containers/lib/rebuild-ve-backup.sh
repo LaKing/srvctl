@@ -170,8 +170,10 @@ done > "$B/shadow"
 ## the rpm configs changed here in httpd conf.d and phpMyAdmin (an opened
 ## phpMyAdmin.conf, a config.inc.php). Other changed rpm configs (sshd_config,
 ## php.ini, srvctl's postfix) are only listed: old ones can break new services.
-## --parents keeps the source modes of the parent dirs; the umask 077 ones once
-## reached / and /var through a whole-tree restore and broke every service.
+## Parent dirs are made with the source's mode and owner (umask 077 ones once
+## reached / and /var through a whole-tree restore and broke every service).
+## Not cp --parents: coreutils 9.3 (Fedora 39) fails it with "preserving
+## permissions for .../var/www: No such file or directory" after a full copy.
 paths=(/var/www/html /home /var/spool/cron /etc/mariadb-*.conf)
 rpm -Va 2> /dev/null | awk '$2 == "c" && $1 ~ /5/ {print $3}' > "$B/reference/modified-configs.txt"
 for f in /etc/httpd/conf.d/*.conf /etc/phpMyAdmin/*
@@ -182,10 +184,22 @@ do
     else cp -a "$f" "$B/reference/"
     fi
 done
+mkparents() { ## /abs/path/leaf: mirror its parent dirs under $B/files
+    local d='' part
+    local -a parts
+    IFS=/ read -ra parts <<< "${1#/}"
+    for part in "${parts[@]:0:${#parts[@]}-1}"
+    do
+        d+="/$part"
+        [[ -d $B/files$d ]] && continue
+        mkdir "$B/files$d" && chmod --reference="$d" "$B/files$d" && chown --reference="$d" "$B/files$d" || return 1
+    done
+}
 for p in "${paths[@]}"
 do
     [[ -e $p ]] || continue
-    cp -a --parents --reflink=auto "$p" "$B/files/" || fail "copy of $p failed"
+    mkparents "$p" || fail "parent dirs of $p failed"
+    cp -a --reflink=auto "$p" "$B/files$(dirname "$p")/" || fail "copy of $p failed"
     echo "$p" >> "$B/paths"
 done
 
