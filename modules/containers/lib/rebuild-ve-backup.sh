@@ -83,7 +83,7 @@ then
     ## mysql.proc from 10.2 under 10.4) make --routines/--events fail. Such a
     ## server cannot run its routines or events either, so the dump is retried
     ## without them rather than upgrading the old datadir.
-    ## A database whose tables this server cannot open (1146, e.g. InnoDB files
+    ## A database whose tables this server cannot open (1146 or 1932, e.g. InnoDB files
     ## copied in owned by root, seen on r2: eana.hu) is skipped: no application
     ## can be using it. Its files stay in exrootfs.
     dumped=''
@@ -91,7 +91,7 @@ then
     do
         if ! mysqldump "${my[@]}" --single-transaction --routines --events --triggers --databases "$db" > "$B/db/$db.sql" 2> "$B/db/$db.err"
         then
-            if grep -q "doesn't exist (1146)" "$B/db/$db.err"
+            if grep -qE "doesn't exist( in engine)? \((1146|1932)\)" "$B/db/$db.err"
             then
                 echo "== $db: SKIPPED, its tables cannot be opened on the old server either: $(grep -m1 -o "Table '[^']*'" "$B/db/$db.err")"
                 echo "brokendb=$db" >> "$B/manifest"
