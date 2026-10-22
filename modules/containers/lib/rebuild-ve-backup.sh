@@ -51,6 +51,26 @@ then
     done
     my=()
     [[ -f /etc/mysqldump.conf ]] && my=(--defaults-file=/etc/mysqldump.conf)
+
+    ## Root password set but not saved anywhere srvctl knows (seen on bp):
+    ## restart without privilege checks, socket only. The documented MariaDB
+    ## lost-root-password procedure; Fedora's mariadb.service passes
+    ## MYSQLD_OPTS. Harmless here, the old container is stopped after backup.
+    skipgrants=false
+    if ! mysql "${my[@]}" -e 'select 1' > /dev/null 2>&1
+    then
+        echo "== root has no database access: restarting $unit with --skip-grant-tables --skip-networking"
+        skipgrants=true
+        systemctl stop "$unit"
+        systemctl set-environment MYSQLD_OPTS="--skip-grant-tables --skip-networking"
+        systemctl start "$unit"
+        systemctl unset-environment MYSQLD_OPTS
+        for _ in {1..30}
+        do
+            mysql "${my[@]}" -e 'select 1' > /dev/null 2>&1 && break
+            sleep 1
+        done
+    fi
     mysql "${my[@]}" -e 'select 1' > /dev/null || fail "cannot connect to the database as root"
 
     dbs="$(mysql "${my[@]}" -N -e 'show databases' | grep -vxE 'mysql|information_schema|performance_schema|sys' | tr '\n' ' ')"
@@ -59,16 +79,29 @@ then
         mysqldump "${my[@]}" --single-transaction --routines --events --triggers --databases "$db" > "$B/db/$db.sql" || fail "dump of $db failed"
     done
 
-    ## SHOW GRANTS carries the password hash. sql_mode='' lets GRANT create the
-    ## account on the new server (NO_AUTO_CREATE_USER is in its default mode).
+    ## SHOW GRANTS carries the password hash. It is refused while grant tables
+    ## are skipped, so all of them run in ONE session after FLUSH PRIVILEGES,
+    ## which loads the tables but keeps that session's full access.
+    ## sql_mode='' lets GRANT create the account on the new server
+    ## (NO_AUTO_CREATE_USER is in its default mode).
+    accounts="$(mysql "${my[@]}" -N -e "select user, host from mysql.user where user not in ('root', '', 'mysql', 'mariadb.sys', 'PUBLIC')")"
+    grants=''
+    if [[ -n $accounts ]]
+    then
+        grants="$(
+            {
+                $skipgrants && echo "FLUSH PRIVILEGES;"
+                while read -r u h
+                do
+                    echo "SHOW GRANTS FOR '$u'@'$h';"
+                done <<< "$accounts"
+            } | mysql "${my[@]}" -N
+        )" || fail "grants export failed"
+    fi
     {
         echo "SET SESSION sql_mode='';"
-        mysql "${my[@]}" -N -e "select user, host from mysql.user where user not in ('root', '', 'mysql', 'mariadb.sys', 'PUBLIC')" |
-            while read -r u h
-            do
-                mysql "${my[@]}" -N -e "show grants for '$u'@'$h'" | sed 's/$/;/'
-            done
-    } > "$B/db/grants.sql" || fail "grants export failed"
+        [[ -n $grants ]] && printf '%s;\n' "${grants//$'\n'/$';\n'}"
+    } > "$B/db/grants.sql"
 fi
 echo "db=$dbs" >> "$B/manifest"
 

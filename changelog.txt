@@ -15,7 +15,9 @@ Rebuild containers on the current base image (2026-10-22)
     a fresh rootfs with the old tree kept as /srv/VE/exrootfs, restore with
     the old WordPress config and credentials, then a check of services and
     of the front page against a snapshot taken before. Resumable per phase,
-    log in /srv/VE/rebuild/rebuild.log.
+    log in /srv/VE/rebuild/rebuild.log. A database whose root password
+    was never saved is dumped after a restart with --skip-grant-tables
+    --skip-networking inside the old container.
   * add_ve's rootfs setup is now init_ve_rootfs, shared with rebuild-ve.
 
 Container OS upgrade survey (2026-10-22)
