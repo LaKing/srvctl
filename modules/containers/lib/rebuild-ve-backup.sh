@@ -83,17 +83,30 @@ then
     ## mysql.proc from 10.2 under 10.4) make --routines/--events fail. Such a
     ## server cannot run its routines or events either, so the dump is retried
     ## without them rather than upgrading the old datadir.
+    ## A database whose tables this server cannot open (1146, e.g. InnoDB files
+    ## copied in owned by root, seen on r2: eana.hu) is skipped: no application
+    ## can be using it. Its files stay in exrootfs.
+    dumped=''
     for db in $dbs
     do
         if ! mysqldump "${my[@]}" --single-transaction --routines --events --triggers --databases "$db" > "$B/db/$db.sql" 2> "$B/db/$db.err"
         then
+            if grep -q "doesn't exist (1146)" "$B/db/$db.err"
+            then
+                echo "== $db: SKIPPED, its tables cannot be opened on the old server either: $(grep -m1 -o "Table '[^']*'" "$B/db/$db.err")"
+                echo "brokendb=$db" >> "$B/manifest"
+                rm -f "$B/db/$db.sql" "$B/db/$db.err"
+                continue
+            fi
             grep -qE 'mysql\.(proc|event)|mysql_upgrade' "$B/db/$db.err" || { cat "$B/db/$db.err" >&2; fail "dump of $db failed"; }
             echo "== $db: system tables older than the server, dumping without routines and events (they could not run here either)"
             mysqldump "${my[@]}" --single-transaction --triggers --databases "$db" > "$B/db/$db.sql" || fail "dump of $db failed"
             echo "noroutines=$db" >> "$B/manifest"
         fi
         rm -f "$B/db/$db.err"
+        dumped+="$db "
     done
+    dbs="$dumped"
 
     ## SHOW GRANTS carries the password hash. It is refused while grant tables
     ## are skipped, so all of them run in ONE session after FLUSH PRIVILEGES,
