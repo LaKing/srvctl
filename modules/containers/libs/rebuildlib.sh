@@ -82,13 +82,14 @@ function rebuild_ve_snapshot() { ## C
     do
         [[ -e $r/$m || -e $r/etc/systemd/system/multi-user.target.wants/$m ]] && found+=("$m")
     done
-    ## an enabled service defined here and not by a package (a Node app's
-    ## unit under /srv/app, seen on r2: konyvesjatek.hu) is an application the
-    ## restore cannot bring back; links are read, never followed (container paths)
+    ## an enabled service defined here and not by a package: one whose unit
+    ## lives in /srv/<dir> or /home (a Node app's /srv/app/bash/app.service) is
+    ## carried by the backup with its tree; anywhere else it is an application
+    ## the restore cannot bring back. Links are read, never followed (container paths)
     for w in "$r"/etc/systemd/system/multi-user.target.wants/*
     do
         [[ -L $w ]] || continue
-        case "$(readlink "$w")" in /usr/lib/systemd/* | /lib/systemd/* | ../* | /usr/share/*) ;; *) found+=("${w##*/} (local unit)") ;; esac
+        case "$(readlink "$w")" in /usr/lib/systemd/* | /lib/systemd/* | ../* | /usr/share/* | /srv/?*/* | /home/?*/*) ;; *) found+=("${w##*/} (local unit)") ;; esac
     done
     if ((${#found[@]})) && [[ ${SC_REBUILD_FORCE:-} != true ]]
     then
@@ -161,7 +162,7 @@ function rebuild_ve_restore() { ## C
 
 function rebuild_ve_check() { ## C
     local C="$1" d="$SC_REBUILD_SRV/$1/rebuild" bad=0 before after u
-    for u in httpd php-fpm mariadb
+    for u in httpd php-fpm mariadb $(sed -n 's/^localunits=//p' "$SC_REBUILD_SRV/$C/rootfs/srv/backup/manifest" 2> /dev/null)
     do
         rebuild_ssh "$C" "systemctl is-enabled -q $u 2>/dev/null && ! systemctl is-active -q $u" && { err "$u is not running in $C"; bad=1; }
     done

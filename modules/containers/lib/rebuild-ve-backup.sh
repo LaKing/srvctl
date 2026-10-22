@@ -207,6 +207,18 @@ done > "$B/shadow"
 ## All of /var/www, not only html: a docroot can be elsewhere in it, through a
 ## symlink (/var/www/laravel -> html, seen on r2: app.printmagus.com).
 paths=(/var/www /home /var/spool/cron /etc/mariadb-*.conf)
+## local units the snapshot let through (target in /srv/<dir> or /home): the
+## unit links themselves and the whole /srv/<dir> they point into
+localunits=()
+for w in /etc/systemd/system/multi-user.target.wants/*
+do
+    t="$(readlink "$w")" || continue
+    case "$t" in /srv/?*/* | /home/?*/*) ;; *) continue ;; esac
+    u="${w##*/}" && localunits+=("$u") && paths+=("$w")
+    [[ -L /etc/systemd/system/$u ]] && paths+=("/etc/systemd/system/$u")
+    [[ $t == /srv/* ]] && d="${t#/srv/}" && paths+=("/srv/${d%%/*}")
+done
+echo "localunits=${localunits[*]}" >> "$B/manifest"
 rpm -Va 2> /dev/null | awk '$2 == "c" && $1 ~ /5/ {print $3}' > "$B/reference/modified-configs.txt"
 for f in /etc/httpd/conf.d/*.conf /etc/phpMyAdmin/*
 do

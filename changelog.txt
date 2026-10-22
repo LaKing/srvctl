@@ -27,6 +27,11 @@ Rebuild containers on the current base image (2026-10-22)
     --skip-networking inside the old container. If its system tables
     are older than the server (mysql_upgrade never ran), the dump is taken
     without routines and events, which that server could not run anyway.
+  * rebuild-ve carries a local app service (a Node app's unit in
+    /srv/<dir> or /home): the unit links and /srv/<dir> are backed up,
+    the unit is started after the restore and checked like httpd; httpd
+    stays disabled when it was disabled before (the app serves 80/443). Local
+    units elsewhere are still refused.
   * add_ve's rootfs setup is now init_ve_rootfs, shared with rebuild-ve.
 
 Container OS upgrade survey (2026-10-22)

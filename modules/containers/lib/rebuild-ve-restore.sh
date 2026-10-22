@@ -115,9 +115,28 @@ do
     systemctl cat "$u" > /dev/null 2>&1 && systemctl enable "$u" 2> /dev/null || echo "== not enabled, no such unit here: $u"
 done < "$B/reference/units.txt"
 
+## the local units (a Node app) came back with their tree: started now, the
+## check tests them like httpd
+# shellcheck disable=SC2013 # a space-separated list of unit names
+for u in $(sed -n 's/^localunits=//p' "$B/manifest")
+do
+    systemctl daemon-reload
+    ## enabled only through the wants link: the unit name is unknown until linked
+    systemctl cat "$u" > /dev/null 2>&1 || systemctl link "$(readlink "/etc/systemd/system/multi-user.target.wants/$u")"
+    systemctl enable --now "$u" || fail "$u does not start"
+done
+
 [[ $kind != static ]] && { systemctl enable --now php-fpm || fail "php-fpm does not start"; }
-systemctl enable httpd
-systemctl restart httpd || fail "httpd does not start"
+## a local app may serve 80/443 itself with httpd disabled (seen on r2:
+## api-test-flatchooser.carco.hu): httpd then stays as it was
+if grep -qx httpd.service "$B/reference/units.txt" || ! grep -q '^localunits=.' "$B/manifest"
+then
+    systemctl enable httpd
+    systemctl restart httpd || fail "httpd does not start"
+else
+    systemctl disable --now httpd 2> /dev/null
+    echo "== httpd left disabled, as in the old container: a local app serves the site"
+fi
 
 ## the WordPress database schema upgrade, as the dashboard would run it
 if [[ $kind == wordpress ]]
