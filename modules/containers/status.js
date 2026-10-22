@@ -144,8 +144,16 @@ Object.keys(containers).forEach(function (c) {
         }
 
     try {
-        var release = fs.readFileSync("/srv/" + c + "/rootfs/etc/os-release", "utf8").split("\n");
-        infos += " " + release[2].split("=")[1] + " " + release[3].split("=")[1];
+        // Parsed by key, not by line number: Fedora 36+ inserted RELEASE_TYPE=stable
+        // as the third line, which made a positional read print "stable fedora".
+        var os = {};
+        fs.readFileSync("/srv/" + c + "/rootfs/etc/os-release", "utf8")
+            .split("\n")
+            .forEach(function (line) {
+                var m = line.match(/^([A-Z_]+)=("?)(.*)\2$/);
+                if (m) os[m[1]] = m[3];
+            });
+        infos += " " + (os.ID || "?") + " " + (os.VERSION_ID || "?");
     } catch (e) {
         extras += "OS?";
     }

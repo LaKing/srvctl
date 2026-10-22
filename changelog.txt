@@ -8,6 +8,16 @@ notable operational changes are listed here.
 Unreleased (v4, in progress on top of 4.0.0.8)
 ----------------------------------------------
 
+Container OS upgrade survey (2026-10-22)
+  * New root command `sc list-ve-releases [tsv]`: read-only list of the
+    local containers, oldest OS release first, with unit state, whether the
+    DNS points here, last web request, last file change, size, owner,
+    detected apps and a suggested class (dead? / simple / wordpress /
+    custom), to plan moving the containers to Fedora 44.
+  * `sc status` printed "stable fedora" for Fedora 36+ containers: it read
+    os-release by line number and RELEASE_TYPE became the third line. It now
+    reads ID and VERSION_ID by key.
+
 No SMTP AUTH without its backend (2026-10-17)
   * SMTP AUTH (smtps 465 and AUTH on port 25) authenticated through
     saslauthd -> rimap -> perdition, which is no longer installable. On r2

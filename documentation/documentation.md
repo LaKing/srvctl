@@ -1354,6 +1354,7 @@ A `kernel.pid_max=4194304` line is present but commented out. Note that every `r
 | `regenerate [all-hosts\|rootfs]` | Rewrite generated configuration; `rootfs` rebuilds the base images, `all-hosts` repeats over ssh on every cluster host (root only) |
 | `exec-all <command>` | Execute command on all running containers (root only) |
 | `map-port <name> [udp] <port> <description>` | Map a TCP/UDP port to the host; stops and starts the container to apply it |
+| `list-ve-releases [tsv]` | Read-only upgrade survey of the local containers, oldest OS release first (root only, see below) |
 | `update-ve <name>` | Unimplemented stub — it stops the container, prints "Feature unimplemented" and leaves it **stopped** |
 
 `regenerate` recognises only `rootfs` and `all-hosts`; any other argument (including `all`) silently falls through to the plain single-host regenerate.
@@ -2979,6 +2980,7 @@ are marked as such.
 | `srvctl remove-ve VE` | Back up the container (see Backup) and then delete it |
 | `srvctl exec-all COMMAND` | Run one shell command in every running container (root only) |
 | `srvctl map-port VE [udp] PORT DESCRIPTION` | Map a container TCP port — or a UDP port with the `udp` keyword — to the host. PORT must be 1–65535 |
+| `srvctl list-ve-releases [tsv]` | Root only, read-only. One line per local container (`/srv/*/rootfs`), oldest release first: OS release (`ID VERSION_ID` from `os-release`), unit state, DNS (`here`/`away`/`none` from the dns-scan data against `SC_HOST_IP`, `orphan` without a datastore record), last web request (`access_log` mtime), last file change under `/var/www/html`, `/srv` and `/home` (walk capped at 100000 entries, `+` when capped), size (`du`), owner, a suggested class (`dead?` = not active or DNS not here; `custom` = owner-enabled units, mongo or codepad; `wordpress`; `simple`) and the detected apps. `tsv` prints tab-separated values for collecting several hosts. Code: `containers/lib/ve-releases.mjs` |
 | `srvctl regenerate [all-hosts\|rootfs]` | Without an argument, run the `regenerate` hook of every enabled module on this host. `all-hosts` does the same over ssh on every current-cluster host and every global DNS authority, in publication order. `rootfs` rebuilds the base images under `$SC_ROOTFS_DIR` |
 
 **`regenerate` takes only `all-hosts` or `rootfs`.** There is no `all` argument.
