@@ -56,11 +56,9 @@ then
     ## restart without privilege checks, socket only. The documented MariaDB
     ## lost-root-password procedure; Fedora's mariadb.service passes
     ## MYSQLD_OPTS. Harmless here, the old container is stopped after backup.
-    skipgrants=false
     if ! mysql "${my[@]}" -e 'select 1' > /dev/null 2>&1
     then
         echo "== root has no database access: restarting $unit with --skip-grant-tables --skip-networking"
-        skipgrants=true
         systemctl stop "$unit"
         systemctl set-environment MYSQLD_OPTS="--skip-grant-tables --skip-networking"
         systemctl start "$unit"
@@ -74,14 +72,27 @@ then
     mysql "${my[@]}" -e 'select 1' > /dev/null || fail "cannot connect to the database as root"
 
     dbs="$(mysql "${my[@]}" -N -e 'show databases' | grep -vxE 'mysql|information_schema|performance_schema|sys' | tr '\n' ' ')"
+    ## System tables older than the server (mysql_upgrade never ran, seen on bp:
+    ## mysql.proc from 10.2 under 10.4) make --routines/--events fail. Such a
+    ## server cannot run its routines or events either, so the dump is retried
+    ## without them rather than upgrading the old datadir.
     for db in $dbs
     do
-        mysqldump "${my[@]}" --single-transaction --routines --events --triggers --databases "$db" > "$B/db/$db.sql" || fail "dump of $db failed"
+        if ! mysqldump "${my[@]}" --single-transaction --routines --events --triggers --databases "$db" > "$B/db/$db.sql" 2> "$B/db/$db.err"
+        then
+            grep -qE 'mysql\.(proc|event)|mysql_upgrade' "$B/db/$db.err" || { cat "$B/db/$db.err" >&2; fail "dump of $db failed"; }
+            echo "== $db: system tables older than the server, dumping without routines and events (they could not run here either)"
+            mysqldump "${my[@]}" --single-transaction --triggers --databases "$db" > "$B/db/$db.sql" || fail "dump of $db failed"
+            echo "noroutines=$db" >> "$B/manifest"
+        fi
+        rm -f "$B/db/$db.err"
     done
 
     ## SHOW GRANTS carries the password hash. It is refused while grant tables
     ## are skipped, so all of them run in ONE session after FLUSH PRIVILEGES,
-    ## which loads the tables but keeps that session's full access.
+    ## which loads the tables but keeps that session's full access. Always
+    ## flushed: a rerun finds the server still in that mode, root then gets in
+    ## at once, and a normal root may flush anyway.
     ## sql_mode='' lets GRANT create the account on the new server
     ## (NO_AUTO_CREATE_USER is in its default mode).
     accounts="$(mysql "${my[@]}" -N -e "select user, host from mysql.user where user not in ('root', '', 'mysql', 'mariadb.sys', 'PUBLIC')")"
@@ -90,7 +101,7 @@ then
     then
         grants="$(
             {
-                $skipgrants && echo "FLUSH PRIVILEGES;"
+                echo "FLUSH PRIVILEGES;"
                 while read -r u h
                 do
                     echo "SHOW GRANTS FOR '$u'@'$h';"
