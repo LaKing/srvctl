@@ -1199,6 +1199,17 @@ Root only. Moves a WordPress, PHP or static site container, whatever its release
 
 `rollback` puts `exrootfs` back (the new tree is kept as `rootfs.failed-<NOW>`) and starts the container only if it was running before. `discard-old` deletes `exrootfs` after a passed check and closes the rebuild, so a later `rebuild-ve` starts over. The backup stays in `/srv/backup` inside the container. Every run is appended to `/srv/<C>/rebuild/rebuild.log`. Not restored: `php.ini` changes (kept in `/srv/backup/reference`), packages no repository offers any more, mail queues.
 
+#### In-place release upgrade (`srvctl upgrade-ve <container> [phase]`)
+
+Root only. Moves a Fedora container to the release of the current `fedora` base image keeping its whole tree: for containers whose content `rebuild-ve` cannot carry (a hand-built service, Caddy, ZeroTier, large data). At most 2 releases at once, as `dnf system-upgrade` supports (`SC_UPGRADE_FORCE=true` overrides); the same release is allowed and repairs a half done transaction. Phases (`libs/upgradelib.sh`), recorded in `/srv/<C>/upgrade/state`, resumable like `rebuild-ve`:
+
+1. **prepare** — refuses an open rebuild, an existing `exrootfs`, a non-Fedora tree, a gap over 2 releases and too little disk space (tree size + 2G). Records the release pair, the enabled unit links, and when the container runs, its running services and the front page (`upgrade/before.*`).
+2. **copy** — stops the container and copies `rootfs` to `exrootfs` (through `exrootfs.partial`, so an interrupted copy is never taken for the rollback).
+3. **upgrade** — third-party repository files with the old release in their URL (ZeroTier's `.../fc/43`) are moved to the new one, then `dnf distro-sync --allowerasing --releasever=<new>` runs in a throwaway `systemd-nspawn` of the stopped tree with its own uid base (`--private-users=<base>:65536`) and no srvctl binds. Inside the running container rpm cannot replace the systemd package: `/etc/systemd/network` is bound read-only from the host, the unpack fails and the transaction stops half done. Enabled links the upgrade dropped are put back when their unit still exists; new default configs (`*.rpmnew`) are listed.
+4. **check** — starts the container, checks the release, that every service that ran before runs again (one that is not enabled was started by hand and is named as such; with a stopped container the `multi-user.target` services are expected instead), failed units, and the front page against the one before.
+
+`rollback` puts the copy back (the upgraded tree is kept as `rootfs.failed-<NOW>`) and starts the container if it was running. `discard-old` deletes the copy after a passed check. `rebuild-ve` and `upgrade-ve` share `exrootfs`; each refuses while the other one's run is open. Log: `/srv/<C>/upgrade/upgrade.log`.
+
 #### Destruction (`srvctl destroy-ve <container>`)
 
 Takes **no** backup — that is `remove-ve`.
@@ -1369,6 +1380,7 @@ A `kernel.pid_max=4194304` line is present but commented out. Note that every `r
 | `map-port <name> [udp] <port> <description>` | Map a TCP/UDP port to the host; stops and starts the container to apply it |
 | `list-ve-releases [tsv]` | Read-only upgrade survey of the local containers, oldest OS release first (root only, see below) |
 | `rebuild-ve <name> [check\|rollback\|discard-old]` | Move a WordPress, PHP or static container onto the current fedora base image, keeping its data (root only, see below) |
+| `upgrade-ve <name> [check\|rollback\|discard-old]` | Upgrade a Fedora container in place to the base image's release, keeping a copy for rollback (root only, see below) |
 | `update-ve <name>` | Unimplemented stub — it stops the container, prints "Feature unimplemented" and leaves it **stopped** |
 
 `regenerate` recognises only `rootfs` and `all-hosts`; any other argument (including `all`) silently falls through to the plain single-host regenerate.

@@ -64,11 +64,12 @@ function rebuild_stop() { ## C
     ! rebuild_is_running "$C"
 }
 
-## front page through haproxy: <dir>/<name>.html and <name>.status (code + title).
+## front page through haproxy: <dir>/<name>.html and <name>.status (code + title),
+## dir defaults to rebuild/ (upgradelib passes its upgrade/).
 ## The query string bypasses page caches (WP Rocket, W3TC): a cached copy would
 ## pass the check without running any PHP (seen on r2: amajomhoz.hu).
-function rebuild_fetch() { ## C name
-    local C="$1" d="$SC_REBUILD_SRV/$1/rebuild" code title
+function rebuild_fetch() { ## C name [dir]
+    local C="$1" d="${3:-$SC_REBUILD_SRV/$1/rebuild}" code title
     code="$(curl -sk -m 60 -o "$d/$2.html" -w '%{http_code}' --resolve "$C:443:127.0.0.1" "https://$C/?srvctl-rebuild=$(date +%s)")"
     title="$(grep -oi '<title>[^<]*' "$d/$2.html" 2> /dev/null | head -n 1 | sed 's/^<title>//I')"
     printf '%s %s\n' "$code" "$title" > "$d/$2.status"
@@ -186,26 +187,13 @@ function rebuild_ve_restore() { ## C
 }
 
 function rebuild_ve_check() { ## C
-    local C="$1" d="$SC_REBUILD_SRV/$1/rebuild" bad=0 before after u
+    local C="$1" d="$SC_REBUILD_SRV/$1/rebuild" bad=0 u
     for u in httpd php-fpm mariadb $(sed -n 's/^localunits=//p' "$SC_REBUILD_SRV/$C/rootfs/srv/backup/manifest" 2> /dev/null)
     do
         rebuild_ssh "$C" "systemctl is-enabled -q $u 2>/dev/null && ! systemctl is-active -q $u" && { err "$u is not running in $C"; bad=1; }
     done
     rebuild_ssh "$C" 'systemctl --failed --no-legend --no-pager'
-    rebuild_fetch "$C" after
-    before="$(cat "$d/before.status" 2> /dev/null)"
-    after="$(cat "$d/after.status")"
-    ## a site that served nothing before (a bare docroot's 403, seen on r2)
-    ## is not failed by the rebuild for answering the same
-    if [[ ! ${after%% *} =~ ^[23] ]]
-    then
-        if [[ ${after%% *} == "${before%% *}" ]]
-        then ntc "front page answers HTTP ${after%% *}, as it did before the rebuild"
-        else err "front page answers HTTP ${after%% *} (before: ${before%% *})"; bad=1
-        fi
-    fi
-    grep -qiE "$SC_REBUILD_ERRORS" "$d/after.html" && { err "front page shows an error: $(grep -oiE "$SC_REBUILD_ERRORS" "$d/after.html" | head -n 1)"; bad=1; }
-    [[ ${before#* } == "${after#* }" ]] || ntc "title changed: before '${before#* }', after '${after#* }'"
+    rebuild_compare_front_page "$C" "$d" || bad=1
     rebuild_ssh "$C" 'tail -n 15 /var/log/php-fpm/www-error.log /var/log/httpd/error_log 2>/dev/null'
     if ((bad == 0))
     then msg "$C check passed"
@@ -214,9 +202,30 @@ function rebuild_ve_check() { ## C
     return $bad
 }
 
+## fetches <dir>/after.* and fails on a new non-2xx/3xx answer or an error page
+function rebuild_compare_front_page() { ## C dir
+    local C="$1" d="$2" before after
+    rebuild_fetch "$C" after "$d"
+    before="$(cat "$d/before.status" 2> /dev/null)"
+    after="$(cat "$d/after.status")"
+    ## a site that served nothing before (a bare docroot's 403, seen on r2)
+    ## is not failed for answering the same
+    if [[ ! ${after%% *} =~ ^[23] ]]
+    then
+        if [[ ${after%% *} == "${before%% *}" ]]
+        then ntc "front page answers HTTP ${after%% *}, as it did before"
+        else err "front page answers HTTP ${after%% *} (before: ${before%% *})"; return 1
+        fi
+    fi
+    grep -qiE "$SC_REBUILD_ERRORS" "$d/after.html" && { err "front page shows an error: $(grep -oiE "$SC_REBUILD_ERRORS" "$d/after.html" | head -n 1)"; return 1; }
+    [[ ${before#* } == "${after#* }" ]] || ntc "title changed: before '${before#* }', after '${after#* }'"
+    return 0
+}
+
 function rebuild_ve_rollback() { ## C
     local C="$1" d="$SC_REBUILD_SRV/$1"
     [[ -d $d/exrootfs ]] || { err "no $d/exrootfs to roll back to"; return 1; }
+    [[ -f $d/upgrade/state ]] && { err "$d/exrootfs belongs to an open upgrade-ve: sc upgrade-ve $C rollback"; return 1; }
     rebuild_stop "$C" || return 1
     [[ -d $d/rootfs ]] && { run mv "$d/rootfs" "$d/rootfs.failed-$NOW" || return 1; }
     run mv "$d/exrootfs" "$d/rootfs" || return 1

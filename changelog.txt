@@ -8,6 +8,16 @@ notable operational changes are listed here.
 Unreleased (v4, in progress on top of 4.0.0.8)
 ----------------------------------------------
 
+In-place release upgrade (2026-10-23)
+  * New root command `sc upgrade-ve VE [check|rollback|discard-old]`:
+    copies the tree to /srv/VE/exrootfs, then dnf distro-sync to the base
+    image's release in a throwaway nspawn of the stopped container (inside
+    the running one the systemd package fails on the read-only
+    /etc/systemd/network bind and leaves a half upgraded system). Repo URLs
+    with the release in them follow, dropped enabled links come back, and the
+    check names services that ran before and do not now. At most 2 releases.
+  * rebuild-ve rollback refuses while an upgrade-ve run owns exrootfs.
+
 Whole-site redirect (2026-10-22)
   * New command `sc set-ve-redirect VE [URL [temporary]|off]`: every http
     and https request of VE and www.VE goes to exactly URL (haproxy
