@@ -117,7 +117,8 @@ function upgrade_ve_upgrade() { ## C
     ## -cnewer: rpm gives a file the mtime it has in the package, only the ctime is of now
     find "$r/etc" -name '*.rpmnew' -cnewer "$u/started" 2> /dev/null | while read -r f
     do
-        ntc "new default config kept aside: ${f#"$r"} (the old ${f#"$r"} stays in use)"
+        f="${f#"$r"}"
+        ntc "new default config kept aside: $f (the old ${f%.rpmnew} stays in use)"
     done
 }
 

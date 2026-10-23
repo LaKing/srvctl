@@ -101,7 +101,7 @@ ok "release in the repo URL" "$(grep baseurl "$r/etc/yum.repos.d/zerotier.repo")
 ok "fedora repo left to dnf" "$(grep -c 'fedora-43' "$r/etc/yum.repos.d/fedora.repo")" 1
 ok "dropped link put back" "$(readlink "$r/$w/postfix.service")" /usr/lib/systemd/system/postfix.service
 ok "link of a gone unit named" "$(grep -c 'gone.service was enabled' <<< "$out")" 1
-ok "rpmnew named" "$(grep -c '/etc/caddy.rpmnew' <<< "$out")" 1
+ok "rpmnew named" "$(grep -c 'kept aside: /etc/caddy.rpmnew (the old /etc/caddy stays' <<< "$out")" 1
 ok "login sessions not expected" "$(grep -c 'user@0' "$d/upgrade/expected-services")" 0
 ok "front page before" "$(cat "$d/upgrade/before.status")" "200 App"
 
