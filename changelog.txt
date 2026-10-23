@@ -16,6 +16,9 @@ In-place release upgrade (2026-10-23)
     /etc/systemd/network bind and leaves a half upgraded system). Repo URLs
     with the release in them follow, dropped enabled links come back, and the
     check names services that ran before and do not now. At most 2 releases.
+    The nspawn runs with SYSTEMD_OFFLINE=1: a scriptlet's bare 'systemctl
+    stop' (dovecot's %pre) fails without a running systemd and aborts the
+    package otherwise.
   * rebuild-ve rollback refuses while an upgrade-ve run owns exrootfs.
 
 Whole-site redirect (2026-10-22)

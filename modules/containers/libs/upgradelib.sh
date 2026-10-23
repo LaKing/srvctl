@@ -101,12 +101,15 @@ function upgrade_ve_upgrade() { ## C
     rm -f "$u/repo.tmp"
 
     base="$(stat -c %u "$r")"
-    opts=(-q -D "$r" -M "upgrade-$C" --resolv-conf=replace-host)
+    ## no systemd runs in it: a scriptlet's bare 'systemctl stop' would fail and abort the package
+    ## (dovecot's %pre, seen on r2: tancaszabadsagert.hu); offline, systemctl skips it with 0
+    opts=(-q -D "$r" -M "upgrade-$C" --resolv-conf=replace-host --setenv=SYSTEMD_OFFLINE=1)
     ((base)) && opts+=("--private-users=$base:65536")
     touch "$u/started"
-    ## the new release's signing key first; a third-party repo without a build for it is skipped, not fatal
-    # shellcheck disable=SC2016 ## expands inside the nspawn
-    run systemd-nspawn "${opts[@]}" bash -c "dnf -y upgrade --refresh fedora-gpg-keys; dnf -y --releasever=$to --setopt=skip_if_unavailable=True distro-sync --allowerasing && echo \"== packages still built for fedora $from: \$(rpm -qa --qf '%{RELEASE}\n' | grep -c 'fc$from\$')\"" || {
+    ## the new release's signing key first; a third-party repo without a build for it is skipped, not fatal.
+    ## Not through lablib's run: it executes an unquoted $*, which splits the bash -c script into words.
+    msg "systemd-nspawn ${opts[*]}: dnf distro-sync --releasever=$to"
+    systemd-nspawn "${opts[@]}" bash -c "dnf -y upgrade --refresh fedora-gpg-keys; dnf -y --releasever=$to --setopt=skip_if_unavailable=True distro-sync --allowerasing && echo \"== packages still built for fedora $from: \$(rpm -qa --qf '%{RELEASE}\n' | grep -c 'fc$from\$')\"" || {
         err "dnf distro-sync failed in $r; rerun to retry, or rollback"
         return 1
     }

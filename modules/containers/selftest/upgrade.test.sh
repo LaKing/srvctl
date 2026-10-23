@@ -22,7 +22,8 @@ C=app.example d="$tmp/srv/app.example" r="$tmp/srv/app.example/rootfs" w=etc/sys
 msg() { echo "$*"; }
 ntc() { echo "$*"; }
 err() { echo "ERR $*"; }
-run() { "$@"; }
+# shellcheck disable=SC2048 ## as lablib's run: unquoted, so an argument with spaces would break here too
+run() { $*; }
 sleep() { :; }
 timeout() { :; }
 machinectl() { case $1 in show) [[ -f $tmp/running ]] ;; *) rm -f "$tmp/running" ;; esac; }
@@ -37,6 +38,7 @@ curl() {
 ## the upgrade: new release, a dropped wants link, a new default config
 systemd-nspawn() {
     echo "$*" > "$tmp/nspawn"
+    [[ ${*: -1} == "dnf -y upgrade"* ]] || return 2 ## the script reached bash -c in one piece
     [[ -f $tmp/dnf-fails ]] && return 1
     echo 'VERSION_ID=44' > "$r/usr/lib/os-release"
     rm -f "$r/$w/postfix.service" "$r/$w/gone.service"
@@ -93,6 +95,7 @@ rm -f "$tmp/dnf-fails"
 out="$(upgrade_ve "$C")"
 ok "check fails on the hand-started service" "$(grep -c 'caddy.service ran before the upgrade' <<< "$out")" 1
 ok "phases up to check" "$(state)" "prepare copy upgrade "
+ok "systemctl offline in the nspawn" "$(grep -c -- '--setenv=SYSTEMD_OFFLINE=1' "$tmp/nspawn")" 1
 ok "maps the tree's uid base" "$(grep -c -- "--private-users=$(stat -c %u "$r"):65536" "$tmp/nspawn")" 1
 ok "release in the repo URL" "$(grep baseurl "$r/etc/yum.repos.d/zerotier.repo")" "baseurl=https://download.zerotier.com/redhat/fc/44"
 ok "fedora repo left to dnf" "$(grep -c 'fedora-43' "$r/etc/yum.repos.d/fedora.repo")" 1
