@@ -126,6 +126,17 @@ then
     rm -rf "$t"
 fi
 
+## Dovecot 2.4 (Fedora 42 on) reads ~/mail and serves no POP3 by default; the
+## 2.3 of the old containers read ~/Maildir, where postfix delivers
+## (home_mailbox), and served POP3 (seen on r2: mail.mobilflower.hu)
+if [[ -d /etc/dovecot/conf.d ]] && compgen -G '/home/*/Maildir' > /dev/null && doveconf -n 2> /dev/null | grep -qx 'mail_path = ~/mail'
+then
+    printf '%s\n' '## srvctl rebuild-ve: mailboxes and protocols as the old Dovecot 2.3 served them' \
+        'mail_path = ~/Maildir' 'protocols {' '  pop3 = yes' '}' > /etc/dovecot/conf.d/90-srvctl-rebuild.conf
+    doveconf -n > /dev/null || fail "dovecot does not accept conf.d/90-srvctl-rebuild.conf"
+    echo "== dovecot: ~/Maildir and POP3, as before"
+fi
+
 ## services the old container had enabled, where the unit exists here.
 ## NetworkManager would fight the srvctl-managed networkd setup.
 while read -r u

@@ -49,6 +49,9 @@ Rebuild containers on the current base image (2026-10-22)
   * A MongoDB whose old server no longer installs (4.4 from the el8
     repository) is restored into the 7.0 series; the old repository is
     switched off.
+  * Mail containers: Dovecot 2.4 of the new release reads ~/mail and has
+    POP3 off; the restore points it at ~/Maildir (postfix home_mailbox)
+    and turns POP3 on, as the old 2.3 served them.
   * add_ve's rootfs setup is now init_ve_rootfs, shared with rebuild-ve.
 
 Container OS upgrade survey (2026-10-22)
