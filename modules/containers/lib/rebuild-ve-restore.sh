@@ -22,14 +22,31 @@ kind="$(sed -n 's/^kind=//p' "$B/manifest")"
 dbs="$(sed -n 's/^db=//p' "$B/manifest")"
 echo "== restore ${HOSTNAME:-$(cat /etc/hostname)}: kind=$kind db=$dbs"
 
-## users and groups with their old ids; an existing name or id is kept as is
+## users and groups with their old ids. An id taken here by another account
+## (codepad was 104 on mandrob.nete.hu) gets a new one, and an existing name
+## keeps its id: umap/gmap then move the restored files to the id used here.
+umap=() gmap=()
 while IFS=: read -r name _ gid _
 do
-    getent group "$name" > /dev/null || getent group "$gid" > /dev/null || groupadd -g "$gid" "$name"
+    if ! getent group "$name" > /dev/null
+    then
+        if getent group "$gid" > /dev/null; then groupadd "$name"; else groupadd -g "$gid" "$name"; fi
+    fi
+    n="$(getent group "$name" | cut -d: -f3)"
+    [[ $n == "$gid" ]] || gmap+=("$gid:$n")
 done < "$B/group"
 while IFS=: read -r name _ uid gid gecos home shell
 do
-    getent passwd "$name" > /dev/null || getent passwd "$uid" > /dev/null || useradd -M -u "$uid" -g "$gid" -c "$gecos" -d "$home" -s "$shell" "$name"
+    if ! getent passwd "$name" > /dev/null
+    then
+        grp="$(awk -F: -v g="$gid" '$3 == g {print $1}' "$B/group")"
+        if getent passwd "$uid" > /dev/null
+        then useradd -M -g "${grp:-$gid}" -c "$gecos" -d "$home" -s "$shell" "$name"
+        else useradd -M -u "$uid" -g "${grp:-$gid}" -c "$gecos" -d "$home" -s "$shell" "$name"
+        fi
+    fi
+    n="$(id -u "$name")"
+    [[ $n == "$uid" ]] || umap+=("$uid:$n")
 done < "$B/passwd"
 while IFS=: read -r name hash _
 do
@@ -45,7 +62,13 @@ pkgs=(httpd mod_ssl tar)
 [[ -n ${dbs// /} ]] && pkgs+=(mariadb-server)
 mapfile -t oldpkgs < <(grep -v '^gpg-pubkey$' "$B/reference/packages.txt")
 ## the old third-party repositories first, so their packages (MongoDB) resolve
-cp -a "$B"/repos/*.repo /etc/yum.repos.d/ 2> /dev/null
+## Fedora's own ones are not: the base image has them for its release, and an
+## old fedora-modular.repo nobody owned has no repository for the new one
+## (seen on r2: chernobyl.d250.hu, Fedora 35)
+for f in "$B"/repos/*.repo
+do
+    [[ -f $f ]] && ! grep -q 'fedoraproject\.org' "$f" && cp -a "$f" /etc/yum.repos.d/
+done
 cp -a "$B"/repos/keys/* /etc/pki/rpm-gpg/ 2> /dev/null
 [[ -s $B/repos/rpm-keys.asc ]] && rpm --import "$B/repos/rpm-keys.asc"
 ver="$(sed -n 's/^VERSION_ID=//p' /etc/os-release)"
@@ -72,6 +95,16 @@ while read -r p
 do
     cp -a --reflink=auto "$B/files$p" "$(dirname "$p")/" || fail "restore of $p failed"
 done < "$B/paths"
+for m in "${umap[@]}"
+do
+    echo "== files of uid ${m%%:*} follow their account to uid ${m#*:}"
+    while read -r p; do chown -R -h --from="${m%%:*}" "${m#*:}" "$p"; done < "$B/paths"
+done
+for m in "${gmap[@]}"
+do
+    echo "== files of gid ${m%%:*} follow their group to gid ${m#*:}"
+    while read -r p; do chown -R -h --from=":${m%%:*}" ":${m#*:}" "$p"; done < "$B/paths"
+done
 
 ## a locally changed httpd.conf: taken over when the new httpd accepts it
 if [[ -f $B/reference/httpd.conf.changed ]]
@@ -183,6 +216,23 @@ fi
 # shellcheck disable=SC2013 # a space-separated list of unit names
 for u in $(sed -n 's/^localunits=//p' "$B/manifest")
 do
+    ## setcap refuses a symlink, and /usr/bin/node is one here (alternatives ->
+    ## node-22): a drop-in repeats the unit's ExecStartPre= lines with the real
+    ## file (project.service of codepad-project, seen on r2: chernobyl.d250.hu)
+    f="$(readlink -f "/etc/systemd/system/$u")"
+    if [[ -f $f ]] && grep -q '^ExecStartPre=.*setcap' "$f"
+    then
+        mkdir -p "/etc/systemd/system/$u.d"
+        {
+            printf '%s\n' '## srvctl rebuild-ve: setcap on the real file, not the symlink' '[Service]' 'ExecStartPre='
+            sed -n 's/^ExecStartPre=//p' "$f" | while read -r l
+            do
+                p="${l##* }"
+                [[ $l == *setcap* && -L $p ]] && l="${l% *} $(readlink -f "$p")"
+                printf 'ExecStartPre=%s\n' "$l"
+            done
+        } > "/etc/systemd/system/$u.d/srvctl-rebuild.conf"
+    fi
     systemctl daemon-reload
     ## enabled only through the wants link: the unit name is unknown until linked
     systemctl cat "$u" > /dev/null 2>&1 || systemctl link "$(readlink "/etc/systemd/system/multi-user.target.wants/$u")"

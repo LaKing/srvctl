@@ -79,6 +79,14 @@ rm "$d/rootfs/etc/systemd/system/multi-user.target.wants/app.service"
 ## one under /srv/<dir> (a Node app) is carried by the backup, so it passes
 ln -s /srv/app/bash/app.service "$d/rootfs/etc/systemd/system/multi-user.target.wants/app.service"
 ok "app unit under /srv passes preflight" "$(rebuild_ve_snapshot "$C" 2>&1 | grep -c 'rebuild-ve does not restore')" 0
+## a unit file old srvctl wrote into /etc/systemd/system passes when it works in /srv, not otherwise
+mkdir -p "$d/rootfs/etc/systemd/system/multi-user.target.wants"
+printf '[Service]\nWorkingDirectory=/srv/codepad-project\nUser=codepad\n' > "$d/rootfs/etc/systemd/system/project.service"
+ln -sfn /etc/systemd/system/project.service "$d/rootfs/etc/systemd/system/multi-user.target.wants/project.service"
+ok "project.service in /srv passes preflight" "$(rebuild_ve_snapshot "$C" 2>&1 | grep -c 'rebuild-ve does not restore')" 0
+printf '[Service]\nWorkingDirectory=/opt/x\n' > "$d/rootfs/etc/systemd/system/project.service"
+ok "an /etc unit working elsewhere is refused" "$(rebuild_ve_snapshot "$C" 2>&1 | grep -c 'project.service (local unit)')" 1
+rm -f "$tmp/running" "$d/rebuild/was-running" "$d/rootfs/etc/systemd/system/project.service" "$d/rootfs/etc/systemd/system/multi-user.target.wants/project.service"
 ## a packaged unit linked with the host path of the rootfs is not a local app
 ln -sfn "/srv/$C/rootfs/usr/lib/systemd/system/httpd.service" "$d/rootfs/etc/systemd/system/multi-user.target.wants/httpd.service"
 ok "host-path packaged link passes preflight" "$(rebuild_ve_snapshot "$C" 2>&1 | grep -c 'rebuild-ve does not restore')" 0

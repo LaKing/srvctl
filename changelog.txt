@@ -55,6 +55,20 @@ Rebuild containers on the current base image (2026-10-22)
   * The swap keeps the CA-issued certificate letsencrypt deployed into the
     old tree (localhost.crt/.pem/.key, <VE>.pem) instead of the fresh
     self-signed one: an app serving 443 itself calls itself through it.
+  * rebuild-ve carries codepad-project containers: a unit file in
+    /etc/systemd/system working in /srv (project.service) with its User=
+    account, PIDFile= directory and OnFailure= units. An account whose id
+    is taken in the new tree gets a new one and its files follow it.
+  * New restore step lib/rebuild-ve-native.sh: native Node modules bound
+    to one ABI (NAN: canvas 2.x, serialport, alsa) are rebuilt with
+    node-gyp for the new node, with a current nan for the build; one that
+    does not build keeps its old binary and is reported.
+  * Fedora's own repository files nobody owned (fedora-modular.repo on
+    Fedora 35) are no longer carried: dnf failed on the missing modular
+    repository of the new release.
+  * A local unit's 'setcap ... /usr/bin/node' gets the real file through a
+    drop-in: /usr/bin/node is an alternatives symlink on the new release,
+    and setcap refuses symlinks.
   * add_ve's rootfs setup is now init_ve_rootfs, shared with rebuild-ve.
 
 Container OS upgrade survey (2026-10-22)

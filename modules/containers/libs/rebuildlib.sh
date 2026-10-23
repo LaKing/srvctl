@@ -91,7 +91,10 @@ function rebuild_ve_snapshot() { ## C
     for w in "$r"/etc/systemd/system/multi-user.target.wants/*
     do
         [[ -L $w ]] || continue
-        case "$(readlink "$w")" in /usr/lib/systemd/* | /lib/systemd/* | ../* | /usr/share/* | /srv/*/rootfs/* | /srv/?*/* | /home/?*/*) ;; *) found+=("${w##*/} (local unit)") ;; esac
+        t="$(readlink "$w")"
+        ## a unit file old srvctl wrote into /etc/systemd/system for an app in /srv (project.service of codepad-project)
+        [[ $t == /etc/systemd/system/* && -f $r$t && ! -L $r$t ]] && grep -qE '^WorkingDirectory=/(srv|home)/.' "$r$t" && continue
+        case "$t" in /usr/lib/systemd/* | /lib/systemd/* | ../* | /usr/share/* | /srv/*/rootfs/* | /srv/?*/* | /home/?*/*) ;; *) found+=("${w##*/} (local unit)") ;; esac
     done
     if ((${#found[@]})) && [[ ${SC_REBUILD_FORCE:-} != true ]]
     then
@@ -179,6 +182,7 @@ function rebuild_ve_restore() { ## C
     rebuild_is_running "$C" || run systemctl start "srvctl-nspawn@$C" || return 1
     rebuild_wait_ssh "$C" || return 1
     rebuild_ssh "$C" bash -s < "$SC_INSTALL_DIR/modules/containers/lib/rebuild-ve-restore.sh" || { err "restore failed in $C"; return 1; }
+    rebuild_ssh "$C" bash -s < "$SC_INSTALL_DIR/modules/containers/lib/rebuild-ve-native.sh" || { err "native module rebuild failed in $C"; return 1; }
 }
 
 function rebuild_ve_check() { ## C

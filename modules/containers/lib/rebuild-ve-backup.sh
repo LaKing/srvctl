@@ -14,7 +14,7 @@
 ##   mongo.archive.gz      mongodump of a MongoDB, if any: restored when the
 ##                  server comes back from a third-party repository (Fedora has none)
 ##   repos/         hand-made dnf repository files and their keys
-##   passwd group shadow   the uid 1000..59999 users and groups
+##   passwd group shadow   the uid 1000..59999 users and groups, and the local units' ones
 ##   reference/     packages, enabled units, php.ini, rpm-owned httpd configs,
 ##                  modified-configs.txt (every changed rpm config file), the old
 ##                  root database credentials: for reading, never restored
@@ -48,16 +48,44 @@ printf 'kind=%s\nos=%s %s\n' "$kind" "$ID" "$VERSION_ID" > "$B/manifest"
 ## before anything is saved, so the dumps and files are one moment of the app
 ## (a job board taking payments, seen on r2: vendeglatosmunkak.hu); here and
 ## not in the snapshot, because a resumed backup boots the old container again.
+## A unit file old srvctl wrote into /etc/systemd/system (project.service of a
+## codepad-project, seen on r2: chernobyl.d250.hu) counts when its working
+## directory is in /srv or /home; its User=, PIDFile= directory and OnFailure=
+## units come along (codepad, /var/codepad-project, notify.service).
 localunits=()
 localpaths=()
+localusers=()
 for w in /etc/systemd/system/multi-user.target.wants/*
 do
     t="$(readlink "$w")" || continue
-    ## /srv/<C>/rootfs/...: a packaged unit linked with its host path by old srvctl
-    case "$t" in /srv/*/rootfs/*) continue ;; /srv/?*/* | /home/?*/*) ;; *) continue ;; esac
+    wd=''
+    case "$t" in
+        ## /srv/<C>/rootfs/...: a packaged unit linked with its host path by old srvctl
+        /srv/*/rootfs/*) continue ;;
+        /srv/?*/* | /home/?*/*) ;;
+        /etc/systemd/system/*)
+            [[ -f $t && ! -L $t ]] || continue
+            wd="$(sed -n 's/^WorkingDirectory=//p' "$t" | head -n 1)"
+            [[ $wd == /srv/?* || $wd == /home/?* ]] || continue
+            ;;
+        *) continue ;;
+    esac
     u="${w##*/}" && localunits+=("$u") && localpaths+=("$w")
-    [[ -L /etc/systemd/system/$u ]] && localpaths+=("/etc/systemd/system/$u")
-    [[ $t == /srv/* ]] && d="${t#/srv/}" && localpaths+=("/srv/${d%%/*}")
+    [[ -e /etc/systemd/system/$u || -L /etc/systemd/system/$u ]] && localpaths+=("/etc/systemd/system/$u")
+    for d in "$t" "$wd"
+    do
+        [[ $d == /srv/?* ]] && d="${d#/srv/}" && localpaths+=("/srv/${d%%/*}")
+    done
+    [[ -f $t ]] || continue
+    usr="$(sed -n 's/^User=//p' "$t" | head -n 1)"
+    [[ -n $usr && $usr != root ]] && localusers+=("$usr")
+    pid="$(sed -n 's/^PIDFile=//p' "$t" | head -n 1 | tr -s /)"
+    [[ $pid == /var/?*/* && $pid != /var/run/* ]] && localpaths+=("$(dirname "$pid")")
+    # shellcheck disable=SC2013 # OnFailure= takes space-separated unit names
+    for o in $(sed -n 's/^OnFailure=//p' "$t")
+    do
+        [[ -f /etc/systemd/system/$o && ! -L /etc/systemd/system/$o ]] && localpaths+=("/etc/systemd/system/$o")
+    done
 done
 echo "localunits=${localunits[*]}" >> "$B/manifest"
 ((${#localunits[@]})) && { systemctl stop "${localunits[@]}" || fail "local units do not stop: ${localunits[*]}"; }
@@ -75,7 +103,8 @@ for f in /etc/yum.repos.d/*.repo /etc/pki/rpm-gpg/*
 do
     [[ -f $f ]] || continue
     rpm -qf "$f" > /dev/null 2>&1 && continue
-    case "$f" in *.repo) cp -a "$f" "$B/repos/" ;; *) cp -a "$f" "$B/repos/keys/" ;; esac
+    ## Fedora's own repositories nobody owned (fedora-modular.repo on Fedora 35) are not carried
+    case "$f" in *.repo) grep -q 'fedoraproject\.org' "$f" || cp -a "$f" "$B/repos/" ;; *) cp -a "$f" "$B/repos/keys/" ;; esac
 done
 systemctl list-unit-files --state=enabled --no-legend 2>/dev/null | awk '{print $1}' > "$B/reference/units.txt"
 cp -a /etc/php.ini /root/.my.cnf /etc/mysqldump.conf "$B/reference/" 2>/dev/null
@@ -222,8 +251,9 @@ then
 fi
 
 ## users and groups of the site owners
-awk -F: '$3 >= 1000 && $3 < 60000' /etc/passwd > "$B/passwd"
-awk -F: '$3 >= 1000 && $3 < 60000' /etc/group > "$B/group"
+## plus the accounts the local units run as (codepad, uid 804 or 104), with their primary groups
+awk -F: -v extra=" ${localusers[*]} " '($3 >= 1000 && $3 < 60000) || index(extra, " " $1 " ")' /etc/passwd > "$B/passwd"
+awk -F: 'NR == FNR {g[$4] = 1; next} ($3 >= 1000 && $3 < 60000) || ($3 in g)' "$B/passwd" /etc/group > "$B/group"
 cut -d: -f1 "$B/passwd" | while read -r u
 do
     grep "^$u:" /etc/shadow
