@@ -114,7 +114,8 @@ function upgrade_ve_upgrade() { ## C
         return 1
     }
     upgrade_restore_links "$C"
-    find "$r/etc" -name '*.rpmnew' -newer "$u/started" 2> /dev/null | while read -r f
+    ## -cnewer: rpm gives a file the mtime it has in the package, only the ctime is of now
+    find "$r/etc" -name '*.rpmnew' -cnewer "$u/started" 2> /dev/null | while read -r f
     do
         ntc "new default config kept aside: ${f#"$r"} (the old ${f#"$r"} stays in use)"
     done

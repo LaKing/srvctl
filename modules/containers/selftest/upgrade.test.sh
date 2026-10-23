@@ -42,7 +42,7 @@ systemd-nspawn() {
     [[ -f $tmp/dnf-fails ]] && return 1
     echo 'VERSION_ID=44' > "$r/usr/lib/os-release"
     rm -f "$r/$w/postfix.service" "$r/$w/gone.service"
-    touch "$r/etc/caddy.rpmnew"
+    touch -d 2020-01-01 "$r/etc/caddy.rpmnew" ## as rpm writes it: the package's mtime
 }
 # shellcheck source=/dev/null
 source "$REPO/modules/containers/libs/rebuildlib.sh"
