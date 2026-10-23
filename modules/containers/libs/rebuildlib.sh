@@ -132,7 +132,26 @@ function rebuild_ve_swap() { ## C
         rebuild_ve_build_rootfs "$C" || return 1
     fi
     init_ve_rootfs "$C"
+    rebuild_carry_certificate "$C"
     create_nspawn_container_config "$C"
+}
+
+## init_ve_rootfs installs a self-signed localhost certificate. The old tree may
+## hold the CA-issued one letsencrypt deployed, which an app serving 443 itself
+## reads and calls itself through (seen on r2: mobilflower.hu). Written with cat: host-root owned like the new tree before its first start.
+function rebuild_carry_certificate() { ## C
+    local C="$1" o="$SC_REBUILD_SRV/$1/exrootfs/etc/pki/tls" n="$SC_REBUILD_SRV/$1/rootfs/etc/pki/tls" f iss sub
+    [[ -f $o/certs/localhost.crt && -f $o/private/localhost.key && -d $n/private ]] || return 0
+    openssl x509 -in "$o/certs/localhost.crt" -noout -checkend 0 > /dev/null 2>&1 || return 0
+    iss="$(openssl x509 -in "$o/certs/localhost.crt" -noout -issuer -nameopt RFC2253 | sed 's/^issuer=//')"
+    sub="$(openssl x509 -in "$o/certs/localhost.crt" -noout -subject -nameopt RFC2253 | sed 's/^subject=//')"
+    [[ $iss != "$sub" ]] || return 0
+    for f in certs/localhost.crt certs/localhost.pem "certs/$C.pem" private/localhost.key
+    do
+        [[ -f $o/$f ]] && cat "$o/$f" > "$n/$f"
+    done
+    chmod 600 "$n/private/localhost.key"
+    msg "$C: kept the CA-issued certificate of the old tree ($iss)"
 }
 
 function rebuild_ve_build_rootfs() { ## C

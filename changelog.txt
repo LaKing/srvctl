@@ -52,6 +52,9 @@ Rebuild containers on the current base image (2026-10-22)
   * Mail containers: Dovecot 2.4 of the new release reads ~/mail and has
     POP3 off; the restore points it at ~/Maildir (postfix home_mailbox)
     and turns POP3 on, as the old 2.3 served them.
+  * The swap keeps the CA-issued certificate letsencrypt deployed into the
+    old tree (localhost.crt/.pem/.key, <VE>.pem) instead of the fresh
+    self-signed one: an app serving 443 itself calls itself through it.
   * add_ve's rootfs setup is now init_ve_rootfs, shared with rebuild-ve.
 
 Container OS upgrade survey (2026-10-22)

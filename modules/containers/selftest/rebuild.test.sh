@@ -147,6 +147,21 @@ rebuild_ve_check "$C" > /dev/null
 ok "new non-2xx fails" "$?" 1
 rm -f "$tmp/code"
 
+## the CA-issued certificate of the old tree survives the swap, a self-signed one does not
+mkdir -p "$d/exrootfs/etc/pki/tls/certs" "$d/exrootfs/etc/pki/tls/private" "$d/rootfs/etc/pki/tls/certs" "$d/rootfs/etc/pki/tls/private"
+openssl req -x509 -newkey rsa:2048 -nodes -subj /CN=ca.test -keyout "$tmp/ca.key" -out "$tmp/ca.crt" -days 2 2> /dev/null
+openssl req -newkey rsa:2048 -nodes -subj "/CN=$C" -keyout "$d/exrootfs/etc/pki/tls/private/localhost.key" -out "$tmp/leaf.csr" 2> /dev/null
+openssl x509 -req -in "$tmp/leaf.csr" -CA "$tmp/ca.crt" -CAkey "$tmp/ca.key" -CAcreateserial -days 2 -out "$d/exrootfs/etc/pki/tls/certs/localhost.crt" 2> /dev/null
+echo self > "$d/rootfs/etc/pki/tls/certs/localhost.crt"
+rebuild_carry_certificate "$C" > /dev/null
+ok "CA certificate carried" "$(cmp -s "$d/exrootfs/etc/pki/tls/certs/localhost.crt" "$d/rootfs/etc/pki/tls/certs/localhost.crt" && echo same)" same
+ok "its key is 0600" "$(stat -c %a "$d/rootfs/etc/pki/tls/private/localhost.key")" 600
+openssl req -x509 -newkey rsa:2048 -nodes -subj "/CN=$C" -keyout "$d/exrootfs/etc/pki/tls/private/localhost.key" -out "$d/exrootfs/etc/pki/tls/certs/localhost.crt" -days 2 2> /dev/null
+echo self > "$d/rootfs/etc/pki/tls/certs/localhost.crt"
+rebuild_carry_certificate "$C" > /dev/null
+ok "self-signed not carried" "$(cat "$d/rootfs/etc/pki/tls/certs/localhost.crt")" self
+rm -rf "$d/exrootfs"
+
 ok "unknown phase" "$(rebuild_ve "$C" bogus > /dev/null; echo $?)" 32
 
 echo "rebuild: $pass passed, $fail failed"
