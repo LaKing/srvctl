@@ -46,6 +46,9 @@ Rebuild containers on the current base image (2026-10-22)
     had no key file, and dnf dropped the whole transaction), and keeps the
     base image's Fedora node when the old container used nodesource's: both
     own /usr/bin/node.
+  * A MongoDB whose old server no longer installs (4.4 from the el8
+    repository) is restored into the 7.0 series; the old repository is
+    switched off.
   * add_ve's rootfs setup is now init_ve_rootfs, shared with rebuild-ve.
 
 Container OS upgrade survey (2026-10-22)

@@ -138,6 +138,17 @@ done < "$B/reference/units.txt"
 ## local units, which are its usual clients
 if grep -q '^mongo=dumped' "$B/manifest"
 then
+    ## an old server that does not install here (4.4 from the el8 repository,
+    ## seen on r2: konyvesjatek.hu): the dump goes into the 7.0 series used
+    ## elsewhere on the hosts; mongorestore reads dumps of older servers
+    if ! command -v mongod > /dev/null
+    then
+        ## the old one stays on disk, switched off: nothing here installs from it
+        grep -l 'repo.mongodb.org' /etc/yum.repos.d/*.repo 2> /dev/null | xargs -r sed -i 's/^enabled=1/enabled=0/'
+        printf '%s\n' '[mongodb-org-7.0]' 'name=MongoDB Repository' 'baseurl=https://repo.mongodb.org/yum/redhat/9/mongodb-org/7.0/x86_64/' \
+            'gpgcheck=1' 'enabled=1' 'gpgkey=https://pgp.mongodb.com/server-7.0.asc' > /etc/yum.repos.d/mongodb-org-7.0.repo
+        dnf -y install mongodb-org mongodb-database-tools && echo "== MongoDB server upgraded to the 7.0 series"
+    fi
     if command -v mongod > /dev/null && command -v mongorestore > /dev/null
     then
         systemctl enable --now mongod || fail "mongod does not start"
