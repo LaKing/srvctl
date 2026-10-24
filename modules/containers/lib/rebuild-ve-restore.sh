@@ -225,21 +225,26 @@ fi
 
 ## the local units (a Node app) came back with their tree: started now, the
 ## check tests them like httpd
-## Node 21 added a global navigator with only a getter: app code that sets one for
-## server-side rendering throws on every request (seen on r2: flatchooser.carco.hu,
-## node 16 -> 22). The old node had none, a drop-in keeps it that way.
+## Node options that keep the old node's behaviour for the local units, in a drop-in:
+## - node 21 added a global navigator with only a getter: app code that sets one for
+##   server-side rendering throws on every request (seen on r2: flatchooser.carco.hu, 16 -> 22)
+## - a node on OpenSSL 1.1 hashed with md4, which OpenSSL 3 refuses without the legacy
+##   provider: webpack 4 builds fail (seen on r2: gincorner.d250.hu, a vue build forked by the app)
 oldnode="$(sed -n 's/^node=//p' "$B/manifest")"
 newnode="$(node -p 'process.versions.node.split(".")[0]' 2> /dev/null)"
+nodeopts=()
+[[ $oldnode && $newnode ]] && ((oldnode < 21 && newnode >= 21)) && nodeopts+=(--no-experimental-global-navigator)
+[[ $(sed -n 's/^nodessl=//p' "$B/manifest") == 1.* && $(node -p process.versions.openssl 2> /dev/null) != 1.* ]] && nodeopts+=(--openssl-legacy-provider)
 # shellcheck disable=SC2013 # a space-separated list of unit names
 for u in $(sed -n 's/^localunits=//p' "$B/manifest")
 do
-    if [[ $oldnode && $newnode ]] && ((oldnode < 21 && newnode >= 21))
+    if ((${#nodeopts[@]}))
     then
         if grep -q NODE_OPTIONS "$(readlink -f "/etc/systemd/system/multi-user.target.wants/$u")" 2> /dev/null
-        then echo "== NOTE: $u sets NODE_OPTIONS itself; add --no-experimental-global-navigator by hand if it sets a global navigator"
+        then echo "== NOTE: $u sets NODE_OPTIONS itself; add ${nodeopts[*]} by hand if it needs the old node's behaviour"
         else
             mkdir -p "/etc/systemd/system/$u.d"
-            printf '%s\n' "## srvctl rebuild-ve: no global navigator, as on the old node $oldnode" '[Service]' 'Environment=NODE_OPTIONS=--no-experimental-global-navigator' > "/etc/systemd/system/$u.d/srvctl-rebuild-node.conf"
+            printf '%s\n' "## srvctl rebuild-ve: as on the old node $oldnode" '[Service]' "Environment=\"NODE_OPTIONS=${nodeopts[*]}\"" > "/etc/systemd/system/$u.d/srvctl-rebuild-node.conf"
         fi
     fi
     ## setcap refuses a symlink, and /usr/bin/node is one here (alternatives ->

@@ -19,6 +19,9 @@ Rebuild fix (2026-10-24)
     code that sets global.navigator throws on node 21+ (flatchooser.carco.hu).
   * rebuild-ve keeps the old mongod.conf's net.unixDomainSocket block: an
     app on the socket got EACCES from 7.0's default 0700 (froccsterasz).
+  * rebuild-ve adds --openssl-legacy-provider for apps whose old node ran on
+    OpenSSL 1.x: a webpack 4 vue build forked by the app failed on md4
+    (gincorner.d250.hu, node 18 on F35 -> node 22).
 
 In-place release upgrade (2026-10-23)
   * New root command `sc upgrade-ve VE [check|rollback|discard-old]`:

@@ -4,7 +4,7 @@
 ## rebuild_ve_backup (libs/rebuildlib.sh). Collects what rebuild-ve-restore.sh
 ## puts back on the fresh rootfs, into /srv/backup:
 ##
-##   manifest       kind=wordpress|php|static, os=, db=<databases>, localunits=, node=<major>
+##   manifest       kind=wordpress|php|static, os=, db=<databases>, localunits=, node=<major>, nodessl=
 ##   files/, paths  the restored trees, copied with cp -a --parents so the
 ##                  in-container numeric owners survive (the host copies them on
 ##                  with cp -a, the new container's first start uid-shifts them);
@@ -88,8 +88,8 @@ do
     done
 done
 echo "localunits=${localunits[*]}" >> "$B/manifest"
-## the old node's major: the restore keeps its globals on a newer one
-command -v node > /dev/null && echo "node=$(node -p 'process.versions.node.split(".")[0]')" >> "$B/manifest"
+## the old node's major and OpenSSL: the restore keeps their behaviour on a newer node
+command -v node > /dev/null && node -p '"node=" + process.versions.node.split(".")[0] + "\nnodessl=" + process.versions.openssl' >> "$B/manifest"
 ((${#localunits[@]})) && { systemctl stop "${localunits[@]}" || fail "local units do not stop: ${localunits[*]}"; }
 
 rpm -qa --qf '%{NAME}\n' | sort > "$B/reference/packages.txt"
