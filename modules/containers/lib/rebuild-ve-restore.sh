@@ -213,9 +213,23 @@ fi
 
 ## the local units (a Node app) came back with their tree: started now, the
 ## check tests them like httpd
+## Node 21 added a global navigator with only a getter: app code that sets one for
+## server-side rendering throws on every request (seen on r2: flatchooser.carco.hu,
+## node 16 -> 22). The old node had none, a drop-in keeps it that way.
+oldnode="$(sed -n 's/^node=//p' "$B/manifest")"
+newnode="$(node -p 'process.versions.node.split(".")[0]' 2> /dev/null)"
 # shellcheck disable=SC2013 # a space-separated list of unit names
 for u in $(sed -n 's/^localunits=//p' "$B/manifest")
 do
+    if [[ $oldnode && $newnode ]] && ((oldnode < 21 && newnode >= 21))
+    then
+        if grep -q NODE_OPTIONS "$(readlink -f "/etc/systemd/system/multi-user.target.wants/$u")" 2> /dev/null
+        then echo "== NOTE: $u sets NODE_OPTIONS itself; add --no-experimental-global-navigator by hand if it sets a global navigator"
+        else
+            mkdir -p "/etc/systemd/system/$u.d"
+            printf '%s\n' "## srvctl rebuild-ve: no global navigator, as on the old node $oldnode" '[Service]' 'Environment=NODE_OPTIONS=--no-experimental-global-navigator' > "/etc/systemd/system/$u.d/srvctl-rebuild-node.conf"
+        fi
+    fi
     ## setcap refuses a symlink, and /usr/bin/node is one here (alternatives ->
     ## node-22): a drop-in repeats the unit's ExecStartPre= lines with the real
     ## file (project.service of codepad-project, seen on r2: chernobyl.d250.hu)
