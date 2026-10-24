@@ -9,7 +9,11 @@ from="$1" to="$2"
 
 ## the new release's signing key first; a third-party repo without a build for it is skipped, not fatal
 dnf -y upgrade --refresh fedora-gpg-keys
-dnf -y --releasever="$to" --setopt=skip_if_unavailable=True distro-sync --allowerasing || exit 1
+## A second pass: rpm orders a two release jump imperfectly, a scriptlet then runs a new
+## binary against an old library and that one package fails while the rest goes in
+## (setup's %sysusers before glibc, seen on r2: nktrust.ch 42 -> 44). The rerun finishes it.
+sync=(dnf -y --releasever="$to" --setopt=skip_if_unavailable=True distro-sync --allowerasing)
+"${sync[@]}" || { echo "== distro-sync failed, a second pass"; "${sync[@]}"; } || exit 1
 
 ## Fedora's unversioned nodejs became nodejs<major> (F44: nodejs22). distro-sync keeps the old
 ## build, which no repo updates any more (seen on r2: mindtalk.hu, nktrust.ch). Same major, so
