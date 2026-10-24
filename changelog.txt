@@ -22,6 +22,28 @@ Rebuild fix (2026-10-24)
   * rebuild-ve adds --openssl-legacy-provider for apps whose old node ran on
     OpenSSL 1.x: a webpack 4 vue build forked by the app failed on md4
     (gincorner.d250.hu, node 18 on F35 -> node 22).
+  * rebuild-ve carries a mail container's own postfix files (all but
+    main.cf, which the base image brings), its dovecot and postfix TLS pairs
+    and /var/lib/zerotier-one: a hand-opened master.cf (submission 587,
+    submissions 465) and the zerotier node identity were lost, and fresh
+    self-signed certificates ask every mail client again (mail.colorsound.hu).
+    Old main.cf settings that srvctl's main.cf does not set at all come back
+    (virtual_alias_maps, mail.instant-fogas.com).
+  * rebuild-ve starts every service the old container had enabled and
+    restarts postfix and dovecot after the restore: they had booted before
+    it, so saslauthd and zerotier-one stayed down and smtps/pop3s did not
+    listen, and the check, which looked only at httpd/php-fpm/mariadb, passed.
+    The check now covers all of the old enabled services. httpd stays
+    disabled where it was (a mail container), though the base image enables it.
+  * rebuild-ve decides Dovecot's ~/Maildir and POP3 from the old setup, not
+    from existing mailboxes: a mail container with no user yet lost pop3s,
+    and would have read a new user's mail from ~/mail (mail.nemetborbala.com).
+  * rebuild-ve leaves the bus to the base image: an old container's enabled
+    dbus-daemon (Fedora 29) was enabled and started beside dbus-broker, failed,
+    and failed the check (mail.office.instant-fogas.com).
+  * rebuild-ve moves a release number in a carried repository's URLs to the
+    new release, as upgrade-ve does: zerotier's .../fc/33 build wants
+    libssl.so.1.1 and did not start on Fedora 44 (mail.ordogherika.hu).
 
 In-place release upgrade (2026-10-23)
   * New root command `sc upgrade-ve VE [check|rollback|discard-old]`:

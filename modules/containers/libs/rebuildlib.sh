@@ -192,6 +192,14 @@ function rebuild_ve_check() { ## C
     do
         rebuild_ssh "$C" "systemctl is-enabled -q $u 2>/dev/null && ! systemctl is-active -q $u" && { err "$u is not running in $C"; bad=1; }
     done
+    ## the other long-running services the old container had enabled (saslauthd, zerotier-one)
+    # shellcheck disable=SC2016 ## expanded inside the container
+    for u in $(rebuild_ssh "$C" 'while read -r u; do case "$u" in *@* | NetworkManager* | dbus* | messagebus* | srvctl* | httpd.service | php-fpm.service | mariadb.service) continue ;; *.service) ;; *) continue ;; esac
+        systemctl is-enabled -q "$u" 2> /dev/null && [[ $(systemctl show -P Type "$u") != oneshot ]] && ! systemctl is-active -q "$u" && echo "$u"; done < /srv/backup/reference/units.txt')
+    do
+        err "$u is not running in $C"
+        bad=1
+    done
     rebuild_ssh "$C" 'systemctl --failed --no-legend --no-pager'
     rebuild_compare_front_page "$C" "$d" || bad=1
     rebuild_ssh "$C" 'tail -n 15 /var/log/php-fpm/www-error.log /var/log/httpd/error_log 2>/dev/null'

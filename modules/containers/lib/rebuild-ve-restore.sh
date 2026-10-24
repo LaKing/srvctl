@@ -65,13 +65,21 @@ mapfile -t oldpkgs < <(grep -v '^gpg-pubkey$' "$B/reference/packages.txt")
 ## Fedora's own ones are not: the base image has them for its release, and an
 ## old fedora-modular.repo nobody owned has no repository for the new one
 ## (seen on r2: chernobyl.d250.hu, Fedora 35)
+## A release in the URL (zerotier's .../fc/33) is moved to the new one, as
+## upgrade-ve does: the old build wants the old libraries (libssl.so.1.1, seen
+## on r2: mail.ordogherika.hu). A vendor without the new release is skipped.
+ver="$(sed -n 's/^VERSION_ID=//p' /etc/os-release)"
+old="$(sed -n 's/^os=fedora //p' "$B/manifest")"
 for f in "$B"/repos/*.repo
 do
-    [[ -f $f ]] && ! grep -q 'fedoraproject\.org' "$f" && cp -a "$f" /etc/yum.repos.d/
+    { [[ -f $f ]] && ! grep -q 'fedoraproject\.org' "$f"; } || continue
+    cp -a "$f" /etc/yum.repos.d/
+    { [[ $old && $old != "$ver" ]] && grep -qE "^(baseurl|metalink|mirrorlist)=.*[^0-9]$old([^0-9]|$)" "$f"; } || continue
+    sed -i -E "/^(baseurl|metalink|mirrorlist)=/s/([^0-9])$old([^0-9]|$)/\\1$ver\\2/g" "/etc/yum.repos.d/${f##*/}"
+    echo "== ${f##*/}: release $old -> $ver in its URLs"
 done
 cp -a "$B"/repos/keys/* /etc/pki/rpm-gpg/ 2> /dev/null
 [[ -s $B/repos/rpm-keys.asc ]] && rpm --import "$B/repos/rpm-keys.asc"
-ver="$(sed -n 's/^VERSION_ID=//p' /etc/os-release)"
 for r in free nonfree
 do
     grep -qx "rpmfusion-$r-release" "$B/reference/packages.txt" || continue
@@ -86,7 +94,7 @@ done
 ## vendeglatosmunkak.hu, nodesource 22.x)
 excl=('*.i686')
 rpm -qf /usr/bin/node > /dev/null 2>&1 && excl+=('nodejs')
-dnf -y install --skip-unavailable --skip-broken "${excl[@]/#/--exclude=}" "${pkgs[@]}" "${oldpkgs[@]}" || fail "package install failed"
+dnf -y install --skip-unavailable --skip-broken --setopt=skip_if_unavailable=True "${excl[@]/#/--exclude=}" "${pkgs[@]}" "${oldpkgs[@]}" || fail "package install failed"
 
 ## files over the fresh tree, owners and modes as they were. Path by path, so
 ## only the saved trees themselves get their old attributes, never / or /var.
@@ -159,22 +167,65 @@ then
     rm -rf "$t"
 fi
 
+## carried postfix tables get their maps for the new postfix; a carried master.cf
+## it does not accept stops the rebuild here, before the services start. Of the
+## old main.cf only the settings srvctl's new one does not set come back.
+if [[ -s $B/reference/postconf-n.txt ]] && command -v postconf > /dev/null
+then
+    while IFS= read -r l
+    do
+        k="${l%% = *}"
+        [[ $k && $k != "$l" ]] || continue
+        ## the old rpm main.cf's own settings, and paths that move between releases
+        [[ $k == debugger_command || $k == *_directory ]] && continue
+        postconf -n "$k" 2> /dev/null | grep -q . && continue
+        postconf -e "$l" && echo "== postfix main.cf: kept $k from the old one"
+    done < "$B/reference/postconf-n.txt"
+fi
+if grep -q '^/etc/postfix/' "$B/paths" || [[ -s $B/reference/postconf-n.txt ]]
+then
+    while read -r p
+    do
+        [[ $p == /etc/postfix/* && $p != *.cf && -f $p ]] || continue
+        grep -q '^[^#[:space:]]' "$p" && { postmap "$p" || fail "postmap $p failed"; }
+    done < "$B/paths"
+    postfix check || fail "postfix does not accept the carried configuration"
+    echo "== postfix: carried $(grep -c '^/etc/postfix/' "$B/paths") changed file(s)"
+fi
+## zerotier's system user gets a new uid in the fresh tree; the uid map above follows only regular users
+[[ -d /var/lib/zerotier-one ]] && getent passwd zerotier-one > /dev/null && chown -R -h zerotier-one:zerotier-one /var/lib/zerotier-one
+
 ## Dovecot 2.4 (Fedora 42 on) reads ~/mail and serves no POP3 by default; the
 ## 2.3 of the old containers read ~/Maildir, where postfix delivers
-## (home_mailbox), and served POP3 (seen on r2: mail.mobilflower.hu)
-if [[ -d /etc/dovecot/conf.d ]] && compgen -G '/home/*/Maildir' > /dev/null && doveconf -n 2> /dev/null | grep -qx 'mail_path = ~/mail'
+## (home_mailbox), and served POP3 (seen on r2: mail.mobilflower.hu). Both
+## are decided by the old setup, not by existing mailboxes: a container with
+## no user yet served pop3s too (mail.nemetborbala.com). A backup without the
+## old protocols list (an older rebuild-ve) assumes POP3.
+if [[ -d /etc/dovecot/conf.d ]] && doveconf -n > /dev/null 2>&1
 then
-    printf '%s\n' '## srvctl rebuild-ve: mailboxes and protocols as the old Dovecot 2.3 served them' \
-        'mail_path = ~/Maildir' 'protocols {' '  pop3 = yes' '}' > /etc/dovecot/conf.d/90-srvctl-rebuild.conf
-    doveconf -n > /dev/null || fail "dovecot does not accept conf.d/90-srvctl-rebuild.conf"
-    echo "== dovecot: ~/Maildir and POP3, as before"
+    dc=()
+    if doveconf -n | grep -qx 'mail_path = ~/mail' && { compgen -G '/home/*/Maildir' > /dev/null || [[ $(postconf -h home_mailbox 2> /dev/null) == Maildir/ ]]; }
+    then dc+=('mail_path = ~/Maildir')
+    fi
+    ## 2.3 prints the list on one line (imap pop3 lmtp), 2.4 one "name = yes|no" per line
+    pop3='^pop3 = yes$|^([a-z0-9]+ )*pop3( [a-z0-9]+)*$'
+    if ! doveconf -h protocols 2> /dev/null | grep -qE "$pop3" && { [[ ! -f $B/reference/dovecot-protocols.txt ]] || grep -qE "$pop3" "$B/reference/dovecot-protocols.txt"; }
+    then dc+=('protocols {' '  pop3 = yes' '}')
+    fi
+    if ((${#dc[@]}))
+    then
+        printf '%s\n' '## srvctl rebuild-ve: mailboxes and protocols as the old Dovecot 2.3 served them' "${dc[@]}" > /etc/dovecot/conf.d/90-srvctl-rebuild.conf
+        doveconf -n > /dev/null || fail "dovecot does not accept conf.d/90-srvctl-rebuild.conf"
+        echo "== dovecot, as before: ${dc[*]}"
+    fi
 fi
 
 ## services the old container had enabled, where the unit exists here.
-## NetworkManager would fight the srvctl-managed networkd setup.
+## NetworkManager would fight the srvctl-managed networkd setup; the bus is the
+## base image's (dbus-broker), an old dbus-daemon only fails beside it.
 while read -r u
 do
-    case "$u" in *@* | NetworkManager* | srvctl*) continue ;; esac
+    case "$u" in *@* | NetworkManager* | dbus* | messagebus* | srvctl*) continue ;; esac
     systemctl cat "$u" > /dev/null 2>&1 && systemctl enable "$u" 2> /dev/null || echo "== not enabled, no such unit here: $u"
 done < "$B/reference/units.txt"
 
@@ -271,16 +322,27 @@ do
 done
 
 [[ $kind != static ]] && { systemctl enable --now php-fpm || fail "php-fpm does not start"; }
-## a local app may serve 80/443 itself with httpd disabled (seen on r2:
-## api-test-flatchooser.carco.hu): httpd then stays as it was
-if grep -qx httpd.service "$B/reference/units.txt" || ! grep -q '^localunits=.' "$B/manifest"
+## httpd as it was in the old container: a local app may serve 80/443 itself
+## (seen on r2: api-test-flatchooser.carco.hu), and a mail container has none,
+## though the base image enables it (mail.colorsound.hu). A PHP site gets it anyway.
+if grep -qx httpd.service "$B/reference/units.txt" || { [[ $kind != static ]] && ! grep -q '^localunits=.' "$B/manifest"; }
 then
     systemctl enable httpd
     systemctl restart httpd || fail "httpd does not start"
 else
     systemctl disable --now httpd 2> /dev/null
-    echo "== httpd left disabled, as in the old container: a local app serves the site"
+    echo "== httpd left disabled, as in the old container"
 fi
+
+## everything the old container had enabled runs now: the boot started only what
+## the base image enables, before the restore. Postfix and dovecot read the
+## carried configuration (master.cf, the dovecot drop-in) only when restarted.
+while read -r u
+do
+    case "$u" in *@* | NetworkManager* | dbus* | messagebus* | srvctl* | httpd.service) continue ;; *.service) ;; *) continue ;; esac
+    systemctl is-enabled -q "$u" 2> /dev/null || continue
+    case "$u" in postfix.service | dovecot.service) systemctl restart "$u" ;; *) systemctl start "$u" ;; esac || echo "== $u does not start"
+done < "$B/reference/units.txt"
 
 ## the WordPress database schema upgrade, as the dashboard would run it
 if [[ $kind == wordpress ]]

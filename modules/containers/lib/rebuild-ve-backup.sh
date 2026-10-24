@@ -292,6 +292,27 @@ do
     else cp -a "$f" "$B/reference/"
     fi
 done
+## mail: the base image brings srvctl's main.cf, but a master.cf opened by hand
+## (submission and submissions, seen on r2: mail.colorsound.hu) and hand-made
+## lookup tables are the container's own. The .db files are rebuilt by postmap.
+for f in /etc/postfix/*
+do
+    [[ -f $f && $f != /etc/postfix/main.cf* && $f != *.db && $f != *.lmdb && $f != *.bak ]] || continue
+    if ! rpm -qf "$f" > /dev/null 2>&1 || grep -qxF "$f" "$B/reference/modified-configs.txt"
+    then paths+=("$f")
+    fi
+done
+## the protocols the old dovecot served (2.4 serves no POP3 by default)
+command -v doveconf > /dev/null && doveconf -h protocols > "$B/reference/dovecot-protocols.txt" 2> /dev/null
+## main.cf settings added by hand (virtual_alias_maps, seen on r2: mail.instant-fogas.com)
+command -v postconf > /dev/null && postconf -n > "$B/reference/postconf-n.txt" 2> /dev/null
+## the TLS pairs mail clients accepted once: a fresh self-signed one asks every client again
+for f in /etc/pki/dovecot/certs/dovecot.pem /etc/pki/dovecot/private/dovecot.pem /etc/pki/tls/certs/postfix.pem /etc/pki/tls/private/postfix.key
+do
+    [[ -f $f ]] && paths+=("$f")
+done
+## the zerotier node identity and its networks: a new identity waits for authorization again
+[[ -d /var/lib/zerotier-one ]] && paths+=(/var/lib/zerotier-one)
 mkparents() { ## /abs/path/leaf: mirror its parent dirs under $B/files
     local d='' part
     local -a parts
