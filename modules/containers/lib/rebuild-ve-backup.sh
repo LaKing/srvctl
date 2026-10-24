@@ -272,6 +272,13 @@ done > "$B/shadow"
 ## symlink (/var/www/laravel -> html, seen on r2: app.printmagus.com).
 paths=(/var/www /home /var/spool/cron /etc/mariadb-*.conf)
 paths+=("${localpaths[@]}")
+## The rest of /srv too: data and copies kept there by hand stayed behind in exrootfs
+## (seen on r2: eana.hu /srv/uploads, flatchooser.carco.hu /srv/flatchooser).
+## Not this backup, nor those of earlier attempts.
+for p in /srv/*
+do
+    [[ -e $p && $p != "$B" && $p != "$B".prev-* && " ${paths[*]} " != *" $p "* ]] && paths+=("$p")
+done
 rpm -Va 2> /dev/null | awk '$2 == "c" && $1 ~ /5/ {print $3}' > "$B/reference/modified-configs.txt"
 for f in /etc/httpd/conf.d/*.conf /etc/phpMyAdmin/*
 do
