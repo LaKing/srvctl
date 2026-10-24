@@ -8,6 +8,11 @@ notable operational changes are listed here.
 Unreleased (v4, in progress on top of 4.0.0.8)
 ----------------------------------------------
 
+Rebuild fix (2026-10-24)
+  * rebuild-ve's native module step tests only the binaries the old build
+    had: canvas 2.x also builds canvas-postbuild.node, which never loads,
+    and rejected a good build (digby.hu, rolled back).
+
 In-place release upgrade (2026-10-23)
   * New root command `sc upgrade-ve VE [check|rollback|discard-old]`:
     copies the tree to /srv/VE/exrootfs, then dnf distro-sync to the base

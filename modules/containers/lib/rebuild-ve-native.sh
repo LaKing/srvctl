@@ -56,8 +56,10 @@ do
     fi
     rm -rf "$m/build.before-rebuild"
     mv "$m/build" "$m/build.before-rebuild"
-    ## built and every binary loads (a subshell: the loop's exit must not end the script)
-    if (cd "$m" && npx --yes node-gyp@11 rebuild --nodedir=/usr > "$m/build.log" 2>&1) && (for f in "$m"/build/Release/*.node; do node -e "require('$f')" || exit 1; done)
+    ## built, and every binary the old build had loads: the ones the app loads. Not every new
+    ## .node: canvas 2.x also builds canvas-postbuild.node, a helper target that never
+    ## self-registers (seen on r2: digby.hu). A subshell: the loop's exit must not end the script.
+    if (cd "$m" && npx --yes node-gyp@11 rebuild --nodedir=/usr > "$m/build.log" 2>&1) && (for f in "$m"/build.before-rebuild/Release/*.node; do node -e "require('$m/build/Release/${f##*/}')" || exit 1; done)
     then
         chown -R --reference="$m" "$m/build"
         echo "== rebuilt for node $(node --version), the old build is in build.before-rebuild"
