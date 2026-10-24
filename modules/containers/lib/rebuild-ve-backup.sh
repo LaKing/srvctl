@@ -250,6 +250,8 @@ then
     $dumped || { cat "$B/mongo.err" >&2; fail "mongodump failed"; }
     rm -f "$B/mongo.err"
     echo "mongo=dumped" >> "$B/manifest"
+    ## for its socket settings: the restore keeps those on the new server
+    [[ -f /etc/mongod.conf ]] && cp -a /etc/mongod.conf "$B/reference/"
 fi
 
 ## users and groups of the site owners

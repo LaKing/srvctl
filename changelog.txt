@@ -17,6 +17,8 @@ Rebuild fix (2026-10-24)
   * rebuild-ve keeps node's globals across 21: an app moved from an older
     node runs with --no-experimental-global-navigator (a drop-in), as SSR
     code that sets global.navigator throws on node 21+ (flatchooser.carco.hu).
+  * rebuild-ve keeps the old mongod.conf's net.unixDomainSocket block: an
+    app on the socket got EACCES from 7.0's default 0700 (froccsterasz).
 
 In-place release upgrade (2026-10-23)
   * New root command `sc upgrade-ve VE [check|rollback|discard-old]`:

@@ -193,6 +193,18 @@ then
             'gpgcheck=1' 'enabled=1' 'gpgkey=https://pgp.mongodb.com/server-7.0.asc' > /etc/yum.repos.d/mongodb-org-7.0.repo
         dnf -y install mongodb-org mongodb-database-tools && echo "== MongoDB server upgraded to the 7.0 series"
     fi
+    ## The old net.unixDomainSocket block goes into the new config: an app connecting
+    ## through the socket as its own user needs the old filePermissions (0666; the
+    ## default is 0700, seen on r2: froccsterasz.d250.hu). Only this block: a 4.4
+    ## config as a whole stops 7.0 (storage.journal.enabled) or its unit (fork).
+    sock="$(awk '/^[ \t]+unixDomainSocket:/ {i = match($0, /[^ \t]/); print; on = 1; next}
+        on && NF && match($0, /[^ \t]/) > i {print; next} {on = 0}' "$B/reference/mongod.conf" 2> /dev/null)"
+    if [[ $sock && -f /etc/mongod.conf ]] && ! grep -q unixDomainSocket /etc/mongod.conf && grep -q '^net:' /etc/mongod.conf
+    then
+        awk -v blk="$sock" '{print} /^net:/ {print blk}' /etc/mongod.conf > /etc/mongod.conf.srvctl && cat /etc/mongod.conf.srvctl > /etc/mongod.conf
+        rm -f /etc/mongod.conf.srvctl
+        echo "== MongoDB socket settings of the old config kept"
+    fi
     if command -v mongod > /dev/null && command -v mongorestore > /dev/null
     then
         systemctl enable --now mongod || fail "mongod does not start"
