@@ -19,6 +19,8 @@ In-place release upgrade (2026-10-23)
     The nspawn runs with SYSTEMD_OFFLINE=1: a scriptlet's bare 'systemctl
     stop' (dovecot's %pre) fails without a running systemd and aborts the
     package otherwise.
+    Fedora's unversioned nodejs of the old release (kept by distro-sync, no
+    longer updated) becomes the same major's nodejs<NN> (F44: nodejs22).
   * rebuild-ve rollback refuses while an upgrade-ve run owns exrootfs.
 
 Whole-site redirect (2026-10-22)

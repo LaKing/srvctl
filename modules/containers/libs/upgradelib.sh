@@ -11,8 +11,9 @@
 ##              space, front page (upgrade/before.*), running services and
 ##              enabled unit links of the old tree
 ##     copy     stop the container, cp -a rootfs to exrootfs (the rollback)
-##     upgrade  third-party repo URLs to the new release, dnf distro-sync in a
-##              throwaway nspawn of the stopped tree, lost enabled links back
+##     upgrade  third-party repo URLs to the new release, lib/upgrade-ve-dnf.sh
+##              (distro-sync, nodejs -> nodejs<major>) in a throwaway nspawn
+##              of the stopped tree, lost enabled links back
 ##     check    start, release, services, front page against the one before
 ##   rollback and discard-old as in rebuildlib; both share exrootfs, so each
 ##   refuses while the other one's run is open.
@@ -106,10 +107,8 @@ function upgrade_ve_upgrade() { ## C
     opts=(-q -D "$r" -M "upgrade-$C" --resolv-conf=replace-host --setenv=SYSTEMD_OFFLINE=1)
     ((base)) && opts+=("--private-users=$base:65536")
     touch "$u/started"
-    ## the new release's signing key first; a third-party repo without a build for it is skipped, not fatal.
-    ## Not through lablib's run: it executes an unquoted $*, which splits the bash -c script into words.
-    msg "systemd-nspawn ${opts[*]}: dnf distro-sync --releasever=$to"
-    systemd-nspawn "${opts[@]}" bash -c "dnf -y upgrade --refresh fedora-gpg-keys; dnf -y --releasever=$to --setopt=skip_if_unavailable=True distro-sync --allowerasing && echo \"== packages still built for fedora $from: \$(rpm -qa --qf '%{RELEASE}\n' | grep -c 'fc$from\$')\"" || {
+    msg "systemd-nspawn ${opts[*]}: lib/upgrade-ve-dnf.sh $from $to"
+    systemd-nspawn "${opts[@]}" bash -c "$(cat "$SC_INSTALL_DIR/modules/containers/lib/upgrade-ve-dnf.sh")" upgrade-ve-dnf "$from" "$to" || {
         err "dnf distro-sync failed in $r; rerun to retry, or rollback"
         return 1
     }

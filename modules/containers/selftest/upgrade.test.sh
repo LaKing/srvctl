@@ -38,7 +38,7 @@ curl() {
 ## the upgrade: new release, a dropped wants link, a new default config
 systemd-nspawn() {
     echo "$*" > "$tmp/nspawn"
-    [[ ${*: -1} == "dnf -y upgrade"* ]] || return 2 ## the script reached bash -c in one piece
+    [[ ${*: -3} == "upgrade-ve-dnf 43 44" && ${*: -4:1} == *distro-sync* ]] || return 2 ## the in-nspawn script and its release pair
     [[ -f $tmp/dnf-fails ]] && return 1
     echo 'VERSION_ID=44' > "$r/usr/lib/os-release"
     rm -f "$r/$w/postfix.service" "$r/$w/gone.service"
