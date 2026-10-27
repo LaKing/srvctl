@@ -8,6 +8,16 @@ notable operational changes are listed here.
 Unreleased (v4, in progress on top of 4.0.0.8)
 ----------------------------------------------
 
+Share remount fix (2026-10-28)
+  * usersonhost mounts a user's ~/<VE>/bindfs and html share again when it
+    serves a moved or dead tree: bindfs holds the directory, not its path,
+    so after a rootfs rename the share kept showing the old tree and the
+    mount(8) path check never noticed. On r2, 129 shares served exrootfs or
+    a removed tree, and secret.json edits of karrierhub.hu and
+    takaritomunkak.hu landed in exrootfs instead of the live tree.
+  * rebuild-ve (swap, rollback) and upgrade-ve (rollback) remount the
+    shares right after the renames instead of waiting for regenerate.
+
 Rebuild fix (2026-10-24)
   * rebuild-ve's native module step tests only the binaries the old build
     had: canvas 2.x also builds canvas-postbuild.node, which never loads,

@@ -64,6 +64,14 @@ function rebuild_stop() { ## C
     ! rebuild_is_running "$C"
 }
 
+## after every rename of rootfs: the users' ~/<C>/bindfs and html shares still hold the
+## moved tree (seen on r2: edits landed in exrootfs for days). userscfg (usersonhost)
+## spots the stale shares and mounts them again; without the module there are none.
+function rebuild_remount_shares() {
+    declare -F userscfg > /dev/null || return 0
+    userscfg > /dev/null || ntc "share remount failed: the hourly regenerate retries"
+}
+
 ## front page through haproxy: <dir>/<name>.html and <name>.status (code + title),
 ## dir defaults to rebuild/ (upgradelib passes its upgrade/).
 ## The query string bypasses page caches (WP Rocket, W3TC): a cached copy would
@@ -176,6 +184,7 @@ function rebuild_ve_build_rootfs() { ## C
     run mv "$d/rootfs" "$d/exrootfs" || return 1
     run mv "$d/newrootfs" "$d/rootfs" || { run mv "$d/exrootfs" "$d/rootfs"; return 1; }
     touch "$d/rebuild/moved"
+    rebuild_remount_shares
 }
 
 function rebuild_ve_restore() { ## C
@@ -238,6 +247,7 @@ function rebuild_ve_rollback() { ## C
     [[ -d $d/rootfs ]] && { run mv "$d/rootfs" "$d/rootfs.failed-$NOW" || return 1; }
     run mv "$d/exrootfs" "$d/rootfs" || return 1
     rm -f "$d/rebuild/state" "$d/rebuild/moved"
+    rebuild_remount_shares
     [[ $(cat "$d/rebuild/was-running" 2> /dev/null) == true ]] && run systemctl start "srvctl-nspawn@$C"
     msg "$C rolled back; the rebuilt tree is kept in $d/rootfs.failed-$NOW"
 }

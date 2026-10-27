@@ -29,6 +29,7 @@ timeout() { :; }
 machinectl() { case $1 in show) [[ -f $tmp/running ]] ;; *) rm -f "$tmp/running" ;; esac; }
 systemctl() { case $1 in start) touch "$tmp/running" ;; stop) rm -f "$tmp/running" ;; esac; }
 df() { echo Avail; cat "$tmp/avail" 2> /dev/null || echo 999999999999; }
+userscfg() { echo shares >> "$tmp/shares"; }
 curl() {
     local out
     while (($#)); do [[ $1 == -o ]] && out="$2"; shift; done
@@ -123,6 +124,7 @@ rm -f "$tmp/dnf-fails" "$tmp/running"
 upgrade_ve "$C" rollback > /dev/null
 ok "old tree back" "$(upgrade_release_of "$r")" 43
 ok "failed tree kept" "$([[ -d $d/rootfs.failed-now ]] && echo yes)" yes
+ok "shares remounted after the rollback" "$(wc -l < "$tmp/shares" 2> /dev/null)" 1
 ok "running again" "$([[ -f $tmp/running ]] && echo yes)" yes
 ok "run closed" "$(state)" ""
 ok "rollback twice refused" "$(upgrade_ve "$C" rollback > /dev/null; echo $?)" 1

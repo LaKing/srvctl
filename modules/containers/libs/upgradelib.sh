@@ -183,6 +183,7 @@ function upgrade_ve_rollback() { ## C
     run mv "$d/rootfs" "$d/rootfs.failed-$NOW" || return 1
     run mv "$d/exrootfs" "$d/rootfs" || return 1
     mv "$d/upgrade/state" "$d/upgrade/state.rolled-back-$NOW"
+    rebuild_remount_shares
     [[ $(cat "$d/upgrade/was-running" 2> /dev/null) == true ]] && run systemctl start "srvctl-nspawn@$C"
     msg "$C rolled back; the upgraded tree is kept in $d/rootfs.failed-$NOW"
 }

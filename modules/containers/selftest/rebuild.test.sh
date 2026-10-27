@@ -29,6 +29,7 @@ machinectl() { case $1 in show) [[ -f $tmp/running ]] ;; *) rm -f "$tmp/running"
 systemctl() { case $1 in start) touch "$tmp/running" ;; stop) rm -f "$tmp/running" ;; esac; }
 init_ve_rootfs() { echo "init $1" >> "$calls"; }
 create_nspawn_container_config() { echo "config $1" >> "$calls"; }
+userscfg() { echo shares >> "$tmp/shares"; }
 curl() {
     local out
     while (($#)); do [[ $1 == -o ]] && out="$2"; shift; done
@@ -105,6 +106,7 @@ ok "all phases" "$(state)" "snapshot backup swap restore check "
 ok "no backup on resume" "$(grep -c backup "$calls")" 0
 ok "old tree kept" "$([[ -f $d/exrootfs/old-marker ]] && echo yes)" yes
 ok "new tree in place" "$([[ -f $d/rootfs/new-marker && ! -e $d/newrootfs ]] && echo yes)" yes
+ok "shares remounted after the swap" "$(wc -l < "$tmp/shares")" 1
 ok "backup copied in" "$(cat "$d/rootfs/srv/backup/manifest")" "kind=wordpress"
 ok "host key kept" "$([[ -f $d/rootfs/etc/ssh/ssh_host_ed25519_key ]] && echo yes)" yes
 ok "was not running" "$(cat "$d/rebuild/was-running")" false
@@ -135,6 +137,7 @@ rebuild_ve "$C" rollback > /dev/null
 ok "old tree back" "$([[ -f $d/rootfs/old-marker && ! -e $d/exrootfs ]] && echo yes)" yes
 ok "new tree kept aside" "$([[ -f $d/rootfs.failed-now/new-marker ]] && echo yes)" yes
 ok "state cleared" "$(state)" ""
+ok "shares remounted after the rollback" "$(wc -l < "$tmp/shares")" 2
 ok "stopped as before" "$([[ -f $tmp/running ]] && echo yes)" ""
 rebuild_ve "$C" discard-old > /dev/null
 ok "discard-old needs a passed check" "$?" 1

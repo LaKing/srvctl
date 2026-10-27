@@ -259,12 +259,23 @@ function create_user_client_cert(user) {
 
 var mounts = get("mount");
 
+// bindfs holds the source directory itself, not its name: after rebuild-ve swaps rootfs to exrootfs
+// (or any mv of the tree) mount(8) still prints the old source path while the share serves the moved
+// tree, and users edit a tree no container runs. bindfs passes inode numbers through, so a differing
+// inode marks such a share; a dead fuse mount (stat throws ENOTCONN) counts as stale too.
+function is_stale_share(source_path, target) {
+    try {
+        return fs.statSync(target).ino !== fs.statSync(source_path).ino;
+    } catch (error) {
+        return true;
+    }
+}
+
 function make_share_mount(u, c, options, dir, source_path, uid, mountname) {
     if (!options) options = "";
 
     // bindfs shall be a root mount
     if (!fs.existsSync(dir + "/" + mountname)) {
-        // TODO handle case of stale file handle with umount -f
         try {
             fs.mkdirSync(dir + "/" + mountname);
         } catch (error) {
@@ -278,8 +289,13 @@ function make_share_mount(u, c, options, dir, source_path, uid, mountname) {
     // bindfs on every regenerate wherever a home lies behind a symlink (/bin).
     // Resolve the parent only: realpath on a stale fuse mountpoint throws.
     const target = fs.realpathSync(dir) + "/" + mountname;
-    if (mounts.indexOf(fs.realpathSync(source_path) + " on " + target + " type fuse") === -1)
-        run("bindfs " + options + " --mirror=" + u + " --create-for-user=" + uid + " --create-for-group=" + uid + " " + source_path + " " + target);
+    if (mounts.indexOf(fs.realpathSync(source_path) + " on " + target + " type fuse") !== -1) {
+        if (!is_stale_share(source_path, target)) return;
+        // lazy: a user's shell sitting in the old tree must not block the remount
+        ntc(target + " serves a moved or dead " + source_path + ", mounting it again");
+        run("umount -l " + target);
+    }
+    run("bindfs " + options + " --mirror=" + u + " --create-for-user=" + uid + " --create-for-group=" + uid + " " + source_path + " " + target);
 }
 
 function make_share(u, c, options) {
