@@ -8,6 +8,12 @@ notable operational changes are listed here.
 Unreleased (v4, in progress on top of 4.0.0.8)
 ----------------------------------------------
 
+Rebuild fix (2026-10-28)
+  * rebuild-ve keeps packaged httpd conf.d files off that the old container
+    had deleted: a removed welcome.conf is what showed the file list of a
+    bare docroot, and the fresh tree brought the Fedora test page back
+    (mirror.d250.hu). Emptied, not removed, so an httpd update keeps them off.
+
 Share remount fix (2026-10-28)
   * usersonhost mounts a user's ~/<VE>/bindfs and html share again when it
     serves a moved or dead tree: bindfs holds the directory, not its path,

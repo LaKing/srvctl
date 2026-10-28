@@ -127,6 +127,15 @@ then
     fi
 fi
 
+## packaged confs the old container had deleted stay off. Emptied, not removed: rpm puts
+## a missing %config(noreplace) file back on the next httpd update, a changed one it keeps.
+while read -r f
+do
+    [[ -f $f ]] || continue
+    echo "## srvctl rebuild-ve: deleted in the old container, kept off" > "$f"
+    echo "== ${f##*/} kept off, as in the old container"
+done < <(cat "$B/reference/removed-httpd-confs.txt" 2> /dev/null)
+
 ## databases: dumps carry CREATE DATABASE; grants recreate the accounts. A
 ## rerun imports again: the dumps drop and recreate their tables.
 if [[ -n ${dbs// /} ]]

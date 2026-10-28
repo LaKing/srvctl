@@ -283,7 +283,11 @@ for p in /srv/*
 do
     [[ -e $p && $p != "$B" && $p != "$B".prev-* && " ${paths[*]} " != *" $p "* ]] && paths+=("$p")
 done
-rpm -Va 2> /dev/null | awk '$2 == "c" && $1 ~ /5/ {print $3}' > "$B/reference/modified-configs.txt"
+va="$(rpm -Va 2> /dev/null)"
+awk '$2 == "c" && $1 ~ /5/ {print $3}' <<< "$va" > "$B/reference/modified-configs.txt"
+## packaged httpd confs deleted by hand: welcome.conf gone is what lets a bare
+## docroot list its files (seen on bp: mirror.d250.hu); the new tree brings it back
+awk '$1 == "missing" && $NF ~ /^\/etc\/httpd\/conf\.d\/[^/]+\.conf$/ {print $NF}' <<< "$va" > "$B/reference/removed-httpd-confs.txt"
 for f in /etc/httpd/conf.d/*.conf /etc/phpMyAdmin/*
 do
     [[ -f $f ]] || continue
