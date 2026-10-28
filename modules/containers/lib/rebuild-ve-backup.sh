@@ -296,6 +296,17 @@ do
     else cp -a "$f" "$B/reference/"
     fi
 done
+## What those confs point at: a hand-made tree under /etc/httpd, and AuthUserFile and
+## friends anywhere. Without them every login answers 500 "Could not open password
+## file" (seen on r2: konok.hu /etc/httpd/catalog-passwords). An unowned dir goes whole.
+## Not conf.modules.d: an old module conf can name a module the new httpd lacks.
+while read -r f
+do
+    [[ $f == /etc/httpd/conf.modules.d/* || " ${paths[*]} " == *" $f "* ]] && continue
+    for p in "${paths[@]}"; do [[ $f == "$p"/* ]] && continue 2; done
+    rpm -qf "$f" > /dev/null 2>&1 || paths+=("$f")
+done < <(find /etc/httpd -mindepth 1 \( -type d -o -type f \) 2> /dev/null | sort
+    grep -rhoiE '^\s*Auth(DBM)?(User|Group)File\s+"?/[^" ]+' /etc/httpd 2> /dev/null | awk '{gsub(/"/, "", $2); print $2}' | grep -vE '^/(var/www|home|srv)/' | sort -u)
 ## mail: the base image brings srvctl's main.cf, but a master.cf opened by hand
 ## (submission and submissions, seen on r2: mail.colorsound.hu) and hand-made
 ## lookup tables are the container's own. The .db files are rebuilt by postmap.
