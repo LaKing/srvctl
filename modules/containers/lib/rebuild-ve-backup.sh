@@ -63,8 +63,11 @@ do
         ## /srv/<C>/rootfs/...: a packaged unit linked with its host path by old srvctl
         /srv/*/rootfs/*) continue ;;
         /srv/?*/* | /home/?*/*) ;;
-        /etc/systemd/system/*)
+        ## an unowned unit under /usr/lib is the app's too: old srvctl put project.service
+        ## there by hand (seen on bp: xoclock.d250.hu), and it looks packaged by its path
+        /etc/systemd/system/* | /usr/lib/systemd/system/* | /lib/systemd/system/*)
             [[ -f $t && ! -L $t ]] || continue
+            [[ $t == /etc/* ]] || ! rpm -qf "$t" > /dev/null 2>&1 || continue
             wd="$(sed -n 's/^WorkingDirectory=//p' "$t" | head -n 1)"
             [[ $wd == /srv/?* || $wd == /home/?* ]] || continue
             ;;
@@ -72,6 +75,7 @@ do
     esac
     u="${w##*/}" && localunits+=("$u") && localpaths+=("$w")
     [[ -e /etc/systemd/system/$u || -L /etc/systemd/system/$u ]] && localpaths+=("/etc/systemd/system/$u")
+    [[ $t == /usr/lib/systemd/* || $t == /lib/systemd/* ]] && localpaths+=("$t")
     for d in "$t" "$wd"
     do
         [[ $d == /srv/?* ]] && d="${d#/srv/}" && localpaths+=("/srv/${d%%/*}")

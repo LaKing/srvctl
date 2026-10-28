@@ -9,6 +9,9 @@ Unreleased (v4, in progress on top of 4.0.0.8)
 ----------------------------------------------
 
 Rebuild fix (2026-10-28)
+  * rebuild-ve carries a local unit that old srvctl put under
+    /usr/lib/systemd/system with no package owning it: it looked packaged by
+    its path, so the app was left behind and did not start (xoclock.d250.hu).
   * rebuild-ve keeps packaged httpd conf.d files off that the old container
     had deleted: a removed welcome.conf is what showed the file list of a
     bare docroot, and the fresh tree brought the Fedora test page back
