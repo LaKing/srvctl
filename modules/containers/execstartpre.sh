@@ -27,6 +27,8 @@ mkdir -p /var/srvctl3/share/containers/"$C"
 if [[ -f /srv/$C/local.nspawn ]]
 then
     ## override the container nspawn file with the local nspawn file.
+    ## Pitfall: verbatim, so drop_missing_bind_sources (systemlib.sh) does not
+    ## run here; a bind to a removed container keeps this one from starting.
     cat "/srv/$C/local.nspawn" >  "/srv/$C/$C.nspawn"
 else
     ## automatic config via srvctl

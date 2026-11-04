@@ -116,6 +116,8 @@ EOF
         fi
     done
 
+    drop_missing_bind_sources "/srv/$C/$C.nspawn"
+
     ## create a shell file for ethernet configuration
     get container "$C" ethernet > /srv/"$C"/ethernet.sh
 
@@ -124,6 +126,30 @@ EOF
     # shellcheck disable=SC1090 ## generated-file
     source /srv/"$C"/firewall_cmd.sh
 
+}
+
+## systemd-nspawn refuses to start a container when any bind source is missing
+## ("Failed to clone <src>"), so a removed source container (c3-devel, v3-devel,
+## neverland-devel ...) would take down every container binding from it. Such
+## lines are dropped with a notice; the container starts without that share.
+## A source prefixed with + is relative to the container root and is kept.
+function drop_missing_bind_sources() { ## nspawn-file
+    local file line src
+    file="$1"
+    while IFS= read -r line
+    do
+        if [[ $line =~ ^Bind(ReadOnly)?=([^:]+) ]]
+        then
+            src="${BASH_REMATCH[2]}"
+            if [[ ${src:0:1} != + && ! -e $src ]]
+            then
+                ntc "Skipping bind, source missing: $line" >&2
+                continue
+            fi
+        fi
+        printf '%s\n' "$line"
+    done < "$file" > "$file.tmp"
+    mv "$file.tmp" "$file"
 }
 
 ## FIXME(v4): dead code — no callers; would only re-run every container's
