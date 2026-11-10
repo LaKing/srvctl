@@ -7,7 +7,7 @@
 ##   tree stays, only its packages move to the release of the fedora base image.
 ##
 ##   Phases, recorded in /srv/$C/upgrade/state like rebuildlib's:
-##     prepare  release gap (at most 2, as dnf system-upgrade supports), disk
+##     prepare  release gap (over 2 it goes in steps of 2, upgrade_steps), disk
 ##              space, front page (upgrade/before.*), running services and
 ##              enabled unit links of the old tree
 ##     copy     stop the container, cp -a rootfs to exrootfs (the rollback)
@@ -36,6 +36,17 @@ function upgrade_release_of() { ## rootfs
     sed -n 's/^VERSION_ID=//p' "$1/usr/lib/os-release" "$1/etc/os-release" 2> /dev/null | head -n 1
 }
 
+## the releases a FROM -> TO upgrade passes, at most 2 apart (dnf system-upgrade supports 2,
+## and an old release's fedora-gpg-keys know the keys only about 2 releases ahead: F39 up to 41)
+function upgrade_steps() { ## from to
+    local r="$1"
+    while ((r < $2))
+    do
+        r=$((r + 2 > $2 ? $2 : r + 2))
+        printf ' %s' "$r"
+    done
+}
+
 function upgrade_ve_prepare() { ## C
     local C="$1" d="$SC_REBUILD_SRV/$1" u="$SC_REBUILD_SRV/$1/upgrade" from to size avail
     [[ -d $d/rootfs ]] || { err "$d/rootfs does not exist"; return 1; }
@@ -47,11 +58,7 @@ function upgrade_ve_prepare() { ## C
     [[ $to ]] || { err "no fedora base image in $SC_ROOTFS_DIR/fedora (sc regenerate rootfs)"; return 1; }
     ((from <= to)) || { err "$C is on fedora $from, newer than the base image's $to"; return 1; }
     ## the same release is allowed: a distro-sync repairs a half done transaction
-    if ((to - from > 2)) && [[ ${SC_UPGRADE_FORCE:-} != true ]]
-    then
-        err "$C is on fedora $from: more than 2 releases behind $to, use rebuild-ve (SC_UPGRADE_FORCE=true overrides)"
-        return 1
-    fi
+    ((to - from > 2)) && msg "$C: more than 2 releases behind, the upgrade goes in steps:$(upgrade_steps "$from" "$to")"
     ## the copy plus the downloaded packages
     size="$(du -sxB1 "$d/rootfs" | cut -f1)"
     avail="$(df --output=avail -B1 "$d" | tail -n 1)"
@@ -84,13 +91,44 @@ function upgrade_ve_copy() { ## C
 }
 
 function upgrade_ve_upgrade() { ## C
-    local C="$1" r="$SC_REBUILD_SRV/$1/rootfs" u="$SC_REBUILD_SRV/$1/upgrade" from to f base opts
+    local C="$1" r="$SC_REBUILD_SRV/$1/rootfs" u="$SC_REBUILD_SRV/$1/upgrade" from to cur next base opts
     read -r from to < "$u/release"
     rebuild_is_running "$C" && { rebuild_stop "$C" || return 1; }
 
-    ## a repo with the release in its URL (zerotier's .../fc/43) keeps serving the
-    ## old builds; $releasever ones follow by themselves. Fedora's own are left to dnf.
-    ## Rewritten with cat: the file keeps its owner, which is the shifted uid.
+    base="$(stat -c %u "$r")"
+    ## no systemd runs in it: a scriptlet's bare 'systemctl stop' would fail and abort the package
+    ## (dovecot's %pre, seen on r2: tancaszabadsagert.hu); offline, systemctl skips it with 0
+    opts=(-q -D "$r" -M "upgrade-$C" --resolv-conf=replace-host --setenv=SYSTEMD_OFFLINE=1)
+    ((base)) && opts+=("--private-users=$base:65536")
+    touch "$u/started"
+    ## a rerun after a failed step starts from the release the tree has reached; a failed
+    ## distro-sync leaves os-release behind, so that step is simply repeated
+    cur="$(upgrade_release_of "$r")"
+    ((cur == to)) && next="$to" || next="$(upgrade_steps "$cur" "$to")"
+    for next in $next
+    do
+        upgrade_repo_urls "$r" "$u" "$cur" "$next"
+        msg "systemd-nspawn ${opts[*]}: lib/upgrade-ve-dnf.sh $cur $next"
+        systemd-nspawn "${opts[@]}" bash -c "$(cat "$SC_INSTALL_DIR/modules/containers/lib/upgrade-ve-dnf.sh")" upgrade-ve-dnf "$cur" "$next" || {
+            err "dnf distro-sync $cur -> $next failed in $r; rerun to retry, or rollback"
+            return 1
+        }
+        cur="$next"
+    done
+    upgrade_restore_links "$C"
+    ## -cnewer: rpm gives a file the mtime it has in the package, only the ctime is of now
+    find "$r/etc" -name '*.rpmnew' -cnewer "$u/started" 2> /dev/null | while read -r f
+    do
+        f="${f#"$r"}"
+        ntc "new default config kept aside: $f (the old ${f%.rpmnew} stays in use)"
+    done
+}
+
+## a repo with the release in its URL (zerotier's .../fc/43) keeps serving the
+## old builds; $releasever ones follow by themselves. Fedora's own are left to dnf.
+## Rewritten with cat: the file keeps its owner, which is the shifted uid.
+function upgrade_repo_urls() { ## rootfs upgrade-dir from to
+    local r="$1" u="$2" from="$3" to="$4" f
     for f in "$r"/etc/yum.repos.d/*.repo
     do
         [[ -f $f && $from != "$to" ]] || continue
@@ -100,25 +138,6 @@ function upgrade_ve_upgrade() { ## C
         msg "${f#"$r"}: release $from -> $to in its URLs"
     done
     rm -f "$u/repo.tmp"
-
-    base="$(stat -c %u "$r")"
-    ## no systemd runs in it: a scriptlet's bare 'systemctl stop' would fail and abort the package
-    ## (dovecot's %pre, seen on r2: tancaszabadsagert.hu); offline, systemctl skips it with 0
-    opts=(-q -D "$r" -M "upgrade-$C" --resolv-conf=replace-host --setenv=SYSTEMD_OFFLINE=1)
-    ((base)) && opts+=("--private-users=$base:65536")
-    touch "$u/started"
-    msg "systemd-nspawn ${opts[*]}: lib/upgrade-ve-dnf.sh $from $to"
-    systemd-nspawn "${opts[@]}" bash -c "$(cat "$SC_INSTALL_DIR/modules/containers/lib/upgrade-ve-dnf.sh")" upgrade-ve-dnf "$from" "$to" || {
-        err "dnf distro-sync failed in $r; rerun to retry, or rollback"
-        return 1
-    }
-    upgrade_restore_links "$C"
-    ## -cnewer: rpm gives a file the mtime it has in the package, only the ctime is of now
-    find "$r/etc" -name '*.rpmnew' -cnewer "$u/started" 2> /dev/null | while read -r f
-    do
-        f="${f#"$r"}"
-        ntc "new default config kept aside: $f (the old ${f%.rpmnew} stays in use)"
-    done
 }
 
 ## enabled links the upgrade removed, put back from the copy when their unit still exists

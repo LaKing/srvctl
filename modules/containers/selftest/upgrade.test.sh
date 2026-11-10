@@ -1,7 +1,8 @@
 #!/bin/bash
 # libs/upgradelib.sh phase machine against a fake /srv and base image, with systemctl,
 # machinectl, systemd-nspawn, ssh, curl and df stubbed: refusals, repo URLs, lost
-# enabled links, the service check, rollback, discard-old. dnf itself is not run.
+# enabled links, the service check, rollback, discard-old, the steps of a gap over 2.
+# dnf itself is not run.
 # shellcheck disable=SC2034,SC2329
 
 set -u
@@ -36,12 +37,15 @@ curl() {
     echo '<html><title>App</title>' > "$out"
     echo 200
 }
-## the upgrade: new release, a dropped wants link, a new default config
+## the upgrade: new release, a dropped wants link, a new default config; every step is
+## logged to $tmp/steps; $tmp/dnf-fails fails every step, or only the pair written in it
 systemd-nspawn() {
+    local a=("$@") n=$#
     echo "$*" > "$tmp/nspawn"
-    [[ ${*: -3} == "upgrade-ve-dnf 43 44" && ${*: -4:1} == *distro-sync* ]] || return 2 ## the in-nspawn script and its release pair
-    [[ -f $tmp/dnf-fails ]] && return 1
-    echo 'VERSION_ID=44' > "$r/usr/lib/os-release"
+    [[ ${a[n - 3]} == upgrade-ve-dnf && ${a[n - 4]} == *distro-sync* ]] || return 2 ## the in-nspawn script and its release pair
+    [[ -f $tmp/dnf-fails && (! -s $tmp/dnf-fails || $(cat "$tmp/dnf-fails") == "${a[n - 2]} ${a[n - 1]}") ]] && return 1
+    echo "${a[n - 2]} ${a[n - 1]}" >> "$tmp/steps"
+    echo "VERSION_ID=${a[n - 1]}" > "$r/usr/lib/os-release"
     rm -f "$r/$w/postfix.service" "$r/$w/gone.service"
     touch -d 2020-01-01 "$r/etc/caddy.rpmnew" ## as rpm writes it: the package's mtime
 }
@@ -73,15 +77,14 @@ newold() { ## release
     ln -s /usr/lib/systemd/system/gone.service "$r/$w/gone.service"
     echo sshd.service > "$tmp/active"
     touch "$tmp/running"
+    rm -f "$tmp/steps"
 }
 state() { tr '\n' ' ' 2> /dev/null < "$d/upgrade/state"; }
 
 ## refusals before anything changes
-newold 41
-ok "3 releases behind refused" "$(upgrade_ve "$C" | grep -c 'more than 2 releases')" 1
-ok "nothing recorded" "$(state)" ""
 newold 43 && echo 10 > "$tmp/avail"
 ok "no disk space refused" "$(upgrade_ve "$C" | grep -c 'free for the copy')" 1
+ok "nothing recorded" "$(state)" ""
 rm -f "$tmp/avail"
 newold 43 && sed -i 's/^ID=fedora/ID=debian/' "$r/usr/lib/os-release"
 ok "not fedora refused" "$(upgrade_ve "$C" | grep -c 'not a Fedora')" 1
@@ -128,6 +131,19 @@ ok "shares remounted after the rollback" "$(wc -l < "$tmp/shares" 2> /dev/null)"
 ok "running again" "$([[ -f $tmp/running ]] && echo yes)" yes
 ok "run closed" "$(state)" ""
 ok "rollback twice refused" "$(upgrade_ve "$C" rollback > /dev/null; echo $?)" 1
+
+## a gap over 2 goes in steps of 2; a failed middle step is rerun from the release reached
+ok "steps" "$(upgrade_steps 39 44)" " 41 43 44"
+newold 39 && echo '41 43' > "$tmp/dnf-fails"
+out="$(upgrade_ve "$C")"
+ok "steps announced" "$(grep -c 'goes in steps: 41 43 44' <<< "$out")" 1
+ok "stops in the failed step" "$(tr '\n' ',' < "$tmp/steps")$(upgrade_release_of "$r")" "39 41,41"
+rm -f "$tmp/dnf-fails"
+upgrade_ve "$C" > /dev/null
+ok "rerun continues from 41" "$(tr '\n' ',' < "$tmp/steps")$(upgrade_release_of "$r")" "39 41,41 43,43 44,44"
+ok "repo URL follows every step" "$(grep baseurl "$r/etc/yum.repos.d/zerotier.repo")" "baseurl=https://download.zerotier.com/redhat/fc/44"
+ok "the copy is the original tree" "$(upgrade_release_of "$d/exrootfs")" 39
+upgrade_ve "$C" rollback > /dev/null
 
 ## the same release is a repair, not a refusal
 newold 44 && mkdir -p "$d/upgrade"
