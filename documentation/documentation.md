@@ -1297,7 +1297,7 @@ TasksMax=16384
 
 **Pre-start (`execstartpre.sh`):** creates `/var/srvctl3/share/containers/<container>`, then either copies a manual `/srv/<container>/local.nspawn` verbatim over `<container>.nspawn` — bypassing the datastore render, the boilerplate/codepad binds and all `*.binds` processing — or regenerates the config via `srvctl exec-function create_nspawn_container_config` (exit 11 aborts the start). Exits 15, also aborting the start, when `hosts` or the nspawn file is still missing afterwards.
 
-**Post-start (`execstartpost.sh`):** exits 14 if `/srv/<container>` is gone, runs `/srv/<container>/ethernet.sh` when present, sleeps 3 s to let networkd acquire an address, then logs the machine's IP to the journal. It always ends in `exit 0` — a non-zero status here would fail the whole unit start. The datastore `put container ip` write that used to live here is intentionally disabled.
+**Post-start (`execstartpost.sh`):** exits 14 if `/srv/<container>` is gone, runs `/srv/<container>/ethernet.sh` when present, starts `lib/open-mapped-ports.sh` as the transient unit `srvctl-ports-<container>` when the `.nspawn` has `Port=` lines (it waits up to 60 s for the container's own firewalld and adds the container-side ports there permanently; the base image's firewalld opens only the standard web and mail ports, so a forwarded mapped port was refused inside; a container without an enabled firewalld is left alone), sleeps 3 s to let networkd acquire an address, then logs the machine's IP to the journal. It always ends in `exit 0` — a non-zero status here would fail the whole unit start. The datastore `put container ip` write that used to live here is intentionally disabled.
 
 **Post-stop (`execstoppost.sh`):** an intentional no-op placeholder (a `started false` datastore write and a `machinectl terminate` used to live here); kept because the installed unit references the path.
 
@@ -1318,7 +1318,7 @@ By default srvctl manages the container network itself. The generated nspawn fil
 | `/srv/C/network/zt-bridge-endpoint.network` | DHCP on `zt-*` (ZeroTier), always written |
 | `/srv/C/hosts` | Container's `/etc/hosts` |
 | `/srv/C/ethernet.sh` | Brings the veth up, adds it to the bridge, trusts the bridge in firewalld |
-| `/srv/C/firewall_cmd.sh` | Host firewall rules for mapped ports; sourced immediately when regenerated |
+| `/srv/C/firewall_cmd.sh` | Host firewall rules for mapped ports; sourced immediately when regenerated (the container's own firewalld gets them at every start, `lib/open-mapped-ports.sh`) |
 | `/var/srvctl3/share/containers/C/config` | The container's own configuration, bind-mounted read-only inside it |
 
 **Bind mounts:** the generated nspawn file always binds `$SC_INSTALL_DIR`, `/var/srvctl3/share/containers/C`, `/var/srvctl3/share/common`, `/srv/C/network` (as `/etc/systemd/network`) and `/srv/C/hosts` (as `/etc/hosts`) read-only. If the host has `/usr/local/share/boilerplate` or `/usr/local/share/codepad`, a `BindReadOnly` line is appended sourcing them from the hardcoded `/srv/v3-devel/rootfs/srv/boilerplate` and `/srv/c3-devel/rootfs/srv/codepad` (flagged as a TODO in `libs/systemlib.sh`). Then the contents of `/srv/C/*.binds` are appended, followed by `/srv/C/binds/*.binds` — that order is a contract. None of this happens when `local.nspawn` is present.
