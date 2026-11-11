@@ -1360,7 +1360,7 @@ A `kernel.pid_max=4194304` line is present but commented out. Note that every `r
 | Open files (`nofile`, soft and hard, for `*` and `root`) | 1048576 |
 | Locked memory (`memlock`, soft and hard, for `*`) | Unlimited |
 
-**Disk quota enforcement:** `all_containers_quota_check()` runs hourly — `hooks/regenerate.sh` calls it only when `ARG` is the literal `#cron.hourly`, which is exactly what `/etc/cron.hourly/srvctl-regenerate.sh` passes. It stores each container's `du -s /srv/<container>/rootfs` (1K blocks; the rest of `/srv/<container>`, including comount mounts under `comount/`, is not counted) in the datastore and, when that exceeds the container's `quota` key, disables and stops `srvctl-nspawn@<container>`. The datastore default is `250000000` — 250,000,000 blocks, i.e. roughly 250 GB, not 250 MB. If the quota lookup returns nothing the arithmetic compares against 0 and a healthy container is stopped (FIXME in `libs/all_containers_quota_check.sh`).
+**Disk quota enforcement:** `all_containers_quota_check()` runs hourly — `hooks/regenerate.sh` calls it only when `ARG` is the literal `#cron.hourly`, which is exactly what `/etc/cron.hourly/srvctl-regenerate.sh` passes. It stores each container's `du -s /srv/<container>/rootfs` (1K blocks; the rest of `/srv/<container>`, including comount mounts under `comount/`, is not counted, and neither is `rootfs/srv/backup`, the reflink copy rebuild-ve leaves there) in the datastore and, when that exceeds the container's `quota` key, disables and stops `srvctl-nspawn@<container>`. The datastore default is `250000000` — 250,000,000 blocks, i.e. roughly 250 GB, not 250 MB. A container without a numeric quota is reported and skipped.
 
 ### Container Commands
 
