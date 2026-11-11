@@ -1,18 +1,20 @@
 #!/bin/bash
 
-## Runs INSIDE the throwaway nspawn, prepended to lib/upgrade-ve-dnf.sh by upgrade_ve_upgrade
-## (libs/upgradelib.sh), which calls these two around every distro-sync step.
+## Runs INSIDE a container, prepended to the script that calls these two:
+##   upgrade-ve  lib/upgrade-ve-dnf.sh in the throwaway nspawn, around every distro-sync step
+##   rebuild-ve  save in lib/rebuild-ve-backup.sh (old tree), carry in lib/rebuild-ve-restore.sh
+##               (new tree); both through rebuild_ssh ... bash -s (libs/rebuildlib.sh)
 ##
 ## Dovecot 2.4 (Fedora 42 on) reads none of the 2.3 configuration. The package drops the
 ## conf.d files (a changed one stays as .rpmsave), and its stock dovecot.conf reads ~/mail,
 ## serves no POP3 and separates folders with /. So after the upgrade dovecot either does not
 ## start or serves empty mailboxes while postfix keeps delivering to ~/Maildir (seen on p2:
-## mail.printhub.hu). The 2.3 settings are saved before the first step and carried into
-## conf.d/90-srvctl-upgrade.conf after the step that brings 2.4; what has no safe 2.4
-## equivalent is named, not guessed. rebuild-ve-restore.sh does the same for a rebuild.
+## mail.printhub.hu). The 2.3 settings are saved while 2.3 is installed and carried into
+## conf.d/90-srvctl-dovecot23.conf once 2.4 is; what has no safe 2.4 equivalent is named,
+## not guessed.
 
-## before a step: the 2.3 settings, doveconf -n plus the values -n leaves out as defaults
-function upgrade_dovecot_save() { ## dovecot-dir
+## the 2.3 settings, doveconf -n plus the values -n leaves out as defaults
+function dovecot_save_23() { ## dovecot-dir
     local dc="$1"
     [[ $(rpm -q --qf '%{VERSION}' dovecot 2> /dev/null) == 2.3.* && ! -f $dc/doveconf-2.3.txt ]] || return 0
     doveconf -n > /dev/null 2>&1 || { echo "== NOTE: the dovecot 2.3 configuration does not parse, nothing saved to carry"; return 0; }
@@ -25,9 +27,9 @@ function upgrade_dovecot_save() { ## dovecot-dir
     echo "== dovecot 2.3 settings saved to $dc/doveconf-2.3.txt"
 }
 
-## after a step: once 2.4 is in, the stock configuration plus the carried settings
-function upgrade_dovecot_carry() { ## dovecot-dir home-dir
-    local dc="$1" home="$2" old="$1/doveconf-2.3.txt" out="$1/conf.d/90-srvctl-upgrade.conf" f maildir=
+## once 2.4 is in, the stock configuration plus the carried settings
+function dovecot_carry_24() { ## dovecot-dir home-dir
+    local dc="$1" home="$2" old="$1/doveconf-2.3.txt" out="$1/conf.d/90-srvctl-dovecot23.conf" f maildir=
     [[ -f $old && ! -f $out && $(rpm -q --qf '%{VERSION}' dovecot 2> /dev/null) == 2.4.* ]] || return 0
     ## a changed 2.3 dovecot.conf stays and the 2.4 one lands beside it; a conf.d file left
     ## now is hand made or an .rpmsave, its settings are in the saved doveconf -n
@@ -40,7 +42,7 @@ function upgrade_dovecot_carry() { ## dovecot-dir home-dir
     grep -qx '# home_mailbox = Maildir/' "$old" && maildir=1
     compgen -G "$home/*/Maildir" > /dev/null && maildir=1
     mkdir -p "$dc/conf.d"
-    awk -v maildir="$maildir" -f <(upgrade_dovecot_awk) "$old" > "$out"
+    awk -v maildir="$maildir" -f <(dovecot_carry_awk) "$old" > "$out"
     if doveconf -n > /dev/null
     then echo "== dovecot 2.4: the 2.3 settings carried in $out"
     else echo "== NOTE: dovecot 2.4 does not accept $out; dovecot will not start until it is fixed by hand"
@@ -50,9 +52,9 @@ function upgrade_dovecot_carry() { ## dovecot-dir home-dir
 ## doveconf -n of 2.3 -> 2.4 drop-in. Top level blocks end with a "}" in column 0.
 ## service and protocol blocks are the same syntax in 2.4; passdb/userdb are carried only
 ## as the stock pam/passwd; the rest is listed as not carried (on stderr, and in the file).
-function upgrade_dovecot_awk() {
+function dovecot_carry_awk() {
     cat << 'AWK'
-BEGIN { print "## srvctl upgrade-ve: the Dovecot 2.3 settings of this container (/etc/dovecot/doveconf-2.3.txt)"; keep["ssl"]; keep["ssl_cipher_list"]; keep["ssl_min_protocol"]; keep["first_valid_uid"]; keep["last_valid_uid"]; keep["auth_mechanisms"]; keep["mail_privileged_group"]; skip["mbox_write_locks"]; skip["ssl_cert"]; skip["ssl_key"]; skip["mail_location"] }
+BEGIN { print "## srvctl: the Dovecot 2.3 settings of this container (/etc/dovecot/doveconf-2.3.txt)"; keep["ssl"]; keep["ssl_cipher_list"]; keep["ssl_min_protocol"]; keep["first_valid_uid"]; keep["last_valid_uid"]; keep["auth_mechanisms"]; keep["mail_privileged_group"]; skip["mbox_write_locks"]; skip["ssl_cert"]; skip["ssl_key"]; skip["mail_location"] }
 function note(s) { notes = notes "# not carried: " s "\n"; print "== NOTE: dovecot 2.3 setting not carried: " s > "/dev/stderr" }
 /^# protocols = / { n = split(substr($0, 15), p, " "); for (i = 1; i <= n; i++) prot = prot "  " p[i] " = yes\n"; next }
 /^# ssl_key = </ { key = substr($0, 14); next }

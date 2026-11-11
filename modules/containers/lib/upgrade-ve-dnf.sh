@@ -3,7 +3,7 @@
 ## Runs INSIDE a throwaway nspawn of the stopped container, as its root:
 ## 'systemd-nspawn ... bash -c "<this>" upgrade-ve-dnf FROM TO', from upgrade_ve_upgrade
 ## (libs/upgradelib.sh). Not on stdin: dnf or a scriptlet reading it would eat the rest.
-## lib/upgrade-ve-dovecot.sh is prepended, its functions are defined here.
+## lib/dovecot-carry.sh is prepended, its functions are defined here.
 ## No systemd runs there; SYSTEMD_OFFLINE=1 is set by the caller.
 
 from="$1" to="$2"
@@ -14,9 +14,9 @@ dnf -y upgrade --refresh fedora-gpg-keys
 ## binary against an old library and that one package fails while the rest goes in
 ## (setup's %sysusers before glibc, seen on r2: nktrust.ch 42 -> 44). The rerun finishes it.
 sync=(dnf -y --releasever="$to" --setopt=skip_if_unavailable=True distro-sync --allowerasing)
-upgrade_dovecot_save /etc/dovecot
+dovecot_save_23 /etc/dovecot
 "${sync[@]}" || { echo "== distro-sync failed, a second pass"; "${sync[@]}"; } || exit 1
-upgrade_dovecot_carry /etc/dovecot /home
+dovecot_carry_24 /etc/dovecot /home
 
 ## Fedora's unversioned nodejs became nodejs<major> (F44: nodejs22). distro-sync keeps the old
 ## build, which no repo updates any more (seen on r2: mindtalk.hu, nktrust.ch). Same major, so

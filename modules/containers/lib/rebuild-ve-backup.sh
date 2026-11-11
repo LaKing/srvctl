@@ -2,7 +2,7 @@
 
 ## Runs INSIDE the old container, as its root: 'ssh VE bash -s < this', from
 ## rebuild_ve_backup (libs/rebuildlib.sh). Collects what rebuild-ve-restore.sh
-## puts back on the fresh rootfs, into /srv/backup:
+## puts back on the fresh rootfs, into /srv/backup. lib/dovecot-carry.sh is prepended:
 ##
 ##   manifest       kind=wordpress|php|static, os=, db=<databases>, localunits=, node=<major>, nodessl=
 ##   files/, paths  the restored trees, copied with cp -a --parents so the
@@ -321,8 +321,10 @@ do
     then paths+=("$f")
     fi
 done
-## the protocols the old dovecot served (2.4 serves no POP3 by default)
+## the protocols the old dovecot served (2.4 serves no POP3 by default), and all its 2.3
+## settings for dovecot_carry_24 (lib/dovecot-carry.sh, prepended by rebuild_ve_backup)
 command -v doveconf > /dev/null && doveconf -h protocols > "$B/reference/dovecot-protocols.txt" 2> /dev/null
+dovecot_save_23 "$B/reference"
 ## main.cf settings added by hand (virtual_alias_maps, seen on r2: mail.instant-fogas.com)
 command -v postconf > /dev/null && postconf -n > "$B/reference/postconf-n.txt" 2> /dev/null
 ## the TLS pairs mail clients accepted once: a fresh self-signed one asks every client again
@@ -343,11 +345,21 @@ mkparents() { ## /abs/path/leaf: mirror its parent dirs under $B/files
         mkdir "$B/files$d" && chmod --reference="$d" "$B/files$d" && chown --reference="$d" "$B/files$d" || return 1
     done
 }
+## the mailboxes are the data of a mail container: a message delivered, moved or deleted
+## after its Maildir was copied would live on only in exrootfs. The container is stopped
+## right after the backup; a failed backup starts them again.
+mailunits=()
+for u in postfix dovecot
+do
+    systemctl is-active -q "$u" 2> /dev/null && mailunits+=("$u")
+done
+((${#mailunits[@]})) && { systemctl stop "${mailunits[@]}" || fail "mail services do not stop: ${mailunits[*]}"; }
+restart_mail() { ((${#mailunits[@]})) && systemctl start "${mailunits[@]}"; }
 for p in "${paths[@]}"
 do
     [[ -e $p ]] || continue
-    mkparents "$p" || fail "parent dirs of $p failed"
-    cp -a --reflink=auto "$p" "$B/files$(dirname "$p")/" || fail "copy of $p failed"
+    mkparents "$p" || { restart_mail; fail "parent dirs of $p failed"; }
+    cp -a --reflink=auto "$p" "$B/files$(dirname "$p")/" || { restart_mail; fail "copy of $p failed"; }
     echo "$p" >> "$B/paths"
 done
 

@@ -1,5 +1,5 @@
 #!/bin/bash
-# lib/upgrade-ve-dovecot.sh with rpm, doveconf and postconf stubbed: the 2.3 settings saved
+# lib/dovecot-carry.sh with rpm, doveconf and postconf stubbed: the 2.3 settings saved
 # once, carried once into the 2.4 drop-in, files set aside, what is not carried named.
 # The drop-in against a real 2.4 doveconf was checked on p2 (mail.printhub.hu's settings).
 # shellcheck disable=SC2329
@@ -26,7 +26,7 @@ doveconf() {
     esac
 }
 # shellcheck source=/dev/null
-source "$REPO/modules/containers/lib/upgrade-ve-dovecot.sh"
+source "$REPO/modules/containers/lib/dovecot-carry.sh"
 
 fresh() {
     rm -rf "$dc" "$home" && mkdir -p "$dc/conf.d" "$home"
@@ -62,25 +62,25 @@ protocol imap {
 EOF
 }
 names() { find "$1" -mindepth 1 -maxdepth 1 -printf '%f\n' | sort | tr '\n' ' '; }
-drop() { cat "$dc/conf.d/90-srvctl-upgrade.conf" 2> /dev/null; }
+drop() { cat "$dc/conf.d/90-srvctl-dovecot23.conf" 2> /dev/null; }
 
 ## saved on 2.3 only, and once
 fresh
-upgrade_dovecot_save "$dc" > /dev/null
+dovecot_save_23 "$dc" > /dev/null
 ok "saved" "$(head -n 3 "$dc/doveconf-2.3.txt" | tr '\n' '|')" "# protocols = imap pop3 lmtp|# ssl_key = </k.pem|# home_mailbox = Maildir/|"
 echo changed > "$tmp/n"
-upgrade_dovecot_save "$dc" > /dev/null
+dovecot_save_23 "$dc" > /dev/null
 ok "saved once" "$(grep -c mbox_write_locks "$dc/doveconf-2.3.txt")" 1
-upgrade_dovecot_carry "$dc" "$home" > /dev/null
+dovecot_carry_24 "$dc" "$home" > /dev/null
 ok "nothing carried while 2.3" "$(drop)" ""
 
 ## carried after 2.4 came in
 echo 2.4.5 > "$tmp/version"
 echo 'protocols = imap' > "$dc/conf.d/10-mine.conf"
 touch "$dc/dovecot.conf" "$dc/dovecot.conf.rpmnew"
-out="$(upgrade_dovecot_carry "$dc" "$home" 2>&1)"
+out="$(dovecot_carry_24 "$dc" "$home" 2>&1)"
 ok "accepted" "$(grep -c 'settings carried' <<< "$out")" 1
-ok "conf.d file set aside" "$(names "$dc/conf.d")" "10-mine.conf.srvctl-2.3 90-srvctl-upgrade.conf "
+ok "conf.d file set aside" "$(names "$dc/conf.d")" "10-mine.conf.srvctl-2.3 90-srvctl-dovecot23.conf "
 ok "2.4 dovecot.conf in place" "$(names "$dc")" "conf.d doveconf-2.3.txt dovecot.conf dovecot.conf.srvctl-2.3 "
 ok "protocols" "$(drop | sed -n '/^protocols {/,/^}/p' | tr -d ' \n')" "protocols{imap=yespop3=yeslmtp=yes}"
 ok "Maildir" "$(drop | grep -c '^mail_path = ~/Maildir$')" 1
@@ -92,14 +92,14 @@ ok "separator of 2.3" "$(drop | sed -n '/^namespace inbox {/{n;p}')" "  separato
 ok "empty location dropped" "$(drop | grep -c location)" 0
 ok "stock passdb/userdb not repeated" "$(drop | grep -cE 'passdb|userdb|driver')" 0
 ok "no notes" "$(grep -c 'not carried' <<< "$out")" 0
-ok "carried once" "$(upgrade_dovecot_carry "$dc" "$home"; drop | grep -c imaps2)" 1
+ok "carried once" "$(dovecot_carry_24 "$dc" "$home"; drop | grep -c imaps2)" 1
 
 ## what has no safe 2.4 equivalent is named; a cert of its own goes to ssl_server
 fresh
 sed -i -e 's/driver = pam/driver = sql/' -e 's#^ssl_cert = .*#ssl_cert = </c.pem\nmail_location = mdbox:~/mdbox\ndisable_plaintext_auth = no#' "$tmp/n"
-upgrade_dovecot_save "$dc" > /dev/null
+dovecot_save_23 "$dc" > /dev/null
 echo 2.4.5 > "$tmp/version"
-out="$(upgrade_dovecot_carry "$dc" "$home" 2>&1)"
+out="$(dovecot_carry_24 "$dc" "$home" 2>&1)"
 ok "notes" "$(grep -o 'not carried: .*' <<< "$out" | tr '\n' '|')" "not carried: passdb { ... }|not carried: disable_plaintext_auth = no|not carried: mail_location = mdbox:~/mdbox|"
 ok "notes in the file" "$(drop | grep -c '^# not carried')" 3
 ok "own cert" "$(drop | sed -n '/^ssl_server {/,/^}/p' | tr -d ' \n')" "ssl_server{cert_file=/c.pemkey_file=/k.pem}"
@@ -107,11 +107,11 @@ ok "no separator for mdbox" "$(drop | grep -c separator)" 0
 
 ## a drop-in 2.4 refuses is reported and left for the hand
 fresh
-upgrade_dovecot_save "$dc" > /dev/null
+dovecot_save_23 "$dc" > /dev/null
 echo 2.4.5 > "$tmp/version"
 echo 'broken = yes' >> "$dc/doveconf-2.3.txt"
-out="$(upgrade_dovecot_carry "$dc" "$home" 2>&1)"
+out="$(dovecot_carry_24 "$dc" "$home" 2>&1)"
 ok "refused named" "$(grep -c 'does not accept' <<< "$out")" 1
 
-echo "upgrade-dovecot: $pass passed, $fail failed"
+echo "dovecot-carry: $pass passed, $fail failed"
 ((fail == 0))

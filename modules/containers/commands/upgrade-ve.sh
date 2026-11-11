@@ -5,7 +5,7 @@
 ## &en Copies the whole tree to /srv/VE/exrootfs, then runs dnf distro-sync in a throwaway
 ## &en nspawn of the stopped container (inside the running one rpm cannot replace systemd),
 ## &en puts back enabled units the upgrade dropped, starts it and checks the release, the
-## &en services that ran before and the front page. Dovecot 2.3 settings are carried into 2.4 (conf.d/90-srvctl-upgrade.conf). A gap over 2 releases goes in steps of 2
+## &en services that ran before and the front page. Dovecot 2.3 settings are carried into 2.4 (conf.d/90-srvctl-dovecot23.conf). A gap over 2 releases goes in steps of 2
 ## &en (39 -> 41 -> 43 -> 45), the copy stays the original tree. A rerun continues at the phase (and step) that failed. 'check'
 ## &en repeats the check, 'rollback' puts the copy back, 'discard-old' deletes it after a passed
 ## &en check. Log: /srv/VE/upgrade/upgrade.log

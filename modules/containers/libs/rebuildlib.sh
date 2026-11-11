@@ -130,7 +130,7 @@ function rebuild_ve_snapshot() { ## C
 function rebuild_ve_backup() { ## C
     local C="$1"
     rebuild_is_running "$C" || { run systemctl start "srvctl-nspawn@$C" && rebuild_wait_ssh "$C"; } || return 1
-    rebuild_ssh "$C" bash -s < "$SC_INSTALL_DIR/modules/containers/lib/rebuild-ve-backup.sh" || { err "backup failed in $C"; return 1; }
+    cat "$SC_INSTALL_DIR"/modules/containers/lib/{dovecot-carry,rebuild-ve-backup}.sh | rebuild_ssh "$C" bash -s || { err "backup failed in $C"; return 1; }
     rebuild_stop "$C" || { err "$C does not stop"; return 1; }
 }
 
@@ -191,7 +191,7 @@ function rebuild_ve_restore() { ## C
     local C="$1"
     rebuild_is_running "$C" || run systemctl start "srvctl-nspawn@$C" || return 1
     rebuild_wait_ssh "$C" || return 1
-    rebuild_ssh "$C" bash -s < "$SC_INSTALL_DIR/modules/containers/lib/rebuild-ve-restore.sh" || { err "restore failed in $C"; return 1; }
+    cat "$SC_INSTALL_DIR"/modules/containers/lib/{dovecot-carry,rebuild-ve-restore}.sh | rebuild_ssh "$C" bash -s || { err "restore failed in $C"; return 1; }
     rebuild_ssh "$C" bash -s < "$SC_INSTALL_DIR/modules/containers/lib/rebuild-ve-native.sh" || { err "native module rebuild failed in $C"; return 1; }
 }
 

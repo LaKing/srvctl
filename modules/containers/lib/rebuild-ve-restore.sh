@@ -3,6 +3,7 @@
 ## Runs INSIDE the new container, as its root: 'ssh VE bash -s < this', from
 ## rebuild_ve_restore (libs/rebuildlib.sh). Puts back what
 ## rebuild-ve-backup.sh collected into /srv/backup (copied over by the host).
+## lib/dovecot-carry.sh is prepended, its functions are defined here.
 ##
 ## Order: users and groups first (the copied files carry their numeric ids),
 ## packages, files, then the databases, then WordPress core and services.
@@ -209,8 +210,15 @@ fi
 ## (home_mailbox), and served POP3 (seen on r2: mail.mobilflower.hu). Both
 ## are decided by the old setup, not by existing mailboxes: a container with
 ## no user yet served pop3s too (mail.nemetborbala.com). A backup without the
-## old protocols list (an older rebuild-ve) assumes POP3.
-if [[ -d /etc/dovecot/conf.d ]] && doveconf -n > /dev/null 2>&1
+## old protocols list (an older rebuild-ve) assumes POP3. A backup with the
+## whole 2.3 configuration (reference/doveconf-2.3.txt) gets all of it carried
+## instead: listeners, connection limits, mailboxes (seen on p2: mail.printhub.hu).
+if [[ -f $B/reference/doveconf-2.3.txt && $(rpm -q --qf "%{VERSION}" dovecot 2> /dev/null) == 2.4.* ]]
+then
+    cp "$B/reference/doveconf-2.3.txt" /etc/dovecot/
+    dovecot_carry_24 /etc/dovecot /home
+    doveconf -n > /dev/null || fail "dovecot does not accept conf.d/90-srvctl-dovecot23.conf"
+elif [[ -d /etc/dovecot/conf.d ]] && doveconf -n > /dev/null 2>&1
 then
     dc=()
     if doveconf -n | grep -qx 'mail_path = ~/mail' && { compgen -G '/home/*/Maildir' > /dev/null || [[ $(postconf -h home_mailbox 2> /dev/null) == Maildir/ ]]; }
