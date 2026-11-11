@@ -12,8 +12,9 @@
 ##              enabled unit links of the old tree
 ##     copy     stop the container, cp -a rootfs to exrootfs (the rollback)
 ##     upgrade  third-party repo URLs to the new release, lib/upgrade-ve-dnf.sh
-##              (distro-sync, nodejs -> nodejs<major>) in a throwaway nspawn
-##              of the stopped tree, lost enabled links back
+##              (distro-sync, nodejs -> nodejs<major>) with lib/upgrade-ve-dovecot.sh
+##              (2.3 settings into 2.4) in a throwaway nspawn of the stopped
+##              tree, lost enabled links back
 ##     check    start, release, services, front page against the one before
 ##   rollback and discard-old as in rebuildlib; both share exrootfs, so each
 ##   refuses while the other one's run is open.
@@ -109,7 +110,7 @@ function upgrade_ve_upgrade() { ## C
     do
         upgrade_repo_urls "$r" "$u" "$cur" "$next"
         msg "systemd-nspawn ${opts[*]}: lib/upgrade-ve-dnf.sh $cur $next"
-        systemd-nspawn "${opts[@]}" bash -c "$(cat "$SC_INSTALL_DIR/modules/containers/lib/upgrade-ve-dnf.sh")" upgrade-ve-dnf "$cur" "$next" || {
+        systemd-nspawn "${opts[@]}" bash -c "$(cat "$SC_INSTALL_DIR"/modules/containers/lib/upgrade-ve-{dovecot,dnf}.sh)" upgrade-ve-dnf "$cur" "$next" || {
             err "dnf distro-sync $cur -> $next failed in $r; rerun to retry, or rollback"
             return 1
         }
