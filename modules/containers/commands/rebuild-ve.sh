@@ -4,7 +4,7 @@
 ## @en Rebuild a container on the current fedora base image, keeping its site and databases
 ## &en Backs up the web root, homes, crontabs, site httpd configs, users and logical database dumps
 ## &en inside the running old container, stops it, keeps its tree as /srv/VE/exrootfs, builds a fresh
-## &en rootfs and restores into it (the backup stays in /srv/backup inside), then checks services
+## &en rootfs and restores into it (the backup is kept in /srv/VE/backup), then checks services
 ## &en and the front page against the one saved before. For WordPress, PHP and static sites.
 ## &en A rerun continues at the phase that failed. 'check' repeats the check, 'rollback' puts the old
 ## &en tree back, 'discard-old' deletes it and the backup's data after a passed check. Log: /srv/VE/rebuild/rebuild.log

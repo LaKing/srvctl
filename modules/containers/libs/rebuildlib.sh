@@ -9,12 +9,20 @@
 ##     snapshot  preflight; start the old container if needed, save the front
 ##               page through haproxy (rebuild/before.*), stop its web server
 ##     backup    lib/rebuild-ve-backup.sh inside it, then stop it
-##     swap      fresh base image as newrootfs, then rootfs -> exrootfs and
-##               newrootfs -> rootfs; ssh host keys and /srv/backup copied over
-##     restore   start, lib/rebuild-ve-restore.sh inside
+##     swap      the backup moved out to /srv/$C/backup, fresh base image as
+##               newrootfs, then rootfs -> exrootfs and newrootfs -> rootfs;
+##               ssh host keys and the backup (as /srv/backup) copied in
+##     restore   start, lib/rebuild-ve-restore.sh and rebuild-ve-native.sh
+##               inside, then the in-container copy of the backup removed
 ##     check     services, haproxy front page against the snapshot, error logs
 ##   rollback puts exrootfs back (the new tree is kept as rootfs.failed-*),
 ##   discard-old deletes exrootfs once check has passed.
+##
+##   The backup lives next to rootfs and exrootfs, not inside a tree: there it
+##   would be a second copy of the data that du counts twice (the hourly quota
+##   check stopped p2's mail.printhub.hu over it), keeping shadow, keys and
+##   dumps around in the container. The in-container scripts still read it as
+##   /srv/backup, so only the restore phase has a copy inside.
 ##
 ##   Ownership: backup and restore run inside the containers, and the copies
 ##   between them are cp -a. The new rootfs comes from the base image owned by
@@ -168,7 +176,13 @@ function rebuild_carry_certificate() { ## C
 
 function rebuild_ve_build_rootfs() { ## C
     local C="$1" d="$SC_REBUILD_SRV/$1" k
-    [[ -d $d/rootfs/srv/backup ]] || { err "no backup in $d/rootfs/srv/backup"; return 1; }
+    ## a rerun after a failure below finds the backup already moved out
+    if [[ -d $d/rootfs/srv/backup ]]
+    then
+        run rm -rf "$d/backup"
+        run mv "$d/rootfs/srv/backup" "$d/backup" || return 1
+    fi
+    [[ -f $d/backup/manifest ]] || { err "no backup in $d/backup"; return 1; }
 
     run rm -rf "$d/newrootfs"
     mkdir -p "$d/newrootfs"
@@ -179,7 +193,7 @@ function rebuild_ve_build_rootfs() { ## C
     do
         [[ -f $k ]] && cp -p "$k" "$d/newrootfs/etc/ssh/" && chgrp 0 "$d/newrootfs/etc/ssh/${k##*/}"
     done
-    cp -a --reflink=auto "$d/rootfs/srv/backup" "$d/newrootfs/srv/" || { err "backup copy failed"; return 1; }
+    cp -a --reflink=auto "$d/backup" "$d/newrootfs/srv/" || { err "backup copy failed"; return 1; }
 
     run mv "$d/rootfs" "$d/exrootfs" || return 1
     run mv "$d/newrootfs" "$d/rootfs" || { run mv "$d/exrootfs" "$d/rootfs"; return 1; }
@@ -188,23 +202,25 @@ function rebuild_ve_build_rootfs() { ## C
 }
 
 function rebuild_ve_restore() { ## C
-    local C="$1"
+    local C="$1" d="$SC_REBUILD_SRV/$1"
     rebuild_is_running "$C" || run systemctl start "srvctl-nspawn@$C" || return 1
     rebuild_wait_ssh "$C" || return 1
     cat "$SC_INSTALL_DIR"/modules/containers/lib/{dovecot-carry,rebuild-ve-restore}.sh | rebuild_ssh "$C" bash -s || { err "restore failed in $C"; return 1; }
     rebuild_ssh "$C" bash -s < "$SC_INSTALL_DIR/modules/containers/lib/rebuild-ve-native.sh" || { err "native module rebuild failed in $C"; return 1; }
+    ## kept after a failure: a rerun of this phase reads it again
+    run rm -rf "$d/rootfs/srv/backup"
 }
 
 function rebuild_ve_check() { ## C
     local C="$1" d="$SC_REBUILD_SRV/$1/rebuild" bad=0 u
-    for u in httpd php-fpm mariadb $(sed -n 's/^localunits=//p' "$SC_REBUILD_SRV/$C/rootfs/srv/backup/manifest" 2> /dev/null)
+    for u in httpd php-fpm mariadb $(sed -n 's/^localunits=//p' "$SC_REBUILD_SRV/$C/backup/manifest" 2> /dev/null)
     do
         rebuild_ssh "$C" "systemctl is-enabled -q $u 2>/dev/null && ! systemctl is-active -q $u" && { err "$u is not running in $C"; bad=1; }
     done
     ## the other long-running services the old container had enabled (saslauthd, zerotier-one)
     # shellcheck disable=SC2016 ## expanded inside the container
     for u in $(rebuild_ssh "$C" 'while read -r u; do case "$u" in *@* | NetworkManager* | dbus* | messagebus* | srvctl* | httpd.service | php-fpm.service | mariadb.service) continue ;; *.service) ;; *) continue ;; esac
-        systemctl is-enabled -q "$u" 2> /dev/null && [[ $(systemctl show -P Type "$u") != oneshot ]] && ! systemctl is-active -q "$u" && echo "$u"; done < /srv/backup/reference/units.txt')
+        systemctl is-enabled -q "$u" 2> /dev/null && [[ $(systemctl show -P Type "$u") != oneshot ]] && ! systemctl is-active -q "$u" && echo "$u"; done' < "$SC_REBUILD_SRV/$C/backup/reference/units.txt")
     do
         err "$u is not running in $C"
         bad=1
@@ -256,12 +272,9 @@ function rebuild_ve_discard_old() { ## C
     local C="$1" d="$SC_REBUILD_SRV/$1"
     grep -qx check "$d/rebuild/state" 2> /dev/null || { err "$C has not passed check; nothing discarded"; return 1; }
     run rm -rf "$d/exrootfs" "$d"/rootfs.failed-*
-    ## the backup restore read: a reflink copy that du counts twice (the hourly quota check
-    ## stopped p2's mail.printhub.hu over it), holding shadow, keys and dumps. Only kept
-    ## are reference/ (old configs, kilobytes) and the manifest that marks the directory as
-    ## rebuild-ve's: a /srv/backup without one is someone's own (seen on bp: bp-devel).
-    local b="$d/rootfs/srv/backup"
-    [[ -f $b/manifest ]] && run find "$b" -mindepth 1 -maxdepth 1 ! -name reference ! -name manifest -exec rm -rf {} +
+    ## the backup's data goes with the old tree (shadow, keys, dumps, the copied files);
+    ## reference/ is kilobytes of old configs, worth keeping for later questions
+    [[ -d $d/backup ]] && run find "$d/backup" -mindepth 1 -maxdepth 1 ! -name reference ! -name manifest -exec rm -rf {} +
     ## closed: a later 'sc rebuild-ve' starts a new rebuild
     mv "$d/rebuild/state" "$d/rebuild/state.done-$NOW"
     rm -f "$d/rebuild/moved" "$d/rebuild/was-running"

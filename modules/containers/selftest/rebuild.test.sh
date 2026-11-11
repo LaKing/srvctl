@@ -45,7 +45,7 @@ rebuild_ssh() {
     if [[ ${2:-} == bash ]]; then
         local script
         script="$(cat)"
-        if [[ $script == *BACKUP-ERROR* ]]; then mkdir -p "$d/rootfs/srv/backup/files" && echo kind=wordpress > "$d/rootfs/srv/backup/manifest"; echo backup >> "$calls"; fi
+        if [[ $script == *BACKUP-ERROR* ]]; then mkdir -p "$d/rootfs/srv/backup/files" "$d/rootfs/srv/backup/reference" && echo kind=wordpress > "$d/rootfs/srv/backup/manifest" && touch "$d/rootfs/srv/backup/reference/units.txt"; echo backup >> "$calls"; fi
         [[ $script == *RESTORE-ERROR* && -f $tmp/restore-fails ]] && return 1
         return 0
     fi
@@ -99,6 +99,7 @@ rm -f "$tmp/running" "$d/rebuild/was-running"
 newold && touch "$tmp/restore-fails"
 rebuild_ve "$C" > /dev/null
 ok "stops in restore" "$(state)" "snapshot backup swap "
+ok "the restore copy stays for the rerun" "$([[ -f $d/rootfs/srv/backup/manifest ]] && echo yes)" yes
 rm -f "$tmp/restore-fails" && : > "$calls"
 rebuild_ve "$C" > /dev/null
 ok "resume exit" "$?" 0
@@ -107,7 +108,8 @@ ok "no backup on resume" "$(grep -c backup "$calls")" 0
 ok "old tree kept" "$([[ -f $d/exrootfs/old-marker ]] && echo yes)" yes
 ok "new tree in place" "$([[ -f $d/rootfs/new-marker && ! -e $d/newrootfs ]] && echo yes)" yes
 ok "shares remounted after the swap" "$(wc -l < "$tmp/shares")" 1
-ok "backup copied in" "$(cat "$d/rootfs/srv/backup/manifest")" "kind=wordpress"
+ok "backup kept beside the trees" "$(cat "$d/backup/manifest")" "kind=wordpress"
+ok "no backup left in either tree" "$(ls -d "$d"/{rootfs,exrootfs}/srv/backup 2> /dev/null)" ""
 ok "host key kept" "$([[ -f $d/rootfs/etc/ssh/ssh_host_ed25519_key ]] && echo yes)" yes
 ok "was not running" "$(cat "$d/rebuild/was-running")" false
 ok "before snapshot" "$(cat "$d/rebuild/before.status")" "200 My Site"
@@ -143,10 +145,9 @@ rebuild_ve "$C" discard-old > /dev/null
 ok "discard-old needs a passed check" "$?" 1
 
 ## full run again, then discard-old removes the old trees
-rm -rf "$d/rootfs/srv/backup"
 rebuild_ve "$C" > /dev/null && rebuild_ve "$C" discard-old > /dev/null
 ok "discarded" "$(ls -d "$d"/exrootfs "$d"/rootfs.failed-* 2> /dev/null)" ""
-ok "backup emptied, manifest kept" "$(ls "$d/rootfs/srv/backup")" "manifest"
+ok "backup emptied, manifest kept" "$(ls "$d/backup" | paste -sd' ')" "manifest reference"
 ok "closed, a later rebuild starts over" "$(state)$(compgen -G "$d/rebuild/state.done-*" | wc -l)" "1"
 
 ## a front page that was 403 before passes when unchanged, fails when it was 200 before

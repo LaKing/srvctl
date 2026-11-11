@@ -2,7 +2,8 @@
 
 ## Runs INSIDE the new container, as its root: 'ssh VE bash -s < this', from
 ## rebuild_ve_restore (libs/rebuildlib.sh). Puts back what
-## rebuild-ve-backup.sh collected into /srv/backup (copied over by the host).
+## rebuild-ve-backup.sh collected into /srv/backup (the host keeps it as /srv/VE/backup,
+## copies it in for this phase and removes the copy once this and rebuild-ve-native.sh pass).
 ## lib/dovecot-carry.sh is prepended, its functions are defined here.
 ##
 ## Order: users and groups first (the copied files carry their numeric ids),

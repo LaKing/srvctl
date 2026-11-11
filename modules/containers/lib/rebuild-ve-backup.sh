@@ -2,7 +2,7 @@
 
 ## Runs INSIDE the old container, as its root: 'ssh VE bash -s < this', from
 ## rebuild_ve_backup (libs/rebuildlib.sh). Collects what rebuild-ve-restore.sh
-## puts back on the fresh rootfs, into /srv/backup. lib/dovecot-carry.sh is prepended:
+## puts back on the fresh rootfs, into /srv/backup (the host moves it out to /srv/VE/backup). lib/dovecot-carry.sh is prepended:
 ##
 ##   manifest       kind=wordpress|php|static, os=, db=<databases>, localunits=, node=<major>, nodessl=
 ##   files/, paths  the restored trees, copied with cp -a --parents so the
