@@ -26,24 +26,13 @@ function regenerate_etc_postfix_relaydomains() {
 }
 
 ## write_ve_postfix_conf <container>
-## Write the container main.cf for a container AND its mail-pair twin:
-## for "mail.X" also X, for "X" also "mail.X" (the pair test is the
-## literal 5-character "mail." prefix). Missing twins are skipped
-## silently by write_ve_postfix_main.
+## Write the container main.cf of a fresh rootfs (init_ve_rootfs: add-ve and
+## rebuild-ve). Only that container's: its mail-pair twin (X <-> mail.X) is a
+## running container whose main.cf may be tuned by hand, and the template
+## over it broke one (p2: printhub.hu lost its docker network from mynetworks
+## and got SASL without a backend when mail.printhub.hu was rebuilt).
 function write_ve_postfix_conf { #container
-    local container
-    container="$1"
-
-    if [[ "${container:0:5}" == "mail." ]]
-    then
-        msg "write postfix for mail container"
-        write_ve_postfix_main "${container:5}"
-        write_ve_postfix_main "$container"
-    else
-        msg "write postfix for container"
-        write_ve_postfix_main "$container"
-        write_ve_postfix_main "mail.$container"
-    fi
+    write_ve_postfix_main "$1"
 }
 
 

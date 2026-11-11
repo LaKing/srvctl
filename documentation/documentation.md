@@ -1980,7 +1980,7 @@ The `postfix` module manages SMTP on both hosts and containers.
 
 **Functions (`libs/postfixlib.sh`, `libs/systemdlib.sh`):**
 - `regenerate_etc_postfix_relaydomains()` — rewrites `/etc/postfix/relaydomains` from `get cluster postfix_relaydomains` (one `<domain>\tOK` line per host, container — `mail.` prefix stripped — and alias) and postmaps it. No-op when `/etc/postfix` is absent.
-- `write_ve_postfix_conf()` — writes the container main.cf for a container *and* its mail-pair twin (`X` <-> `mail.X`), backing up the previous file as `main.cf-<timestamp>.bak`. Called by the containers module at add-ve time; do not rename.
+- `write_ve_postfix_conf()` — writes the container main.cf of a fresh rootfs, backing up the previous file as `main.cf-<timestamp>.bak`. Only that container's: the mail-pair twin (`X` <-> `mail.X`) is a running container whose main.cf may be tuned by hand, and is left alone. Called by `init_ve_rootfs` (add-ve and rebuild-ve); do not rename.
 - `restart_postfix()` — restart with status verification; on failure it runs `postfix check` and ends nonzero, which `run_hook`'s `exif` turns into an abort of the invoking command (a broken postfix can therefore kill `add-ve` mid-flow).
 - `write_postfix_main()` — dead code: no callers, and the module condition is never true inside a container.
 
