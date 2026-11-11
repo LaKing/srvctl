@@ -256,6 +256,12 @@ function rebuild_ve_discard_old() { ## C
     local C="$1" d="$SC_REBUILD_SRV/$1"
     grep -qx check "$d/rebuild/state" 2> /dev/null || { err "$C has not passed check; nothing discarded"; return 1; }
     run rm -rf "$d/exrootfs" "$d"/rootfs.failed-*
+    ## the backup restore read: a reflink copy that du counts twice (the hourly quota check
+    ## stopped p2's mail.printhub.hu over it), holding shadow, keys and dumps. Only kept
+    ## are reference/ (old configs, kilobytes) and the manifest that marks the directory as
+    ## rebuild-ve's: a /srv/backup without one is someone's own (seen on bp: bp-devel).
+    local b="$d/rootfs/srv/backup"
+    [[ -f $b/manifest ]] && run find "$b" -mindepth 1 -maxdepth 1 ! -name reference ! -name manifest -exec rm -rf {} +
     ## closed: a later 'sc rebuild-ve' starts a new rebuild
     mv "$d/rebuild/state" "$d/rebuild/state.done-$NOW"
     rm -f "$d/rebuild/moved" "$d/rebuild/was-running"

@@ -146,6 +146,7 @@ ok "discard-old needs a passed check" "$?" 1
 rm -rf "$d/rootfs/srv/backup"
 rebuild_ve "$C" > /dev/null && rebuild_ve "$C" discard-old > /dev/null
 ok "discarded" "$(ls -d "$d"/exrootfs "$d"/rootfs.failed-* 2> /dev/null)" ""
+ok "backup emptied, manifest kept" "$(ls "$d/rootfs/srv/backup")" "manifest"
 ok "closed, a later rebuild starts over" "$(state)$(compgen -G "$d/rebuild/state.done-*" | wc -l)" "1"
 
 ## a front page that was 403 before passes when unchanged, fails when it was 200 before

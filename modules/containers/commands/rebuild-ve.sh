@@ -7,7 +7,7 @@
 ## &en rootfs and restores into it (the backup stays in /srv/backup inside), then checks services
 ## &en and the front page against the one saved before. For WordPress, PHP and static sites.
 ## &en A rerun continues at the phase that failed. 'check' repeats the check, 'rollback' puts the old
-## &en tree back, 'discard-old' deletes it after a passed check. Log: /srv/VE/rebuild/rebuild.log
+## &en tree back, 'discard-old' deletes it and the backup's data after a passed check. Log: /srv/VE/rebuild/rebuild.log
 
 ## run only with srvctl
 [[ $SRVCTL ]] || exit 4
