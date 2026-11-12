@@ -8,8 +8,8 @@
 ##   add-codepad). Rewrites /etc/postfix/relaydomains from the datastore
 ##   and postmaps it (libs/postfixlib.sh), updates the postfix of mail_ve
 ##   targets (libs/mailvelib.sh), removes DKIM signing from the amavis
-##   reinjection and SMTP AUTH without a backend (libs/postfixlib.sh),
-##   then restarts the host
+##   reinjection and SMTP AUTH without a backend, orders amavisd after
+##   network-online.target (libs/postfixlib.sh), then restarts the host
 ##   postfix.service (libs/systemdlib.sh).
 ##
 
@@ -41,5 +41,8 @@ regenerate_reinjection_milters
 
 ## SMTP AUTH off where its backend is missing (libs/postfixlib.sh)
 regenerate_smtp_auth
+
+## amavisd waits for the network at boot (libs/postfixlib.sh)
+regenerate_amavisd_ordering
 
 restart_postfix

@@ -144,3 +144,27 @@ function regenerate_smtp_auth() {
     fi
     return 0
 }
+
+## regenerate_amavisd_ordering [systemd unit dir, default /etc/systemd/system]
+## amavisd (and the SpamAssassin in it) reads resolv.conf once, at start. The
+## packaged unit only waits for network.target, so at boot it can start before
+## systemd-resolved has its upstream servers; Net::DNS then falls back to
+## 127.0.0.1, where nothing listens, and every DNS test of every message waits
+## for its timeout until amavisd is restarted (p2 after its 2026-11-10 reboot:
+## median 187 s per message, mails up to 40 minutes late). The drop-in makes it
+## wait for network-online.target (systemd-networkd-wait-online on the hosts).
+## Takes effect at the next start; a running amavisd is not restarted here.
+function regenerate_amavisd_ordering() {
+    local dir="${1:-/etc/systemd/system}" conf want
+    [[ -f ${SC_AMAVISD_UNIT:-/usr/lib/systemd/system/amavisd.service} ]] || return 0
+    conf="$dir/amavisd.service.d/50-srvctl-network-online.conf"
+    want="$(printf '%s\n' '## srvctl (postfix module): resolv.conf is read once, at start' '[Unit]' 'Wants=network-online.target' 'After=network-online.target')"
+    [[ $(cat "$conf" 2> /dev/null) == "$want" ]] && return 0
+    if ! { mkdir -p "${conf%/*}" && echo "$want" > "$conf"; }
+    then
+        err "postfix: cannot write $conf"
+        return 0
+    fi
+    systemctl daemon-reload
+    msg "postfix: amavisd now starts after network-online.target ($conf)"
+}
