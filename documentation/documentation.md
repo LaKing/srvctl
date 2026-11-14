@@ -2144,6 +2144,7 @@ The `usersonve` module manages users inside containers. Its condition sources th
 | Command | Description |
 |---------|-------------|
 | `add-user <name>` | Add or update a container user: creates the account if missing, reuses an existing `~/.password` or generates one via the `password` module, mails a welcome notice and chowns the home |
+| `authorize-user-service <user> [service [off]]` | Let a container user start, stop, restart and reload one systemd service without root (`systemctl restart <service>`, no sudo): one polkit rule per user and unit, `/etc/polkit-1/rules.d/60-srvctl-<user>-<unit>.rules`, polkit installed when missing. Enable/disable and other units stay root's. Without a service it lists the user's grants; `off` removes one |
 | `add-zerotier [networkid]` | Install ZeroTier VPN and join a network; with no argument the network id is looked up in `/var/srvctl3/share/common/zerotier-one/devicemap` |
 | `vnc-desktop [desktop]` | Create the fixed appliance user `x` and an **unauthenticated** TigerVNC desktop on display `:0` (`securitytypes=none`, firewall opened permanently) — see [VNC Desktop](#vnc-desktop) |
 | `install-crossover` | Install CrossOver (Wine) and its 32/64-bit library stack for user `x`, and point the kiosk autostart contract at it |
