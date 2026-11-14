@@ -3,7 +3,7 @@
 ##
 ##   modules/ca/libs/calib.sh — private root-CA and certificate issuance.
 ##
-##   Cross-module API (consumed by certificates, gluster and openvpn; also
+##   Cross-module API (consumed by certificates and openvpn; also
 ##   invoked remotely by name via "srvctl exec-function" chains):
 ##     root_CA_init NET     - create the CA directory layout and root CA
 ##     root_CA_create NET   - root key/cert/serial for NET, only if missing
@@ -116,7 +116,7 @@ function create_ca_certificate { ## type net name
 
     ## role: server / client
     _e="$1"
-    ## network: usernet / hostnet / gluster / ...
+    ## network: usernet / hostnet / ...
     _net="$2"
     ## subject CN: user / root / host -name
     _u="$3"

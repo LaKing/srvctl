@@ -25,7 +25,7 @@ then
     ## in terminal
     SC_TTY=true
 else
-    ## in srvctl-gui, or in program
+    ## cron, ssh without a terminal, or another program
     SC_TTY=false
 fi
 

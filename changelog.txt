@@ -8,6 +8,20 @@ notable operational changes are listed here.
 Unreleased (v4, in progress on top of 4.0.0.8)
 ----------------------------------------------
 
+Removed the gluster and gui modules (2026-11-14)
+  * modules/gluster: its module-condition printed false on every path, so
+    nothing of it ever ran. Its call sites in the datastore and static hooks
+    are gone; the datastore init hook now only clears the readonly default.
+  * modules/gui: the srvctl2-era web interface (17k lines, mostly a vendored
+    2015 terminal library) that no hook installed. With it go
+    make_commands_spec in update-install, /var/local/srvctl/commands.spec and
+    the '## spec //' markers in the two command.sh files.
+  * sshd_authorization.sh no longer reads public keys from the gluster path
+    (empty on every host).
+  * Leftovers on hosts, not touched by srvctl: /etc/systemd/system/
+    srvctl-gui.service, /var/local/srvctl/commands.spec, the empty
+    /var/srvctl3/gluster directory.
+
 Module walk, first fixes (2026-11-14)
   * remove-ve and destroy-ve no longer delete /srv/C while something is still
     mounted below it. They used to run 'rm -fr' right after an asynchronous

@@ -44,7 +44,7 @@ function create_user_ssh() { ## user ## reseller
             exif
         fi
 
-        ## the srvctl_id_ecdsa is used internally, in the srvctl-gui, in sshpiperd, and in the reseller-user structure.
+        ## the srvctl_id_ecdsa is used internally, in sshpiperd, and in the reseller-user structure.
         ## that means users do not have access to the keyfile, thus we can say they are save and wont be compromised.
 
         if [[ ! -f "$SC_DATASTORE_DIR/users/$user/srvctl_id_ecdsa" ]]

@@ -6,13 +6,8 @@
 ## &en Commands may have arguments as well.
 
 #### these specs are used in the gui
-## spec //containers×status×get the container status×status VE
 ## FIXME(v4): the 'show' spec below carries the action 'poweroff VE' — a GUI
 ## executing these specs would power the container off on a 'show' click.
-## spec //containers×show×show container parameters×poweroff VE
-## spec //containers×reboot×reboot a container×reboot VE
-## spec //containers×poweroff×poweroff a container×poweroff VE
-## spec //containers×kill×kill a container with all processes×kill VE
 
 ## this is a special command, as it has several ways to be invoked
 ## we assume this as default command.

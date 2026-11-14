@@ -10,7 +10,7 @@
  *     /etc/ssh/ssh_config.d/srvctl-chosts.conf (cluster hosts, FQDN and
  *     short-name blocks pointing at /var/srvctl3/ssh/known_hosts) and
  *     srvctl-containers.conf (root login, StrictHostKeyChecking no per
- *     container) — cluster automation (rsync-over-ssh, backup, gluster)
+ *     container) — cluster automation (rsync-over-ssh, backup)
  *     relies on these for non-interactive ssh;
  *   - scan_host_keys(): ssh-keyscans every cluster host and container
  *     that has no host_key yet, persisting results into hosts.json /

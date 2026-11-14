@@ -4,24 +4,11 @@
 ##   modules/static/hooks/update-install-host.sh — install the server.
 ##
 ##   Runs via 'run_hooks update-install-host' from 'sc update-install'
-##   (modules/srvctl/commands/update-install.sh). Configures the
-##   srvctl-storage gluster volume when gluster is in use, then writes,
+##   (modules/srvctl/commands/update-install.sh). Writes,
 ##   enables and starts /etc/systemd/system/static-server.service: a
 ##   root-run Node.js fallback file server (server.js) on port 1280,
 ##   serving /var/srvctl3/storage/static/<host-header>/html.
 ##
-##   G4 (gluster removal): the gluster_configure branch is dead at this
-##   commit — the gluster module is hard-disabled, so SC_USE_GLUSTER is
-##   never true — and is slated for deletion.
-##
-
-## FIXME(v4): 'if $SC_USE_GLUSTER' with an unset variable expands to an
-## empty command list = status 0 = true; a stale modules.conf would call
-## the undefined gluster_configure.
-if $SC_USE_GLUSTER
-then
-    gluster_configure srvctl-storage /var/srvctl3/storage
-fi
 
 ## Legacy unit location, superseded by /etc/systemd/system.
 ## TODO remove after upgrade

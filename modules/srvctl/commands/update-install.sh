@@ -106,11 +106,6 @@ fi
 msg "Calling update-install hooks."
 run_hooks update-install-host
 
-if $SC_USE_GUI
-then
-    make_commands_spec
-fi
-
 ## for command completion
 ## bugfix(v4-polish): on a standard install /etc/bash_completion.d/srvctl-completion
 ## is a SYMLINK back to this module's completion.sh (created by init.sh), so the

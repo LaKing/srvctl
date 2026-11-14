@@ -13,8 +13,8 @@
 ## missing, a branded placeholder page (setup_index_html, branding
 ## module) — user-placed content is never overwritten.
 ## FIXME(v4): iterates the cluster-wide container list, so every host
-## seeds docroots for remote containers too — only sensible with shared
-## gluster storage; after G4 (gluster removal) scope to local containers.
+## seeds docroots for remote containers too; the storage is local to the
+## host, so scope it to local containers.
 function regenerate_static_server() {
     local dir
     msg "regenerate static server index files"

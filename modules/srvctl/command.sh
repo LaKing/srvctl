@@ -15,11 +15,6 @@
 ## this is a special command, as it has several ways to be invoked
 
 #### these specs are used in the gui
-## spec //services×start×start a service×start SERVICE
-## spec //services×stop×stop a service×stop SERVICE
-## spec //services×restart×restart a service×restart SERVICE
-## spec //services×status×status of a service×status SERVICE
-## spec //services×kill×kill a service×kill SERVICE
 
 ##
 ##   Default command handler — sourced by run_command (commonlib.sh) only

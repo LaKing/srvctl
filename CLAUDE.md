@@ -16,7 +16,7 @@ lablib.sh          # Color output and utility functions (msg/ntc/err/exif/run/..
 lablib.js          # Node.js counterpart of lablib.sh (msg/ntc/err/get)
 server.js          # Inert root stub ("// there is no spoon."); real servers are in modules/
 version            # Current version string (4.0.0.8)
-modules/           # 37 plugin modules (see below)
+modules/           # 36 plugin modules (see below)
 documentation/     # documentation.md and hints.txt
 update-campaign/   # v4 rework notes and work packages; notes, not shipped code
 checkpoint.sh      # Dev-only version + commit + push helper, NOT a srvctl command (push.sh forwards to it)
@@ -118,7 +118,7 @@ Tests: no CI and no top-level runner. Per-module selftests live in `modules/*/se
 - `/etc/srvctl/` - Static config (JSON and `.conf` files; `clusters.json` is the canonical topology). `debug.conf` is sourced first, before anything else in `init.sh`
 - `/var/srvctl3/host/` - Generated per-host projections of the topology (`host.conf`, `hosts.json`); never edit
 - `/var/srvctl3/datastore/` - Read-write data store (`SC_DATASTORE_RW_DIR` default)
-- `/var/srvctl3/gluster/srvctl-data/` - Read-only cluster datastore (`SC_DATASTORE_RO_DIR` default); `SC_DATASTORE_DIR` starts out pointing here
+- `/var/srvctl3/gluster/srvctl-data/` - `SC_DATASTORE_RO_DIR` default, an empty leftover: the gluster module that provided it is removed, every host uses the read-write directory
 - `/var/srvctl3/share/` - Host-side shared state; `containers/<C>` and `common/` are bind-mounted read-only into each container (`modules/datastore/lib/generators.mjs:158-159`). `lock/` is created by the containers update-install hook but is NOT bind-mounted — its `BindReadOnly` line is commented out (`modules/datastore/lib.js:715`)
 - `/srv/` - Container root filesystems and mounts
 - `~/.srvctl/` - Per-user state: the `modules.conf` cache and `srvctl.log` (`$SC_LOG`)

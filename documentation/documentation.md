@@ -74,7 +74,6 @@ srvctl is a container farm manager for microsite hosting on Fedora servers. It u
     - [SSH Key Management](#ssh-key-management)
     - [SSHPipeRD — SSH Proxy](#sshpiperd--ssh-proxy)
 15. [Storage](#storage)
-    - [GlusterFS](#glusterfs)
     - [NFS](#nfs)
     - [Static File Server](#static-file-server)
     - [FTP — vsftpd](#ftp--vsftpd)
@@ -95,17 +94,16 @@ srvctl is a container farm manager for microsite hosting on Fedora servers. It u
     - [Update and Installation](#update-and-installation)
     - [Regeneration](#regeneration)
     - [Utility Commands](#utility-commands)
-19. [Web GUI](#web-gui)
-20. [Branding](#branding)
-21. [Password Generation](#password-generation)
-22. [Development Tools](#development-tools)
+19. [Branding](#branding)
+20. [Password Generation](#password-generation)
+21. [Development Tools](#development-tools)
     - [checkpoint.sh — Version, Commit and Push](#checkpointsh--version-commit-and-push)
-23. [Configuration Reference](#configuration-reference)
+22. [Configuration Reference](#configuration-reference)
     - [System Directories](#system-directories)
     - [Key Environment Variables](#key-environment-variables)
     - [Configuration Files](#configuration-files)
     - [Cluster Configuration Example](#cluster-configuration-example)
-24. [Command Reference](#command-reference)
+23. [Command Reference](#command-reference)
     - [Container Management](#container-management)
     - [Direct Container Interaction](#direct-container-interaction)
     - [Shorthand Commands](#shorthand-commands)
@@ -116,8 +114,8 @@ srvctl is a container farm manager for microsite hosting on Fedora servers. It u
     - [Datastore Operations](#datastore-operations)
     - [Mail Administration](#mail-administration)
     - [Backup](#backup)
-25. [Inter-Module Dependencies](#inter-module-dependencies)
-26. [Known Issues and Workarounds](#known-issues-and-workarounds)
+24. [Inter-Module Dependencies](#inter-module-dependencies)
+25. [Known Issues and Workarounds](#known-issues-and-workarounds)
 
 ---
 
@@ -128,10 +126,10 @@ srvctl is a modular, plugin-based system that manages a cluster of Fedora server
 The system consists of:
 
 - **A main CLI dispatcher** (`srvctl.sh`) that parses commands and delegates to modules.
-- **37 modules** shipped under `modules/`, providing commands, hooks, and libraries for specific subsystems (containers, networking, certificates, mail, etc.). A host may also drop its own modules into `/root/srvctl-includes/modules`; `srvctl.sh` collects those into `SC_MODULES` ahead of the shipped ones.
+- **36 modules** shipped under `modules/`, providing commands, hooks, and libraries for specific subsystems (containers, networking, certificates, mail, etc.). A host may also drop its own modules into `/root/srvctl-includes/modules`; `srvctl.sh` collects those into `SC_MODULES` ahead of the shipped ones.
 - **A JSON-based datastore** holding one file per entity (containers, users, hosts) under a type directory, written atomically and committed to git as an audit log (`modules/datastore/lib/store.mjs`). Cluster topology is *not* datastore content: the canonical file is `/etc/srvctl/clusters.json`, from which the per-host projections in `/var/srvctl3/host/` are generated.
 - **A hook system** that lets modules extend and intercept lifecycle events, each dispatch running `pre-<name>`, `<name>`, then `post-<name>` (`commonlib.sh`).
-- **A cluster architecture** where hosts communicate over an OpenVPN mesh (`10.15.x.y`), export `/srv` to each other over NFS, and copy `/etc/srvctl/data` and `clusters.json` host-to-host with `rsync` over SSH. GlusterFS was the v3 replication layer and is inert in v4 (see the note under the stack table).
+- **A cluster architecture** where hosts communicate over an OpenVPN mesh (`10.15.x.y`), export `/srv` to each other over NFS, and copy `/etc/srvctl/data` and `clusters.json` host-to-host with `rsync` over SSH.
 
 The technology stack:
 
@@ -145,10 +143,8 @@ The technology stack:
 | Reverse proxy | HAProxy |
 | Mail | Postfix, Perdition, OpenDKIM, saslauthd |
 | DNS | BIND (named) |
-| Storage | NFS (cluster-wide `/srv` export); GlusterFS present but disabled |
+| Storage | NFS (cluster-wide `/srv` export) |
 | Certificates | OpenSSL (internal CA), Let's Encrypt via certbot (public) |
-
-GlusterFS is deliberately switched off in v4: `modules/gluster/module-condition.sh` echoes `false` on every path — the success branch keeps its `echo true` commented out as the record of the kill-switch — so `SC_USE_GLUSTER` is never true, the module's libs are never sourced and its hooks never run. Paths under `/var/srvctl3/gluster/` still appear as defaults elsewhere (notably `SC_DATASTORE_RO_DIR`), but nothing mounts them, so the datastore falls back to the local read-write copy. The module is a deprecation candidate; read the gluster sections below as documentation of dormant code.
 
 ---
 
@@ -162,18 +158,12 @@ A srvctl host that is part of a cluster should have the following partitions:
 
 | Mount Point | Size | Filesystem | Purpose |
 |-------------|------|------------|---------|
-| `/glu/srvctl-data` | 2 GiB | XFS | Certificates, passwords, sensitive data (GlusterFS brick) |
-| `/glu/srvctl-storage` | 500 GiB | XFS | Static file service, FTP (separate drive recommended) |
 | `/var/log` | — | XFS | Log files |
 | `/home` | — | XFS | User home directories |
 | `/srv` | Large, fast SSD | XFS | Container root filesystems |
 
-The two `/glu/*` bricks exist for the `gluster` module, which is inert at this
-version: `modules/gluster/module-condition.sh` echoes `false` even on the
-branch where every check passed (the `#echo true` line is kept as the record of
-the kill-switch). Nothing therefore replicates the bricks or mounts
-`/var/srvctl3/gluster/*`; the datastore stays on its local read-write directory
-`/var/srvctl3/datastore` and `/var/srvctl3/storage` is a plain local directory.
+The datastore lives in the local read-write directory `/var/srvctl3/datastore`, and
+`/var/srvctl3/storage` is a plain local directory.
 
 ### Installation Steps
 
@@ -653,7 +643,7 @@ Provides color constants, logging, messaging, and error handling.
 
 ## Module System
 
-srvctl uses a plugin-based module architecture. 37 modules ship under `$SC_INSTALL_DIR/modules/<name>/`. `srvctl.sh` (lines 69-88) assembles the search list `SC_MODULES` before `init.sh` is sourced: root-supplied custom modules in `/root/srvctl-includes/modules/*` come **first**, then the shipped modules in alphabetical order. Every later loop — condition tests, lib loading, hooks, command lookup — walks `SC_MODULES` in that order, so a custom module shadows a shipped one that offers the same command.
+srvctl uses a plugin-based module architecture. 36 modules ship under `$SC_INSTALL_DIR/modules/<name>/`. `srvctl.sh` (lines 69-88) assembles the search list `SC_MODULES` before `init.sh` is sourced: root-supplied custom modules in `/root/srvctl-includes/modules/*` come **first**, then the shipped modules in alphabetical order. Every later loop — condition tests, lib loading, hooks, command lookup — walks `SC_MODULES` in that order, so a custom module shadows a shipped one that offers the same command.
 
 ### Module Structure
 
@@ -719,8 +709,6 @@ Each module gets a variable `SC_USE_<MODULE_NAME_UPPERCASE>` set to `true` or `f
 | `dns` | DNS scanning and monitoring |
 | `firewalld` | Firewall management |
 | `ftp` | FTP server (vsftpd) |
-| `gluster` | GlusterFS distributed storage — **inert**: `module-condition.sh` always prints `false` |
-| `gui` | Web administration interface |
 | `haproxy` | HTTP/HTTPS reverse proxy |
 | `letsencrypt` | ACME/Let's Encrypt certificate automation |
 | `mariadb` | MariaDB database management |
@@ -786,7 +774,7 @@ ssh "$SC_ROOTCA_HOST" "/bin/srvctl exec-function init_openvpn_create_ca_certific
 ```
 
 The nspawn units call it at every container start (`modules/containers/execstartpre.sh`),
-the openvpn module uses it over ssh to drive the root CA host, and backups, gluster and
+the openvpn module uses it over ssh to drive the root CA host, and backups and
 the static/certificate regenerators expose their entry points the same way. Caveats:
 
 - **Genuine root only**: the branch requires `SC_USER == root` *and* `UID == 0` *and* a non-empty `$OPAS`. Somebody who reached uid 0 through the generated NOPASSWD sudoers entry keeps their own `SC_USER` and is refused.
@@ -832,7 +820,6 @@ sudomize
 | `## @en TEXT` | Mandatory. The one-line hint — only the **first match in the first 10 lines** is read. |
 | `## &en TEXT` | Mandatory. Multi-line help, repeatable, matched anywhere in the file. |
 | `## &&& COMMAND` | Optional. Executed and appended to the hint in `[…]` — on *every* bare `sc`, mistyped command and completion run. |
-| `## spec //cat×name×hint×invocation` | Optional. Read by the gui module out of `/var/local/srvctl/commands.spec`. |
 
 `## @@@` and `## &&&` are searched in the whole file, not only the head — `add-ve.sh`
 depends on that. The translation markers `## @hu` / `## &hu` survive in one file but are
@@ -951,15 +938,13 @@ effect** — edit `containers/<name>.json` instead.
 **RO/RW directory selection.** `hooks/pre-init.sh` fills in the defaults
 `SC_DATASTORE_RW_DIR=/var/srvctl3/datastore`,
 `SC_DATASTORE_RO_DIR=/var/srvctl3/gluster/srvctl-data` and
-`SC_DATASTORE_RO_USE=true`. `hooks/init.sh` clears the read-only flag when the
-gluster module is inactive, or when the gluster mount of the RW directory
-succeeds; `init_datastore()` then points `SC_DATASTORE_DIR` at the selected
-directory and exports it together with `SC_DATASTORE_RO_USE`, which `main.mjs`
-turns into the store's `readOnly` guard. Because the gluster module is
-hard-disabled in v4 (`modules/gluster/module-condition.sh` always echoes false),
-the read-only branch is in practice unreachable and `SC_DATASTORE_DIR` equals the
-local RW directory on every host. Migration and host reconciliation run only when
-the store is writable and the caller is root.
+`SC_DATASTORE_RO_USE=true`. `hooks/init.sh` clears the read-only flag on every host;
+`init_datastore()` then points `SC_DATASTORE_DIR` at the read-write directory and
+exports it together with `SC_DATASTORE_RO_USE`, which `main.mjs` turns into the
+store's `readOnly` guard. The read-only directory was the shared gluster mount of the
+removed `gluster` module; nothing provides one any more, so read-only mode is
+unreachable and its code is a candidate for removal. Migration and host reconciliation
+run only when the store is writable and the caller is root.
 
 Host membership and static fields such as `host_ip`, `hostnet`, interfaces,
 gateways, and DNS roles are always read from `/etc/srvctl/clusters.json`.
@@ -1831,7 +1816,7 @@ out in `haproxy.js`; only the admin sockets `/var/lib/haproxy/stats` and
 
 ### Certificate Authority (CA)
 
-The `ca` module (`libs/calib.sh`) provides a centralized root CA for internal infrastructure. State lives under `SC_ROOTCA_DIR` (default `/etc/srvctl/CA`), with one root CA per *network* name — `hostnet`, `usernet`, `gluster`, ... Issuance happens **only** on the CA host (`SC_ROOTCA_HOST == HOSTNAME`); everywhere else `root_CA_init` and `create_ca_certificate` are silent no-ops, which consumer hooks rely on being non-fatal.
+The `ca` module (`libs/calib.sh`) provides a centralized root CA for internal infrastructure. State lives under `SC_ROOTCA_DIR` (default `/etc/srvctl/CA`), with one root CA per *network* name — `hostnet`, `usernet`, ... Issuance happens **only** on the CA host (`SC_ROOTCA_HOST == HOSTNAME`); everywhere else `root_CA_init` and `create_ca_certificate` are silent no-ops, which consumer hooks rely on being non-fatal.
 
 **Root CA creation (`root_CA_create NET`):**
 - 4096-bit RSA key at `ca/<net>.key.pem`, mode 600.
@@ -1854,7 +1839,7 @@ The `ca` module (`libs/calib.sh`) provides a centralized root CA for internal in
 
 ### Domain Certificates
 
-The `certificates` module handles certificate lifecycle for containers and services. It ships no CLI commands — only libraries plus the `update-install-host` and `regenerate_certificates` hooks consumed by haproxy, containers, gui, postfix, perdition and named.
+The `certificates` module handles certificate lifecycle for containers and services. It ships no CLI commands — only libraries plus the `update-install-host` and `regenerate_certificates` hooks consumed by haproxy, containers, postfix, perdition and named.
 
 **Self-signed certificates (`create_selfsigned_domain_certificate DOMAIN PATH`, `libs/domaincertlib.sh`):**
 - RSA 2048, 3650 days (10 years), CN `$DOMAIN`.
@@ -1867,9 +1852,9 @@ The `certificates` module handles certificate lifecycle for containers and servi
 **`check_pem PEM`** (same lib, called by haproxy): when the pem expires within 7 days it prints subject/issuer/validity and **deletes the file**. It always returns 0 — callers depend on the deletion side effect plus their own `-f` re-check, not on the return value.
 
 **Service certificates (`install_service_hostcertificate PATH`, `libs/servicecertlib.sh`):**
-- Called with `/etc/postfix`, `/etc/perdition` and `/etc/srvctl-gui`; candidate sources are the directories under `/etc/srvctl/cert/`.
+- Called with `/etc/postfix` and `/etc/perdition`; candidate sources are the directories under `/etc/srvctl/cert/`.
 - Discovery priority, first hit wins: `$SC_COMPANY_DOMAIN` > `${HOSTNAME:3}` (hostname with its two-character site prefix stripped) > `$HOSTNAME` > the first glob-ordered subdirectory holding a usable pem+key > a freshly generated self-signed certificate for `$HOSTNAME`.
-- `service_key_pem SRC DOM` (added in 4.0.0.x) accepts either a separate `<dom>.key` or a key **embedded in the combined `<dom>.pem`**, extracted with `openssl pkey` — so a single admin-supplied pem can serve both haproxy and the mail/GUI services.
+- `service_key_pem SRC DOM` (added in 4.0.0.x) accepts either a separate `<dom>.key` or a key **embedded in the combined `<dom>.pem`**, extracted with `openssl pkey` — so a single admin-supplied pem can serve both haproxy and the mail services.
 - Writes `$PATH/crt.pem` (certificate with DH parameters appended), `$PATH/key.pem` and, when the source has one, `$PATH/ca-bundle.pem`; all three `chmod 400`.
 - DH parameters are generated once per source directory and cached as `<src>/dhparam`. They are **1024 bit**, which modern TLS stacks reject; raising the size requires deleting the cached file.
 - When no certificate can be located the function calls a bare `exit`, which inherits status 0 from `err` — the failure is invisible to `update-install` wrappers and cron.
@@ -1966,7 +1951,7 @@ Rules: expired certificates are never installed; among candidates for the same t
 
 To rotate a wildcard: drop the new pem in `/etc/srvctl/cert/<domain>/` and run `srvctl regenerate` — the old copy is pruned automatically. Behaviour is covered by `modules/certificates/selftest/certselect.test.sh`.
 
-Renewals also propagate to the other TLS services: the postfix and perdition `regenerate` hooks re-run `install_service_hostcertificate` before restarting, so `srvctl regenerate` refreshes mail TLS without a full `update-install`. The GUI still picks up its certificate at `update-install` only.
+Renewals also propagate to the other TLS services: the postfix and perdition `regenerate` hooks re-run `install_service_hostcertificate` before restarting, so `srvctl regenerate` refreshes mail TLS without a full `update-install`.
 
 ---
 
@@ -2184,14 +2169,13 @@ The `ssh` module provides centralized SSH key management. Its condition is uncon
 
 **Authorization script (`sshd_authorization.sh`):**
 
-sshd calls it with the login name as `%u`. It `cat`s all four sources unconditionally — there is no precedence, the concatenation *is* the answer, and a missing file is silently skipped:
+sshd calls it with the login name as `%u`. It `cat`s all three sources unconditionally — there is no precedence, the concatenation *is* the answer, and a missing file is silently skipped:
 
 1. Common root keys: `/var/srvctl3/share/common/authorized_keys` — emitted for *every* login name, not just root, so any key placed here can log in as any local account on the host.
-2. Host-to-host keys: `/var/srvctl3/gluster/srvctl-data/users/<user>/*.pub` — dead on every current install: the gluster module is hard-disabled (see [GlusterFS](#glusterfs)) and nothing mounts that path.
-3. User datastore keys: `/var/srvctl3/datastore/users/<user>/*.pub`
-4. Container user keys: `/var/srvctl3/share/containers/<hostname>/users/*/*.pub` — `$HOSTNAME` is the container's own name, so this line only ever matches inside a container.
+2. User datastore keys: `/var/srvctl3/datastore/users/<user>/*.pub`
+3. Container user keys: `/var/srvctl3/share/containers/<hostname>/users/*/*.pub` — `$HOSTNAME` is the container's own name, so this line only ever matches inside a container.
 
-**Key types:** two ECDSA keypairs per user in `$SC_DATASTORE_DIR/users/<user>/` — `id_ecdsa` for user access (also copied into `~/.ssh`) and `srvctl_id_ecdsa` for system use (srvctl-gui, sshpiperd, the reseller-user structure).
+**Key types:** two ECDSA keypairs per user in `$SC_DATASTORE_DIR/users/<user>/` — `id_ecdsa` for user access (also copied into `~/.ssh`) and `srvctl_id_ecdsa` for system use (sshpiperd, the reseller-user structure).
 
 **Regeneration:** the regenerate hook calls `regenerate_ssh_config` (`libs/sshlib.sh`), which deletes stray files literally named `authorized_keys` under `/var/srvctl3/share/containers/*/users/*/` and then runs `ssh.js`. `ssh.js` performs all four of its steps on every invocation: write the `/etc/ssh/ssh_config.d/srvctl-chosts.conf` and `srvctl-containers.conf` drop-ins; `ssh-keyscan` any host or container with no stored `host_key`; render `/var/srvctl3/share/common/known_hosts` and `/var/srvctl3/ssh/known_hosts`; copy every container user's `.pub`/`.hash` files to `/var/srvctl3/share/containers/<C>/users/<U>/`.
 
@@ -2224,34 +2208,6 @@ For example: `john_example.com_root` connects as `root` to the container `exampl
 ---
 
 ## Storage
-
-### GlusterFS
-
-The `gluster` module manages distributed storage across cluster hosts.
-
-> **Hard-disabled at this commit.** The "all checks passed" branch of `modules/gluster/module-condition.sh:59` is `echo false`, with `#echo true` kept commented out directly beneath it as the record of the kill-switch. `SC_USE_GLUSTER` is therefore never true on any host, multi-host or not: the libs are never sourced, the hooks never run, no bricks or volumes are created, `/var/srvctl3/gluster/<datadir>` is never mounted, and gluster certificate renewal never happens. The module is a deprecation candidate for v4 (G4). Everything below describes the *intended* behaviour, for the day that line is flipped back.
-
-**Intended activation:** real (non-container) hosts listed in `/var/srvctl3/host/hosts.json` alongside at least one other host. The single-host rejection at `module-condition.sh:46-50` is live and would still apply.
-
-**Functions:**
-
-| Function | Description |
-|----------|-------------|
-| `gluster_install()` | Installs glusterfs-server, symlinks `/etc/ssl/glusterfs.{ca,pem,key}` onto the `gluster-*.pem` CA material, touches `secure-access`, opens the firewalld service and starts `glusterd` |
-| `gluster_configure(datadir, mountdir)` | Peer-probes every cluster host, then creates and starts the replicated volume (one brick per host, replica count = host count, client and server SSL on) |
-| `gluster_mount_data(datadir, mountdir)` | Ensures the read-only bind mount and the FUSE mount; returns 0 when the FUSE mount is present — and, because its four early error paths `return` right after `err` (which itself succeeds), also when the brick or the TLS material is missing; that return value drives `SC_DATASTORE_RO_USE` |
-| `gluster_reset(datadir)` | Tears down the volume and the local brick — an operator tool, run via `sc exec-function` |
-
-**Volumes:** two, each named after its `datadir`:
-
-| datadir | Brick | Read-only bind mount | FUSE mount |
-|---------|-------|----------------------|------------|
-| `srvctl-data` | `/glu/srvctl-data/brick` | `/var/srvctl3/gluster/srvctl-data` | `$SC_DATASTORE_RW_DIR` (`/var/srvctl3/datastore`) |
-| `srvctl-storage` | `/glu/srvctl-storage/brick` | `/var/srvctl3/gluster/srvctl-storage` | `/var/srvctl3/storage` |
-
-`gluster_configure` is called from the `datastore` and `static` `update-install-host` hooks and `gluster_mount_data` from their `init` hooks; all four call sites sit behind `if $SC_USE_GLUSTER` and are dead at this commit.
-
-**Fallout of the kill-switch:** `modules/datastore/hooks/pre-init.sh:18` still defaults `SC_DATASTORE_RO_DIR` to `/var/srvctl3/gluster/srvctl-data`, a path nothing mounts, and `modules/ssh/sshd_authorization.sh:11` still reads public keys from under it. Both degrade silently — the datastore uses its local read-write directory instead, and that key line simply contributes nothing.
 
 ### NFS
 
@@ -2618,8 +2574,7 @@ pingback to 8.8.8.8 and `d250.hu` from every running container,
 `systemd-cgtop -m -n 1` and the `/srv` permission check (must be `drwxr-x---`)
 from `containers`; a dump of `/var/srvctl3/host/hosts.json` from `datastore`;
 a ping plus `showmount -e` per cluster host from `nfs`. The `haproxy` hook is
-inert — its socat stats queries are all commented out — and the `gluster` hook
-never runs because that module is hard-disabled. The `firewalld` hook repeats
+inert — its socat stats queries are all commented out. The `firewalld` hook repeats
 the firewall section and reuses the `$zone` variable set by the command, so on
 a machine without firewalld it prints `firewall-cmd --zone=` errors.
 
@@ -2662,9 +2617,8 @@ right after the dnf update — none of the steps below run. With an argument:
 5. Sets a default global git identity (`srvctl` / `srvctl@$HOSTNAME`).
 6. `ssh-keyscan` of every cluster host, appended to `~/.ssh/known_hosts` (appended without deduplication, so the file grows on every run).
 7. Runs every module's `update-install-host` hooks — services, firewall rules, branded error pages, the hourly regenerate cron job. The `ntp` module consists of nothing but this hook: it installs `ntpsec`, then enables and starts `ntpd.service`. It never disables Fedora's default `chronyd`, so both time daemons stay enabled and race at the next boot — disable `chronyd` by hand.
-8. Rebuilds `/var/local/srvctl/commands.spec` via `make_commands_spec` when `SC_USE_GUI` is true (it is, on every host).
-9. Installs bash completion to `/etc/bash_completion.d/srvctl-completion`, removing that path first when it is a symlink back into the install dir.
-10. Runs `set_permissions` (`commonlib.sh`) and prints "please reboot".
+8. Installs bash completion to `/etc/bash_completion.d/srvctl-completion`, removing that path first when it is a symlink back into the install dir.
+9. Runs `set_permissions` (`commonlib.sh`) and prints "please reboot".
 
 ### Regeneration
 
@@ -2725,42 +2679,6 @@ run does not trigger `/bin/pop`: that runs only for interactive root calls.
 | `fix-owner` | **Inert.** The help promises a recursive chown to the parent directory's owner, but the single `chown` line in `modules/srvctl/commands/fix-owner.sh` is commented out, so the command does nothing at all. Root only |
 | `fix-sshd` | `chown root:ssh_keys` and `chmod 600` on the three `/etc/ssh/ssh_host_*_key` files, then restarts `sshd.service`. Root only |
 | `ls` | `find . -type f -exec ls -lt {} +` — recursive file listing, newest first |
-
----
-
-## Web GUI
-
-The `gui` module ships a web-based administration interface that **this
-codebase never installs**. The entire body of
-`modules/gui/hooks/update-install-host.sh` is wrapped in `if false`, so the
-systemd unit, the TLS material in `/etc/srvctl-gui`, the npm globals and the
-tcp/250 firewall rule are never written. The daemon only runs on hosts that
-still carry srvctl2-era setup; v4 replaces it with cockpit.
-
-`module-condition.sh` nevertheless reports `true` on every host (`false` only
-inside a container), so `SC_USE_GUI` is true on every host — which keeps the one
-live part of the module running.
-
-**Live part — `libs/spec.sh`:** `make_commands_spec` is called from
-`update-install` under `if $SC_USE_GUI` and writes
-`/var/local/srvctl/commands.spec`, one record per command with four fields
-joined by U+00D7 (`×`): `sourcepath×command×hint×syntax`. Command files whose
-first ten lines contain `root_only` or `## interactive` are skipped.
-
-**Dormant server (`server.js`, port 250):**
-- HTTPS with `requestCert`/`rejectUnauthorized` against the usernet CA (`/etc/srvctl/CA/ca/usernet.crt.pem`); the client certificate CN is the srvctl username.
-- Express + Socket.io, required from the global prefix `/usr/lib/node_modules/`.
-- ssh2 for remote command execution using the user's internal `srvctl_id_ecdsa` key.
-- Reads the datastore JSON files and `/var/local/srvctl/commands.spec` once, at startup.
-- Terminal emulation via the vendored `hterm_all.js`; the `/wetty` static mount is dead, nothing installs that npm package.
-- `SC_DATASTORE_DIR` and `SC_INSTALL_DIR` are hardcoded to `/var/srvctl3/datastore` and `/usr/local/share/srvctl`.
-
-**Frontend (`modules/gui/srvctl-gui/`):** `index.html`, `index.js`, `index.css`,
-`scripts.js`, `styles.css`, `wetty.html`, `wetty.js`, `hterm_all.js`.
-
-**Dependencies:** express, node-pty, socket.io, ssh2 — plus angular,
-angular-ui-bootstrap, angular-sanitize and bootstrap, served statically from
-the global node_modules prefix.
 
 ---
 
@@ -2850,14 +2768,14 @@ in 4.0.0.6 (commit `ba8b0ab`).
 | `/var/srvctl3/host/` | Generated per-host projection of the canonical topology (`host.conf`, `hosts.json`); never edit |
 | `/var/srvctl3/cluster-config/` | Publication state (`cluster-config/publication`) and `retired-generation.sha256`, the receipt written when this host is retired from the cluster |
 | `/var/srvctl3/datastore/` | Read-write data store (`SC_DATASTORE_RW_DIR`) |
-| `/var/srvctl3/gluster/` | Read-only bind mounts of the local GlusterFS bricks; `gluster/srvctl-data` is the default `SC_DATASTORE_RO_DIR` |
+| `/var/srvctl3/gluster/` | Empty leftover of the removed gluster module; `gluster/srvctl-data` is still the default `SC_DATASTORE_RO_DIR`, which nothing uses |
 | `/var/srvctl3/rootfs/` | Container rootfs templates |
 | `/var/srvctl3/mounts/` | Container mounts |
 | `/var/srvctl3/share/` | Shared data (per-container user dirs, common keys) |
 | `/var/srvctl3/ssh/` | Host-side `known_hosts`, generated by `modules/ssh/ssh.js` (`make_host_keys`) and pointed at by the `UserKnownHostsFile` lines of the `/etc/ssh/ssh_config.d` drop-ins it writes. The separate `mkdir` at `modules/srvctl/commands/update-install.sh:93` is redundant — the ssh module creates the directory itself — and the stale comment beside it does not mean the directory is unused |
-| `/var/srvctl3/storage/` | Static file storage — a plain local directory at this version; it is the `srvctl-storage` gluster volume only in the dormant gluster design |
+| `/var/srvctl3/storage/` | Static file storage, a plain local directory |
 | `/var/srvctl3/nfs/` | NFS mounts from cluster hosts |
-| `/var/local/srvctl/` | Legacy module-state fallback, `commands.spec`, shell-completion word lists |
+| `/var/local/srvctl/` | Legacy module-state fallback, shell-completion word lists |
 | `$SC_HOME/.srvctl/` | Per-user state (root included): `modules.conf` cache, `srvctl.log`, `srvctl-includes.bak/` |
 | `/srv/` | Container root directories |
 | `/var/haproxy/` | HAProxy certificates |
@@ -2867,8 +2785,6 @@ in 4.0.0.6 (commit `ba8b0ab`).
 | `/var/acme/` | ACME challenge files |
 | `/var/sshpiper/` | SSHPipeRD user mapping |
 | `/var/dyndns/` | Dynamic DNS update files |
-| `/glu/srvctl-data/brick` | GlusterFS brick for the `srvctl-data` volume (sensitive data) |
-| `/glu/srvctl-storage/brick` | GlusterFS brick for the `srvctl-storage` volume (bulk storage) |
 
 ### Key Environment Variables
 
@@ -2896,11 +2812,11 @@ in 4.0.0.6 (commit `ba8b0ab`).
 | `SC_ROOTCA_SUBJ` | Root CA certificate subject (defaults to `/C=HU/ST=Hungary/L=Budapest/O=SRVCTL-CA`) |
 | `SC_ROOTFS_DIR` | Container rootfs templates directory (defaults to `/var/srvctl3/rootfs`) |
 | `SC_MOUNTS_DIR` | Container mounts directory (defaults to `/var/srvctl3/mounts`) |
-| `SC_DATASTORE_RO_DIR` | Read-only datastore (defaults to `/var/srvctl3/gluster/srvctl-data`) |
+| `SC_DATASTORE_RO_DIR` | Read-only datastore (defaults to `/var/srvctl3/gluster/srvctl-data`); unused since the gluster module was removed |
 | `SC_DATASTORE_RW_DIR` | Read-write datastore (defaults to `/var/srvctl3/datastore`) |
 | `SC_DATASTORE_DIR` | Whichever of the two `init_datastore` selected for this invocation |
 | `SC_DATASTORE_SEED_DIR` | Fresh-install seed directory (defaults to `/etc/srvctl/data`) — what `grab_data` pulls and `publish_data` distributes, minus every `clusters*.json` |
-| `SC_DATASTORE_RO_USE` | `true` while the store must be treated as read-only. Defaulted to `true` in `datastore/hooks/pre-init.sh` and cleared by `hooks/init.sh` wherever gluster is inactive; exported to `main.mjs` as the store's `readOnly` guard |
+| `SC_DATASTORE_RO_USE` | `true` while the store must be treated as read-only. Defaulted to `true` in `datastore/hooks/pre-init.sh` and cleared by `hooks/init.sh` on every host; exported to `main.mjs` as the store's `readOnly` guard |
 | `SC_ADMIN_CERT_DIR` | Admin-installed certificate root scanned for wildcards by `sync_haproxy_certificates` (defaults to `/etc/srvctl/cert`) |
 | `SC_CLUSTER_CONFIG_LOCK_FILE` | Lock guarding reads and writes of the canonical topology and its projections (defaults to `/run/srvctl-cluster-config.lock`) |
 | `SC_CLUSTER_PUBLICATION_LOCK_FILE` | Exclusive lock shared by `initialize_cluster_publication`, `retire_cluster_host` and `publish_data` (defaults to `/run/srvctl-cluster-publication.lock`) |
@@ -2935,7 +2851,6 @@ in 4.0.0.6 (commit `ba8b0ab`).
 | `$SC_DATASTORE_RW_DIR/{containers,users,hosts}.json` | JSON | v3 monolithic store. Read only as a fallback *before* the marker exists, archived to `.monolithic-backup/` by the migration, and never written by v4 |
 | `$SC_HOME/.srvctl/modules.conf` | Bash | Module enable/disable cache, per user and including root (`/root/.srvctl/modules.conf`). Keyed to the topology by a first line `export SC_MODULES_CLUSTERS_SHA256=<sha256>`; rebuilt when missing, when that generation differs, or on `update-install` / `test-modules` |
 | `/var/local/srvctl/modules.conf` | Bash | Legacy module-state cache, kept as a fallback. Sourced only when its generation matches, and always *before* the file above, so anything hand-edited here is overridden a few lines later; `commonlib.sh:611` still carries the commented-out line that used to make it authoritative for root |
-| `/var/local/srvctl/commands.spec` | Text | `×`-separated command list rebuilt by `make_commands_spec` (modules/gui/libs/spec.sh) on every `update-install`, read by the GUI server — which is itself dormant, nothing installs the daemon |
 
 ### Cluster Configuration Example
 
@@ -3193,7 +3108,7 @@ code does not do it.
 
 The dependency the code actually encodes is **activation**: a module's
 `module-condition.sh` sources another module's condition to decide whether it is
-enabled. The tree below is that graph and covers all 37 shipped modules.
+enabled. The tree below is that graph and covers all 36 shipped modules.
 `Wildcards` and `Error Pages` are not modules — wildcard certificates live in
 `certificates/libs/wildcardcertlib.sh`, the error pages in `modules/branding/html/`.
 
@@ -3204,9 +3119,6 @@ always enabled (module-condition.sh is "echo true")
 own condition
     firewalld    true inside a container; on a host when listed in hosts.json,
                  and on the `update-install <host>` bootstrap path
-    gluster      never: the "all checks passed" branch of module-condition.sh is
-                 `echo false`, with `#echo true` kept commented out beneath it
-    gui          host only (false inside a container)
     named        only when SC_DNS_SERVER is 'master' or 'slave'
 
 containers (host side: not inside a container, topology known)
@@ -3236,11 +3148,10 @@ Runtime coupling is a separate graph, and part of it runs the other way round:
 | Consumer | Provider | Mechanism |
 |----------|----------|-----------|
 | `haproxy` | `certificates`, `letsencrypt` | `haproxy/hooks/regenerate.sh:15` calls `run_hook regenerate_certificates`; both modules implement that hook |
-| `postfix`, `perdition`, `gui` | `certificates` | `certificates/libs/servicecertlib.sh` installs the service PEM into `/etc/postfix`, perdition and so on |
+| `postfix`, `perdition` | `certificates` | `certificates/libs/servicecertlib.sh` installs the service PEM into `/etc/postfix`, perdition and so on |
 | `openvpn`, `certificates` | `ca` | host and domain certificates are signed by the cluster CA |
 | `postfix`, `perdition` | `saslauthd` | SMTP and IMAP authentication is delegated to `saslauthd` (`MECH=rimap`) |
 | `postfix` | `opendkim` | outgoing mail is signed through the OpenDKIM milter |
-| `datastore` | `gluster` | `datastore/hooks/init.sh` mounts the `srvctl-data` volume onto `$SC_DATASTORE_RW_DIR` when `SC_USE_GLUSTER` is true; with gluster inert the hook simply clears `SC_DATASTORE_RO_USE` and the store uses the local read-write directory — read-only mode survives only a *failed* gluster mount |
 | `sshpiperd` | `datastore` | `mount_sshpiper` bind-mounts a read-only view of the datastore users directory at `/var/sshpiper`, where the daemon reads each user's `*.pub` |
 | `dns` | `named` | `dns/dns-scan.js` resolves every container domain against 8.8.8.8 and writes the result into `containers.json`; `named` is what publishes those zones on master/slave hosts |
 
