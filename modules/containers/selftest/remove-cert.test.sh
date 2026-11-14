@@ -17,6 +17,7 @@ for command in remove-ve destroy-ve; do
         msg() { :; }
         err() { :; }
         remove_container_tree() { :; }
+        run_hook() { :; }
         get() { echo true; }
         container_limits_dropin() { echo "$TMP/dropin"; }
         backup_ve() { :; }

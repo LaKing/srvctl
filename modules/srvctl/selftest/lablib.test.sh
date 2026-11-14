@@ -23,6 +23,8 @@ ok() {
 box="$(mktemp -d)"
 trap 'rm -rf "$box"' EXIT
 SC_LOG="$box/log"
+NOW=now
+SC_USER=tester
 # shellcheck source=/dev/null
 source "$REPO/lablib.sh"
 err() { :; }
@@ -55,6 +57,35 @@ ok "and leaves the last good content" "$(tail -1 "$f")" "10.1.2.3 b.example"
 write_output "$f" slow
 ok "a reader never sees the file empty while it is generated" "$(cat "$box/seen-meanwhile")" $'127.0.0.1 localhost\n10.1.2.3 b.example'
 ok "no temporary file is left behind" "$(find "$box" -name 'hosts.*' | wc -l)" 0
+
+# prune
+SC_MOUNTINFO="$box/mountinfo"
+: > "$SC_MOUNTINFO"
+ntc() { :; }
+mkdir -p "$box/left/dir/sub" "$box/keep"
+echo data > "$box/keep/data"
+echo x > "$box/left/file"
+ln -s "$box/keep" "$box/left/link"
+
+prune "$box/left/file" "$box/left/dir" "$box/left/link" "$box/left/missing"
+ok "prune removes files, trees and links" "$(find "$box/left" -mindepth 1 | wc -l)" 0
+ok "prune removes a link, not what it points to" "$(cat "$box/keep/data")" data
+ok "prune writes each removal to the log" "$(grep -c ' prune ' "$SC_LOG")" 3
+
+mkdir -p "$box/mounted/share"
+echo "36 25 0:32 / $box/mounted/share rw - xfs /dev/md0 rw" > "$SC_MOUNTINFO"
+prune "$box/mounted"
+ok "prune refuses a tree with a mount in it" "$([[ -d $box/mounted/share ]] && echo kept)" kept
+prune "$box/mounted/share"
+ok "prune refuses a mount point" "$([[ -d $box/mounted/share ]] && echo kept)" kept
+: > "$SC_MOUNTINFO"
+
+mkdir -p "$box/a/b"
+(cd "$box" && prune "a/b"; prune "$box/a/../a/b"; prune "$box/a/b/"; prune "/")
+ok "prune refuses relative paths, '..', a trailing slash and /" "$([[ -d $box/a/b ]] && echo kept)" kept
+
+SC_PRUNE_DRY_RUN=true prune "$box/a/b"
+ok "a dry run removes nothing" "$([[ -d $box/a/b ]] && echo kept)" kept
 
 echo ""
 echo "lablib.test: $pass passed, $fail failed"

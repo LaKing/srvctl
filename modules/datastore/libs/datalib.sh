@@ -1028,7 +1028,6 @@ function init_datastore_install() {
     [[ -d "$SC_DATASTORE_RW_DIR/containers" ]] && sc_pre_containers_dir=true
 
     ## srvctl3 database is static in /etc/srvctl/data, shared in the RW folder
-    mkdir -p "$SC_DATASTORE_RO_DIR"
     mkdir -p "$SC_DATASTORE_RW_DIR"
     mkdir -p "$SC_DATASTORE_SEED_DIR"
 

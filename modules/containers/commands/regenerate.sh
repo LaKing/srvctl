@@ -19,10 +19,11 @@ hs_only
 ##   configuration from the datastore.
 ##
 ##   Three modes:
-##     (no arg)    run_hook regenerate — every enabled module rewrites its
-##                 config files; this module's hooks/regenerate.sh checks
-##                 /srv dirs vs the database, ownership, /etc/hosts and
-##                 the inotify sysctl
+##     (no arg)    run_hook prune, then run_hook regenerate — every enabled
+##                 module removes its leftovers and rewrites its config
+##                 files; this module's hooks/regenerate.sh checks /srv dirs
+##                 vs the database, ownership, /etc/hosts and the inotify
+##                 sysctl
 ##     all-hosts   regenerate_all_hosts — same, plus 'srvctl regenerate'
 ##                 over ssh on every current-cluster host and every global
 ##                 DNS authority, in publication order
@@ -51,6 +52,9 @@ if [[ $ARG == all-hosts ]]
 then
     regenerate_all_hosts || regenerate_status=$?
 else
+    ## Leftovers go first: a failing regenerate hook ends the run, and the
+    ## clean-up must not depend on every module being healthy.
+    run_hook prune
     run_hook regenerate || regenerate_status=$?
 fi
 

@@ -137,6 +137,49 @@ function write_output { ## FILE COMMAND [ARG...]
     mv -f "$tmp" "$file"
 }
 
+## TEST SEAM for the selftests, not supported configuration.
+: "${SC_MOUNTINFO:=/proc/self/mountinfo}"
+
+## Print every mount point at or below DIR, deepest first.
+function mounts_in { ## DIR
+    awk -v dir="$1" '$5 == dir || index($5, dir "/") == 1 { print $5 }' "$SC_MOUNTINFO" | sort -r
+}
+
+## Remove leftovers: paths srvctl once created on this host that nothing owns
+## any more (a removed container's unit link, a removed module's files). The
+## modules call this from their prune hook; the caller decides WHAT is a
+## leftover, this function only removes it safely:
+## - every removal is announced and written to the log;
+## - a path with a mount at or below it is refused, because 'rm -r' through a
+##   live mount deletes the mounted data (a user's share, a comount);
+## - a path shallower than /a/b, or holding '..', is refused;
+## - with SC_PRUNE_DRY_RUN=true nothing is removed, the leftovers are listed.
+function prune { ## PATH...
+    local path
+    for path in "$@"
+    do
+        [[ -e $path || -L $path ]] || continue
+        if [[ $path != /*/* ]] || [[ $path == */ ]] || [[ $path == *..* ]]
+        then
+            err "Refusing to prune '$path'"
+            continue
+        fi
+        if [[ ! -L $path ]] && [[ -n $(mounts_in "$path") ]]
+        then
+            err "Leftover $path is not removed: something is mounted in it"
+            continue
+        fi
+        if [[ ${SC_PRUNE_DRY_RUN:-false} == true ]]
+        then
+            ntc "Leftover (dry run, not removed): $path"
+            continue
+        fi
+        ntc "Removing leftover $path"
+        logs "prune $path"
+        rm -rf --one-file-system -- "$path"
+    done
+}
+
 ## echo a shell-prompt-style line, then execute the arguments as a command.
 ## Returns the command's exit code. Word-splitting of $* is intentional
 ## (callers pass whole command lines); arguments with spaces cannot be used.

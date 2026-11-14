@@ -47,7 +47,7 @@ conf/                 # Configuration templates (only containers, perdition,
 `/root/srvctl-includes/modules/*` first, then the shipped `modules/*`. That order
 decides hook and command precedence.
 
-Hook basenames actually shipped: `pre-init`, `init`, `post-init`, `regenerate`,
+Hook basenames actually shipped: `pre-init`, `init`, `post-init`, `prune`, `regenerate`,
 `regenerate_certificates`, `regenerate_rootfs`, `update-install-host`,
 `pre-update-install-host`, `update-install-ve`, `firewalld`, `diagnose`,
 `adjust-service`, `mkrootfs_fedora`, `add_ve_codepad`, `version`. Several dispatch

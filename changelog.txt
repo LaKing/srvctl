@@ -8,6 +8,22 @@ notable operational changes are listed here.
 Unreleased (v4, in progress on top of 4.0.0.8)
 ----------------------------------------------
 
+Prune: regenerate removes leftovers (2026-11-14)
+  * New hook 'prune', run before the regenerate hooks of every regenerate and
+    at the end of remove-ve / destroy-ve. Each module removes its own
+    leftovers in hooks/prune.sh through the new lablib function
+    'prune PATH...' (announces and logs every removal, refuses a path with a
+    mount in it, SC_PRUNE_DRY_RUN=true only lists).
+  * srvctl/libs/retiredlib.sh lists what removed modules left on hosts; the
+    gluster and gui leftovers (srvctl-gui.service, /etc/srvctl-gui,
+    commands.spec, the empty /var/srvctl3/gluster) are its first entries.
+    init_datastore no longer creates the read-only datastore directory.
+  * containers/libs/prunelib.sh removes the boot link, the unit drop-in
+    directory and the share directory of a container that has neither a
+    record nor a /srv directory, and clears the failed state of its unit. A
+    dry run on the hosts found 288 such share directories on bp, 224 on r2,
+    13 on p2.
+
 Removed the gluster and gui modules (2026-11-14)
   * modules/gluster: its module-condition printed false on every path, so
     nothing of it ever ran. Its call sites in the datastore and static hooks
@@ -18,9 +34,8 @@ Removed the gluster and gui modules (2026-11-14)
     the '## spec //' markers in the two command.sh files.
   * sshd_authorization.sh no longer reads public keys from the gluster path
     (empty on every host).
-  * Leftovers on hosts, not touched by srvctl: /etc/systemd/system/
-    srvctl-gui.service, /var/local/srvctl/commands.spec, the empty
-    /var/srvctl3/gluster directory.
+  * What the two modules left on the hosts is removed by the prune hook
+    (entry above).
 
 Module walk, first fixes (2026-11-14)
   * remove-ve and destroy-ve no longer delete /srv/C while something is still

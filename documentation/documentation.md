@@ -875,9 +875,10 @@ A hook name is only a dispatch point: firing a name that no enabled module imple
 | `pre-init-$CMD` | First hook of every run, *before* `pre-init` (`init.sh:304`) — no shipped module implements it |
 | `pre-init` | Before initialization, before module libs are loaded (branding, ca, containers, openvpn, datastore, ve) |
 | `init` | During initialization, after `load_libs` (datastore, mariadb, static) |
-| `post-init` | After initialization (branding, ca, containers, srvctl) |
+| `post-init` | After initialization (branding, ca, containers) |
 | `post-init-$CMD` | Last init hook, *after* `post-init` (`init.sh:327`) — no shipped module implements it |
 | `regenerate` | During configuration regeneration (15 modules); also fired by `add-ve`, `add-network-ve`, `add-ve-user` and `add-codepad` |
+| `prune` | Before the `regenerate` hooks of every regenerate, and at the end of `remove-ve` / `destroy-ve`: each module removes its own leftovers (containers, srvctl) |
 | `regenerate_rootfs` | When rebuilding base container images (`srvctl regenerate rootfs`) |
 | `regenerate_certificates` | After a certificate change (certificates, letsencrypt); fired by the haproxy `regenerate` hook (`modules/haproxy/hooks/regenerate.sh:15`) and by the haproxy `http-redirect` / `https-redirect` commands |
 | `update-install-host` | During `srvctl update-install` on host |
@@ -2629,8 +2630,8 @@ rewrites generated configuration from the datastore. Only the two literals
 through to the plain single-host regenerate, so `srvctl regenerate all` does
 **not** touch the cluster.
 
-**No argument:** runs `run_hook regenerate`, i.e. the `regenerate` hook of every
-enabled module:
+**No argument:** runs `run_hook prune`, then `run_hook regenerate`, i.e. the
+`regenerate` hook of every enabled module:
 
 | Module | Hook does |
 |--------|-----------|
@@ -2649,6 +2650,21 @@ enabled module:
 | `static` | Creates missing per-container docroots under `/var/srvctl3/storage/static/` |
 | `usersonhost` | `userscfg` — system accounts, passwords, ssh keys, client certificates, per-container bindfs mounts |
 | `codepad` | Republishes user credential files into `/var/srvctl3/share/containers/<C>/users/<u>/` |
+
+**Leftovers (`prune` hook).** Regenerate is also what cleans a host: whatever
+srvctl created and nothing owns any more is removed, so a removal never needs a
+manual step on the hosts. Each module does this for its own artifacts in
+`hooks/prune.sh`, through the `prune PATH...` function of `lablib.sh`, which
+announces and logs every removal, refuses a path with a mount at or below it,
+and only lists the leftovers when `SC_PRUNE_DRY_RUN=true`. The hook runs before
+the `regenerate` hooks, so a failing module cannot keep the clean-up from
+running, and again at the end of `remove-ve` / `destroy-ve`. A prune hook ends
+with `return 0`.
+
+| Module | Prune hook removes |
+|--------|--------------------|
+| `srvctl` | What removed modules left behind, from the lists in `libs/retiredlib.sh` (units, paths, empty directories). Deleting a module from the repository means adding its host-side artifacts there in the same change |
+| `containers` | For a container with neither a datastore record nor a `/srv/<C>` directory: the boot link in `machines.target.wants`, the unit drop-in directory, the share directory `/var/srvctl3/share/containers/<C>`, and the failed state of its unit |
 
 **With `rootfs`:** `cd /root`, then `run_hook regenerate_rootfs` — rebuilds the
 container base images under `/var/srvctl3/rootfs` (`containers` and `codepad`

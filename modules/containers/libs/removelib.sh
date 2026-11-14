@@ -11,14 +11,6 @@
 ##   stopped and nothing is mounted below it any more.
 ##
 
-## TEST SEAM for the selftest, not supported configuration.
-: "${SC_MOUNTINFO:=/proc/self/mountinfo}"
-
-## Print every mount point below DIR, deepest first.
-function mounts_below { ## DIR
-    awk -v prefix="$1/" 'index($5, prefix) == 1 { print $5 }' "$SC_MOUNTINFO" | sort -r
-}
-
 ## Stop container C and delete DIR (its /srv/C). Returns non-zero, with the
 ## tree left in place, when something stays mounted below it.
 function remove_container_tree { ## C DIR
@@ -40,9 +32,9 @@ function remove_container_tree { ## C DIR
     while read -r -u 3 mp
     do
         run umount "$mp"
-    done 3< <(mounts_below "$dir")
+    done 3< <(mounts_in "$dir")
 
-    left="$(mounts_below "$dir")"
+    left="$(mounts_in "$dir")"
     if [[ -n $left ]]
     then
         err "$C is not removed: still mounted below $dir:"

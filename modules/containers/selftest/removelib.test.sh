@@ -25,6 +25,9 @@ ok() {
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 SC_MOUNTINFO="$tmp/mountinfo"
+SC_LOG="$tmp/log"
+# shellcheck source=/dev/null
+source "$REPO/lablib.sh"
 SC_REMOVE_RETRY_SLEEP=0
 declare -a CALLS=()
 UMOUNT_WORKS=true
