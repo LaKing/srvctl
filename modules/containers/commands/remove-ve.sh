@@ -22,8 +22,8 @@ hs_only
 ##   Step order: unhook the unit from machines.target, stop a legacy v2
 ##   unit if present, backup_ve (aborts the command on rsync failure —
 ##   this is the point of no return), then datastore delete, static
-##   storage and /home mounts cleanup, machine terminate/kill, and the
-##   /srv/$C removal retry loop.
+##   storage and /home mounts cleanup, then unit stop and /srv/$C
+##   removal (remove_container_tree, libs/removelib.sh).
 ##
 
 argument container
@@ -81,26 +81,12 @@ do
     fi
 done
 
-run sleep 3
-
-## TODO check if it is running
-if run machinectl status "$C" 2> /dev/null
+## Stops the unit, refuses while anything is mounted below /srv/$C (comount
+## storage is shared with other containers), then deletes the tree.
+if ! remove_container_tree "$C" "/srv/$C"
 then
-    run machinectl terminate "$C"
-    run machinectl kill "$C"
+    err "$C: the record is deleted, the files in /srv/$C are not. Unmount what is listed above, then run: rm -rf --one-file-system /srv/$C"
+    return 1
 fi
-
-## FIXME(v4): unbounded loop — a busy or stale mount inside /srv/$C
-## retries forever at 3s intervals, and rm -fr may descend into
-## still-mounted data; bound the retries and umount first.
-while [[ -d /srv/$C ]]
-do
-    rm -fr "/srv/$C"
-    if [[ -d /srv/$C ]]
-    then
-        ntc "$C has still a folder ..."
-        sleep 3
-    fi
-done
 
 msg "$C destroyed."

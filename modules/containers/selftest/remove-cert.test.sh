@@ -15,6 +15,8 @@ for command in remove-ve destroy-ve; do
         authorize() { :; }
         owner_only() { :; }
         msg() { :; }
+        err() { :; }
+        remove_container_tree() { :; }
         get() { echo true; }
         container_limits_dropin() { echo "$TMP/dropin"; }
         backup_ve() { :; }

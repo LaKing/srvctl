@@ -287,7 +287,7 @@ function regenerate_all_hosts() {
 function regenerate_etc_hosts() {
     msg "regenerate /etc/hosts"
     ## /etc/hosts is fully generated — manual entries do not survive
-    get cluster etc_hosts > /etc/hosts
+    write_output /etc/hosts get cluster etc_hosts
 }
 
 

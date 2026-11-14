@@ -23,12 +23,12 @@ hs_only
 ##        (re-importable) rather than a half-deleted live container
 ##     3. remove the static-storage tree and force-umount + remove every
 ##        /home/<user>/$C mount (NFS-stale-handle safety, see link below)
-##     4. terminate/kill the machine if still registered, then remove
-##        /srv/$C in a retry loop (mounts inside may need several passes)
+##     4. stop the unit and remove /srv/$C, refusing while anything is
+##        still mounted below it (remove_container_tree, libs/removelib.sh)
 ##
 ##   Safety assumptions: caller is the owner/reseller (sudomize above) or
 ##   root; the container name is a valid datastore record (checked at the
-##   top); nothing else mounts into /srv/$C while this runs.
+##   top).
 ##
 
 argument container
@@ -83,27 +83,13 @@ do
     fi
 done
 
-run sleep 3
-
-## TODO check if it is running
-if run machinectl status "$C" 2> /dev/null
+## Stops the unit, refuses while anything is mounted below /srv/$C (comount
+## storage is shared with other containers), then deletes the tree.
+if ! remove_container_tree "$C" "/srv/$C"
 then
-    run machinectl terminate "$C"
-    run machinectl kill "$C"
+    err "$C: the record is deleted, the files in /srv/$C are not. Unmount what is listed above, then run: rm -rf --one-file-system /srv/$C"
+    return 1
 fi
-
-## FIXME(v4): unbounded loop — a busy or stale mount inside /srv/$C
-## retries forever at 3s intervals, and rm -fr may descend into
-## still-mounted data; bound the retries and umount first.
-while [[ -d /srv/$C ]]
-do
-    rm -fr "/srv/$C"
-    if [[ -d /srv/$C ]]
-    then
-        ntc "$C has still a folder ..."
-        sleep 3
-    fi
-done
 
 msg "$C destroyed."
 ## sourced context: leave the (now possibly deleted) cwd

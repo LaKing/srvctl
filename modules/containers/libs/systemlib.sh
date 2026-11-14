@@ -46,7 +46,7 @@ function create_nspawn_container_config() { ## Container
     msg "Create nspawn container config for $C"
 
     ## create the nspawn file
-    get container "$C" nspawn > "/srv/$C/$C.nspawn"
+    write_output "/srv/$C/$C.nspawn" get container "$C" nspawn
 
     create_nspawn_container_settings "$C"
 
@@ -82,7 +82,7 @@ EOF
 
     fi
     
-    get container "$C" hosts > "/srv/$C/hosts"
+    write_output "/srv/$C/hosts" get container "$C" hosts
 
     ## TODO implement with hooks
     ## add codepad

@@ -102,6 +102,41 @@ function err {
     echo -e "${BLUE}[ ${HOSTNAME%%.*} ] ${RED}$*${CLEAR}" >&2
 }
 
+## Fill FILE with the stdout of a command, for generated files that a daemon
+## or the resolver reads. 'cmd > FILE' empties the file before cmd has printed
+## anything and leaves it empty when cmd fails (an empty /etc/hosts, an empty
+## postfix relay map). Here the output goes to a temporary file beside FILE and
+## replaces it by rename, only when the command succeeded and printed
+## something; an unchanged FILE is not touched. FILE keeps its mode, owner and
+## SELinux label. Not for output that may legitimately be empty.
+function write_output { ## FILE COMMAND [ARG...]
+    local file="$1" tmp rc
+    shift
+    tmp="$(mktemp "$file.XXXXXX")" || return 1
+    "$@" > "$tmp"
+    rc=$?
+    if [[ $rc != 0 ]] || [[ ! -s $tmp ]]
+    then
+        rm -f "$tmp"
+        err "$file is left as it was: '$*' failed (exit $rc) or printed nothing"
+        return 1
+    fi
+    if [[ -f $file ]] && cmp -s "$tmp" "$file"
+    then
+        rm -f "$tmp"
+        return 0
+    fi
+    if [[ -e $file ]]
+    then
+        chmod --reference="$file" "$tmp"
+        chown --reference="$file" "$tmp"
+        chcon --reference="$file" "$tmp" 2> /dev/null
+    else
+        chmod 644 "$tmp"
+    fi
+    mv -f "$tmp" "$file"
+}
+
 ## echo a shell-prompt-style line, then execute the arguments as a command.
 ## Returns the command's exit code. Word-splitting of $* is intentional
 ## (callers pass whole command lines); arguments with spaces cannot be used.

@@ -8,6 +8,27 @@ notable operational changes are listed here.
 Unreleased (v4, in progress on top of 4.0.0.8)
 ----------------------------------------------
 
+Module walk, first fixes (2026-11-14)
+  * remove-ve and destroy-ve no longer delete /srv/C while something is still
+    mounted below it. They used to run 'rm -fr' right after an asynchronous
+    'machinectl terminate', so a comount bind mount (storage shared with other
+    containers, same filesystem) could still be live and its data deleted. The
+    new remove_container_tree (containers/libs/removelib.sh) stops the unit,
+    unmounts what is left, refuses when a mount stays, and retries a bounded
+    number of times.
+  * acme-server.js (http-01 responder behind haproxy on port 80) matches the
+    request against the token grammar before building a path; it used to
+    append the raw URL tail to its directory. Invalid requests get 404 and are
+    no longer echoed.
+  * New lablib function write_output FILE COMMAND...: a generated file is
+    replaced by rename only when the command succeeded and printed something.
+    Used for /etc/hosts, /etc/postfix/relaydomains, /srv/C/C.nspawn and
+    /srv/C/hosts, which 'get ... > FILE' emptied before the read and left
+    empty when it failed.
+  * Removed modules/srvctl/hooks/post-init.sh: it logged every invocation as
+    'srvctl.sh post-init' (the hook name) next to the correct line init.sh
+    already writes.
+
 Datastore list verb (2026-11-14)
   * New library verb `list container|user|host [FIELD...]`: every record with
     the requested fields in one node process, one tab-separated line per

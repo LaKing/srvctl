@@ -7,8 +7,7 @@
  * port-80 requests whose path begins with /.well-known/acme-challenge/ to
  * 127.0.0.1:1028 (haproxy.js backend "letsencrypt"); certbot --webroot
  * writes the token files under /var/acme/.well-known/acme-challenge/ and
- * this server plays them back. Any other URL gets a plain-text
- * "INVALID URL" reply (always HTTP 200).
+ * this server plays them back. Anything else gets 404.
  *
  * The port number and the challenge path prefix are shared API with the
  * haproxy module — never change one without the other. Kept by the DNS-01
@@ -17,45 +16,47 @@
  * and for the optional http-01 fallback.
  */
 
-// Load modules to create a http server.
 var http = require("http");
-var fs = require('fs');
+var fs = require("fs");
+var path = require("path");
 
-// Configure our HTTP server to respond with a file-read to all requests on the acme URL.
-var http_server = http.createServer(function(req, res) {
-    res.writeHead(200, {
-        "Content-Type": "text/plain"
-    });
-    if (req.url.substring(0, 28) == "/.well-known/acme-challenge/" && req.url.length > 28) {
+var CHALLENGE_DIR = "/var/acme/.well-known/acme-challenge";
+var CHALLENGE_PREFIX = "/.well-known/acme-challenge/";
+// An http-01 token is base64url (RFC 8555 8.3). The raw req.url is tested, not
+// a decoded one, so '/', '..', '%2F', a query string and a dot all fail the same
+// way and no path outside the directory can be built: the internet reaches this
+// through haproxy on port 80.
+var CHALLENGE_TOKEN = /^[A-Za-z0-9_-]{1,256}$/;
 
-        var ch = req.url.substring(28);
-        var file = '/var/acme/.well-known/acme-challenge/' + ch;
+function challengeFile(challengeDir, requestUrl) {
+    if (requestUrl.substring(0, CHALLENGE_PREFIX.length) !== CHALLENGE_PREFIX) return null;
+    var token = requestUrl.substring(CHALLENGE_PREFIX.length);
+    if (!CHALLENGE_TOKEN.test(token)) return null;
+    return path.join(challengeDir, token);
+}
 
-        // FIXME(v4): fs.R_OK is a long-deprecated alias of fs.constants.R_OK;
-        // on Node versions where it is undefined, fs.access degrades to an
-        // F_OK existence check, so an existing-but-unreadable file falls
-        // through to readFile and answers "INVALID DATA" instead of the
-        // intended "CANNOT READ" branch.
-        fs.access(file, fs.R_OK, function(err) {
-            if (!err) {
-                fs.readFile(file, function(err, data) {
-                    if (err) return res.end("INVALID DATA");
-                    var content = data.toString();
-                    console.log("CONTENT: " + content);
-                    res.end(content);
-                });
-            } else {
-                console.log("CANNOT READ: " + ch);
-                res.end("CANNOT READ: " + ch);
-            }
+// One answer for a refused name and a missing token, without echoing the request.
+function notFound(res) {
+    res.writeHead(404, { "Content-Type": "text/plain" });
+    res.end("NOT FOUND\n");
+}
 
+function createHttpServer(challengeDir) {
+    return http.createServer(function(req, res) {
+        var file = challengeFile(challengeDir, req.url);
+        if (file === null) return notFound(res);
+        fs.readFile(file, function(err, data) {
+            if (err) return notFound(res);
+            res.writeHead(200, { "Content-Type": "text/plain" });
+            res.end(data);
         });
+    });
+}
 
-    } else {
-        res.end("INVALID URL: " + req.url);
-        console.log("INVALID URL: " + req.url);
-    }
-});
+module.exports = { createHttpServer: createHttpServer };
 
-http_server.listen(1028);
-console.log('Started acme-server.js');
+if (require.main === module) {
+    var http_server = createHttpServer(CHALLENGE_DIR);
+    http_server.listen(1028);
+    console.log("Started acme-server.js");
+}

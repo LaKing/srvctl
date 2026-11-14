@@ -20,7 +20,9 @@
 function regenerate_etc_postfix_relaydomains() {
     if [[ -d /etc/postfix/ ]]
     then
-        get cluster postfix_relaydomains > /etc/postfix/relaydomains
+        ## An emptied map makes postfix refuse mail for every hosted domain,
+        ## so a failed read keeps the map of the last good run.
+        write_output /etc/postfix/relaydomains get cluster postfix_relaydomains || return 0
         postmap /etc/postfix/relaydomains
     fi
 }
