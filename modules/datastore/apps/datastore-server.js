@@ -38,6 +38,31 @@ async function readContainersSnapshot(datastoreDir) {
     return JSON.stringify(store.readAll("containers"), null, 2) + "\n";
 }
 
+// This process runs as root and haproxy forwards the validation prefix from
+// the internet, so the request is matched against a file-name grammar before
+// any path is built: one plain name, at most one short extension (CA
+// domain-control files look like <32 hex>.txt). The raw req.url is tested, not
+// a decoded one, so '/', '..', '%2F', a query string and a leading dot all fail
+// the same way, and no decoding step exists that could be applied twice.
+var PKI_VALIDATION_PREFIX = "/.well-known/pki-validation/";
+var PKI_VALIDATION_NAME = /^[A-Za-z0-9_-]{1,128}(\.[A-Za-z0-9]{1,8})?$/;
+
+function pkiValidationFile(pkiValidationDir, requestUrl) {
+    if (requestUrl.substring(0, PKI_VALIDATION_PREFIX.length) !== PKI_VALIDATION_PREFIX) return null;
+    var name = requestUrl.substring(PKI_VALIDATION_PREFIX.length);
+    if (!PKI_VALIDATION_NAME.test(name)) return null;
+    return path.join(pkiValidationDir, name);
+}
+
+// One answer for a refused name and a missing file, without the server path:
+// the caller learns nothing about what exists outside the directory.
+function notFound(res) {
+    res.writeHead(404, {
+        "Content-Type": "text/plain"
+    });
+    res.end("NOT FOUND\n");
+}
+
 function createHttpServer(options) {
     options = options || {};
     var datastoreDir = options.datastoreDir || DEFAULT_DATASTORE_DIR;
@@ -70,23 +95,15 @@ function createHttpServer(options) {
 
         // domain validation
         if (req.url.substring(0, 27) === "/.well-known/pki-validation") {
-            // FIXME(v4): path traversal — req.url is appended unsanitized, so a
-            // crafted /.well-known/pki-validation/../../<path> request can read
-            // files outside the pki-validation directory (process runs as root
-            // and the path is internet-reachable via haproxy).
-            var hash_file = pkiValidationDir + "/" + req.url.substring(28);
-            fs.access(hash_file, fs.R_OK, function(err) {
-                if (!err) {
-                    fs.readFile(hash_file, function(err, data) {
-                        if (err) return res.end("INVALID DATA");
-                        var content = data.toString();
-                        console.log("CONTENT sent");
-                        res.end(content);
-                    });
-                } else {
-                    console.log("CANNOT READ file");
-                    res.end("CANNOT READ: " + hash_file);
-                }
+            var validationFile = pkiValidationFile(pkiValidationDir, req.url);
+            if (validationFile === null) return notFound(res);
+            fs.readFile(validationFile, function(err, data) {
+                if (err) return notFound(res);
+                res.writeHead(200, {
+                    "Content-Type": "text/plain"
+                });
+                console.log("CONTENT sent");
+                res.end(data);
             });
 
             return;

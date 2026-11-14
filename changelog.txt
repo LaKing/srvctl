@@ -8,6 +8,13 @@ notable operational changes are listed here.
 Unreleased (v4, in progress on top of 4.0.0.8)
 ----------------------------------------------
 
+Security fix (2026-11-14)
+  * datastore-server no longer reads files outside its pki-validation
+    directory: a request such as /.well-known/pki-validation/../../etc/shadow
+    was answered by the root-run daemon through the public haproxy route.
+    Only one plain file name is accepted now; everything else gets 404 and no
+    server path. Takes effect after `systemctl restart datastore-server`.
+
 Rebuild fix (2026-10-28)
   * rebuild-ve carries a local unit that old srvctl put under
     /usr/lib/systemd/system with no package owning it: it looked packaged by

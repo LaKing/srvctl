@@ -132,5 +132,52 @@ await test("HTTP snapshot fails visibly instead of returning invalid JSON as 200
   }
 });
 
+// The validation endpoint runs as root behind a public haproxy route, so the
+// only thing it may ever read is one plain file inside its own directory.
+await test("pki-validation serves a token file and nothing outside its directory", async (dir) => {
+  const pkiDir = path.join(dir, "pki-validation");
+  fs.mkdirSync(pkiDir);
+  fs.writeFileSync(path.join(pkiDir, "A41ABAB5BEA63D0A65993075DC51D3FA.txt"), "token-body\n");
+  fs.writeFileSync(path.join(dir, "secret"), "outside\n");
+  fs.mkdirSync(path.join(pkiDir, "sub"));
+  fs.writeFileSync(path.join(pkiDir, "sub/nested.txt"), "nested\n");
+
+  const server = createHttpServer({ datastoreDir: dir, pkiValidationDir: pkiDir });
+  await new Promise((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", resolve);
+  });
+  try {
+    const prefix = "/.well-known/pki-validation/";
+    const served = await request(server, prefix + "A41ABAB5BEA63D0A65993075DC51D3FA.txt");
+    assert.equal(served.statusCode, 200);
+    assert.equal(served.body, "token-body\n");
+
+    const refused = [
+      "../secret",
+      "..%2Fsecret",
+      "%2e%2e/secret",
+      "sub/nested.txt",
+      "sub/../../secret",
+      "/etc/hostname",
+      "A41ABAB5BEA63D0A65993075DC51D3FA.txt?x=1",
+      ".hidden",
+      "",
+    ];
+    for (const name of refused) {
+      const response = await request(server, prefix + name);
+      assert.equal(response.statusCode, 404, `expected 404 for ${JSON.stringify(name)}`);
+      assert.equal(response.body.includes("outside"), false);
+      assert.equal(response.body.includes(dir), false, "the response must not disclose a server path");
+    }
+
+    const missing = await request(server, prefix + "0123456789ABCDEF0123456789ABCDEF.txt");
+    assert.equal(missing.statusCode, 404);
+    assert.equal(missing.body.includes(dir), false, "the response must not disclose a server path");
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
 console.log(`\n${passed} passed, ${failures.length} failed`);
 process.exit(failures.length ? 1 : 0);

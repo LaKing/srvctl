@@ -390,7 +390,9 @@ ok "VE-context: hs_only DEFINED (moved to srvctl authlib)" "$(vedef hs_only)" "d
 ADDUSER="source $REPO/modules/usersonve/commands/add-user.sh"
 probe "$ADDUSER" mallory true                  ; ok "add-user: sudo-bypass (uid0 non-root) DENIED" "$RC" "44"
 probe "$ADDUSER" bob false                      ; ok "add-user: normal VE user DENIED"              "$RC" "44"
-ADDUSER_ROOT="adduser() { mark adduser; }; id() { return 1; }; getent() { echo 'x:x:0:0::/nonexistent-home:/bin/sh'; }; new_password() { echo pw; }; passwd() { :; }; mail() { :; }; $ADDUSER"
+## A valid account name: the probe default ARG is a domain, which the anchored
+## username check in add-user.sh rejects before adduser is reached.
+ADDUSER_ROOT="ARG=alice; adduser() { mark adduser; }; id() { return 1; }; getent() { echo 'x:x:0:0::/nonexistent-home:/bin/sh'; }; new_password() { echo pw; }; passwd() { :; }; mail() { :; }; $ADDUSER"
 probe "$ADDUSER_ROOT" root true                ; ok "add-user: VE root reaches account creation"   "$(has_mark "$MARKS" adduser)" "yes"
 
 command rm -f "$STUBS"
