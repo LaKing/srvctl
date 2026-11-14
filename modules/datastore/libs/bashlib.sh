@@ -3,11 +3,12 @@
 ##
 ##   modules/datastore/libs/bashlib.sh — the datastore verb API.
 ##
-##   Defines the bash wrappers new/get/put/out/cfg/del/add used by nearly
-##   every module (~159 call sites farm-wide). Each call spawns a fresh
-##   /bin/node process running main.mjs; the arguments are word-split on
-##   purpose (SC2048/SC2086 disabled) because callers pass unquoted
-##   argument lists throughout the codebase.
+##   Defines the bash wrappers new/get/put/out/cfg/del/add/list used by
+##   nearly every module (~159 call sites farm-wide). Each call spawns a
+##   fresh /bin/node process running main.mjs (about 0.26 s), so a loop over
+##   records reads them with one list, not with a get per record. The
+##   arguments are word-split on purpose (SC2048/SC2086 disabled) because
+##   callers pass unquoted argument lists throughout the codebase.
 ##
 ##   Exit-code contract, relied upon by callers — do not change:
 ##     0     success; get/out/cfg echo the node output
@@ -103,6 +104,40 @@ function out {
     exif "DATASTORE-ERROR out $* EXIT ($?) $__result"
 
     echo "$__result"
+}
+
+## read every record of a type at once: list container|user|host [FIELD...]
+## Prints one line per record, "ID<TAB>FIELD<TAB>FIELD", from a single node
+## process. A field resolves as in get (derived fields included); an unset
+## value is "-", because read would merge the tabs around an empty cell and
+## shift the later fields. Multi-line values (nspawn, hosts) are not listable.
+##
+## The loop reads on descriptor 3, so a command in the body that reads stdin
+## (ssh, dnf, systemctl) cannot swallow the remaining rows:
+##
+##     while IFS=$'\t' read -r -u 3 C host ip
+##     do
+##         ...
+##     done 3< <(list container host ip)
+##
+## A failure is reported here through err and the loop then runs zero times.
+## node's stderr is not captured: it carries LIST-WARNING lines for cells that
+## could not be printed, and must not end up among the rows.
+function list {
+
+    local __result __exitcode
+    # shellcheck disable=SC2048
+    # shellcheck disable=SC2086
+    __result="$(/bin/node "$SC_INSTALL_DIR/modules/datastore/main.mjs" list $*)"
+    __exitcode="$?"
+
+    if [[ $__exitcode != 0 ]]
+    then
+        err "DATASTORE-ERROR list $* EXIT ($__exitcode) $__result"
+        return "$__exitcode"
+    fi
+
+    [[ -z $__result ]] || printf '%s\n' "$__result"
 }
 
 ## run an internal mutating function: cfg container C update_ip|add_mapped_port|add_alias|remove_alias ...

@@ -8,6 +8,21 @@ notable operational changes are listed here.
 Unreleased (v4, in progress on top of 4.0.0.8)
 ----------------------------------------------
 
+Datastore list verb (2026-11-14)
+  * New library verb `list container|user|host [FIELD...]`: every record with
+    the requested fields in one node process, one tab-separated line per
+    record, '-' for an unset value. Fields resolve as in get. On bp it returns
+    8 fields of 42 containers in 0.28 s; the same 252 values through get took
+    68 s.
+  * The regenerate loops over all containers use it or one container_list
+    read instead of a get per container: check_container_directories,
+    check_container_database, check_container_ownership,
+    apply_all_container_limits and the hourly quota check.
+  * check_container_ownership now reports a container whose IP is outside its
+    owner's network. Its repair branch was unreachable; the repair (stop, new
+    IP, start) is the new function repair_container_ownership, run on request
+    with `sc exec-function repair_container_ownership C`.
+
 Datastore history fix (2026-11-14)
   * The hourly quota check no longer makes a git commit for every
     container's disk usage: `put container C du N` stores the value without

@@ -996,6 +996,24 @@ datastore, or a write against a read-only store), and `99` fall-through —
 `main.mjs` presets that status and no branch claimed the request, which is what
 an unhandled type/field combination leaves behind.
 
+**Reading every record at once: `list`.** A library verb for srvctl code, not
+dispatched from the command line. `list container|user|host [FIELD...]` prints
+one line per record, the id and then the fields separated by tabs, from a single
+node process. A field resolves as in `get`, derived fields included. An unset
+value is `-`; a multi-line value (`nspawn`, `hosts`) is not listable and is
+read with `get`. A loop over records uses it instead of a `get` per record,
+which costs one node start (about 0.26 s) each:
+
+```bash
+while IFS=$'\t' read -r -u 3 C host ip
+do
+    ...
+done 3< <(list container host ip)
+```
+
+The loop reads on descriptor 3 so that a command in its body cannot consume the
+remaining rows from stdin.
+
 ### Container Data Schema
 
 Each container record (`$SC_DATASTORE_DIR/containers/<name>.json`) has:
@@ -3131,7 +3149,8 @@ These are not command files. `run_command` dispatches the verbs by name
 `modules/datastore/main.mjs`. Reads (`get`, `out`) are open to any caller;
 the mutating verbs (`new`, `put`, `cfg`, `del`, `add`) require genuine root and
 at least one argument. `new`, `put` and `del` git-commit the JSON change through
-`datastore_push`.
+`datastore_push`, except a `put` of a measurement field (`du`), which is stored
+without a commit of its own.
 
 | Command | Description |
 |---------|-------------|

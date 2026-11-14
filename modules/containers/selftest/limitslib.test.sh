@@ -79,6 +79,14 @@ apply_container_limits "$C"
 ok "reset removes drop-in" "$([[ -e $file || -d ${file%/*} ]] && echo present || echo gone)" gone
 ok "reset restores defaults live" "${CALLS[*]}" "systemctl daemon-reload systemctl set-property --runtime srvctl-nspawn@test.ve.service CPUQuota=800% MemoryMax=16G MemoryHigh=8G"
 
+echo "apply with the field values handed in"
+RECORD='{"cpu_quota":"999%"}'
+CALLS=()
+apply_container_limits "$C" 150% - 2G; ok "values rc" $? 0
+ok "values win over the datastore" "$(grep -c '^CPUQuota=150%$\|^MemoryHigh=2G$' "$file")" 2
+apply_container_limits "$C" - - -
+ok "all unset removes the drop-in" "$([[ -e $file ]] && echo present || echo gone)" gone
+
 RECORD='{"cpu_quota":"lots"}'
 CALLS=()
 apply_container_limits "$C"; ok "bad stored value rc" $? 22

@@ -526,7 +526,7 @@
   "err-no-args": {
     "argv": [],
     "stdout": "",
-    "stderr": "MAIN-ERROR: MISSING CMD ARGUMENT: get | put | out | cfg | del | new | add\n",
+    "stderr": "MAIN-ERROR: MISSING CMD ARGUMENT: get | put | out | cfg | del | new | add | list\n",
     "exitCode": 110
   },
   "err-missing-dat": {

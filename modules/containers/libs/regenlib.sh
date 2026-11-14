@@ -296,6 +296,11 @@ function regenerate_etc_hosts() {
 ## machines.target wants, and regenerate missing hosts/nspawn config.
 function check_container_directories() {
     msg "Checking for containers in directories"
+    ## One read of the registered names for the whole walk. A failed read must
+    ## stop here: with an empty list every directory would look unregistered.
+    local registered
+    registered="$(list container)" || return $?
+    registered=" ${registered//$'\n'/ } "
     for D in /srv/*
     do
         if [[ $D == /srv/TEMP ]]
@@ -311,7 +316,7 @@ function check_container_directories() {
         if [[ -d $D/rootfs ]]
         then
             
-            if [[ "$(get container "$C" exist)" != true ]]
+            if [[ $registered != *" $C "* ]]
             then
                 if [[ -f $D/rootfs/etc/os-release ]]
                 then
@@ -359,11 +364,9 @@ function check_container_directories() {
         fi
 
         ## Only provision missing rootfs trees for registered containers.
-        local container_exists
         if [[ ! -d $D/rootfs ]]
         then
-            container_exists="$(get container "$C" exist)" || return $?
-            [[ $container_exists == true ]] || continue
+            [[ $registered == *" $C "* ]] || continue
             create_nspawn_container_filesystem "$C" || return $?
         fi
     done
@@ -373,11 +376,9 @@ function check_container_directories() {
 ## missing from the local /srv.
 function check_container_database() {
     msg "Checking for containers in the database"
-    local container_list h
-    container_list="$(get cluster container_list)"
-    for C in $container_list
+    local C h
+    while IFS=$'\t' read -r -u 3 C h
     do
-        h="$(get container "$C" host)"
         if [[ "$h" == "$HOSTNAME" ]]
         then
             ## this container should be on that host
@@ -389,35 +390,38 @@ function check_container_database() {
                 create_nspawn_container_config "$C"
             fi
         fi
-    done
+    done 3< <(list container host)
 }
 
-## Repair containers whose internal IP does not match their owner's
-## user-based address (stop, re-derive IP, regenerate config, start).
+## Report containers whose internal IP is outside their owner's network
+## (10.<hostnet>.<user_id>.x), which happens when the owner is changed with
+## 'put container C user U'. Nothing is repaired here: the repair is a stop, a
+## new IP and a start, and the hourly cron must not do that to a production
+## container on its own. repair_container_ownership does it on request.
 function check_container_ownership() {
     msg "Checking for container owners in the database"
-    local container_list
-    container_list="$(get cluster container_list)"
-    for C in $container_list
+    local C match
+    while IFS=$'\t' read -r -u 3 C match
     do
-        ## FIXME(v4): '[[ $(get ...) ]]' is true for BOTH 'true' and
-        ## 'false' output, so the repair branch below is unreachable —
-        ## mismatched container IPs are never fixed.
-        if [[ $(get container "$C" user_ip_match) ]]
-        then
-            continue
-        else
-            msg "Re-setting internal IP of $C due to false user_ip_match"
+        [[ $match == false ]] || continue
+        err "$C: the internal IP is not in the network of its owner. To move it (the container restarts): sc exec-function repair_container_ownership $C"
+    done 3< <(list container user_ip_match)
+}
 
-            run systemctl stop srvctl-nspawn@"$C"
-            cfg container "$C" update_ip
+## Give a container the IP that belongs to its owner: stop, re-derive the IP,
+## regenerate the configuration, start. Run it on the host of the container.
+function repair_container_ownership() { ## C
+    local C="$1"
+    [[ -d /srv/$C/rootfs ]] || { err "$C has no rootfs on this host"; return 1; }
+    msg "Re-setting internal IP of $C"
 
-            create_nspawn_container_config "$C"
+    run systemctl stop srvctl-nspawn@"$C"
+    cfg container "$C" update_ip
 
-            run systemctl start srvctl-nspawn@"$C" --no-pager -n 30
-            run systemctl status srvctl-nspawn@"$C" --no-pager -n 30
-        fi
-    done
+    create_nspawn_container_config "$C"
+
+    run systemctl start srvctl-nspawn@"$C" --no-pager -n 30
+    run systemctl status srvctl-nspawn@"$C" --no-pager -n 30
 }
 
 ## A host-side writer that replaces a file (write + rename) leaves it owned

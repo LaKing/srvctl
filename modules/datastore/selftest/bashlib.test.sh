@@ -1,7 +1,9 @@
 #!/bin/bash
-# The put verb journals configuration changes in git but not measurements.
-# Runs the real put and the real datastore_push against a sandbox repository;
-# only main.mjs is replaced, by a stub that writes the record file.
+# The put verb journals configuration changes in git but not measurements, and
+# the list verb feeds a bash loop one row per record.
+# Runs the real put, list and datastore_push against a sandbox repository;
+# only main.mjs is replaced, by a stub that writes the record file (put) or
+# prints the rows in $LIST_ROWS and exits with $LIST_EXIT (list).
 
 # Test doubles are invoked indirectly by the sourced production functions.
 # shellcheck disable=SC2329
@@ -18,6 +20,11 @@ mkdir -p "$SC_INSTALL_DIR/modules/datastore" "$SC_DATASTORE_RW_DIR"/{hosts,users
 cat > "$SC_INSTALL_DIR/modules/datastore/main.mjs" << 'EOF'
 import { appendFileSync } from "node:fs";
 const [verb, type, id, field, value] = process.argv.slice(2);
+if (verb === "list") {
+    process.stdout.write(process.env.LIST_ROWS || "");
+    process.stderr.write("LIST-WARNING: stub\n");
+    process.exit(Number(process.env.LIST_EXIT || 0));
+}
 appendFileSync(`${process.env.SC_DATASTORE_RW_DIR}/${type}s/${id}.json`, `${verb} ${field} ${value}\n`);
 EOF
 
@@ -25,6 +32,8 @@ EOF
 SC_DATASTORE_RO_USE=false SC_USER=tester NOW=now HOSTNAME=test.host
 exif() { :; }
 ntc() { :; }
+errors=0
+err() { errors=$((errors + 1)); }
 
 # shellcheck source=/dev/null
 source "$REPO/modules/datastore/libs/gitlib.sh"
@@ -65,6 +74,28 @@ ok "that commit carries the measurement of another record" "$(committed b.exampl
 
 put container a.example duration 5
 ok "a field that only starts like a measurement is journaled" "$(commits)" "3"
+
+# list: the documented loop, with a body command that reads stdin.
+export LIST_ROWS=$'a.example\tnode1\t-\nb.example\t-\t10.1.2.3\n'
+seen=""
+while IFS=$'\t' read -r -u 3 C host ip
+do
+    cat > /dev/null
+    seen+="$C|$host|$ip "
+done 3< <(list container host ip 2> /dev/null) < <(echo "stdin a body command may read")
+ok "a loop over list sees every row with its cells in place" "$seen" "a.example|node1|- b.example|-|10.1.2.3 "
+ok "node's stderr stays out of the rows" "$(list container host ip 2> /dev/null | wc -l)" "2"
+
+export LIST_ROWS=""
+ok "no record prints no row" "$(list container 2> /dev/null | wc -l)" "0"
+
+export LIST_ROWS=$'half\trow\n' LIST_EXIT=110
+out="$(list container host 2> /dev/null)"
+ok "a failed list returns the node exit code" "$?" "110"
+ok "a failed list prints no row" "$out" ""
+errors=0
+list container host > /dev/null 2>&1
+ok "a failed list is reported through err" "$errors" "1"
 
 echo ""
 echo "bashlib.test: $pass passed, $fail failed"

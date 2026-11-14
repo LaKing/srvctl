@@ -71,11 +71,18 @@ function container_limits_config { ## CPU MEMMAX MEMHIGH
 }
 
 ## Reconcile one container's drop-in with the datastore. Returns 0 without
-## touching systemd when the drop-in is already current.
-function apply_container_limits { ## C
+## touching systemd when the drop-in is already current. A caller that
+## already holds the three field values ('-' for unset) passes them, which
+## saves the datastore lookup.
+function apply_container_limits { ## C [CPU MEMMAX MEMHIGH]
     local C="$1" fields cpu max high config file current=""
-    fields="$(container_limits_fields "$C")" || return $?
-    read -r cpu max high <<< "$fields"
+    if (( $# == 4 ))
+    then
+        cpu="$2" max="$3" high="$4"
+    else
+        fields="$(container_limits_fields "$C")" || return $?
+        read -r cpu max high <<< "$fields"
+    fi
     config="$(container_limits_config "$cpu" "$max" "$high")" || return $?
     file="$(container_limits_dropin "$C")"
     [[ -f $file ]] && current="$(cat "$file")"
@@ -106,12 +113,11 @@ function apply_container_limits { ## C
 ## Reconcile every container hosted here (called from the regenerate hook,
 ## so limits set on another host of the cluster follow the container).
 function apply_all_container_limits {
-    local container_list C rc=0
-    container_list="$(get cluster container_list)" || return $?
-    for C in $container_list
+    local C cpu max high rc=0
+    while IFS=$'\t' read -r -u 3 C cpu max high
     do
         [[ -d /srv/$C/rootfs ]] || continue
-        apply_container_limits "$C" || rc=$?
-    done
+        apply_container_limits "$C" "$cpu" "$max" "$high" || rc=$?
+    done 3< <(list container cpu_quota memory_max memory_high)
     return $rc
 }

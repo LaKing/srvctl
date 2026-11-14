@@ -18,7 +18,12 @@
 SIZE_LIMIT=250000000;
 
 function all_containers_quota_check() {
-    local list size quota
+    local list size quota C
+    local -A quota_of=()
+    while IFS=$'\t' read -r -u 3 C quota
+    do
+        quota_of[$C]="$quota"
+    done 3< <(list container quota)
 
     if $SC_UID0
     then
@@ -37,7 +42,7 @@ function all_containers_quota_check() {
 
             put container "$C" du "$size"
 
-            quota="$(get container "$C" quota)"
+            quota="${quota_of[$C]:-}"
 
             ## a failed lookup would compare against 0 and stop a healthy container
             [[ $quota =~ ^[0-9]+$ ]] || { err "$C: no quota in the datastore, not checked"; continue; }

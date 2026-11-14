@@ -7,7 +7,7 @@
 // selftest/verbapi.test.mjs, 61/61).
 //
 // Contract preserved verbatim (v3 main.js + the verb golden):
-//   argv:  CMD DAT ARG [OPA] [VAL]
+//   argv:  CMD DAT ARG [OPA] [VAL]   (list: CMD DAT [FIELD...], lib/list.mjs)
 //   exit:  0 done/value · 100 empty optional get · 110 MAIN-ERROR ·
 //          112 LIB-ERROR · 99 fall-through
 //   out:   get=bare value · out=VAR='value' (- -> _, objects JSON.stringify'd,
@@ -19,6 +19,7 @@ import path from "node:path";
 import { createStore, StoreError } from "./lib/store.mjs";
 import hostTopology from "./lib/host-topology.js";
 import { derivations } from "./lib/derive.mjs";
+import { listRows } from "./lib/list.mjs";
 import { generators, container_useruids } from "./lib/generators.mjs";
 import {
   newUser, newReseller, newContainer, containerUpdateIp, containerAddMappedPort, containerAddAlias, containerRemoveAlias, MutatorError,
@@ -189,10 +190,10 @@ function containerGet(C, opa) {
 }
 
 // ---- argument validation (v3 main.js) -------------------------------------
-if (CMD === undefined) return_error("MISSING CMD ARGUMENT: get | put | out | cfg | del | new | add");
+if (CMD === undefined) return_error("MISSING CMD ARGUMENT: get | put | out | cfg | del | new | add | list");
 if (DAT === undefined) return_error("MISSING DAT ARGUMENT: cluster | user | reseller | container | host");
-if (ARG === undefined) return_error("MISSING ARG ARGUMENT: containername / username / hostname / query");
-const VERBS = ["get", "put", "out", "cfg", "del", "new", "add"];
+if (ARG === undefined && CMD !== "list") return_error("MISSING ARG ARGUMENT: containername / username / hostname / query");
+const VERBS = ["get", "put", "out", "cfg", "del", "new", "add", "list"];
 const DATS = ["cluster", "user", "container", "host", "reseller"];
 // readers has no writer yet, so put still sets it; lib.js reads a string as one name.
 const ARRAY_WRITERS = {
@@ -214,6 +215,20 @@ try {
 for (const w of pendingWrites) msg(w);
 
 function dispatch() {
+  // --------------------------------------------------------------------- list
+  // Every record of one type with the fields `get` would return, in one process.
+  if (CMD === "list") {
+    const sources = {
+      container: [containers, containerGet],
+      user: [users, (U, field) => (field === "uid" ? g.user_uid(U) : users[U][field])],
+      host: [hosts, (H, field) => hosts[H][field]],
+    };
+    if (!sources[DAT]) return return_error("list takes container | user | host, not " + DAT);
+    const [records, valueOf] = sources[DAT];
+    const rows = listRows(Object.keys(records), process.argv.slice(4), valueOf, (text) => console.error("LIST-WARNING:", DAT, text));
+    if (rows.length > 0) console.log(rows.join("\n"));
+    return exit0();
+  }
   // ---------------------------------------------------------------- container
   if (DAT === "container") {
     // --- mutating verbs: fresh read + mutate + write, all under one lock ---
