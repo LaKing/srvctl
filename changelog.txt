@@ -8,6 +8,16 @@ notable operational changes are listed here.
 Unreleased (v4, in progress on top of 4.0.0.8)
 ----------------------------------------------
 
+Datastore history fix (2026-11-14)
+  * The hourly quota check no longer makes a git commit for every
+    container's disk usage: `put container C du N` stores the value without
+    committing it (SC_DATASTORE_MEASUREMENT_FIELDS). Those commits were over
+    99.9% of the datastore history: 2.18M of them and a 1.8G .git on bp,
+    4.25M and 3.7G on r2. The value reaches git with the next real change.
+  * production/bin/compact-datastore-history.sh rebuilds an existing history
+    without those commits (dry run by default; apply keeps the old history
+    aside until discard-old).
+
 Security fix (2026-11-14)
   * datastore-server no longer reads files outside its pki-validation
     directory: a request such as /.well-known/pki-validation/../../etc/shadow

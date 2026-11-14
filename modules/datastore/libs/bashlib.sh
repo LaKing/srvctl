@@ -15,12 +15,17 @@
 ##     other error; exif aborts the run for the mutating verbs
 ##
 ##   The mutating verbs new/put/del git-commit the json change via
-##   datastore_push (libs/gitlib.sh).
+##   datastore_push (libs/gitlib.sh), except a put of a measurement field
+##   (SC_DATASTORE_MEASUREMENT_FIELDS).
 ##
 ##   Usage:
 ##     myvar="$(get container mydomain.ve ip)" || exit
 ##     echo "Returned: $myvar"
 ##
+
+## Space-separated record fields that hold a measurement, not configuration;
+## see put.
+SC_DATASTORE_MEASUREMENT_FIELDS="du"
 
 ## create a record: new container|user|reseller ARG [TYPE] [BRIDGE]
 function new {
@@ -76,6 +81,14 @@ function put {
     # shellcheck disable=SC2086
     __result="$(/bin/node "$SC_INSTALL_DIR/modules/datastore/main.mjs" put $* 2>&1)"
     exif "DATASTORE-ERROR put $* EXIT ($?) $__result"
+
+    ## A measurement is stored like any field but makes no commit of its own.
+    ## The git history is the journal of configuration changes; the hourly
+    ## quota check writes `du` for every container, and committing each one
+    ## made over 99.9% of a host's history (millions of commits). The value
+    ## still reaches git with the next configuration commit, which stages
+    ## every changed record.
+    [[ " $SC_DATASTORE_MEASUREMENT_FIELDS " == *" $3 "* ]] && return 0
 
     datastore_push "put $*"
 }
