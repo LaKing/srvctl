@@ -1,141 +1,118 @@
 #!/bin/bash
 
 ##
-##   authlib — srvctl's entire permission model, used by ~60 call sites
-##   across nearly all modules. Exit codes are conventions relied on by
-##   callers: 44 = authorization failure, 32 = missing argument.
-##   Line-anchored guard calls define each command's auth class; help listings
-##   hide root/operator/reseller-only commands by class, while owner_only stays
-##   listed because ownership is resource-scoped.
+##   authlib — who may run a command. Always loaded, on hosts and in containers.
+##
+##   The sudoers entry (srvctl.sh *) lets every account start srvctl at uid 0,
+##   so uid 0 proves nothing. The caller is SC_USER (SUDO_USER when set, which
+##   sudo itself fills in), and every guard decides by that name:
+##
+##     root_only          genuine root
+##     operators_only     root, or a user whose record says role=operator
+##     users_only         root, or a user with a record on this host
+##     owner_only T ID    root, the owner of the record, or the owner's reseller
+##
+##   A guard is called on a line of its own, before any state change. That
+##   line is also what the dispatcher looks for: a caller who came through
+##   sudo may start only a command that has one (command_may_run, commonlib.sh),
+##   and the help lists root_only and operators_only commands by role.
+##   Exit codes callers rely on: 44 authorization failure, 32 missing argument.
 ##
 
-## sc_is_root — the caller is GENUINELY root: identity root (SC_USER, taken
-## from SUDO_USER so `sudo srvctl.sh` cannot fake it) AND uid 0. This is the
-## ONLY thing the role guards may treat as root. Plain uid 0 is NOT enough:
-## the NOPASSWD sudoers entry (srvctl.sh *) lets ANY user reach uid 0 with
-## SC_USER still their own name — requiring SC_USER=root closes that bypass,
-## and requiring uid 0 too rejects a `USER=root` spoof with no real privilege.
-## sudomize still keys off SC_UID0 (that genuinely means "am I escalated yet").
+## Genuine root: the name AND the uid. The name alone could be a USER=root
+## spoof without privilege, the uid alone is anybody after sudo.
 function sc_is_root {
     [[ $SC_USER == root ]] && $SC_UID0
 }
 
 function root_only {
-    if sc_is_root
-    then
-        return 0
-    else
-        err "Authorization failure. (root_only)"
-        exit 44
-    fi
+    sc_is_root && return 0
+    err "Authorization failure. (root_only)"
+    exit 44
 }
 
-## Role cache, initialized HERE so an inherited environment variable like
-## SC_ROLE=operator is never trusted. sc_role is the only writer.
+## Role cache. Set here, so a value inherited from the environment is never
+## trusted; sc_role is the only writer.
 SC_ROLE=
 _SC_ROLE_RESOLVED=false
 
-## sc_role — resolve the caller's role, memoized in SC_ROLE. Echoes it too.
-##   root      : GENUINE root (sc_is_root: SC_USER=root AND uid 0).
-##   operator  : the LOCAL datastore user record has role=operator (WP-E.2).
-##   user      : everyone else — the safe default. An absent role (get 100) or
-##               a datastore error is treated as an ordinary user, never
-##               escalated to operator.
-## Host-scoped by design: the role comes from THIS host's user record, so an
-## operator here is a plain user on a host whose record does not say operator.
+## Print the caller's role: root, operator or user. The role is read from this
+## host's user record, so an operator here is a user on a host whose record
+## does not say so. A missing role or a failed read is a user, never more.
 function sc_role {
+    local role
     if ! $_SC_ROLE_RESOLVED
     then
+        SC_ROLE=user
         if sc_is_root
         then
             SC_ROLE=root
-        else
-            local _r _rc
-            _r="$(get user "$SC_USER" role)"; _rc=$?
-            if [[ $_rc == 0 && $_r == operator ]]
-            then
-                SC_ROLE=operator
-            else
-                SC_ROLE=user
-            fi
+        elif role="$(get user "$SC_USER" role)" && [[ $role == operator ]]
+        then
+            SC_ROLE=operator
         fi
         _SC_ROLE_RESOLVED=true
     fi
     echo "$SC_ROLE"
 }
 
-## operators_only — passes for root and operator, denies an ordinary user.
-## Symmetric with root_only; exit 44 = authorization failure. MUST be called
-## before any state change.
 function operators_only {
     case "$(sc_role)" in
         root | operator) return 0 ;;
-        *) err "Operators only."; exit 44 ;;
     esac
+    err "Operators only."
+    exit 44
 }
 
-function reseller_only {
-    if [[ "${#SC_USER}" == 1 ]] || sc_is_root
-    then
-        return 0
-    else
-        err "Resellers only."
-        exit 44
-    fi
-}
-
-## owner_only <type> <id> — resource-ownership guard (WP-E.2).
-##
-##   MUST be called BEFORE any state change (check-before-act): it either
-##   returns (authorized) or exits. Policy:
-##     - GENUINE root (sc_is_root) may act on everything for everyone -> 0.
-##     - the resource owner, or (transitionally, until WP-F) its reseller,
-##       escalates via sudomize -> the command re-runs at uid 0 but with
-##       SC_USER still the owner, so the owner-check below passes again.
-##     - anyone else is denied (exit 44) — including a non-owner who reached
-##       uid 0 via `sudo srvctl.sh` (SC_USER stays their own name).
-##
-##   Replaces the per-command 'authorize + owner-check + [[ $SC_UID0 ]]'
-##   pattern. Lives here (always-loaded srvctl authlib) so every module,
-##   host- or VE-side, shares one guard.
-function owner_only { # $1 type  $2 id
+## For a command that acts for the caller himself: it creates what he will own
+## or changes his own account. An account without a user record (a service
+## account, a login that srvctl did not create) owns nothing here.
+function users_only {
     sc_is_root && return 0
 
-    local _owner _reseller _rc
-
-    ## The datastore verb 'get' exits 0 (value), 100 (optional value absent),
-    ## or an error code (DATASTORE-ERROR). A failed lookup must NOT be reported
-    ## as "no access" — that would turn a datastore/entity-missing error into a
-    ## bogus authorization denial. Treat only 0/100 as a usable answer;
-    ## propagate anything else as the datastore/lookup failure it is.
-    _owner="$(get "$1" "$2" user)"; _rc=$?
-    if [[ $_rc != 0 && $_rc != 100 ]]
+    local exists rc
+    exists="$(get user "$SC_USER" exist)"
+    rc=$?
+    if [[ $rc != 0 ]]
     then
-        err "Cannot verify ownership of $2 — datastore lookup failed ($_rc)"
-        exit "$_rc"
+        err "Cannot verify the user $SC_USER: datastore lookup failed ($rc)"
+        exit "$rc"
+    fi
+    [[ $exists == true ]] && return 0
+    err "$SC_USER is not a user of this host."
+    exit 44
+}
+
+## Root may act on every record. The owner (field user) and the owner's
+## reseller are re-executed through sudo and pass here a second time at uid 0,
+## still under their own name. Everybody else ends with 44.
+##
+## get returns 0 with a value, 100 for an unset field and anything else for a
+## failed read. A failed read ends the command with that code: reporting it as
+## "no access" would hide a datastore fault behind a denial.
+function owner_only { ## type id
+    sc_is_root && return 0
+
+    local owner reseller rc
+    owner="$(get "$1" "$2" user)"
+    rc=$?
+    if [[ $rc == 0 || $rc == 100 ]]
+    then
+        reseller="$(get "$1" "$2" reseller)"
+        rc=$?
+    fi
+    if [[ $rc != 0 && $rc != 100 ]]
+    then
+        err "Cannot verify the owner of $2: datastore lookup failed ($rc)"
+        exit "$rc"
     fi
 
-    _reseller="$(get "$1" "$2" reseller)"; _rc=$?
-    if [[ $_rc != 0 && $_rc != 100 ]]
+    if [[ $SC_USER == "$owner" ]] || [[ $SC_USER == "$reseller" ]]
     then
-        err "Cannot verify ownership of $2 — datastore lookup failed ($_rc)"
-        exit "$_rc"
-    fi
-
-    if [[ $SC_USER == "$_owner" ]] || [[ $SC_USER == "$_reseller" ]]
-    then
-        ## Owner/reseller authorized on OWNERSHIP (not uid 0). A non-root owner
-        ## re-execs through sudo here (sudomize exits). The re-execed owner is
-        ## uid 0 but SC_USER=owner, so it is NOT sc_is_root and does NOT hit the
-        ## fast path above — it must authorize HERE. (Before sc_is_root, the
-        ## re-exec hit the plain-uid0 fast path; without this return 0 the owner
-        ## now falls through to the denial below — a real regression.)
         sudomize
         return 0
     fi
 
-    ## reached only by a non-root, non-owner caller whose ownership lookup
-    ## SUCCEEDED (the owner branch above returns or re-execs).
     err "$SC_USER has no access to $2"
     exit 44
 }
@@ -148,65 +125,22 @@ function argument {
     fi
 }
 
-function authorize {
-    if $SC_UID0
-    then
-        return
-    else
-        ## there should be several levels of users
-        ## root - allowed everything for everyone
-        ## reseller - allowed for his users
-        ## user - allowed for himself
-        ## guest - limited.
-        ## FIXME(v4): stub — a non-root caller only gets this error message
-        ## and then CONTINUES; authorize never denies anything.
-        err "DEV (Authorization implementation not complete.)"
-    fi
-}
-
-## non-root re-exec through sudo; sudoers entries generated by usersonhost
-## target exactly "$SC_INSTALL_DIR/srvctl.sh *"
+## Re-execute the command line at uid 0 and end with its exit code. A no-op
+## at uid 0. Call it only after the guard: it gives no permission by itself.
+## SC_ARGV is the untouched argv of srvctl.sh, so arguments keep their spaces.
 function sudomize {
-    if ! $SC_UID0
-    then
-        debug "@sudomize"
-        ## Re-exec through sudo, preserving the ORIGINAL argv so arguments
-        ## containing spaces survive. srvctl.sh exposes the untouched argv as
-        ## the array SC_ARGV=("$@"); callers that predate that fall back to the
-        ## space-joined SC_COMMAND_ARGUMENTS. sudo is invoked DIRECTLY, not via
-        ## `run` (whose unquoted $* would re-split the arguments).
-        ## NOTE: activating faithful argv needs `SC_ARGV=("$@")` in srvctl.sh
-        ## (currently WIP); until then the fallback runs (as before).
-        local _rc
-        if [[ ${SC_ARGV+set} ]]
-        then
-            sudo "$SC_INSTALL_DIR/srvctl.sh" "${SC_ARGV[@]}"
-            _rc=$?
-        else
-            # shellcheck disable=SC2086
-            sudo "$SC_INSTALL_DIR/srvctl.sh" $SC_COMMAND_ARGUMENTS
-            _rc=$?
-        fi
-        ## exit with sudo's REAL status (was 'exit $?' after debug -> always 0).
-        [[ $_rc == 0 ]] || debug "Error $_rc in srvctl-sudo"
-        exit "$_rc"
-    fi
+    $SC_UID0 && return 0
+    debug "@sudomize"
+    sudo "$SC_INSTALL_DIR/srvctl.sh" "${SC_ARGV[@]}"
+    exit $?
 }
 
-## Context guards hs_only / ve_only — MOVED here from containers/libs/authlib.sh
-## (WP-E VE-side sweep). They were defined in the CONTAINERS module, which is
-## inactive inside a container, so `ve_only` was UNDEFINED inside a VE — every
-## usersonve command's ve_only was a no-op (command-not-found), leaving only
-## root_only as the real guard. srvctl authlib is always loaded, so defining
-## them here makes them available host- AND VE-side. Their names also double as
-## line-anchored visibility markers for hint_on_file (commonlib.sh).
+## Context markers. hint_on_file hides an hs_only command where SC_HOSTNET is
+## unset (inside a container).
 ##
-## FIXME(v4, unchanged): SC_ON_HS / SC_ON_VE are never assigned in bash, so
-## `if $SC_ON_HS` is an empty command (status 0) and these ALWAYS pass — real
-## context-gating comes from module-activation conditions (+ root_only). Making
-## them live (e.g. hs_only -> [[ $SC_HOSTNET ]], ve_only -> [[ $SC_USE_VE ==
-## true ]]) is a behavior change across many modules and needs VM testing; kept
-## as-is here so this move is behavior-preserving.
+## FIXME(v4): SC_ON_HS / SC_ON_VE are never assigned, so `if $SC_ON_HS` runs
+## an empty command (status 0) and both guards always pass. What keeps a host
+## command out of a container is the module condition plus the identity guard.
 function hs_only {
     if $SC_ON_HS
     then

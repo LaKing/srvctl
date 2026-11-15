@@ -4,18 +4,16 @@
 ## @en Move container to a different user
 ## &en Move container to be owned by a different user. This invoves a change in the IP adress, thus requires a restart of the container.
 
-reseller_only
+## run only with srvctl
+[[ $SRVCTL ]] || exit 4
 
-sudomize
 argument container
+root_only
 
 ##
-##   STUB — validates its arguments, reports the target user's reseller,
-##   then errors out with "not implemented". The intent is to reassign
-##   container VE to USERNAME, which implies a new (uid-derived) IP
-##   address and a container restart. Gated to resellers/root like the
-##   rest of the reseller mechanics — deprecation candidate for v4 (G6),
-##   but the command surface must stay until the migration.
+##   STUB — validates its arguments, then ends with "not implemented". The
+##   intent is to reassign container VE to USERNAME, which implies a new
+##   address (10.HOSTNET.USER_ID.x) and a container restart.
 ##
 
 # shellcheck disable=SC2034
@@ -36,14 +34,7 @@ then
     exit 23
 fi
 
-## users without a reseller in the datastore belong to root
-reseller="$(get user "$username" reseller)"
-if [[ -z $reseller ]]
-then
-    reseller=root
-fi
-ntc "Reseller for $username is: $reseller"
-
 ## FIXME(v4): unimplemented stub — implement the reassignment (datastore
-## user change, IP/uid update, container restart) or drop the command
-err "DEV (not implemented - yet.)"
+## user change, address update, container restart) or drop the command
+err "change-user is not implemented and changes nothing."
+exit 1

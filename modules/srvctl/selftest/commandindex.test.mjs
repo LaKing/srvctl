@@ -53,11 +53,10 @@ function bashRef(file) {
     grep '## &en' "$f" | sed 's/## &en/    /g' | while IFS= read -r l; do printf 'HELP\\t%s\\n' "$l"; done
     grep -Eq '^[[:space:]]*root_only[[:space:]]*(#.*)?$' "$f" && echo 'ROOT_ONLY' || true
     grep -Eq '^[[:space:]]*hs_only[[:space:]]*(#.*)?$' "$f" && echo 'HS_ONLY' || true
-    grep -Eq '^[[:space:]]*reseller_only[[:space:]]*(#.*)?$' "$f" && echo 'RESELLER_ONLY' || true
     grep -Eq '^[[:space:]]*operators_only[[:space:]]*(#.*)?$' "$f" && echo 'OPERATORS_ONLY' || true
   `;
   const out = execFileSync("bash", ["-c", sh], { encoding: "utf8" });
-  const ref = { hint: null, syntax: null, dynamic: null, help: [], root_only: false, hs_only: false, reseller_only: false, operators_only: false };
+  const ref = { hint: null, syntax: null, dynamic: null, help: [], root_only: false, hs_only: false, operators_only: false };
   for (const line of out.split("\n")) {
     if (line.startsWith("HINT\t")) ref.hint = line.slice(5) || null;
     else if (line.startsWith("SYN\t")) ref.syntax = line.slice(4) || null;
@@ -65,7 +64,6 @@ function bashRef(file) {
     else if (line.startsWith("HELP\t")) ref.help.push(line.slice(5));
     else if (line === "ROOT_ONLY") ref.root_only = true;
     else if (line === "HS_ONLY") ref.hs_only = true;
-    else if (line === "RESELLER_ONLY") ref.reseller_only = true;
     else if (line === "OPERATORS_ONLY") ref.operators_only = true;
   }
   // bash's `${var:7}` on an empty (unmatched) grep yields "" -> our parser
@@ -84,7 +82,7 @@ for (const file of files) {
   eq(`syntax ${rel}`, parsed.syntax, ref.syntax);
   eq(`dynamic ${rel}`, parsed.dynamic, ref.dynamic);
   eq(`help ${rel}`, parsed.help, ref.help);
-  eq(`perms ${rel}`, [parsed.root_only, parsed.hs_only, parsed.reseller_only, parsed.operators_only], [ref.root_only, ref.hs_only, ref.reseller_only, ref.operators_only]);
+  eq(`perms ${rel}`, [parsed.root_only, parsed.hs_only, parsed.operators_only], [ref.root_only, ref.hs_only, ref.operators_only]);
   // Invariant the bash wiring relies on (commonlib.sh hint_on_file): a PRESENT
   // ## @@@ / ## &&& always has a NON-EMPTY value, so bash can treat an empty
   // SC_IDX_SYNTAX/SC_IDX_DYNAMIC as "marker absent" (the grep path's
@@ -93,8 +91,8 @@ for (const file of files) {
   eq(`dynamic non-empty-if-present ${rel}`, parsed.dynamic === null || parsed.dynamic.length > 0, true);
 }
 
-const addVe = parseCommandFile(fs.readFileSync(path.join(REPO, "modules", "containers", "commands", "add-ve.sh"), "utf8"));
-eq("late operators_only guard call counts", addVe.operators_only, true);
+const limitVe = parseCommandFile(fs.readFileSync(path.join(REPO, "modules", "containers", "commands", "limit-ve.sh"), "utf8"));
+eq("late operators_only guard call counts", limitVe.operators_only, true);
 // Only a LINE-ANCHORED guard CALL counts — a commented-out or embedded marker
 // must not. (regenerate.sh was the real example until WP-E.2.b gave it a real
 // root_only guard, so this uses a synthetic fixture that stays valid.)

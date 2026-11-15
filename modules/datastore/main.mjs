@@ -164,6 +164,7 @@ const CONTAINER_FNS = {
   uid: d.container_uid, br: d.container_br, gw: d.container_gw, interface: d.container_interface,
   br_host_ip: d.container_br_host_ip, bridge: d.container_bridge, user_id: d.container_user_id,
   user_ip_match: d.container_user_ip_match, hostnet: d.container_hostnet, host: d.container_host,
+  host_by_ip: d.container_host_by_ip, domain_only: d.container_domain_only,
   host_ip: d.container_host_ip, reseller: d.container_reseller, http_port: d.container_http_port,
   https_port: d.container_https_port,
   resolv_conf: g.container_resolv_conf, ethernet: g.container_ethernet,

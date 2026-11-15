@@ -11,7 +11,7 @@
 ##
 
 function all_containers_execute() { ## cmd
-    local list host cmd temp_file
+    local list host cmd temp_file retired
     cmd="$1"
 
     msg "Command is: $cmd"
@@ -22,9 +22,16 @@ function all_containers_execute() { ## cmd
     else
         list="$(cfg user container_list)" || exit 15
     fi
+    ## domain-only records (retire-ve) have no container to act on
+    retired=" $(domain_only_containers | tr '\n' ' ') "
     
     for C in $list
     do
+        if [[ $retired == *" $C "* ]]
+        then
+            msg "$C is a domain-only record, skipped"
+            continue
+        fi
         if [[ -d /srv/$C ]]
         then
             msg "$HOSTNAME / $C"
@@ -59,7 +66,7 @@ function all_containers_execute() { ## cmd
 }
 
 function all_containers_pingback() {
-    local list host cmd temp_file dom ip
+    local list host cmd temp_file dom ip retired
     cmd="$1"
     ## FIXME(v4): hard-coded reference targets — the message even claims
     ## $SC_DNS1 while the actual ping goes to 8.8.8.8 and d250.hu.
@@ -73,9 +80,16 @@ function all_containers_pingback() {
     else
         list="$(cfg user container_list)" || exit 15
     fi
+    ## domain-only records (retire-ve) have no container to act on
+    retired=" $(domain_only_containers | tr '\n' ' ') "
     
     for C in $list
     do
+        if [[ $retired == *" $C "* ]]
+        then
+            msg "$C is a domain-only record, skipped"
+            continue
+        fi
         if [[ -d /srv/$C ]]
         then
             

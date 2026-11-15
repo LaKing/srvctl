@@ -29,7 +29,6 @@ hs_only
 ##
 
 argument container
-#authorize
 container_user="$(get container "$ARG" user)"
 exif
 container_reseller="$(get container "$ARG" reseller)"

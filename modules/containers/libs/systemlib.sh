@@ -42,6 +42,8 @@ function create_nspawn_container_config() { ## Container
 
     local br bridge C
     C="$1"
+    ## also stops execstartpre (exit 11), should a masked unit be unmasked
+    not_domain_only "$C" "writing nspawn configuration" || return 1
 
     msg "Create nspawn container config for $C"
 

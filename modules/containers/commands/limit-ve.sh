@@ -25,6 +25,7 @@ sudomize
 
 C="$ARG"
 [[ $(get container "$C" exist) == true ]] || { err "No such container: $C"; exit 22; }
+not_domain_only "$C" "limiting its unit" || exit 22
 
 read -ra settings <<< "${OPAS#"$ARG"}"
 

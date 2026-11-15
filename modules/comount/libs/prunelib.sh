@@ -8,6 +8,7 @@
 ##   and destroy-ve unmount and delete /srv/C, the container's bind file and
 ##   its drop-in directory go with the container, and the unit file is what
 ##   stays behind. Only files carrying the module's own marker line are touched.
+##   A domain-only record (retire-ve) has no container either: its units go too.
 ##
 
 function prune_comount_units {
@@ -21,7 +22,7 @@ function prune_comount_units {
         [[ $where == "$SC_COMOUNT_ROOT"/*/comount/* ]] || continue
         C="${where#"$SC_COMOUNT_ROOT"/}"
         C="${C%%/*}"
-        container_is_gone "$C" || continue
+        container_is_gone "$C" || container_is_retired "$C" || continue
         prune "$file"
         reload=true
     done

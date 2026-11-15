@@ -24,6 +24,7 @@ root_only
 
 C="$ARG"
 [[ $(get container "$C" exist) == true ]] || { err "No such container: $C"; exit 22; }
+not_domain_only "$C" "upgrading its container" || exit 22
 [[ -d /srv/$C ]] || { err "$C is not on this host"; exit 22; }
 
 mkdir -p "/srv/$C/upgrade"

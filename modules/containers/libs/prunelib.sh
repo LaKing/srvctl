@@ -18,6 +18,12 @@
 ##   directory that is bind-mounted into the container (copies of user keys
 ##   and password hashes).
 ##
+##   A domain-only record (retire-ve, domainonlylib.sh) keeps its record but
+##   has no container: container_is_retired is true for it, and the hooks that
+##   remove what belongs to the container itself (unit links and drop-ins,
+##   comount units, shares) remove those too. What the domain still needs
+##   (DKIM key, certificate, static docroot) follows container_is_gone only.
+##
 
 ## TEST SEAMS for the selftest, not supported configuration.
 : "${SC_PRUNE_UNIT_DIR:=/etc/systemd/system}"
@@ -27,23 +33,41 @@
 ## The registered container names between spaces; empty outside run_prune and
 ## when the datastore could not be read, and then no container counts as gone.
 SC_PRUNE_CONTAINERS=""
+## The domain-only records between spaces, read together with the names.
+SC_PRUNE_DOMAIN_ONLY=""
 
 function run_prune {
-    local rows
+    local rows C value
 
     ## list reports its own failure
     SC_PRUNE_CONTAINERS=""
-    if rows="$(list container)"
+    SC_PRUNE_DOMAIN_ONLY=""
+    if rows="$(list container domain_only)"
     then
-        SC_PRUNE_CONTAINERS=" ${rows//$'\n'/ } "
+        while IFS=$'\t' read -r C value
+        do
+            [[ -n $C ]] || continue
+            SC_PRUNE_CONTAINERS+=" $C"
+            [[ $value == true ]] && SC_PRUNE_DOMAIN_ONLY+=" $C"
+        done <<< "$rows"
+        ## never empty after a successful read, even without a single record:
+        ## empty means "no read", and then nothing counts as gone
+        SC_PRUNE_CONTAINERS+=" "
+        SC_PRUNE_DOMAIN_ONLY+=" "
     fi
 
     run_hook prune
     SC_PRUNE_CONTAINERS=""
+    SC_PRUNE_DOMAIN_ONLY=""
 }
 
 function container_is_gone { ## C
     [[ -n $SC_PRUNE_CONTAINERS ]] && [[ $SC_PRUNE_CONTAINERS != *" $1 "* ]] && [[ ! -e $SC_PRUNE_SRV_DIR/$1 ]]
+}
+
+## C is a domain-only record: its container-side leftovers can go.
+function container_is_retired { ## C
+    [[ ${SC_PRUNE_DOMAIN_ONLY:-} == *" $1 "* ]]
 }
 
 function prune_container_leftovers {
@@ -58,7 +82,7 @@ function prune_container_leftovers {
         C="${C#srvctl-nspawn@}"
         C="${C%.service.d}"
         C="${C%.service}"
-        container_is_gone "$C" || continue
+        container_is_gone "$C" || container_is_retired "$C" || continue
         prune "$path"
         [[ $path == "$SC_PRUNE_SHARE_DIR"/* ]] || reload=true
     done

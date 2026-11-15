@@ -10,7 +10,7 @@
 ##
 
 function all_containers() { ## op
-    local list cop host
+    local list cop host retired
     cop="$1"
     if $SC_UID0
     then
@@ -18,6 +18,8 @@ function all_containers() { ## op
     else
         list="$(cfg user container_list)" || exit 15
     fi
+    ## domain-only records (retire-ve) have no container to act on
+    retired=" $(domain_only_containers | tr '\n' ' ') "
 
     ## FIXME(v4): HIGH — any op other than 'start' falls through to
     ## 'machinectl $cop', but machinectl has no stop/restart verb:
@@ -26,6 +28,11 @@ function all_containers() { ## op
     ## machinectl usage error.
     for C in $list
     do
+        if [[ $retired == *" $C "* ]]
+        then
+            msg "$C is a domain-only record, skipped"
+            continue
+        fi
         if [[ -d /srv/$C ]]
         then
             if [[ $cop == restart ]]

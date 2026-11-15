@@ -133,6 +133,27 @@ prune_certificates
 ok "a failed datastore read removes nothing" "$(ls "$box/ds/cert"/*.pem | wc -l)" 4
 LIST_RC=0
 
+echo "the last record deleted (run_prune over an empty datastore)"
+## remove-ve of the final, domain-only record: list succeeds with no rows
+run_hook() { prune_opendkim_keys; prune_static_docroots; }
+setup
+mkdir -p "$box/static/retired.example/html" "$box/ds/opendkim/retired.example"
+echo key > "$box/ds/opendkim/retired.example/default.private"
+DOMAINS=""
+run_prune
+ok "its preserved DKIM key goes" "$([[ -e $box/ds/opendkim/retired.example ]] && echo kept || echo gone)" gone
+ok "its static docroot goes" "$([[ -e $box/static/retired.example ]] && echo kept || echo gone)" gone
+ok "a directory in /srv still keeps its key" "$([[ -e $box/ds/opendkim/live.example ]] && echo kept || echo gone)" kept
+setup
+mkdir -p "$box/static/retired.example/html" "$box/ds/opendkim/retired.example"
+LIST_RC=112
+run_prune
+ok "a failed datastore read prunes nothing" "$(find "$box/static" "$box/ds/opendkim" -maxdepth 1 -name '*.example' | wc -l)" 10
+LIST_RC=0
+DOMAINS='live.example	["live.example","www.live.example","alias.example","www.alias.example"]
+record-only.example	[]'
+unset -f run_hook
+
 echo "outside run_prune"
 setup
 SC_PRUNE_CONTAINERS=""

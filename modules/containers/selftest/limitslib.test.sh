@@ -92,5 +92,14 @@ CALLS=()
 apply_container_limits "$C"; ok "bad stored value rc" $? 22
 ok "bad stored value touches nothing" "${#CALLS[@]}" 0
 
+echo "every local container (regenerate)"
+SC_LIMITS_SRV_DIR="$SC_LIMITS_UNIT_DIR/srv"
+mkdir -p "$SC_LIMITS_SRV_DIR/live.ve/rootfs" "$SC_LIMITS_SRV_DIR/retired.ve/rootfs"
+list() { printf 'live.ve\t200%%\t-\t-\tfalse\nretired.ve\t200%%\t-\t-\ttrue\nremote.ve\t200%%\t-\t-\tfalse\n'; }
+CALLS=()
+apply_all_container_limits; ok "all rc" $? 0
+ok "the local container gets its drop-in" "$([[ -f $(container_limits_dropin live.ve) ]] && echo yes)" yes
+ok "a domain-only record gets none, even with a leftover rootfs" "$([[ -e $(container_limits_dropin retired.ve) ]] && echo present || echo none)" none
+
 echo "limitslib: $pass passed, $fail failed"
 [[ $fail -eq 0 ]]

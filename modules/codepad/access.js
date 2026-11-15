@@ -192,6 +192,8 @@ function remake_access_keys(c) {
 
 function user_access() {
     Object.keys(containers).forEach(function(c) {
+            // a domain-only record (retire-ve) has no container to bind a share into
+            if (datastore.container_domain_only(c)) return;
             remake_access_keys(c);
     });
 }

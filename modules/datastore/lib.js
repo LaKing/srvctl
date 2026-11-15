@@ -346,6 +346,14 @@ function container_host(C) {
 
 exports.container_host = container_host;
 
+// A domain-only record (retire-ve): no container files, the record stays for
+// its zone, routing, certificate and DKIM. Same rule as derive.mjs.
+function container_domain_only(C) {
+    return containers[C] !== undefined && containers[C].domain_only === true;
+}
+
+exports.container_domain_only = container_domain_only;
+
 function container_host_ip(C) {
     var container = containers[C];
     var hostnet = container_hostnet(C);

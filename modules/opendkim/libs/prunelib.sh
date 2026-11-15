@@ -6,7 +6,7 @@
 ##   opendkim.js keeps one key directory per container name (aliases have
 ##   none) in $SC_DATASTORE_DIR/opendkim. It is a copy: the key itself lives in
 ##   /srv/C/opendkim and is copied over on every regenerate, and KeyTable and
-##   SigningTable are rebuilt from the records, so the directory of a container
+##   the signing tables are rebuilt from the records, so the directory of a container
 ##   with neither a record nor a /srv directory is referenced by nothing.
 ##   /var/opendkim is a mirror of the datastore directory and follows on the
 ##   next regenerate_opendkim (libs/opendkimlib.sh).

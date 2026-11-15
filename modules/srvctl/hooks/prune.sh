@@ -10,8 +10,9 @@
 ##   not stop the run.
 ##
 
-## Only genuine root cleans the host; inside a container there is nothing to do.
-sc_is_root || return 0
+## uid 0 and not sc_is_root: an owner who removed his container through sudo
+## runs the prune hooks too.
+$SC_UID0 || return 0
 
 prune_retired
 

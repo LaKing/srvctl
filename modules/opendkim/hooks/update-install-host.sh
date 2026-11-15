@@ -48,16 +48,22 @@ Selector        default
 MinimumKeyBits        1024
 
 KeyTable        /var/opendkim/KeyTable
-SigningTable        refile:/var/opendkim/SigningTable
 ExternalIgnoreList        refile:/var/opendkim/TrustedHosts
-InternalHosts        refile:/var/opendkim/TrustedHosts
+
+## Signing policy: only senders entitled to the header From domain get a
+## signature (container IP -> its own domains, SMTP AUTH login -> its
+## domain, loopback -> the host's own domains). Written here in the quiet
+## form (nothing is signed); 'sc regenerate' (regenerate_opendkim_conf)
+## sets SigningTable / SetupPolicyScript for this host.
+InternalHosts        /var/opendkim/InternalHosts
+SigningTable        refile:/var/opendkim/EmptySigningTable
 
 EOF
 
 #regenerate_opendkim
 ## FIXME(v4): low — regenerate_opendkim above is commented out, but
 ## add_service below enables and restarts the daemon while the
-## /var/opendkim/{KeyTable,SigningTable,TrustedHosts} files referenced by
+## /var/opendkim/{KeyTable,EmptySigningTable,InternalHosts,...} files referenced by
 ## /etc/opendkim.conf do not exist yet on a fresh host; opendkim.service
 ## fails to start until the first 'sc regenerate', and outgoing mail is
 ## meanwhile unsigned (postfix milter_default_action accept).

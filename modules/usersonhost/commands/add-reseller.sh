@@ -14,9 +14,8 @@ argument username
 ##   Registers USERNAME as a reseller in the cluster datastore (users.json
 ##   with a reseller_id, via the datastore "new reseller" command) and
 ##   triggers regenerate_users (main.js) to provision the account. Root
-##   only. Resellers own users and containers; by convention they get a
-##   single-character username, which is what authlib checks to grant
-##   reseller privileges.
+##   only. The reseller of a container's owner passes owner_only for that
+##   container (authlib.sh); nothing else depends on being a reseller.
 ##
 ##   Core of the reseller mechanics — deprecation candidate for v4 (G6),
 ##   but LIVE on production until the migration.

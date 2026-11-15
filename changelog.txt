@@ -8,6 +8,70 @@ notable operational changes are listed here.
 Unreleased (v4, in progress on top of 4.0.0.8)
 ----------------------------------------------
 
+OpenDKIM: sign outbound mail only for domains the sender is entitled to (2026-11-15)
+  * Security: the gateway trusted all of 10.0.0.0/8 and signed '*@<domain>' for
+    every cluster domain, so any container (and any SMTP AUTH user) got a valid
+    signature for another tenant's domain by setting the header From.
+  * lib/entitlement.js (from the datastore, via opendkim.js): EntitledSigners
+    ('<ip>/<domain>': own name, name without mail., aliases that are not another
+    container's name, mail_ve hand-overs; loopback for the host names and
+    SC_COMPANY_DOMAIN), SignableDomains, HostSigningTable, InternalHosts
+    (loopback only), EmptySigningTable. The wildcard SigningTable is no longer
+    written.
+  * conf/signing-policy.lua: on a Lua-capable opendkim every signature is
+    decided by header From: SMTP AUTH sessions by the login's domain, other
+    clients by '<ip>/<domain>'. Unentitled mail is not signed (verified like
+    inbound), not rejected.
+  * regenerate_opendkim_conf (regenerate hook): picks lua / nolua / local-only
+    / quiet per host from the Postfix settings as each smtpd service resolves
+    them ($parameter references followed by srvctl; anything unresolved is never
+    safe), touches only single keys, edits Postfix only after opendkim is quiet
+    and enables signing only after a postfix restart. Without Lua, AUTH mail is
+    unsigned (decision 013); on an operator-routed conflict (H1) nothing is
+    signed and an err names the setting.
+  * update-install writes /etc/opendkim.conf in the quiet form.
+  * Selftests: opendkim/selftest/entitlement.test.mjs, opendkimconf.test.sh.
+
+Authorization: the caller who came through sudo (2026-11-15)
+  * The sudoers entry lets every account start srvctl.sh at uid 0. Closed:
+    - the module cache and the srvctl-includes commands were taken from the
+      CALLER'S home and sourced at uid 0 (any user could write a file that
+      srvctl ran as root). SC_HOME is root's home at uid 0 now (sc_code_home).
+    - an unguarded command, root's own /root/srvctl-includes commands and the
+      raw get/out verbs ran for everybody at uid 0. run_command starts only a
+      command file with an identity guard for such a caller (command_may_run);
+      status, diagnose, ls and version stay unguarded reads without sudo.
+    - add-publickey read a FILE as root and printed it (any file of the host),
+      and opened mcedit as root. A FILE is read as the caller, no editor.
+    - backup-ve / remove-ve sourced the container's /etc/os-release and ran its
+      rpm in a chroot, both the tenant's code as host root; add-ve sourced the
+      os-release of a TYPE given as a path; regenerate sourced the os-release
+      of an unregistered /srv directory. Read as text now (rootfs_os_id); the
+      backup makes no package list (the copy holds the package database).
+  * Guards: new users_only (root or a caller with a user record on the host).
+    Removed: the authorize stub (it only printed "Authorization implementation
+    not complete" and went on) and reseller_only (a one-character user name
+    was the whole test). add-user is operators_only, change-user root_only.
+  * add-ve is users_only again (it was operators_only since August, and no
+    user on bp carries that role: every add-ve of a user ended with "Operators
+    only."). add_ve refuses an invalid name (lowercase host name, 64
+    characters), a TYPE that is not a plain image name, and a name another
+    container serves as name, www name, alias or altname.
+  * remove-ve and destroy-ve are one function (remove_ve, removelib.sh). A
+    missing container ends with 22, a tree that cannot be removed with 16. The
+    prune hooks run at uid 0, so also when an owner removes his container:
+    until now his shares, docroot and ports stayed until the next cron run.
+    The loop that force-unmounted and deleted /home/*/C/* is gone (the share
+    prune unmounts and removes empty directories only).
+  * add-ve-user is the owner's command (owner_only; it checked no ownership
+    before), a user without a record is created only for root and operators.
+  * update-ve changes nothing and says so: the stub stopped the container and
+    then reported "Feature unimplemented". recreate-ve is root_only (it
+    sources a script generated from the container's passwd file).
+  * The service shorthand no longer prints its debug banner on every call,
+    and gives a sudo caller no status or journal of a host service.
+  * The status table no longer dies for a caller without a user record.
+
 Prune: every module cleans up after itself (2026-11-15)
   * run_prune (containers/libs/prunelib.sh) starts the prune hook and reads
     the container records once; hooks ask 'container_is_gone C' (no record

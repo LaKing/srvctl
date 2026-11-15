@@ -17,8 +17,6 @@
 ## special services
 # shellcheck disable=SC2154
 
-echo "============= SERVICE: $service OP: $op SC_USER $SC_USER SC_UID0: $SC_UID0 ======================"
-
 if [[ -d /srv/$service/rootfs ]]
 then
     ## WP-E.2.b audit: default container service shorthand (`sc VE restart`,
@@ -26,7 +24,6 @@ then
     ## checking ownership, then root always passed; non-owners could operate
     ## other users' containers.
     owner_only container "$service"
-    msg "AUTH-OK $SC_USER has access to $service"
 
     ## Capability token for command.sh's generic host-service root gate: THIS
     ## action has been owner-authorized, so that gate must NOT re-deny it. It is

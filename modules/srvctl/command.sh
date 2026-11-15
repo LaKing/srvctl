@@ -116,6 +116,13 @@ then
     then
         root_only
     fi
+    ## A caller who came through sudo gets no reads either: the status and the
+    ## journal of a host service are root's to see at uid 0. Without sudo the
+    ## same request runs with the caller's own rights.
+    if sc_escalated && [[ "$SC_SERVICE_OWNER_AUTHORIZED" != true ]]
+    then
+        root_only
+    fi
     service_action "$service" "$op" "$xswitch"
     ## FIXME(v4): exit_0 runs unconditionally, so service_action failures
     ## (return 66 for non-root/non-wheel, 223 for unknown op, systemctl

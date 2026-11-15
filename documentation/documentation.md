@@ -554,7 +554,7 @@ Two commands never reach `run_command` because `init.sh` handles them itself: `m
 | `NOW` | Timestamp `YYYY.mm.dd-HH:MM:SS` |
 | `SC_USER` | Current user (or sudoer) |
 | `SC_UID0` | Boolean — running as root |
-| `SC_HOME` | Home directory of `SC_USER` |
+| `SC_HOME` | The home srvctl takes code from (module cache, `srvctl-includes`): the home of `SC_USER`, but always root's at uid 0 (`sc_code_home`) |
 | `SC_CANONICAL_CLUSTERS_SHA256` | SHA-256 of `/etc/srvctl/clusters.json` — this invocation's topology generation (readonly, exported) |
 | `SC_CLUSTER_HOSTNAME_BOOTSTRAP` | `true` only during `update-install HOSTNAME` on `localhost.localdomain`; the future identity stays unsourced and the generation is cached as `none` until the reboot |
 
@@ -589,7 +589,7 @@ The `## &&&` command is executed by command substitution every time the hint is 
 | `run_command()` | Main command dispatcher (see [Command Execution](#command-execution)) |
 | `complicate(cmd)` | No-op by default; `completionlib.sh` redefines it so a hint listing also harvests the command words for completion |
 | `build_command_index(paths…)` | Parses all listed command files in a single `commandindex.mjs` call into the `SC_IDX_*` arrays; sets `SC_IDX_BUILT=true` only if node actually produced entries |
-| `hint_on_file(file)` | Prints one command's hint, filtered by the caller's role (`root_only`, `operators_only`, `hs_only`, `reseller_only`); reads the index when built, otherwise greps the file |
+| `hint_on_file(file)` | Prints one command's hint, filtered by the caller's role (`root_only`, `operators_only`, `hs_only`); reads the index when built, otherwise greps the file |
 | `hint_commands()` | Prints the commands the caller is allowed to run |
 | `help_on_file(file)` | Prints detailed help for one command |
 | `help_commands()` | Prints help for all commands, or for `$ARG` alone |
@@ -678,7 +678,7 @@ modules/<name>/
 
 At startup, `test_srvctl_modules()` (in `commonlib.sh`) walks `SC_MODULES` and sources each `module-condition.sh` inside a command substitution: the condition runs in a **subshell** and its *stdout* is the verdict — exactly the string `true` enables the module, anything else disables it. A module directory with no condition file is reported as an error and left disabled. Results are cached in:
 
-- `~/.srvctl/modules.conf` (per-user, including root — used whenever `SC_HOME` is set)
+- `$SC_HOME/.srvctl/modules.conf` (per user; at uid 0 always root's, also for a caller who came through sudo)
 - `/var/local/srvctl/modules.conf` (legacy fallback, sourced first and only when its
   generation matches, then overridden by the per-user cache)
 
@@ -752,7 +752,7 @@ current shell* — it can therefore see and change every srvctl variable:
 2. **Datastore verbs** — dispatched straight to the bash wrappers in `modules/datastore/libs/bashlib.sh`, split by verb: the writes `new`, `put`, `cfg`, `del`, `add` are genuine-root only, the reads `get` and `out` are open to every caller.
 3. **Root custom commands** — `/root/srvctl-includes/$CMD.sh`
 4. **Module commands** — `$SC_MODULES/*/commands/$CMD.sh`, enabled modules only, in `SC_MODULES` order (first match wins)
-5. **User custom commands** — `$SC_HOME/srvctl-includes/$CMD.sh` (skipped when `SC_HOME` is `/root`)
+5. **User custom commands** — `$SC_HOME/srvctl-includes/$CMD.sh` (never at uid 0, where `SC_HOME` is root's home)
 6. **Module default handlers** — `$SC_MODULES/*/command.sh`. Unlike step 4 this does not stop at the first match: every enabled module that ships one is sourced and may claim the command. Only `containers` and `srvctl` ship one — the `VE op` machinectl shorthand and the `SERVICE OP` systemd shorthand.
 
 `run_command` returns 54 when no command word was given and 250 when nothing matched.
@@ -806,9 +806,7 @@ Each command script uses structured comments for the help system. This is the he
 ## &&& ls /var/srvctl3/rootfs
 
 argument container-name
-## WP-E.2.b: provisioning a container is an operator/root action (was the
-## non-denying authorize stub). The created container is then owned by a user.
-operators_only
+users_only
 sudomize
 
 ## Command implementation follows...
@@ -846,17 +844,31 @@ change. The exit codes are a convention callers rely on: **44** = authorization 
 |-------|--------|
 | `root_only` | Genuine root only: `SC_USER=root` **and** uid 0 (`sc_is_root`). Plain uid 0 is not enough — the generated NOPASSWD sudoers entry lets any user reach uid 0 while keeping their own `SC_USER`. |
 | `operators_only` | Root, or a caller whose **local** datastore user record has `role=operator`. The role is resolved once by `sc_role` and is host-scoped: an operator here is an ordinary user on a host whose record does not say so. |
-| `owner_only <type> <id>` | Resource ownership. Root passes; the record's `user` — or, transitionally, its `reseller` — passes and is escalated through `sudomize`; anybody else exits 44. A failed datastore lookup is propagated as that error, never turned into a denial. |
-| `reseller_only` | Root, or a caller whose user name is exactly **one character** long — that single-char name *is* the reseller test. Transitional, slated for removal in WP-F. |
+| `users_only` | Root, or a caller who has a user record on this host. For commands that act for the caller himself: `add-ve` (the new container is his) and `add-publickey`. An account without a record (a service account) is refused. |
+| `owner_only <type> <id>` | Resource ownership. Root passes; the record's `user` or that user's `reseller` passes and is escalated through `sudomize`; anybody else exits 44. A failed datastore lookup is propagated as that error, never turned into a denial. |
 | `hs_only` | Meant to be "host only". **Inert as a guard**: `SC_ON_HS` is never assigned, so `if $SC_ON_HS` is an empty command with status 0 and it always passes (FIXME in `authlib.sh`). Real host/VE separation comes from the module-activation conditions. It still works as a *visibility* marker — commands carrying it are hidden when `SC_HOSTNET` is unset. |
 | `ve_only` | Meant to be "inside a container only". **Inert** for the same reason, and unlike `hs_only` it is not even used for visibility. |
-| `authorize` | **Non-enforcing stub.** uid 0 returns; anyone else gets `DEV (Authorization implementation not complete.)` on stderr and the command *continues*. Never rely on it: of its three call sites, `remove-ve` and `destroy-ve` are really protected by the `owner_only` that follows, and `containers/commands/status.sh` is guarded by nothing else. |
 | `argument <name>` | Exit 32 unless `$ARG` (the word after the command) is non-empty. The name is used only in the message. |
-| `sudomize` | When not already uid 0, re-exec `$SC_INSTALL_DIR/srvctl.sh` through sudo with the original argv and exit with sudo's real status. `SC_USER` stays the original user across the re-exec, which is what lets `owner_only` re-authorize the escalated command. |
+| `sudomize` | When not already uid 0, re-exec `$SC_INSTALL_DIR/srvctl.sh` through sudo with the original argv and exit with sudo's status. `SC_USER` stays the original user across the re-exec, which is what lets the guard pass a second time at uid 0. It gives no permission by itself: call it after the guard. |
 
 Help output mirrors enforcement: `hint_on_file` hides `root_only` commands from non-root
-and `operators_only` commands from ordinary users, while `owner_only` commands stay
-listed because ownership is decided per resource, not per role.
+and `operators_only` commands from ordinary users, while `owner_only` and `users_only`
+commands stay listed.
+
+**The caller who came through sudo.** The sudoers entry (`ALL ALL=(ALL) NOPASSWD: srvctl.sh *`)
+lets every account start srvctl at uid 0, with `SC_USER` still its own name (`sc_escalated`,
+`commonlib.sh`). Two rules keep that from being root:
+
+- **No code from the caller's home.** `SC_HOME` is root's home at uid 0, so the module cache
+  that srvctl sources and the `srvctl-includes` commands are never the caller's files.
+- **Only guarded commands start.** `run_command` refuses a command file that has no
+  identity guard (`root_only`, `operators_only`, `users_only`, `owner_only ...`) on a line of
+  its own (`command_may_run`), and refuses the raw `get` / `out` verbs. The unguarded commands
+  are reads that need no uid 0: `status`, `diagnose`, `ls`, `version`. A new command without a
+  guard is therefore closed for sudo callers, not open; `escalated.test.sh` holds the list.
+
+A file that belongs to a tenant is read, never sourced or executed by the host: the
+`os-release` of a container goes through `rootfs_os_id` (`libs/create-container.sh`).
 
 ---
 
@@ -878,7 +890,7 @@ A hook name is only a dispatch point: firing a name that no enabled module imple
 | `post-init` | After initialization (branding, ca, containers) |
 | `post-init-$CMD` | Last init hook, *after* `post-init` (`init.sh:327`) — no shipped module implements it |
 | `regenerate` | During configuration regeneration (15 modules); also fired by `add-ve`, `add-network-ve`, `add-ve-user` and `add-codepad` |
-| `prune` | Before the `regenerate` hooks of every regenerate, and at the end of `remove-ve` / `destroy-ve`: each module removes its own leftovers (comount, containers, datastore, firewalld, static, usersonhost, srvctl) |
+| `prune` | Before the `regenerate` hooks of every regenerate, and at the end of `remove-ve` / `destroy-ve` / `retire-ve`: each module removes its own leftovers (comount, containers, datastore, firewalld, static, usersonhost, srvctl). For a domain-only record the container-side leftovers (unit links and drop-ins, comount units, shares) go too, what the domain needs stays (`container_is_retired`, `containers/libs/prunelib.sh`) |
 | `regenerate_rootfs` | When rebuilding base container images (`srvctl regenerate rootfs`) |
 | `regenerate_certificates` | After a certificate change (certificates, letsencrypt); fired by the haproxy `regenerate` hook (`modules/haproxy/hooks/regenerate.sh:15`) and by the haproxy `http-redirect` / `https-redirect` commands |
 | `update-install-host` | During `srvctl update-install` on host |
@@ -1028,9 +1040,10 @@ Each container record (`$SC_DATASTORE_DIR/containers/<name>.json`) has:
 | `use_google_spf` | Adds `include:_spf.google.com` to the generated SPF without touching the MX (`use_gsuite` also moves the MX to Google). Pair it with the Google Admin public key in `dkim-google-domainkey` (`p=…`, selector `google`) |
 | `spf_record` | Replaces the generated SPF TXT verbatim; `put` cannot store it, since the value contains spaces |
 | `is_mail` | Whether this is a mail container |
-| `mail_ve` | Container that handles this container's mail: the host `/etc/hosts` points `mail.<name>` (and `mail.<alias>`) at its IP, so the host postfix MX delivery and the perdition map reach it. Set with `set-ve-mail-ve VE MAILVE` (clear with `off`), which also makes the target's postfix take the domains as its own (see *Mail of one container handled by another*). An unknown target leaves a `## [mail_ve …]` comment and keeps the own IP. |
-| `web_ve` | Container that serves this container's web: HAProxy sends the `http:<name>` / `https:<name>` backends (so every name, alias and subdomain) to its name and ports, Host header unchanged. Set with `set-ve-web-ve VE WEBVE` (clear with `off`). Redirects, basic auth and certificates stay the container's; other proxied ports do not follow. An unknown target falls back to the container itself |
+| `mail_ve` | Container that handles this container's mail: the host `/etc/hosts` points `mail.<name>` (and `mail.<alias>`) at its IP, so the host postfix MX delivery and the perdition map reach it. Set with `set-ve-mail-ve VE MAILVE` (clear with `off`), which also makes the target's postfix take the domains as its own (see *Mail of one container handled by another*). An unknown target leaves a `## [mail_ve …]` comment and keeps the own IP. A domain-only record is never accepted as a target, and `off` is refused on a domain-only record (it has no container to take the mail back). |
+| `web_ve` | Container that serves this container's web: HAProxy sends the `http:<name>` / `https:<name>` backends (so every name, alias and subdomain) to its name and ports, Host header unchanged. Set with `set-ve-web-ve VE WEBVE` (clear with `off`). Redirects, basic auth and certificates stay the container's; other proxied ports do not follow. An unknown target falls back to the container itself. A domain-only record is never accepted as a target, and `off` is refused on a domain-only record |
 | `dns` | DNS scan results per domain |
+| `domain_only` | `true` on a **domain-only record**: the container's files were deleted with `retire-ve` (see *Retirement*), the record stays so the domain keeps its DNS zone, its `web_ve` and `mail_ve` routing, relaydomains, certificate and DKIM signing. Only the boolean `true` counts. Regenerate never creates, configures or starts anything for it; `get container C domain_only` prints `true`/`false` |
 
 `all_containers_quota_check()` (`modules/containers/libs/all_containers_quota_check.sh`),
 run from the containers `regenerate` hook only for the `#cron.hourly` argument,
@@ -1145,7 +1158,13 @@ The containers module is the largest and most central module, managing the full 
 
 #### Creation (`srvctl add-ve <name> [type]`)
 
-Operator/root only (`operators_only`, then `sudomize`). TYPE defaults to `fedora` and must name a base image already present under `$SC_ROOTFS_DIR` — `add-ve` tests for `<type>/etc/os-release` and, when it is missing, prints an error and lists the available types instead of creating anything. The work itself is `add_ve` (`libs/addcontainerlib.sh`):
+For every user with a record on the host (`users_only`, then `sudomize`): the caller becomes the owner, and the address comes from his network. TYPE defaults to `fedora`. The work itself is `add_ve` (`libs/addcontainerlib.sh`), which first refuses, before anything is written:
+
+- a NAME that is not a lowercase host name of at most 64 characters (`valid_container_name`, exit 22) — it becomes a path, a unit name and a machine name;
+- a TYPE that is not a plain name with `<type>/etc/os-release` under `$SC_ROOTFS_DIR` (exit 10, the available types are listed);
+- a NAME that exists (exit 11), or that another container already serves as its name, `www.` name, alias or altname (`container_domain_owner`, exit 13).
+
+Then:
 
 1. Verify `$SC_ROOTFS_DIR/<type>` exists (exit 10).
 2. Refuse if the datastore record already exists (exit 11) or `/srv/<container>/rootfs` is already there (exit 12).
@@ -1170,7 +1189,7 @@ Only after `add_ve` returns does the command run the `add-ve`, `add_ve_<type>` a
 #### Backup (`srvctl backup-ve <container>`)
 
 1. Export container metadata into `/srv/<container>/container.json` (`out container ... json`).
-2. Save package lists for Fedora containers. Only `rpm.packages.list` is actually written — the `dnf list installed` call is passed through `run`, which performs no redirection, so `>` and the path reach dnf as package specs and it fails (`libs/backupcontainerlib.sh:38`).
+2. No package list is made: the copy holds the package database itself, and making a list meant running the container's own files as host root.
 3. Rsync `/srv/<container>` to `$SC_BACKUP_PATH/srvctl-containers/<container>/<timestamp>` (`SC_BACKUP_PATH` defaults to `/backup`). A failed rsync aborts the calling command through `exif`.
 4. When `SC_BACKUP_HOST` names another machine the tree is rsynced there over SSH instead — but the remote `mkdir -p` goes through `run` as one quoted word, so it fails and the rsync then aborts (`backupcontainerlib.sh:52`): remote backups are broken as shipped.
 
@@ -1214,19 +1233,38 @@ Root only. Moves a Fedora container to the release of the current `fedora` base 
 
 `rollback` puts the copy back (the upgraded tree is kept as `rootfs.failed-<NOW>`), mounts the shares again, and starts the container if it was running. `discard-old` deletes the copy after a passed check. `rebuild-ve` and `upgrade-ve` share `exrootfs`; each refuses while the other one's run is open. Log: `/srv/<C>/upgrade/upgrade.log`.
 
-#### Destruction (`srvctl destroy-ve <container>`)
+#### Removal (`srvctl remove-ve <container>`, `srvctl destroy-ve <container>`)
 
-Takes **no** backup — that is `remove-ve`.
+Both are `remove_ve` (`libs/removelib.sh`); `remove-ve` passes `backup`, `destroy-ve` takes **no** backup. For root and the owner (`existing_container`, exit 22 without a record; then `owner_only`).
 
-1. Remove the `machines.target.wants` symlink so the unit cannot come back on boot, and stop/disable a legacy srvctl v2 unit from `/etc/srvctl/containers/` if one exists. The running unit itself is not stopped here.
-2. Remove the entry from the datastore — deliberately before any file is touched, so a crash leaves a re-importable orphan directory rather than a half-deleted live container.
-3. Remove `/var/srvctl3/storage/static/<container>`, then force-unmount and delete all user home bind mounts (`/home/*/<container>/*`).
-4. Terminate and kill the machine via `machinectl` if it is still registered.
-5. Delete `/srv/<container>` in a retry loop with 3 s pauses. The loop is unbounded: a busy or stale mount inside `/srv/<container>` retries forever (FIXME in the command).
+1. With `backup`: `backup_ve` copies the tree to `$SC_BACKUP_PATH/srvctl-containers/<container>/<timestamp>`. A failed copy ends the command before anything is deleted.
+2. Remove the `machines.target.wants` link and the limits drop-in, so a reboot cannot start a half-removed container.
+3. Delete the datastore record — before the files: a run that dies here leaves a directory without a record, which `container_is_gone` does not treat as gone and the next regenerate imports again.
+4. Remove the published certificate `cert/<container>.pem`.
+5. `remove_container_tree`: stop the unit, unmount what is mounted below `/srv/<container>`, refuse while anything stays mounted (exit 16, nothing more is deleted), then delete the tree.
+6. `run_prune`: every module removes what it made for the container — the shares in the users' homes, the static docroot, firewall ports, unit links. The prune hooks run at uid 0, so also for an owner who came through sudo.
 
-#### Removal (`srvctl remove-ve <container>`)
+On a domain-only record (see *Retirement*) there are no files to back up: `remove-ve` skips the backup, and both commands unmask the unit `retire-ve` masked. The prune then also removes the preserved DKIM key, the certificate and the static docroot, as for any deleted record.
 
-Same as destroy, but `backup_ve` runs first — between the unit unhook and `del container` — and a failed rsync aborts the whole removal. The backup is an rsync tree under `$SC_BACKUP_PATH/srvctl-containers/<container>/<timestamp>`, **not** a 7z archive: the command's own help line still advertises the removed v2 behaviour ("All files will be in a 7z format archive in the users home/.srvctl directory") and is stale, as its own FIXME notes.
+#### Retirement (`srvctl retire-ve <container> [no-web]`)
+
+Deletes a container's files but keeps its domain alive through other containers: a **domain-only record**. The record stays with the field `domain_only: true` and all its fields (`ip`, `user`, `type`, `web_ve`, `mail_ve`, the DNS and DKIM fields), so on every regenerate — `sc regenerate` and the hourly `#cron.hourly` alike — the DNS zone (A, MX, SPF, DKIM, DMARC, `_acme-challenge`), the HAProxy routing to `web_ve`, relaydomains and the `mail_ve` routing, the certificate renewal and the DKIM signing stay exactly as before. Use it when a site's web and mail are already served by other containers (`set-ve-web-ve`, `set-ve-mail-ve`) and the stopped container only takes disk space. Root only (`root_only`, exit 44 for everyone else before anything changes); `libs/domainonlylib.sh`.
+
+Refused (exit 22, nothing changed):
+- without a `web_ve`, unless the third word `no-web` accepts a domain without web: `sc retire-ve VE no-web`. There is no prompt, so it works the same from cron or ssh. A `web_ve` / `mail_ve` that is the container itself, unknown, or domain-only is refused too. A missing `mail_ve` is reported loudly (`MAIL: … has no mail_ve`) but does not stop the retirement;
+- when another container hands its web or mail to this one;
+- on a host without the container's rootfs, for a container on a custom `bridge`, and when the container's IP belongs to another host's network (`get container C host_by_ip` is not this host). Without the rootfs the owning host is derived from the IP (`derive.mjs`, `container_host`), as the other hosts of the cluster already derive it; these refusals keep that owner unchanged, so DNS replicas and peers see the record exactly as before;
+- for a record that is domain-only already.
+
+Steps, in this order:
+1. `backup_ve`, as `remove-ve` does; a failed copy ends the command before anything is deleted.
+2. The DKIM key `/srv/VE/opendkim/<selector>.private` (and `.txt`) is copied to the host-side folder `$SC_DATASTORE_DIR/opendkim/VE/` and verified (`cmp`); a failed copy ends the command before anything is deleted. A container without a key is reported.
+3. `put container VE domain_only true` — before the files go: a run that dies later leaves a domain-only record with leftover files, which regenerate ignores, never a record without files, which regenerate would rebuild as a fresh container.
+4. The `machines.target.wants` link and the limits drop-in are removed, and `srvctl-nspawn@VE.service` is masked (an existing mask stays).
+5. `remove_container_tree` stops the unit, unmounts what is mounted below `/srv/VE`, refuses while anything stays mounted, then deletes the tree (rootfs, nspawn files, everything). On a refusal (exit 16) the record is already domain-only: unmount everything listed, check that `findmnt -R /srv/VE` lists nothing, then finish with `sc exec-function remove_container_tree VE /srv/VE`, which repeats the same guarded removal. Do not delete the tree by hand while anything may be mounted: `rm --one-file-system` does not protect a bind mount of the same filesystem.
+6. `mapped_ports` is cleared; `run_prune` then closes the forwarded ports and removes the unit drop-ins, comount mount units, the codepad share `/var/srvctl3/share/containers/VE` and the users' `~user/VE` shares.
+
+Kept: the DKIM key, the datastore certificate, the static docroot and the record's `comount-*` fields (inert). `sc status` lists the record as `domain` / `DOMAIN-ONLY web:… mail:…`; `recreate-ve`, `rebuild-ve`, `upgrade-ve`, `backup-ve`, `map-port`, `limit-ve` and the comount commands refuse it, `all-containers` and `exec-all` skip it. To delete the record (and with it the domain): `remove-ve VE` or `destroy-ve VE`.
 
 ### Rootfs Creation
 
@@ -1372,12 +1410,13 @@ A `kernel.pid_max=4194304` line is present but commented out. Note that every `r
 |---------|-------------|
 | `add-ve <name> [type]` | Create a new container; type defaults to `fedora` and must already exist under `$SC_ROOTFS_DIR` |
 | `add-network-ve <name> <bridge>` | Create a fedora container on an existing `br-<bridge>` with DHCP |
-| `add-ve-user <name> <user>` | Add a user to a container, creating the datastore user if new (reseller only) |
+| `add-ve-user <name> <user>` | Give a user access to a container (owner or root; a user without a record is created only for root and operators) |
 | `set-ve-alias <name> [alias [off]]` | Add an alias domain that 301-redirects (with its `www.`) to the container; `off` removes it, no domain lists them (owner/reseller/root) |
 | `backup-ve <name>` | Backup a container |
 | `destroy-ve <name>` | Permanently delete a container, no backup |
 | `remove-ve <name>` | Rsync-backup, then delete a container |
-| `recreate-ve <name>` | Rebuild rootfs preserving data |
+| `recreate-ve <name>` | Rebuild rootfs preserving data (root only) |
+| `retire-ve <name> [no-web]` | Back up a container and delete its files, keeping its domain as a domain-only record (root only, see *Retirement*) |
 | `status [name]` | Show container status |
 | `regenerate [all-hosts\|rootfs]` | Rewrite generated configuration; `rootfs` rebuilds the base images, `all-hosts` repeats over ssh on every cluster host (root only) |
 | `exec-all <command>` | Execute command on all running containers (root only) |
@@ -1385,7 +1424,7 @@ A `kernel.pid_max=4194304` line is present but commented out. Note that every `r
 | `list-ve-releases [tsv]` | Read-only upgrade survey of the local containers, oldest OS release first (root only, see below) |
 | `rebuild-ve <name> [check\|rollback\|discard-old]` | Move a WordPress, PHP or static container onto the current fedora base image, keeping its data (root only, see below) |
 | `upgrade-ve <name> [check\|rollback\|discard-old]` | Upgrade a Fedora container in place to the base image's release, keeping a copy for rollback (root only, see below) |
-| `update-ve <name>` | Unimplemented stub — it stops the container, prints "Feature unimplemented" and leaves it **stopped** |
+| `update-ve <name>` | Not implemented: changes nothing and says so (exit 1). Packages are updated inside the container; a release upgrade is `upgrade-ve` or `rebuild-ve` |
 
 `regenerate` recognises only `rootfs` and `all-hosts`; any other argument (including `all`) silently falls through to the plain single-host regenerate.
 
@@ -1874,7 +1913,7 @@ The `letsencrypt` module automates public certificate acquisition: DNS-01 wildca
 - A datastore certificate whose issuer equals its subject (the self-signed placeholder `add-ve` writes) never counts as valid, so the domain goes on to issuance.
 - Containers are visited in random order and at most `SC_ACME_HTTP01_MAX_PER_RUN` (default 10) http-01 `certonly` calls run per run; further due domains are logged as deferred and get their turn in later runs. Deploys from an existing lineage do not count.
 - Per-domain skips: `www.` names (they ride along as a second `-d`), domains a **servable** wildcard covers per the shared rule in `modules/certificates/libs/wildcardgatelib.sh` (an admin wildcard with 7+ days left, or a managed DNS-01 wildcard with 1+ day left — exactly what HAProxy serves; an expired or invalid wildcard never blocks http-01) unless the covering name is in http-01 fallback or leaving DNS-01, a datastore certificate still valid for 7+ days, a live certbot lineage still valid for 7+ days (deployed, then skipped), domains not yet DNS-scanned, and domains whose scanned A record does not equal this host's `host_ip`.
-- Runs `letsencrypt certonly --non-interactive --agree-tos --keep-until-expiring --expand --webroot --webroot-path /var/acme/ -d <domain>` (plus `-d www.<domain>` when the www A record also points here), logging to `/srv/<name>/letsencrypt<name>.log` or `/srv/<name>/letsencrypt-www.<name>.log`.
+- Runs `letsencrypt certonly --non-interactive --agree-tos --keep-until-expiring --expand --webroot --webroot-path /var/acme/ -d <domain>` (plus `-d www.<domain>` when the www A record also points here), logging host-side, beside the DNS-01 logs, to `$SC_ACME_DIR/log/http01-<name>.log` or `$SC_ACME_DIR/log/http01-www.<name>.log` (default `/var/srvctl3/acme/log`), so it does not depend on `/srv/<name>` (a domain-only record has none).
 - Lineage selection tolerates certbot's `<domain>-0001` suffixes and picks the one with the latest `notAfter`; the freshly issued certificate is re-verified before deployment, because certbot can exit 0 while leaving an expired cert in place.
 - Deploys `privkey + fullchain` to `$SC_DATASTORE_DIR/cert/<domain>.pem` (mode 0600, set by an explicit chmod so an existing wider file is narrowed too; it keeps the key because HAProxy's `bind ssl crt` needs key and certificate in one file). When `/srv/<domain>/rootfs/etc/pki/tls/{private,certs}` exist, the container gets the key **only** in `private/localhost.key` (mode 0600, owned by the container root's shifted uid), and the fullchain alone, with no key, in `certs/localhost.crt`, `certs/<domain>.pem` and `certs/localhost.pem` (0644). The key is written first; if that fails the certs files are left as they were, so the container keeps a matching pair. The wildcard path (`acmerun.js` `deployRootfs`) writes the same layout. Nothing is appended after certbot's `fullchain.pem`: it already carries the complete ISRG chain and a trust anchor does not belong in the presented chain (`modules/letsencrypt/bundlelib.js`). The container writes live in `modules/letsencrypt/pkilib.js`; every directory below `rootfs` is opened by file descriptor with no symlink followed, and files are reached only through those descriptors (`/proc/self/fd/<fd>/<name>`). A directory the container renames or swaps for a symlink mid-run therefore cannot redirect a write outside the rootfs; the swap is reported. FIFOs, devices and sockets are never opened. Any such target is reported with an `err` and skipped. Covered by `modules/letsencrypt/selftest/pki.test.sh`.
 - Legacy cleanup: earlier versions also wrote the private key into `certs/<domain>.pem` and `certs/localhost.pem` with no mode. At the start of every `letsencrypt.js` run, before any skip, a sweep goes over every `/srv/<C>/rootfs/etc/pki/tls` (the directory listing, not the datastore). It strips `PRIVATE KEY` blocks from `certs/<C>.pem` and `certs/localhost.pem` and keeps their certificates; other files such as `certs/postfix.pem` are left alone. It also narrows a wider `private/localhost.key` to 0600, handing a host-root-owned key to the container root. It is idempotent and does not depend on issuance, so it covers containers that never reach deploy: wildcard-covered names, a still-valid datastore certificate, `mail.`/devel/local/dotless names, a missing lineage, failed issuance and `/srv` dirs unknown to the datastore. Not reached: runs that never get to `main()` (module disabled, the run lock waited out, a load failure; the next run catches up); rootfs not laid out as `/srv/<C>/rootfs/etc/pki/tls`; containers whose `etc`, `pki`, `tls`, `private` or `certs` is a symlink or not a directory, and targets replaced with a symlink, FIFO, device or socket (reported, left as they are); a `rootfs` that is itself a symlink (skipped); copies outside the live rootfs (backups, snapshots, templates); other file names under `certs/`; and the self-signed `$SC_DATASTORE_DIR/cert/<C>.pem` that `add-ve` writes (only `set_permissions` at `update-install` narrows that). `add_ve_certificate` now creates `private/localhost.key` at 0600.
@@ -1971,7 +2010,7 @@ The `postfix` module manages SMTP on both hosts and containers.
 - TLS with certificates at `/etc/postfix/crt.pem` and `key.pem`, `smtpd_tls_security_level = may`, used for both `smtpd` and outbound `smtp`.
 - No SMTP AUTH: `smtpd_sasl_auth_enable = no` and no `smtps` (465) listener. Its backend was saslauthd → rimap → perdition's IMAP on 127.0.0.1:143, and perdition is no longer installable. `regenerate_smtp_auth` (`libs/postfixlib.sh`) turns AUTH off on every `regenerate` where `/usr/sbin/perdition.imap4` is missing (smtps removed with `postconf -MX`, the main.cf key set); a host that still has perdition keeps it. `smtpd_sasl_type = cyrus` and `smtpd_recipient_restrictions = permit_mynetworks, permit_sasl_authenticated` stay; relaying is for `mynetworks` only.
 - Content filter: Amavis virus scanner (`127.0.0.1:10024`). `regenerate_amavisd_ordering` (`libs/postfixlib.sh`) gives `amavisd.service` a drop-in, `50-srvctl-network-online.conf`, ordering it after `network-online.target`: amavisd reads `resolv.conf` once, and started before systemd-resolved has its upstream servers it falls back to 127.0.0.1, where every DNS test of every message waits for its timeout (p2 after a reboot: mail minutes late). The drop-in takes effect at the next start.
-- OpenDKIM milter at `127.0.0.1:8891`, `milter_default_action = accept` (mail still flows unsigned when opendkim is down). Not on the `127.0.0.1:10025` amavis reinjection (`conf/hs-master.cf` sets `-o smtpd_milters=`; see below).
+- OpenDKIM milter at `127.0.0.1:8891`, `milter_default_action = accept` (mail still flows unsigned when opendkim is down). Not on the `127.0.0.1:10025` amavis reinjection (`conf/hs-master.cf` sets `-o smtpd_milters=`; see below). Which sender may get a signature is decided by the OpenDKIM signing policy (see [OpenDKIM](#opendkim-dkim-signing), *Signing entitlement*); for it `regenerate_opendkim_conf` may set `milter_mail_macros` and `smtpd_milter_maps` in main.cf, remove AUTH-carrying `milter_mail_macros` and any `smtpd_milter_maps` service overrides (gateways without Lua only), or give smtpd services an empty `-o smtpd_milters=` (recorded in `/etc/postfix/srvctl-isolated-listeners`).
 - 25 MB message size limit (`message_size_limit = 26214400`).
 - The install hook appends two site-specific lines to the rendered file: `smtpd_tls_CAfile` (only when the certificate install produced a `ca-bundle.pem`) and `smtpd_sasl_local_domain = $SC_COMPANY_DOMAIN`.
 
@@ -1996,7 +2035,7 @@ The `postfix` module manages SMTP on both hosts and containers.
 
 ### No DKIM signing of inbound mail (`regenerate_reinjection_milters`)
 
-Amavis hands every message back to Postfix on `127.0.0.1:10025`. That client is 127.0.0.1, an OpenDKIM InternalHost, so with the inherited `smtpd_milters` OpenDKIM signed inbound mail too — including a spoofed `From: <one of our domains>` from the internet. Every `regenerate` therefore sets `-o smtpd_milters=` (empty) on each `*:10025` inet listener of `/etc/postfix/master.cf` (`libs/postfixlib.sh`), since production hosts never re-render master.cf. An override that names neither the OpenDKIM socket (`:8891`) nor a `$parameter` is kept. A master.cf without such a listener is reported. Outgoing mail is still signed once, on the first pass: containers (10.0.0.0/8), SMTP AUTH and local mail.
+Amavis hands every message back to Postfix on `127.0.0.1:10025`. That client is 127.0.0.1, an OpenDKIM InternalHost, so with the inherited `smtpd_milters` OpenDKIM signed inbound mail too — including a spoofed `From: <one of our domains>` from the internet. Every `regenerate` therefore sets `-o smtpd_milters=` (empty) on each `*:10025` inet listener of `/etc/postfix/master.cf` (`libs/postfixlib.sh`), since production hosts never re-render master.cf. An override that names neither the OpenDKIM socket (`:8891`) nor a `$parameter` is kept. A master.cf without such a listener is reported. Outgoing mail is signed once, on the first pass, and only for the header From domains its sender is entitled to (see OpenDKIM, *Signing entitlement*), no longer for any cluster domain from anywhere in 10.0.0.0/8.
 
 No SPF or DMARC check runs on the gateway, and its `Authentication-Results` fields are not a trust signal for containers: OpenDKIM labels its inbound verification with the host name (e.g. `r2.d250.hu`), nothing strips forged fields with that id, and a container's port 25 accepts mail from other clients than the gateway (other containers on the bridge, ZeroTier members, any host of the cluster). A trusted gateway field was designed and dropped (srvctl 4.0.0.18–4.0.0.20, see changelog) because no consumer needs it.
 
@@ -2059,8 +2098,9 @@ The `opendkim` module adds DKIM signatures to outgoing email.
 **Configuration generation (`opendkim.js`):**
 - Generates a DKIM key with `opendkim-genkey` for every container that has a `/srv/<domain>` directory (the only "runs on this host" test), into `/srv/<domain>/opendkim/<selector>.private` — only when that file is missing.
 - Copies the private key to `$SC_DATASTORE_DIR/opendkim/<domain>/<selector>.private`; the **datastore copy is the cross-host source of truth** (on clusters it may sit on the shared datastore) and is kept mode 000.
+- A domain-only record (`domain_only: true`, see *Retirement*) has no container files: its key **is** the host-side copy `$SC_DATASTORE_DIR/opendkim/<domain>/<selector>.private`, preserved by `retire-ve`. It is never generated, never copied over from `/srv` (not even from a leftover directory) and its `dkim-<selector>-domainkey` is never rewritten; a missing host-side key is reported as an error. The decision is `lib/keys.js`.
 - Publishes the public key into `containers.json` as `dkim-<selector>-domainkey`, which the named module turns into the DNS TXT record.
-- Writes `KeyTable` (`<selector>._domainkey.<domain> <domain>:<selector>:/var/opendkim/<domain>/<selector>.private`), `SigningTable` (`*@<domain> <selector>._domainkey.<domain>`) and `TrustedHosts` (seeded with `127.0.0.1`, `::1`, `10.0.0.0/8`, then every hosted domain) into the datastore folder.
+- Writes `KeyTable` (`<selector>._domainkey.<domain> <domain>:<selector>:/var/opendkim/<domain>/<selector>.private`) and `TrustedHosts` (seeded with `127.0.0.1`, `::1`, `10.0.0.0/8`, then every hosted domain; now only the `ExternalIgnoreList`, which silences log lines) into the datastore folder, plus the entitlement tables of `lib/entitlement.js`: `EntitledSigners` (`<ip>/<domain>`), `SignableDomains`, `HostSigningTable` (`*@<d> <selector>._domainkey.<d>` for the host's own domains), `InternalHosts` (`127.0.0.1`, `::1`) and `EmptySigningTable`. The wildcard `SigningTable` of earlier versions (every domain for every internal client) is no longer written; an old copy in the datastore folder is left for hosts of the cluster still on an older srvctl.
 
 **Runtime sync (`regenerate_opendkim`, `libs/opendkimlib.sh`):** compares `/var/opendkim` with the datastore folder (`diff -rq`); when they differ it replaces `/var/opendkim` wholesale, sets `opendkim:opendkim`, directories 750 and key/table files 640, and restarts `opendkim.service`. When they match it only starts the service if it was found inactive. `/var/opendkim` — not the datastore — is the path `/etc/opendkim.conf` references.
 
@@ -2068,7 +2108,43 @@ The `opendkim` module adds DKIM signatures to outgoing email.
 - Mode: `vs` (sign + verify), `Canonicalization relaxed/relaxed`, `MinimumKeyBits 1024`.
 - Socket: `inet:8891@127.0.0.1` (Postfix milter integration).
 - Selectors: `default` for regular domains, `mail` for `mail.*` containers.
-- The install hook has its `regenerate_opendkim` call commented out but still enables and restarts the daemon, so on a fresh host `opendkim.service` fails to start (the KeyTable/SigningTable/TrustedHosts files do not exist yet) until the first `srvctl regenerate`; until then outgoing mail is unsigned.
+- Written with the signing keys in their quiet form (`InternalHosts /var/opendkim/InternalHosts`, `SigningTable refile:/var/opendkim/EmptySigningTable`: nothing is signed); every `regenerate` sets them for the host (below). Production hosts never run update-install; they get the keys from `regenerate`.
+- The install hook has its `regenerate_opendkim` call commented out but still enables and restarts the daemon, so on a fresh host `opendkim.service` fails to start (the table files do not exist yet) until the first `srvctl regenerate`; until then outgoing mail is unsigned.
+
+**Signing entitlement.** The gateway signs a message for its header `From:` domain D (the domain OpenDKIM signs; the envelope `MAIL FROM` is not what counts) only when the sender is entitled to D:
+- **Container clients** (by client IP): the container's own name, that name without a leading `mail.` (`mail.X` owns X), its aliases, and the names (without `mail.`) and aliases of every container whose `mail_ve` hands its mail to it. An alias never grants a name that is another container's own name: owners set aliases themselves (`set-ve-alias` is owner-only), while `add-ve` and `set-ve-mail-ve` are not. Only domains with a key (container names that are not `.devel`/`-devel`/`.local`/`-local`) can be signed at all, so an alias that is not itself a container name never gets a signature.
+- **SMTP AUTH clients** (port 25 AUTH and smtps 465): the login's domain (`user@D` may sign D), whatever the client IP. Only on a Lua-capable opendkim (`opendkim -V | grep USE_LUA`); on a gateway without Lua, AUTH mail is left unsigned (decision 013) and every regenerate logs an err saying so.
+- **Host-local mail** (pickup/sendmail, root; it reaches the milter as 127.0.0.1): the cluster host names and `SC_COMPANY_DOMAIN`, where they have a key. Not the tenant domains.
+- **Unentitled mail is not signed, rather than rejected.** It is delivered and verified like inbound mail; the receiver then applies D's own DMARC policy. Why: mail flow stays fail-open (`milter_default_action = accept`), Postfix cannot reject on the header From per client, and rejecting would break contact forms (`From: visitor@gmail.com`), forwarding and lists.
+
+`regenerate_opendkim_conf` (`libs/opendkimlib.sh`, after `regenerate_opendkim` in the regenerate hook) picks one mode per host and changes only single keys (`InternalHosts`, `SigningTable`, `SetupPolicyScript` in opendkim.conf; `Domain`, `KeyFile`, `MacroList`, `MTA` and `SenderMacro` are removed, because each can make another client a signer):
+
+| Mode | When | What signs |
+|---|---|---|
+| lua | opendkim has Lua and every smtpd service passes the SASL login (`{auth_authen}` in `milter_mail_macros`, as each service resolves it) | `/etc/opendkim/srvctl-signing-policy.lua` (`conf/signing-policy.lua`) decides every signature from `EntitledSigners` or the login; `SigningTable` is empty. A script error ends in verify, never in a signature |
+| nolua | no Lua; or Lua but no smtpd service passes any AUTH macro | only pickup, from `HostSigningTable`. srvctl sets `milter_mail_macros = i {mail_addr} {mail_host} {mail_mailer}` (no AUTH macros) when it is unset and `smtpd_milter_maps = cidr:/etc/postfix/srvctl-milter-map` (loopback SMTP gets no milter). Without Lua it also removes service overrides that would pass AUTH macros and replaces an AUTH-carrying operator `milter_mail_macros`, after checking the result on a copy of the config; each change is reported. Container and AUTH mail are unsigned; err every regenerate |
+| local-only | Lua, but an operator macro setting passes AUTH macros without the login | only pickup, from `HostSigningTable`: every smtpd service without its own `smtpd_milters` gets an empty `-o smtpd_milters=`, recorded in `srvctl-isolated-listeners`. Container SMTP mail is unsigned and inbound mail unverified on that host; err every regenerate naming the setting |
+| quiet | **H1:** Lua, inconsistent AUTH macros, and the operator routes SMTP milters (an operator `smtpd_milter_maps`, a service map override, or a service `smtpd_milters` that reaches `:8891` or cannot be resolved); **or** a Postfix config that postconf cannot read (e.g. a `$parameter` cycle, which also stops `postfix start`) | **nothing, not even host-local mail**, until the operator fixes the setting named in the err logged on every regenerate. srvctl never rewrites the operator's Postfix settings here. This is the only case where host-local mail is not signed (owner decision H1; the unreadable config falls under the same conflict rule) |
+
+Rules that keep the choice safe and stable:
+- Postfix values are read as each smtpd service (any type, also postscreen's `pass` smtpd; not the `*:10025` reinjection) really sees them: `$name` / `${name}` references are resolved by srvctl itself, the service's own `-o` first, then main.cf, then the built-in default. An undefined name, any other expansion form, a cycle, or a value postconf expands differently is unresolved and is never treated as safe (`postconf -Px` alone expands an undefined reference to an empty value).
+- srvctl's own values count as srvctl's only while they are still exactly what it wrote: `milter_mail_macros` equal to the string above, `smtpd_milter_maps` equal to its map, a recorded override still empty. A changed one is the operator's from then on, and its record entry is dropped.
+- Postfix edits happen in a fixed order: opendkim is first made quiet, then the edits are written, then postfix is restarted (a full restart, so no smtpd keeps the old macros), and only then is the target mode set. A failed restart leaves opendkim quiet and a marker (`/etc/postfix/srvctl-postfix-restart-pending`); the next regenerate restarts postfix before signing again. A postfix that is not running is not started.
+- A second regenerate with unchanged inputs changes no file and restarts nothing.
+
+Rollout: `git pull` on every host of a cluster before `sc regenerate` (the datastore folder may be shared). Check `opendkim -V | grep USE_LUA` on staging first. Operator checks on staging: container A sends `From:` B -> no `d=B` signature and a `srvctl: not signing` log line; A with its own domain -> signed; AUTH `u@A` with `From:` B -> unsigned, with A -> signed (Lua hosts); root `sendmail` with the company domain -> signed.
+
+**Residual risks (signing):**
+- Any shell user of a host can get the host's own domains signed through `sendmail` (loopback entitlement).
+- Every process inside a container (including docker-in-container) shares that container's entitlement.
+- `mail.X` and `mail_ve` hand-overs are trusted as set by operators and root.
+- An IP reused after a container is removed keeps the old entitlement until the next regenerate.
+- An AUTH login without a domain part is never signed.
+- The envelope `MAIL FROM` is not checked against the entitlement; only the header From domain is signed.
+- In nolua mode loopback SMTP gets neither signing nor verification; in local-only mode SMTP mail is neither signed nor verified; in quiet mode nothing is signed.
+- `ExternalIgnoreList` still lists `10.0.0.0/8` (logging only).
+- srvctl reimplements part of Postfix's parameter expansion; anything it cannot follow counts as unsafe (quiet), never as safe.
+- Hosts of a cluster on an older srvctl keep the old behaviour (any domain for any container) until they are updated.
 
 ### Mozilla Autoconfig
 
@@ -2092,16 +2168,16 @@ srvctl uses a hierarchical user model:
 
 ```
 Root (user_id=0)
-└── Resellers (single-character username, reseller_id field)
+└── Resellers (reseller_id field)
     └── Users (belong to a reseller)
         └── Containers (owned by users)
 ```
 
 - **Root** has full access to everything. The seed record in `modules/datastore/default-users.json` is `root` with `user_id: 0`, `uid: 0`, `reseller_id: 0`.
-- **Resellers** can create users and manage their users' containers. The datastore does mark reseller accounts (`new_reseller`, `modules/datastore/lib.js:911`, writes a `reseller_id`), but no guard reads that field: `reseller_only` (`modules/srvctl/libs/authlib.sh:77`) grants the role to any `SC_USER` whose name is exactly one character long, or to genuine root — the single-character username is a convention the guard depends on.
+- **Resellers** are marked in the datastore (`reseller_id`); the only thing that follows from it is that the reseller of a container's owner passes `owner_only` for that container. No guard keys on the user name.
 - **Users** can manage their own containers.
 
-The reseller layer as a whole is a v4 deprecation candidate (G6) but is live on production; `add-user` and `change-user` still carry that guard; `add-reseller` is `root_only`.
+The reseller layer is a deprecation candidate (G6). Users are created by root and operators (`add-user`), a container by any user (`add-ve`); `add-reseller` is `root_only`.
 
 Each user gets a `user_id`: one above the highest already allocated (starting at 1; freed ids are never reused), capped at 255 (`getNextUserId`, `modules/datastore/lib/mutators.mjs:21`; the legacy twin `get_next_user_id` survives at `lib.js:875`). It becomes the third octet of that user's container IPs — `10.<hostnet>.<user_id>.<offset>` — where the offset starts at 2 and allocation aborts above 250 (`findNextCip`, `lib/mutators.mjs:43`, the live twin of `find_next_cip_for_container_on_network` at `lib.js:838`). The Linux uid is a separate field (`uid`, allocated from 1000 upwards), and the container's root uid is derived as `65536 * (user_id * 255 + offset)`.
 
@@ -2134,9 +2210,9 @@ It then bindfs-mounts each container into the homes of its owner, its `users[]` 
 
 | Command | Description |
 |---------|-------------|
-| `add-user <name>` | Create a new user (reseller-only) |
+| `add-user <name>` | Create a new user (root and operators) |
 | `add-reseller <name>` | Create a new reseller (root-only) |
-| `add-publickey [KEY\|FILE]` | Add an ssh public key for the calling user; stored in the datastore as `users/<user>/<user>-<NOW>.pub` and verified with `ssh-keygen`. With no argument it opens `mcedit` so the key can be pasted in |
+| `add-publickey KEY\|FILE` | Add an ssh public key for the calling user (`users_only`); stored as `users/<user>/<user>-<NOW>.pub` after `ssh-keygen` accepted it. A FILE is read with the caller's own rights, never as root |
 | `change-user <ve> <name>` | Reassign a container to another user — **stub**: validates its arguments, then errors out with "not implemented" |
 
 ### Container Users — usersonve
@@ -2522,7 +2598,7 @@ answers ssh — a `packagelist` from `dnf list installed`.
 
 **The live container backup** is `backup_ve`
 (`modules/containers/libs/backupcontainerlib.sh`), used by `backup-ve`,
-`remove-ve` and `recreate-ve`. It writes `container.json` and the package lists
+`remove-ve` and `recreate-ve`. It writes `container.json`
 into `/srv/<C>`, then rsyncs the whole tree to
 `$SC_BACKUP_PATH/srvctl-containers/<C>/<timestamp>`, or onto `$SC_BACKUP_HOST`
 over ssh when that is set to another machine.
@@ -2640,7 +2716,7 @@ through to the plain single-host regenerate, so `srvctl regenerate all` does
 | `haproxy` | Fires the `regenerate_certificates` sub-hook (certificates + Let's Encrypt), re-renders `/etc/haproxy/haproxy.cfg` and reloads |
 | `named` | Rewrites `/var/named/srvctl.conf` and changed zone files, restarts and verifies BIND |
 | `dns` | `dns_scan` — public-DNS scan of every container domain into the datastore |
-| `opendkim` | Generates missing DKIM keys, rebuilds TrustedHosts/KeyTable/SigningTable, restarts opendkim |
+| `opendkim` | Generates missing DKIM keys, rebuilds TrustedHosts/KeyTable and the signing-entitlement tables, restarts opendkim; sets the signing-policy keys of `/etc/opendkim.conf` and the Postfix settings they need (`regenerate_opendkim_conf`) |
 | `postfix` | Rewrites and postmaps `/etc/postfix/relaydomains`, restarts postfix |
 | `perdition` | Rewrites `/var/perdition/popmap.re`, restarts imap4s/imap4/pop3s |
 | `saslauthd` | Restarts `saslauthd.service` |
@@ -2658,8 +2734,9 @@ manual step on the hosts. Each module does this for its own artifacts in
 announces and logs every removal, refuses a path with a mount at or below it,
 and only lists the leftovers when `SC_PRUNE_DRY_RUN=true`. The hook runs before
 the `regenerate` hooks, so a failing module cannot keep the clean-up from
-running, and again at the end of `remove-ve` / `destroy-ve`. A prune hook ends
-with `return 0`.
+running, and again at the end of `remove-ve` / `destroy-ve`. A prune hook
+starts with `$SC_UID0 || return 0` — it runs for root and for an owner who
+removes his container through sudo — and ends with `return 0`.
 
 The hook is started through `run_prune` (`modules/containers/libs/prunelib.sh`),
 which reads the container records once; the hooks then ask
@@ -2838,7 +2915,7 @@ in 4.0.0.6 (commit `ba8b0ab`).
 | `SC_STARTTIME` | Startup timestamp (ms) |
 | `SC_USER` | Invoking user: `$SUDO_USER` when reached through sudo, otherwise `$USER` |
 | `SC_UID0` | Effective uid is 0 (`true`/`false`) — not the same thing as `SC_USER == root` |
-| `SC_HOME` | Home directory of `SC_USER` |
+| `SC_HOME` | The home srvctl takes code from: the home of `SC_USER`, but always root's at uid 0 |
 | `SC_LOG` | Log file path (`~/.srvctl/srvctl.log`) |
 | `SC_HOSTNET` | Host's unique 10.x network ID. Documented as 16–255, but nothing validates it: `cluster-config.js` never inspects the value, and `containers/hooks/post-init.sh` silently defaults it to 250 when the projection has none |
 | `SC_CLUSTERNAME` | Cluster name (defaults to `test_cluster` when unprojected) |
@@ -2972,12 +3049,12 @@ are marked as such.
 |---------|-------------|
 | `srvctl add-ve NAME [TYPE]` | Create a container from a base image. TYPE defaults to `fedora` and is accepted only if `$SC_ROOTFS_DIR/TYPE/etc/os-release` already exists — run `ls /var/srvctl3/rootfs` for the types a given host has |
 | `srvctl add-network-ve NAME BRIDGE` | Create a fedora container attached to an existing `br-BRIDGE`, with DHCP networking |
-| `srvctl add-ve-user VE USERNAME` | Create a cluster user and give it the container (reseller/root) |
+| `srvctl add-ve-user VE USERNAME` | Give a user access to the container (owner or root; a new user is created only for root and operators) |
 | `srvctl set-ve-alias VE [ALIAS [off]]` | Redirect ALIAS and www.ALIAS to the container (301, path kept, cached a day); `off` removes it, no ALIAS lists the aliases. Written via `cfg container VE add_alias\|remove_alias ALIAS`, which refuses a domain already used as any container's name, alias or altname, and a `www.` domain. Then refreshes DNS (when this host runs named), certificates and HAProxy |
 | `srvctl status [VE]` | With an argument, `systemctl status` of `srvctl-nspawn@VE`; without one, the cluster-wide table rendered by `containers/status.js` |
-| `srvctl recreate-ve VE` | Back up, wipe and rebuild the rootfs, restoring user data as far as possible |
+| `srvctl recreate-ve VE` | Back up, wipe and rebuild the rootfs, restoring user data as far as possible (root only) |
 | `srvctl rebuild-ve VE [check\|rollback\|discard-old]` | Move a WordPress, PHP or static container to the current fedora base image: logical backup inside, fresh rootfs, restore, check; resumable, old tree kept as `exrootfs` for rollback (root only) |
-| `srvctl update-ve VE` | **Stub.** Stops the container's unit and then errors `Feature unimplemented`, leaving the container stopped (`containers/commands/update-ve.sh:39`) |
+| `srvctl update-ve VE` | **Not implemented.** Changes nothing and exits 1; see `upgrade-ve`, `rebuild-ve` |
 | `srvctl destroy-ve VE` | Permanently delete the container, its files and its datastore records |
 | `srvctl remove-ve VE` | Back up the container (see Backup) and then delete it |
 | `srvctl exec-all COMMAND` | Run one shell command in every running container (root only) |
@@ -3047,10 +3124,10 @@ root-only; `status` and `--user` units are not gated.
 
 | Command | Description |
 |---------|-------------|
-| `srvctl add-user USERNAME` | On a host: create the user in the cluster datastore and on the system (reseller/root). Inside a container the identically named `usersonve` command creates or updates the container-local account, its password and its home structure |
+| `srvctl add-user USERNAME` | On a host: create the user in the cluster datastore and on the system (root and operators). Inside a container the identically named `usersonve` command creates or updates the container-local account, its password and its home structure |
 | `srvctl add-reseller USERNAME` | Add a user as reseller of the host cluster (root only) |
-| `srvctl add-ve-user VE USERNAME` | Add a cluster user for a container (reseller/root) |
-| `srvctl add-publickey [KEY\|FILE]` | Store an SSH public key for the calling user; with no argument it opens `mcedit` so a key can be pasted in |
+| `srvctl add-ve-user VE USERNAME` | Give a user access to a container (owner or root) |
+| `srvctl add-publickey KEY\|FILE` | Store an SSH public key for the calling user |
 | `srvctl add-vnc-user VE USERNAME` | Register a VNC user for a container, regenerate the vncproxy routing and restart the service. This is the only time the derived VNC password is displayed |
 | `srvctl change-user VE USERNAME` | **Stub.** Intended to move a container to a different owner (which implies a new IP and a restart); it validates its arguments and then errors `not implemented` (`usersonhost/commands/change-user.sh`) |
 
@@ -3138,9 +3215,7 @@ destroy anything.
 `local_container_7z_backup`, the older 7z archive flavour writing to
 `$BACKUP_PATH/$HOSTNAME/VE`. It has no caller in the tree, and its body begins
 with a bare `exit` (`7zlib.sh:51`) that terminates the whole srvctl process with
-status 0 without making a backup. The multi-line help of `remove-ve` still
-describes that obsolete "7z archive in the user's home/.srvctl" behaviour; the
-code does not do it.
+status 0 without making a backup.
 
 ---
 

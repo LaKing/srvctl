@@ -35,6 +35,9 @@ err() { :; }
 # shellcheck source=/dev/null
 source "$REPO/modules/usersonhost/libs/prunelib.sh"
 
+## containers/libs/prunelib.sh: the domain-only records of the run
+RETIRED=""
+container_is_retired() { [[ " $RETIRED " == *" $1 "* ]]; }
 getent() { [[ $2 == nohome ]] || echo "$2:x:1000:1000::$box/home/$2:/bin/bash"; }
 declare -a CALLS=()
 umount() { CALLS+=("$2"); }
@@ -85,6 +88,13 @@ ok "the removed container's share goes, entitled shares and own data stay" "$(na
 ok "its mounts are unmounted, deepest first, and no other" "${CALLS[*]}" "$box/home/anna/gone.example/html $box/home/anna/gone.example/bindfs"
 ok "a user taken off a container loses the share; an empty leftover goes; a link and own data stay" "$(names bela)" "link.example live.example notes "
 ok "a look-alike with other content is not touched" "$(cat "$box/home/anna/projects/file")" data
+
+echo "a domain-only record (retire-ve)"
+setup
+RETIRED="other.example mail.example"
+prune_user_shares
+ok "its shares go although the record still lists the users" "$(names anna) / $(names bela)" "live.example projects  / link.example live.example notes "
+RETIRED=""
 
 echo "a root-owned directory with content"
 setup

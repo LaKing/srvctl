@@ -39,4 +39,10 @@ assert.match(http, /server http:host\.example host\.example:8081\n/, "the target
 assert.match(http, /server http:lost\.example lost\.example:80\n/, "unknown target falls back to the VE");
 assert.match(https, /server https:lost\.example lost\.example:443 ssl/, "unknown target falls back to the VE (https)");
 
+// A domain-only record (retire-ve) routes exactly as before its retirement.
+ctx.containers["site.example"].domain_only = true;
+assert.equal(ctx.get_backends_for_http(), http, "domain-only: http backends unchanged");
+assert.equal(ctx.get_backends_for_https(), https, "domain-only: https backends unchanged");
+delete ctx.containers["site.example"].domain_only;
+
 console.log("webve.test: passed");

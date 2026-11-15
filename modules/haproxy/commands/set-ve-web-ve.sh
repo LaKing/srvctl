@@ -32,6 +32,8 @@ fi
 
 if [[ $OPA == off || $OPA == none ]]
 then
+    ## the VE's own container no longer exists; hand the web to another VE
+    [[ $(get container "$C" domain_only 2> /dev/null) != true ]] || { err "$C is a domain-only record (retired with retire-ve): it has no container to serve its web itself"; exit 22; }
     put container "$C" web_ve > /dev/null
     regenerate_haproxy_conf
     msg "Web of $C is served by $C again"
@@ -42,6 +44,7 @@ target="$OPA"
 [[ $target != "$C" ]] || { err "A VE cannot hand its web traffic to itself; use off"; exit 22; }
 [[ $(get container "$target" exist) == true ]] || { err "No such container: $target"; exit 22; }
 [[ -z $(get container "$target" web_ve) ]] || { err "$target hands its own web traffic on; chains are not followed"; exit 22; }
+[[ $(get container "$target" domain_only 2> /dev/null) != true ]] || { err "$target is a domain-only record (retired with retire-ve), it serves no web"; exit 22; }
 
 put container "$C" web_ve "$target" > /dev/null
 regenerate_haproxy_conf

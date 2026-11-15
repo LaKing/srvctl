@@ -21,18 +21,8 @@ hs_only
 ##
 
 argument container
-
-if [[ "$(get container "$ARG" exist)" == false ]]
-then
-    err "Container does not exist."
-    exit 0
-fi
-
-msg "Container $ARG - $(get container "$ARG" user) ($(get container "$ARG" reseller))"
-
-## WP-E.2: root passes, owner/reseller escalates, else denied — before
-## backup_ve does any work. (backup_ve keeps its own SC_UID0 guard as
-## defense-in-depth; it is also called by recreate-ve.)
+existing_container "$ARG"
 owner_only container "$ARG"
+not_domain_only "$ARG" "a backup of container files" || exit 22
 
 backup_ve "$ARG"

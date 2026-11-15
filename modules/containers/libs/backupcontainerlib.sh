@@ -4,7 +4,7 @@
 ##   containers/libs/backupcontainerlib.sh — rsync backup of a container.
 ##
 ##   backup_ve is used by backup-ve, remove-ve and recreate-ve. Writes
-##   backup metadata (container.json, package lists) INTO /srv/$C first,
+##   backup metadata (container.json) INTO /srv/$C first,
 ##   then rsyncs the whole tree to
 ##   $SC_BACKUP_PATH/srvctl-containers/$C/$NOW — locally, or onto
 ##   $SC_BACKUP_HOST over ssh when that is set to another machine. A
@@ -18,26 +18,14 @@ function backup_ve() { #C
 
     [[ $SC_BACKUP_PATH ]] || SC_BACKUP_PATH=/backup
 
-    ## backup_ve runs as root (its callers sudomize first); a non-root caller
-    ## is denied below (WP-E.1: was the always-true '[[ $SC_UID0 ]]').
+    ## The callers escalate first (owner_only); nothing here works without uid 0.
     if $SC_UID0
     then
-
         out container "$C" json > /srv/"$C"/container.json
 
-        # shellcheck disable=SC1090,SC1091 ## runtime-path
-        source /srv/"$C"/rootfs/etc/os-release
-
-        if [[ $ID == "fedora" ]]
-        then
-            msg "Create list of installed packages"
-            ## FIXME(v4): 'run' performs no redirection — '>' and the path
-            ## are passed to dnf as package specs, dnf errors out and
-            ## dnf.packages.list is never written (metadata silently
-            ## incomplete).
-            run "dnf --installroot=/srv/$C/rootfs list installed > /srv/$C/dnf.packages.list"
-            chroot /srv/"$C"/rootfs rpm -qa --qf "%{NAME}\n" | sort > /srv/"$C"/rpm.packages.list
-        fi
+        ## No package list is made: the copy holds the package database
+        ## itself. Making one meant sourcing the container's os-release and
+        ## running its rpm in a chroot, both the tenant's code as host root.
 
         path="$SC_BACKUP_PATH/srvctl-containers/$C/$NOW"
 

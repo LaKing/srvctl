@@ -6,7 +6,7 @@
 ##   destroy-ve.
 ##
 
-sc_is_root || return 0
+$SC_UID0 || return 0
 
 prune_static_docroots
 

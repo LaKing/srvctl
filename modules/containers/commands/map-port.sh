@@ -28,6 +28,7 @@ C="$ARG"
 ## unconditional sudomize for everyone, then an owner-check that wrongly denied
 ## even root unless it owned the container.)
 owner_only container "$C"
+not_domain_only "$C" "mapping a port" || exit 22
 
 cfg container "$C" add_mapped_port "$OPAS"
 run systemctl stop "srvctl-nspawn@$C.service" --no-pager

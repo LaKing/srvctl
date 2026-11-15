@@ -34,18 +34,13 @@ hs_only
 
 argument container
 
-if [[ "$(get container "$ARG" exist)" == false ]]
-then
-    err "Container does not exist."
-    exit 0
-fi
-
-msg "Container $ARG - $(get container "$ARG" user) ($(get container "$ARG" reseller))"
-
-## WP-E.2: deny (or escalate the owner to root) BEFORE any state change — this
-## command previously ran ssh mongodump + `systemctl stop` before backup_ve's
-## later denial, so a non-owner could stop a container they had no access to.
-owner_only container "$ARG"
+## Root only. The command sources a script generated from the container's
+## passwd and group files (restore_uids, libs/regenlib.sh) and runs ssh into
+## the container; until that generated script is proven free of the tenant's
+## input, an owner must not be able to start it at uid 0.
+root_only
+existing_container "$ARG"
+not_domain_only "$ARG" "recreating its container" || exit 22
 
 C="$ARG"
 

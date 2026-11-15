@@ -16,9 +16,8 @@
  *   loop throws before completion.
  *
  *   FIXME(v4): per-container failures are not isolated — a deleted user
- *   record (users[...].reseller at the bottom), a missing type key
- *   (.type.tab) or an invoking user absent from users.json
- *   (users[SC_USER].access) throws a TypeError that aborts the WHOLE
+ *   record (users[...].reseller at the bottom) or a missing type key
+ *   (.type.tab) throws a TypeError that aborts the WHOLE
  *   table with exit 99, hiding the remaining containers; wrap the
  *   forEach body in try/catch per container.
  *
@@ -117,14 +116,20 @@ console.log("REACTION " + "VE".tab(36) + " " + "IP".tab(16) + " " + "TYPE".tab(1
 
 Object.keys(containers).forEach(function (c) {
     if (!containers[c]) return;
-    if (SC_USER !== root && containers[c].user !== SC_USER && datastore.container_reseller(c) !== SC_USER && users[SC_USER].access !== "all") return;
+    if (SC_USER !== root && containers[c].user !== SC_USER && datastore.container_reseller(c) !== SC_USER && (users[SC_USER] || {}).access !== "all") return;
     var ping_cmd = "timeout 0.2 ping -c 1 " + containers[c].ip + " | grep rtt";
     var ping = $RED + "failure ";
     var infos = "";
     var extras = "";
     var is_active = false;
     var color0 = $RED;
+    // a domain-only record (retire-ve) has no unit, rootfs or address to probe
+    var domain_only = datastore.container_domain_only(c);
 
+    if (domain_only) {
+        ping = $BLUE + "domain  ";
+        infos += " DOMAIN-ONLY web:" + (containers[c].web_ve || "none") + " mail:" + (containers[c].mail_ve || "none");
+    } else {
     try {
         execSync("timeout 0.2 systemctl is-enabled srvctl-nspawn@" + c + ".service");
     } catch (e) {
@@ -164,6 +169,7 @@ Object.keys(containers).forEach(function (c) {
         } catch (e) {
             extras += " PING?";
         }
+    }
 
     if (containers[c].bridge) infos += " BRIDGE:" + containers[c].bridge;
 
@@ -195,7 +201,7 @@ Object.keys(containers).forEach(function (c) {
             " " +
             containers[c].type.tab(10) +
             " " +
-        	(Math.ceil(Number(containers[c].du || '0')/1000000)).toString().tab(6) +
+        	(domain_only ? "-" : (Math.ceil(Number(containers[c].du || '0')/1000000)).toString()).tab(6) +
             " " +
             containers[c].user.tab(16) +
             " " +

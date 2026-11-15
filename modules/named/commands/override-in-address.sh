@@ -19,9 +19,7 @@ hs_only
 ##   configuration first, publishes the new authoritative zone on the one
 ##   DNS primary, and finally retransfers and verifies the DNS replicas.
 ##
-##   Authorization is manual here instead of the standard authorize
-##   helper: the container's owner or reseller is re-executed via
-##   sudomize, then the root check gates the datastore write.
+##   For root and the container's owner (owner_only below).
 ##
 
 argument container

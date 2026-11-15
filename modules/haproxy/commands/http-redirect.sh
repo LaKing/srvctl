@@ -30,7 +30,6 @@ hs_only
 
 argument container
 C="$ARG"
-#authorize
 container_user="$(get container "$C" user)"
 exif
 container_reseller="$(get container "$C" reseller)"

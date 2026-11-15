@@ -343,6 +343,8 @@ Object.keys(users).forEach(function (u) {
 
 msg("users share's");
 Object.keys(containers).forEach(function (c) {
+    // a domain-only record (retire-ve) has no rootfs to share
+    if (datastore.container_domain_only(c)) return;
     if (containers[c].user !== root) make_share(containers[c].user, c);
     if (containers[c].users !== undefined)
         for (let i = 0; i < containers[c].users.length; i++) {

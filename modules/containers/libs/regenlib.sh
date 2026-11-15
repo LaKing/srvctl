@@ -9,7 +9,12 @@
 ##   functions self-heal the farm: stray directories are imported as
 ##   containers, missing local containers are created, and generated
 ##   files (nspawn config, /etc/hosts) are rewritten from the datastore.
+##   Domain-only records (domain_only=true, see domainonlylib.sh) have no
+##   container files on purpose and are left out of all of that.
 ##
+
+## TEST SEAM for the selftest, not supported configuration.
+: "${SC_REGEN_SRV_DIR:=/srv}"
 
 ## Run one host in a separate srvctl process. The local subprocess is
 ## intentional: run_hook calls exif (which exits the current shell) on failure,
@@ -298,20 +303,35 @@ function check_container_directories() {
     msg "Checking for containers in directories"
     ## One read of the registered names for the whole walk. A failed read must
     ## stop here: with an empty list every directory would look unregistered.
-    local registered
-    registered="$(list container)" || return $?
-    registered=" ${registered//$'\n'/ } "
-    for D in /srv/*
+    local registered="" domain_only="" rows name value srv="$SC_REGEN_SRV_DIR"
+    rows="$(list container domain_only)" || return $?
+    while IFS=$'\t' read -r name value
     do
-        if [[ $D == /srv/TEMP ]]
+        [[ -n $name ]] || continue
+        registered+=" $name"
+        [[ $value == true ]] && domain_only+=" $name"
+    done <<< "$rows"
+    registered="$registered "
+    domain_only="$domain_only "
+    for D in "$srv"/*
+    do
+        if [[ $D == "$srv"/TEMP ]]
         then
             continue
         fi
 
         local C
 
-        ## strip /srv
-        C="${D:5}"
+        ## strip the /srv prefix
+        C="${D#"$srv"/}"
+
+        ## A domain-only record has no container here: never import, enable,
+        ## configure or provision a leftover directory of it.
+        if [[ $domain_only == *" $C "* ]]
+        then
+            ntc "$D is a leftover of the domain-only record $C, not reconciled"
+            continue
+        fi
 
         if [[ -d $D/rootfs ]]
         then
@@ -324,19 +344,15 @@ function check_container_directories() {
                     ## AUTOFIX
                     ## C appears to have a valid filesystem
                     local T
-                    if [[ -f $D/rootfs/etc/os-release ]]
-                    then
-                        # shellcheck disable=SC1090,SC1091 ## runtime-path
-                        T="$(source "$D/rootfs/etc/os-release" && echo "$ID")"
-                    fi
+                    T="$(rootfs_os_id "$D/rootfs")"
                     
                     
                     new container "$C" "$T"
                     msg "Imported $T $C to database."
-                    if [[ -f /srv/$C/ipv4-address ]] && [[ -f /srv/$C/bridge-address ]]
+                    if [[ -f $srv/$C/ipv4-address ]] && [[ -f $srv/$C/bridge-address ]]
                     then
-                        put container "$C" ip "$(cat "/srv/$C/ipv4-address")"
-                        put container "$C" br "$(cat "/srv/$C/bridge-address")"
+                        put container "$C" ip "$(cat "$srv/$C/ipv4-address")"
+                        put container "$C" br "$(cat "$srv/$C/bridge-address")"
                     else
                         create_nspawn_container_config "$C"
                     fi
@@ -345,14 +361,14 @@ function check_container_directories() {
             fi
             
             
-            if [[ -d /srv/$C/rootfs/etc ]]
+            if [[ -d $srv/$C/rootfs/etc ]]
             then
                 if [[ ! -e "/etc/systemd/system/machines.target.wants/srvctl-nspawn@$C.service" ]]
                 then
                     run systemctl enable "srvctl-nspawn@$C"
                 fi
                 
-                if [[ ! -f /srv/$C/hosts ]] || [[ ! -f /srv/$C/$C.nspawn ]]
+                if [[ ! -f $srv/$C/hosts ]] || [[ ! -f $srv/$C/$C.nspawn ]]
                 then
                     msg "Updating container configuration for $C"
                     
@@ -376,13 +392,15 @@ function check_container_directories() {
 ## missing from the local /srv.
 function check_container_database() {
     msg "Checking for containers in the database"
-    local C h
-    while IFS=$'\t' read -r -u 3 C h
+    local C h domain_only
+    while IFS=$'\t' read -r -u 3 C h domain_only
     do
+        ## a domain-only record has no container files on purpose
+        [[ $domain_only != true ]] || continue
         if [[ "$h" == "$HOSTNAME" ]]
         then
             ## this container should be on that host
-            if ! [[ -d /srv/$C ]]
+            if ! [[ -d $SC_REGEN_SRV_DIR/$C ]]
             then
                 msg "Create local container"
                 create_container_configuration_files "$C"
@@ -390,7 +408,7 @@ function check_container_database() {
                 create_nspawn_container_config "$C"
             fi
         fi
-    done 3< <(list container host)
+    done 3< <(list container host domain_only)
 }
 
 ## Report containers whose internal IP is outside their owner's network
@@ -400,12 +418,12 @@ function check_container_database() {
 ## container on its own. repair_container_ownership does it on request.
 function check_container_ownership() {
     msg "Checking for container owners in the database"
-    local C match
-    while IFS=$'\t' read -r -u 3 C match
+    local C match domain_only
+    while IFS=$'\t' read -r -u 3 C match domain_only
     do
-        [[ $match == false ]] || continue
+        [[ $match == false && $domain_only != true ]] || continue
         err "$C: the internal IP is not in the network of its owner. To move it (the container restarts): sc exec-function repair_container_ownership $C"
-    done 3< <(list container user_ip_match)
+    done 3< <(list container user_ip_match domain_only)
 }
 
 ## Give a container the IP that belongs to its owner: stop, re-derive the IP,

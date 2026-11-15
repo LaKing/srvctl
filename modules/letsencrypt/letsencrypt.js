@@ -319,33 +319,16 @@ function run_on_container_domain(name, domain) {
     if (has_www) msg("Certificate required for " + domain + " and www." + domain);
     else msg("Certificate required for " + domain);
 
-    // FIXME(v4): asymmetric log filenames — the non-www run appends to
-    // /srv/<name>/letsencrypt<name>.log (no separator) while the www run
-    // uses /srv/<name>/letsencrypt-www.<name>.log; one container's runs
-    // scatter across differently-named files. Normalize while porting.
+    // The log is host-side, beside the DNS-01 logs: /srv/<name> need not
+    // exist (a domain-only record, retire-ve, has no container files).
+    fs.mkdirSync(acme.cfg.logDir, { recursive: true });
+    var log_file = acme.cfg.logDir + "/http01-" + (has_www ? "www." : "") + name + ".log";
     var cmd =
         "letsencrypt certonly --non-interactive --agree-tos --keep-until-expiring --expand --webroot --webroot-path /var/acme/ -d " +
         domain +
+        (has_www ? " -d www." + domain : "") +
         " >> " +
-        acme.cfg.srvRoot +
-        "/" +
-        name +
-        "/letsencrypt" +
-        name +
-        ".log";
-    if (has_www)
-        cmd =
-            "letsencrypt certonly --non-interactive --agree-tos --keep-until-expiring --expand --webroot --webroot-path /var/acme/ -d " +
-            domain +
-            " -d www." +
-            domain +
-            " >> " +
-            acme.cfg.srvRoot +
-            "/" +
-            name +
-            "/letsencrypt-www." +
-            name +
-            ".log";
+        log_file;
     ntc(cmd);
 
     try {
@@ -362,7 +345,7 @@ function run_on_container_domain(name, domain) {
     if (!le_dir) return err("No letsencrypt live dir for " + domain + " after certonly");
     var live_cert = "/etc/letsencrypt/live/" + le_dir + "/cert.pem";
     if (!check_checkend(live_cert)) {
-        return err("Letsencrypt cert for " + domain + " is still expired/expiring after certonly — not deploying. Check " + acme.cfg.srvRoot + "/" + name + "/letsencrypt*.log");
+        return err("Letsencrypt cert for " + domain + " is still expired/expiring after certonly — not deploying. Check " + log_file);
     }
 
     letsencrypt_deploy(domain);

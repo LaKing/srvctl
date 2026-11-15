@@ -18,12 +18,13 @@
 SIZE_LIMIT=250000000;
 
 function all_containers_quota_check() {
-    local list size quota C
-    local -A quota_of=()
-    while IFS=$'\t' read -r -u 3 C quota
+    local list size quota C domain_only
+    local -A quota_of=() domain_only_of=()
+    while IFS=$'\t' read -r -u 3 C quota domain_only
     do
         quota_of[$C]="$quota"
-    done 3< <(list container quota)
+        domain_only_of[$C]="$domain_only"
+    done 3< <(list container quota domain_only)
 
     if $SC_UID0
     then
@@ -34,6 +35,8 @@ function all_containers_quota_check() {
 
     for C in $list
     do
+        ## a domain-only record has no container to measure or stop
+        [[ ${domain_only_of[$C]:-} != true ]] || continue
         if [[ -d /srv/$C/rootfs ]]
         then
         	size="$(du -s /srv/"$C"/rootfs | awk '{print $1;}')"

@@ -1,85 +1,61 @@
 #!/bin/bash
 
-## @@@ add-publickey [KEY|FILE]
-## @en Add an ssh publickey to the current cluster
-## &en Create the file as user defined publickey in the current cluster datastore and save it on the system.
-## &en Without argiument, the command will open the mcedit program, so the key can be pasted inside.
+## @@@ add-publickey KEY|FILE
+## @en Add an ssh public key to your account
+## &en Give the key itself (ssh-ed25519 AAAA... comment) or a file that holds it.
+## &en The key opens your account on this host at once, your containers after the next regenerate.
 
+## run only with srvctl
+[[ $SRVCTL ]] || exit 4
+
+argument key-or-file
+users_only
 sudomize
 
 ##
-##   Stores an additional ssh public key for the calling user in the
-##   cluster datastore, as users/$SC_USER/$SC_USER-$NOW.pub (the $NOW
-##   timestamp contains colons). Input can be a file path, the key text
-##   itself passed as arguments, or — with no argument — an interactive
-##   mcedit session. The result is verified with ssh-keygen; a key in
-##   RFC4716 format gets one conversion attempt, and an unverifiable
-##   file is removed again.
+##   Stores an additional ssh public key of the caller as
+##   $SC_DATASTORE_DIR/users/$SC_USER/$SC_USER-$NOW.pub. sshd reads that
+##   directory on every login (modules/ssh/sshd_authorization.sh), and
+##   regenerate copies the keys into the user's containers (ssh.js).
+##
+##   The command runs at uid 0 for every user, so nothing here opens a path
+##   the caller names with root's rights: a FILE is read as the caller
+##   (runuser), and there is no editor. A key in RFC4716 format gets one
+##   conversion attempt; what ssh-keygen cannot read is not stored.
 ##
 
-## FIXME(v4): no readonly-datastore guard — an SC_DATASTORE_RO check was
-## sketched here but never enabled; on a readonly datastore the writes
-## below fail with raw shell errors.
+dir="$SC_DATASTORE_DIR/users/$SC_USER"
+pub="$dir/$SC_USER-$NOW.pub"
+tmp="$(mktemp)" || exit 1
 
-msg "Adding $SC_USER-$NOW.pub"
-
-pub="$SC_DATASTORE_DIR/users/$SC_USER/$SC_USER-$NOW.pub"
-
-## FIXME(v4): the second test is redundant — with an empty ARG, -f "" is
-## already false, so the condition is just "no argument given"
-if [[ -z $ARG ]] && [[ ! -f $ARG ]]
+if [[ -f $ARG ]]
 then
-    ## interactive path; return works because commands are sourced
-    ## inside run_command
-    mcedit "$pub"
-    msg "edited file $pub"
-    return
+    if sc_is_root
+    then
+        cat -- "$ARG" > "$tmp"
+    else
+        runuser -u "$SC_USER" -- cat -- "$ARG" > "$tmp"
+    fi
 else
-    if [[ ! -f $ARG ]]
-    then
-        ## not a file: treat all command arguments as the key text
-        echo "$OPAS" >> "$pub"
-    else
-        cat "$ARG" >> "$pub"
-    fi
+    printf '%s\n' "$OPAS" > "$tmp"
 fi
 
-if [[ -z "$(cat "$pub")" ]]
+if ! ssh-keygen -l -f "$tmp" > /dev/null 2>&1
 then
-    rm -fr "$pub"
-fi
-
-## FIXME(v4): on the empty-input path the file was just removed, so this
-## cat prints a stray "No such file" error and the verification cascade
-## below runs against a missing file.
-cat "$pub"
-echo ''
-
-msg "Verifying ..."
-if run ssh-keygen -l -f "$pub"
-then
-    msg "OK"
-else
-    err "Failed."
-    msg "Trying to convert to the openssh format..."
-    cat "$pub" > "$pub.tmp"
-    ## bugfix(v4-polish): was 'run ssh-keygen -i ... > "$pub"' — run echoes
-    ## its command banner to stdout, so the banner landed inside the key
-    ## file and the conversion result could never verify
-    if ssh-keygen -i -f "$pub.tmp" > "$pub"
+    ## not an OpenSSH key line: maybe the RFC4716 (PuTTY export) format
+    if ssh-keygen -i -f "$tmp" > "$tmp.converted" 2> /dev/null && ssh-keygen -l -f "$tmp.converted" > /dev/null 2>&1
     then
-        msg "Success!"
+        mv -f "$tmp.converted" "$tmp"
     else
-        err "Failed to convert."
-    fi
-    run rm -fr "$pub.tmp"
-
-    msg "Verifying ..."
-    if run ssh-keygen -l -f "$pub"
-    then
-        msg "OK"
-    else
-        err "Could not verify the publikkey, removing."
-        run rm -fr "$pub"
+        rm -f "$tmp" "$tmp.converted"
+        err "This is not an ssh public key."
+        exit 22
     fi
 fi
+
+mkdir -p "$dir"
+mv -f "$tmp" "$pub"
+chmod 644 "$pub"
+
+msg "Added $pub"
+ssh-keygen -l -f "$pub"

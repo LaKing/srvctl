@@ -5,7 +5,8 @@
 ##
 ##   Sourced by load_libs on every srvctl invocation while the ssh
 ##   module is enabled. Provides ssh_main, which exports SC_ROOTCA_HOST
-##   for the generator (currently not read there) and runs
+##   for the generator (currently not read there), hands it SC_LOG (so
+##   host-key changes reach ~/.srvctl/srvctl.log) and runs
 ##   modules/ssh/ssh.js — ssh_config.d drop-ins, cluster host-key scan,
 ##   known_hosts files and user public-key distribution. A nonzero node
 ##   exit aborts the whole srvctl run via exif with node's exit code;
@@ -21,7 +22,7 @@ function ssh_main {
     ## $* is word-split on purpose (no caller passes arguments today).
     # shellcheck disable=SC2048
     # shellcheck disable=SC2086
-    /bin/node "$SC_INSTALL_DIR/modules/ssh/ssh.js" $*
+    SC_LOG="$SC_LOG" /bin/node "$SC_INSTALL_DIR/modules/ssh/ssh.js" $*
 
     exif "SSH-ERROR cfg $* ($?)"
 

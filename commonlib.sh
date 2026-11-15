@@ -115,6 +115,34 @@ function run_hooks {
     run_hook "post-$1"
 }
 
+## The caller reached uid 0 through sudo and is not root. The sudoers entry
+## (srvctl.sh *) gives that to every account, so uid 0 says nothing about who
+## is asking: SC_USER does, and the guards of authlib.sh decide by it.
+function sc_escalated {
+    $SC_UID0 && [[ $SC_USER != root ]]
+}
+
+## Print the home srvctl takes code from: the module cache it sources and the
+## srvctl-includes commands live below it (init.sh stores it as SC_HOME). An
+## account owns its home, so at uid 0 the directory is always root's: with the
+## caller's home, any user could write a file that srvctl then runs as root.
+function sc_code_home {
+    local name="$SC_USER"
+    $SC_UID0 && name=root
+    getent passwd "$name" | cut -f6 -d:
+}
+
+## An escalated caller may start only a command that checks who is asking:
+## FILE has to call an identity guard of authlib.sh on a line of its own.
+## Without this a new command that forgot its guard would run for everybody
+## at uid 0; this way it is refused. sudomize is no guard, it only re-executes.
+function command_may_run { ## FILE
+    sc_escalated || return 0
+    grep -Eq '^[[:space:]]*(root_only|operators_only|users_only|owner_only[[:space:]]+[^#]+)[[:space:]]*(#.*)?$' "$1" && return 0
+    err "$CMD does not run through sudo. Start it as: sc $CMD"
+    exit 44
+}
+
 ## Command dispatch. Precedence (first match wins, all sourced in THIS shell):
 ##   exec-function -> datastore verbs -> /root/srvctl-includes ->
 ##   module commands/ -> ~/srvctl-includes (non-root) -> module command.sh
@@ -152,6 +180,12 @@ function run_command {
     fi
     if [[ $CMD == 'get' ]] || [[ $CMD == 'out' ]]
     then
+        ## the records are world-readable, nobody needs uid 0 to read them
+        if sc_escalated
+        then
+            err "$CMD does not run through sudo. Start it as: sc $CMD"
+            exit 44
+        fi
         # shellcheck disable=SC2086
         $CMD $OPAS
         exif "failed to exec '$CMD $OPAS'"
@@ -161,6 +195,7 @@ function run_command {
     ## permissions will determine the visibility of these commands
     if [[ -f /root/srvctl-includes/$CMD.sh ]]
     then
+        command_may_run "/root/srvctl-includes/$CMD.sh"
         ## dynamic source
         # shellcheck disable=SC1090
         source "/root/srvctl-includes/$CMD.sh"
@@ -181,6 +216,7 @@ function run_command {
             ## find and run commands
             if [[ -f $dir/commands/$CMD.sh ]]
             then
+                command_may_run "$dir/commands/$CMD.sh"
                 ## dynamic source
                 # shellcheck disable=SC1090
                 source "$dir/commands/$CMD.sh"
@@ -190,8 +226,8 @@ function run_command {
         fi
     done
     
-    ## custom by user
-    if [[ -f $SC_HOME/srvctl-includes/$CMD.sh ]] && [[ $SC_HOME != /root ]]
+    ## custom by user; never at uid 0, where SC_HOME is root's home (init.sh)
+    if [[ -f $SC_HOME/srvctl-includes/$CMD.sh ]] && [[ $SC_HOME != /root ]] && ! $SC_UID0
     then
         ## dynamic source
         # shellcheck disable=SC1090
@@ -216,6 +252,7 @@ function run_command {
             if [[ -f $dir/command.sh ]]
             then
                 debug "@command.sh ${dir##*/}"
+                command_may_run "$dir/command.sh"
                 ## dynamic source
                 # shellcheck disable=SC1090
                 source "$dir/command.sh"
@@ -234,8 +271,8 @@ function complicate() {
 ## print the one-line hint for a command file, honoring its permission markers.
 ## VISIBILITY MIRRORS ENFORCEMENT (WP-E.2.b): the caller sees only what their
 ## role can run — root everything; operator operators_only + everyone; user
-## everyone (+ owner_only, which is resource-scoped so always listed). hs_only
-## is environment (SC_HOSTNET); reseller_only is transitional (removed in WP-F).
+## everyone (+ owner_only and users_only, which every user may try). hs_only
+## is environment (SC_HOSTNET).
 function hint_on_file {
 
     local file
@@ -270,7 +307,6 @@ function hint_on_file {
             [[ ${SC_IDX_OPS[$file]} ]] && [[ $SC_ROLE != operator ]] && return 134 # operators_only -> hide from user
         fi
         ! [[ $SC_HOSTNET ]] && [[ ${SC_IDX_HS[$file]} ]] && return 134
-        [[ $SC_ROLE != root ]] && ! [[ "${#SC_USER}" == 1 ]] && [[ ${SC_IDX_RES[$file]} ]] && return 134
 
         command="${file##*/}"
         hintstr="${SC_IDX_HINT[$file]}"
@@ -297,7 +333,6 @@ function hint_on_file {
         grep -Eq '^[[:space:]]*operators_only[[:space:]]*(#.*)?$' "$file" && [[ $SC_ROLE != operator ]] && return 134
     fi
     ! [[ $SC_HOSTNET ]] && grep -Eq '^[[:space:]]*hs_only[[:space:]]*(#.*)?$' "$file" && return 134
-    [[ $SC_ROLE != root ]] && ! [[ "${#SC_USER}" == 1 ]] && grep -Eq '^[[:space:]]*reseller_only[[:space:]]*(#.*)?$' "$file" && return 134
 
     ## NOTE: for HEMP and HEXE below, grep receives "$file" as an operand,
     ## so the head-limited stdin is ignored and the WHOLE file is searched.
@@ -430,29 +465,29 @@ function hint_commands {
 ## help_on_file/hint_on_file read these arrays, falling back to grep when the
 ## index was not built (e.g. single-command `sc help CMD`) or a path is absent.
 ## help_on_file consumes HINT+HELP; hint_on_file also consumes SYNTAX (@@@),
-## DYNAMIC (&&&) and the ROOT/HS/RES permission booleans. commandindex.mjs
+## DYNAMIC (&&&) and the ROOT/HS/OPS permission booleans. commandindex.mjs
 ## guarantees @@@/&&& values are non-empty when present (parser test enforces
 ## it), so an EMPTY SC_IDX_SYNTAX/SC_IDX_DYNAMIC means the marker is ABSENT —
 ## the presence test the grep path did with `[[ -z $hintcmd ]]`.
-declare -A SC_IDX_HINT SC_IDX_HELP SC_IDX_SYNTAX SC_IDX_DYNAMIC SC_IDX_ROOT SC_IDX_HS SC_IDX_RES SC_IDX_OPS
+declare -A SC_IDX_HINT SC_IDX_HELP SC_IDX_SYNTAX SC_IDX_DYNAMIC SC_IDX_ROOT SC_IDX_HS SC_IDX_OPS
 SC_IDX_BUILT=false
 
 function build_command_index() {
     ## $@ = command-file paths. Populate the SC_IDX_* arrays keyed by path.
     SC_IDX_HINT=(); SC_IDX_HELP=(); SC_IDX_SYNTAX=(); SC_IDX_DYNAMIC=()
-    SC_IDX_ROOT=(); SC_IDX_HS=(); SC_IDX_RES=(); SC_IDX_OPS=()
+    SC_IDX_ROOT=(); SC_IDX_HS=(); SC_IDX_OPS=()
     SC_IDX_BUILT=false
     [[ $# -gt 0 ]] || return 0
-    local tag path f1 f2 f3 f4 f5 f6 f7
+    local tag path f1 f2 f3 f4 f5 f6
     ## \x1f (US) delimiter, NOT tab: read collapses consecutive IFS-whitespace
     ## (tab), which would shift empty syntax/dynamic fields. See commandindex.mjs.
-    ## Field order: hint syntax dynamic root_only hs_only reseller_only operators_only.
-    while IFS=$'\x1f' read -r tag path f1 f2 f3 f4 f5 f6 f7
+    ## Field order: hint syntax dynamic root_only hs_only operators_only.
+    while IFS=$'\x1f' read -r tag path f1 f2 f3 f4 f5 f6
     do
         if [[ $tag == F ]]
         then
             SC_IDX_HINT[$path]="$f1"; SC_IDX_SYNTAX[$path]="$f2"; SC_IDX_DYNAMIC[$path]="$f3"
-            SC_IDX_ROOT[$path]="$f4"; SC_IDX_HS[$path]="$f5"; SC_IDX_RES[$path]="$f6"; SC_IDX_OPS[$path]="$f7"
+            SC_IDX_ROOT[$path]="$f4"; SC_IDX_HS[$path]="$f5"; SC_IDX_OPS[$path]="$f6"
             [[ -n ${SC_IDX_HELP[$path]+x} ]] || SC_IDX_HELP[$path]=""
         elif [[ $tag == H ]]
         then

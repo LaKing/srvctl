@@ -214,7 +214,7 @@ le() {
 out="$(le)"
 ok "d: letsencrypt.js run completes" "$?" "0"
 ok "d: certbot ran for w.test and failed" "$(grep -c 'certonly failure for  w.test' <<< "$out")" "1"
-ok "d: certbot output goes to the fixture root" "$(grep -q -- ">> $srv/w.test/letsencryptw.test.log" <<< "$out" && echo cmd) $([[ -f $srv/w.test/letsencryptw.test.log ]] && echo exists)" "cmd exists"
+ok "d: certbot output goes to the host-side acme log, not below /srv" "$(grep -q -- ">> $W/acme/log/http01-w.test.log" <<< "$out" && echo cmd) $([[ -f $W/acme/log/http01-w.test.log ]] && echo exists)" "cmd exists"
 ok "d: no live /srv path in any command" "$(grep -c -- '>> /srv/' <<< "$out")" "0"
 for c in mail.x.test dotless y.devel z.test w.test orphan.test; do
     d="$(pki "$srv" "$c")"

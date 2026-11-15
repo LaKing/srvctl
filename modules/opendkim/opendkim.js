@@ -17,10 +17,21 @@
  *     host) and publish the public key — with its literal 'p=' prefix —
  *     into containers.json as 'dkim-<selector>-domainkey', consumed by
  *     modules/named/named.js for the DNS TXT record;
- *   - append the domain to TrustedHosts, KeyTable and SigningTable.
- * On exit the three table files and containers.json are written back to
- * the datastore; the bash side (libs/opendkimlib.sh) then mirrors the
- * folder to /var/opendkim and restarts opendkim.service if it changed.
+ *   - append the domain to TrustedHosts and KeyTable.
+ * A domain-only record (domain_only=true, retire-ve) has no container files:
+ * its key is the host-side copy in $SC_DATASTORE_DIR/opendkim/<domain>/, which
+ * retire-ve preserved. It is never generated, never copied over and its
+ * published dkim-<selector>-domainkey is never rewritten (lib/keys.js).
+ * Who may sign which domain comes from lib/entitlement.js (EntitledSigners,
+ * SignableDomains, HostSigningTable, InternalHosts, EmptySigningTable); the
+ * wildcard SigningTable of earlier versions (every domain for every
+ * internal client) is no longer written. TrustedHosts is only the
+ * ExternalIgnoreList now. The selector rule also lives in
+ * conf/signing-policy.lua.
+ * On exit the table files and containers.json are written back to the
+ * datastore; the bash side (libs/opendkimlib.sh) then mirrors the folder
+ * to /var/opendkim and restarts opendkim.service if it changed, and
+ * regenerate_opendkim_conf sets the keys of /etc/opendkim.conf.
  * A nonzero exit aborts the whole srvctl run via exif.
  */
 
@@ -46,6 +57,8 @@ function out(msg) {
 // includes
 var fs = require('fs');
 var datastore = require('../datastore/lib.js');
+const entitlement = require('./lib/entitlement.js');
+const keys = require('./lib/keys.js');
 const execSync = require('child_process').execSync;
 
 const CMD = process.argv[2];
@@ -97,20 +110,30 @@ var user = '';
 var container = '';
 
 var TrustedHosts = '';
-var SigningTable = '';
 var KeyTable = '';
 
-// TrustedHosts seed: loopback plus the whole 10.0.0.0/8 farm network;
-// every hosted domain is appended in run_domain below.
+// TrustedHosts (ExternalIgnoreList only: it silences the "external host
+// tried to send as" log lines) seed: loopback plus the 10.0.0.0/8 farm
+// network; every hosted domain is appended in run_domain below.
 TrustedHosts += '127.0.0.1' + br;
 TrustedHosts += '::1' + br;
 TrustedHosts += '10.0.0.0/8' + br;
 
 function run_domain(domain) {
-    var selector = "default";
-    if (domain.substring(0, 5) === 'mail.') selector = "mail";
-    var private_file = "/srv/" + domain + "/opendkim/" + selector + ".private";
-    var txt_file = "/srv/" + domain + "/opendkim/" + selector + ".txt";
+    var plan = keys.key_plan({
+        domain: domain,
+        record: containers[domain],
+        srvRoot: '/srv',
+        opendkimFolder: SC_OPENDKIM_FOLDER,
+        exists: fs.existsSync,
+    });
+    var selector = plan.selector;
+    var private_file = plan.private_file;
+    var txt_file = plan.txt_file;
+
+    // A domain-only record signs with its preserved host-side key; nothing
+    // under /srv counts, a leftover directory included.
+    if (plan.action === 'missing') err('DKIM key of the domain-only record ' + domain + ' is missing: ' + plan.hostside_file + ' (restore it from the retire-ve backup)');
 
     // A /srv/<domain> folder is our only sign the container lives on
     // this host (an IP check would be more precise). Make sure the
@@ -119,9 +142,8 @@ function run_domain(domain) {
     // FIXME(v4): low — the domain name is interpolated unescaped into a
     // root shell command; a corrupted containers.json key containing '"'
     // or '$(...)' executes arbitrary shell as root.
-    if (fs.existsSync("/srv/"+domain))
-    if (!fs.existsSync(private_file)) {
-        var opendkim_folder = '/srv/' + domain + '/opendkim';
+    if (plan.action === 'genkey') {
+        var opendkim_folder = plan.opendkim_folder;
         if (!fs.existsSync(opendkim_folder)) fs.mkdirSync(opendkim_folder);
         console.log('opendkim-genkey -D "' + opendkim_folder + '" -d "' + domain + '" -s "' + selector + '"');
         var code = execSync('opendkim-genkey -D "' + opendkim_folder + '" -d "' + domain + '" -s "' + selector + '"');
@@ -132,7 +154,7 @@ function run_domain(domain) {
     // /srv copy is authoritative here) and publish the public key.
     // NOTE: 'private' is a reserved word — parses in sloppy mode only,
     // would be a SyntaxError under "use strict"/ESM.
-    if (fs.existsSync(private_file)) {
+    if ((plan.action === 'genkey' || plan.action === 'copy') && fs.existsSync(private_file)) {
         var private = fs.readFileSync(private_file, 'UTF8');
         var target_folder = SC_OPENDKIM_FOLDER + '/' + domain;
         if (!fs.existsSync(target_folder)) fs.mkdirSync(target_folder);
@@ -162,14 +184,12 @@ function run_domain(domain) {
     // host regenerates and the datastore syncs.
     TrustedHosts += domain + br;
     KeyTable += selector + "._domainkey." + domain +" " + domain + ":" + selector + ":/var/opendkim/" + domain + "/" + selector + ".private" + br;
-    SigningTable += "*@" + domain + " " + selector + "._domainkey." + domain + br;
 }
 
 function main() {
     // Skip development and cluster-internal domains entirely.
     Object.keys(containers).forEach(function(i) {
-        if ((i.substr(i.length - 6) !== '.devel') && (i.substr(i.length - 6) !== '-devel') && (i.substr(i.length - 6) !== '.local') && (i.substr(i.length - 6) !== '-local'))
-            run_domain(i);
+        if (entitlement.signable(i)) run_domain(i);
     });
 }
 
@@ -187,9 +207,12 @@ process.exitCode = 0;
 process.on('exit', function() {
     fs.writeFileSync(SC_OPENDKIM_FOLDER + '/TrustedHosts', TrustedHosts);
     fs.writeFileSync(SC_OPENDKIM_FOLDER + '/KeyTable', KeyTable);
-    fs.writeFileSync(SC_OPENDKIM_FOLDER + '/SigningTable', SigningTable);
+    const tables = entitlement.tables(entitlement.entitlement({ containers: containers, hosts: hosts, SC_COMPANY_DOMAIN: process.env.SC_COMPANY_DOMAIN }));
+    Object.keys(tables).forEach(function(name) {
+        fs.writeFileSync(SC_OPENDKIM_FOLDER + '/' + name, tables[name]);
+    });
     datastore.save_type("containers", containers); // was monolithic write, lost on v4 per-entity
-    msg('Wrote OpenDKIM TrustedHosts, KeyTable, SigningTable to ' + SC_OPENDKIM_FOLDER);
+    msg('Wrote OpenDKIM TrustedHosts, KeyTable, ' + Object.keys(tables).join(', ') + ' to ' + SC_OPENDKIM_FOLDER);
 });
 
 exit();

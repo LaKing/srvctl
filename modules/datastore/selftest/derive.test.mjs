@@ -82,6 +82,29 @@ eq("iface 172", d.container_interface("one72"), "16+4+8");
 // no-ip container: uid octet defaults to 1
 eq("uid noip", d.container_uid("noip"), 65536 * (1 * 255 + 1)); // 16777216
 
+// domain-only records (retire-ve) and the owner they keep without a rootfs
+eq("domain_only absent", d.container_domain_only("site.example.com"), false);
+const dctx = {
+  ...ctx,
+  containers: {
+    ...ctx.containers,
+    retired: { user: "a", ip: "10.20.1.9", domain_only: true },
+    stringy: { user: "a", ip: "10.20.1.10", domain_only: "true" },
+    moved: { user: "a", ip: "10.21.1.11" }, // ip of node2, rootfs on node1
+  },
+};
+const withRootfs = derivations({ ...dctx, hasLocalRootfs: () => true });
+const without = derivations(dctx);
+eq("domain_only true", without.container_domain_only("retired"), true);
+eq("domain_only only a boolean true counts", without.container_domain_only("stringy"), false);
+eq("host_by_ip ignores the local rootfs", withRootfs.container_host_by_ip("moved"), "node2");
+eq("retirable: same owner before and after the rootfs goes",
+  withRootfs.container_host("retired") + "/" + without.container_host("retired"), "node1/node1");
+eq("ip/location mismatch: the owner would move (retire-ve refuses)",
+  withRootfs.container_host("moved") + "/" + without.container_host("moved"), "node1/node2");
+eq("bridge: host_by_ip is whoever evaluates it (retire-ve refuses)",
+  derivations({ ...dctx, HOSTNAME: "node2", SC_HOSTNET: 21 }).container_host_by_ip("custom"), "node2");
+
 console.log(`derive.test: ${passed} passed, ${failures.length} failed`);
 for (const f of failures) console.log("  FAIL " + f);
 process.exit(failures.length ? 1 : 0);

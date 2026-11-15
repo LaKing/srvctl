@@ -36,6 +36,11 @@ function comount_local_container {
         err "Container $C must have a rootfs on $HOSTNAME"
         return 22
     }
+    ## a leftover rootfs of a domain-only record (retire-ve) is not a container
+    [[ $(get container "$C" domain_only 2> /dev/null) != true ]] || {
+        err "$C is a domain-only record (retired with retire-ve), it has no container to mount into"
+        return 22
+    }
 }
 
 ## Use srvctl's persistent UID allocation, not a running process's namespace.
@@ -429,6 +434,8 @@ function regenerate_comounts {
     do
         host="$(get container "$C" host)" || return $?
         [[ $host == "$HOSTNAME" ]] || continue
+        ## a domain-only record (retire-ve) has no container to mount into
+        [[ $(get container "$C" domain_only 2> /dev/null) != true ]] || continue
         ## Hooks run in module order, so containers/hooks/regenerate.sh provisions
         ## a missing rootfs only after this one. A fresh copy stays 0:0 until its
         ## first start (PrivateUsersChown). Both are expected states, not errors;

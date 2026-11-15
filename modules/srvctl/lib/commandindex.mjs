@@ -13,7 +13,7 @@
 //   dynamic (## &&&) : FIRST match in the WHOLE file (add-ve.sh relies on this
 //                      at line 13, beyond head -10)
 //   help    (## &en) : ALL matches in the whole file, marker -> 4 spaces
-//   perms            : line-anchored root_only / hs_only / reseller_only /
+//   perms            : line-anchored root_only / hs_only /
 //                      operators_only guard calls anywhere in the file
 // Value extraction mirrors bash ${str:7}: drop the 6-char marker + 1 space.
 
@@ -52,7 +52,6 @@ export function parseCommandFile(content) {
     help,
     root_only: hasGuardCall("root_only"),
     hs_only: hasGuardCall("hs_only"),
-    reseller_only: hasGuardCall("reseller_only"),
     operators_only: hasGuardCall("operators_only"),
   };
 }
@@ -74,7 +73,7 @@ export function buildIndex(files, readFile) {
 // Emit the index in a \x1f(US)-delimited, path-keyed form for bash to read in
 // ONE node call (replacing commonlib.sh's per-file grep storm). One "F" line of
 // scalar metadata per file, then one "H" line per help line, in file order:
-//   F <path> <hint> <syntax> <dynamic> <root_only> <hs_only> <reseller_only> <operators_only>
+//   F <path> <hint> <syntax> <dynamic> <root_only> <hs_only> <operators_only>
 //   H <path> <help-line>                     (fields joined by \x1f)
 // Scalars are empty when the marker is absent; booleans are "1"/"". The
 // delimiter is \x1f (unit separator), NOT tab: `read` treats tab as IFS
@@ -87,7 +86,7 @@ export function formatBash(index) {
   const b = (v) => (v ? "1" : "");
   for (const path of Object.keys(index)) {
     const m = index[path];
-    out.push(["F", path, m.hint ?? "", m.syntax ?? "", m.dynamic ?? "", b(m.root_only), b(m.hs_only), b(m.reseller_only), b(m.operators_only)].join(SEP));
+    out.push(["F", path, m.hint ?? "", m.syntax ?? "", m.dynamic ?? "", b(m.root_only), b(m.hs_only), b(m.operators_only)].join(SEP));
     for (const h of m.help) out.push(["H", path, h].join(SEP));
   }
   return out.join("\n") + (out.length ? "\n" : "");

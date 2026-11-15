@@ -14,6 +14,7 @@
 ##   nothing but the two mount points. Its mounts are unmounted lazily (a shell
 ##   sitting in the tree must not block it) and the empty directories removed
 ##   with rmdir; nothing is ever deleted recursively in a home.
+##   A domain-only record (retire-ve) entitles nobody to a share: its rootfs is gone.
 ##
 
 function prune_user_shares {
@@ -26,6 +27,7 @@ function prune_user_shares {
     rows="$(list container user users readers)" || return 0
     while IFS=$'\t' read -r C owner users readers
     do
+        container_is_retired "$C" && continue
         for u in $owner ${users//[\[\]\",]/ } ${readers//[\[\]\",]/ }
         do
             wanted[$u/$C]=yes

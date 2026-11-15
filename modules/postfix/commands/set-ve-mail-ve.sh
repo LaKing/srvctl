@@ -33,6 +33,8 @@ fi
 
 if [[ $OPA == off || $OPA == none ]]
 then
+    ## the VE's own container no longer exists; hand the mail to another VE
+    [[ $(get container "$C" domain_only 2> /dev/null) != true ]] || { err "$C is a domain-only record (retired with retire-ve): it has no container to handle its mail itself"; exit 22; }
     put container "$C" mail_ve > /dev/null
     datastore_push "put container $C mail_ve"
     regenerate_etc_hosts
@@ -44,6 +46,7 @@ fi
 target="$OPA"
 [[ $target != "$C" ]] || { err "A VE cannot hand its mail to itself; use off"; exit 22; }
 [[ $(get container "$target" exist) == true ]] || { err "No such container: $target"; exit 22; }
+[[ $(get container "$target" domain_only 2> /dev/null) != true ]] || { err "$target is a domain-only record (retired with retire-ve), it handles no mail"; exit 22; }
 [[ $(get container "$target" host) == "$HOSTNAME" ]] || { err "$target does not run on $HOSTNAME"; exit 22; }
 systemctl is-active --quiet "srvctl-nspawn@$target.service" || { err "$target is not running"; exit 22; }
 [[ -f /srv/$target/rootfs/etc/postfix/main.cf ]] || { err "$target has no postfix"; exit 22; }

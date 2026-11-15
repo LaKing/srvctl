@@ -211,6 +211,19 @@ function captureV3Golden() {
   check("mail_ve: unknown target keeps own ip", lines.includes("10.20.1.7    mail.typo.example.org"), true);
   check("mail_ve map: name and aliases, unknown target left out", generators(ctx).cluster_mail_ve_map(),
     "app.example.com band.example.org\napp.example.com band.example.net\n");
+
+  // A domain-only record (retire-ve) keeps its mail routing: relaydomains,
+  // mail_ve map and /etc/hosts are identical before and after the retirement.
+  const before = generators(ctx);
+  const outputs = (g) => [g.cluster_postfix_relaydomains(), g.cluster_mail_ve_map(), g.cluster_etc_hosts()];
+  const was = outputs(before);
+  ctx.containers["band.example.org"].domain_only = true;
+  const now = outputs(generators(ctx));
+  check("domain-only: relaydomains unchanged", now[0], was[0]);
+  check("domain-only: relaydomains lists it", now[0].includes("band.example.org\tOK\n"), true);
+  check("domain-only: mail_ve map unchanged", now[1], was[1]);
+  check("domain-only: /etc/hosts unchanged", now[2], was[2]);
+  delete ctx.containers["band.example.org"].domain_only;
 }
 
 console.log(`generators.test: ${passed} passed, ${failures.length} failed`);

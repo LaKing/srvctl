@@ -8,7 +8,7 @@ trap 'rm -rf "$tmp"' EXIT
 # shellcheck source=modules/comount/libs/comountlib.sh
 source "$SC_INSTALL_DIR/modules/comount/libs/comountlib.sh"
 
-declare -A records=() offsets=() owners=() active=() mounted=()
+declare -A records=() offsets=() owners=() active=() mounted=() retired=()
 fail_get=0 fail_start=0 count=0
 msg() { echo "$*" >> "$tmp/messages"; }
 ntc() { echo "$*" >> "$tmp/messages"; }
@@ -21,6 +21,7 @@ get() {
     case $3 in
         host) if [[ $2 == remote.test ]]; then echo elsewhere; else echo "$HOSTNAME"; fi ;;
         uid) echo "${offsets[$2]}" ;;
+        domain_only) if [[ ${retired[$2]:-} ]]; then echo true; else echo false; fi ;;
         comount-*) [[ ${records[$2:$3]+yes} ]] || return 100; echo "${records[$2:$3]}" ;;
         *) return 110 ;;
     esac
@@ -79,7 +80,7 @@ new_case() {
     SC_COMOUNT_ROOT="$tmp/case$count/srv"
     SC_COMOUNT_STORAGE="$tmp/case$count/storage"
     SC_COMOUNT_UNIT_DIR="$tmp/case$count/units"
-    records=(); active=(); mounted=(); offsets=(); owners=()
+    records=(); active=(); mounted=(); offsets=(); owners=(); retired=()
     offsets[src.test]=7798784; offsets[a.test]=7864320; offsets[b.test]=7929856
     fail_get=0; fail_start=0
     local c
@@ -300,5 +301,17 @@ if (
     # shellcheck source=modules/comount/commands/remove-comount.sh
     source "$SC_INSTALL_DIR/modules/comount/commands/remove-comount.sh"
 ); then echo 'FAIL unauthorized command'; exit 1; else expect 'auth guard' 44 "$?"; fi
+
+# A domain-only record (retire-ve) keeps comount-* fields but has no container,
+# even when a leftover rootfs survived: regenerate skips it, commands refuse it.
+new_case
+add_comount_to_containers codepad /srv/project a.test
+retired[a.test]=1
+: > "$tmp/calls"; : > "$tmp/messages"
+regenerate_comounts
+expect 'domain-only record: regenerate does nothing' '' "$(cat "$tmp/calls")"
+expect 'domain-only record: no deferred notice' 0 "$(grep -c 'a.test' "$tmp/messages" || true)"
+failure comount_local_container a.test
+expect 'domain-only record: the refusal names it' 1 "$(grep -c 'a.test is a domain-only record' "$tmp/errors")"
 
 echo 'All comount tests passed.'

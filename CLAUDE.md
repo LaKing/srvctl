@@ -36,10 +36,10 @@ command.sh            # Optional per-module fallback command (only containers, s
 commands/*.sh         # CLI commands exposed to users (50 files across all modules)
 hooks/*.sh            # Lifecycle hooks (91 files; see hook names below)
 libs/*.sh             # Bash libraries, sourced by load_libs when the module is enabled
-lib/*.mjs, *.js       # Node.js libraries (containers, datastore, named, srvctl only)
+lib/*.mjs, *.js       # Node.js libraries (containers, datastore, named, opendkim, ssh, srvctl only)
 selftest/             # *.test.sh / *.test.mjs (certificates, comount, containers, usersonhost,
-                      #   datastore, haproxy, letsencrypt, named, postfix, srvctl)
-conf/                 # Configuration templates (only containers, perdition,
+                      #   datastore, haproxy, letsencrypt, named, opendkim, postfix, ssh, srvctl)
+conf/                 # Configuration templates (only containers, opendkim, perdition,
                       #   postfix, saslauthd)
 ```
 
@@ -78,10 +78,9 @@ There is **no translation support anywhere in the codebase**: nothing reads
 `## @hu` / `## &hu`, and no language is ever selected. The markers survive in one
 file only, `modules/containers/commands/add-ve.sh:9-11`, as inert comments.
 
-Line-anchored guard calls (`root_only`, `operators_only`, `reseller_only`, `hs_only`)
-double as visibility markers: `hint_on_file` lists only what the caller's role could
-actually run (`commonlib.sh:234-238`). `owner_only` is resource-scoped, so it stays
-listed for everyone.
+Line-anchored guard calls (`root_only`, `operators_only`, `hs_only`) double as
+visibility markers: `hint_on_file` lists only what the caller's role could actually
+run. `owner_only` and `users_only` commands stay listed for everyone.
 
 ## Key Conventions
 
@@ -90,10 +89,12 @@ listed for everyone.
 - **Commands**: Lowercase with hyphens (e.g., `add-ve`, `backup-ve`).
 - **Output helpers** (`lablib.sh`): `msg` (host-prefixed green), `ntc` (host-prefixed yellow), `prg` / `pry` (plain green / yellow), `err` (red, to stderr **and** `$SC_LOG`), `log` / `logs` / `logfs` (log file), `debug` / `dbg` / `trace` (printed only when `$DEBUG` **and** `$SC_TTY`), `run` / `nur` (echo a prompt-style command line, then execute it).
 - **Error helpers**: `exif` (exit if the previous command failed), `eyif` (warn if failed), `exit_0` (clean exit).
-- **Auth helpers** (`modules/srvctl/libs/authlib.sh`, always loaded, host- and VE-side): `sc_is_root`, `sc_role`, `root_only`, `operators_only`, `owner_only <type> <id>`, `reseller_only`, `argument <name>`, `sudomize` (non-root re-exec via sudo). The exit codes are a contract callers rely on: **44** = authorization failure, **32** = missing argument. Guards must be called *before* any state change.
-  - Root means `sc_is_root`: `SC_USER == root` **and** uid 0. Plain uid 0 is not enough — the NOPASSWD sudoers entry lets any user reach uid 0 with `SC_USER` still their own name.
-  - `authorize` still exists but is an inert **stub** (`authlib.sh:151-165`): a non-root caller only gets `DEV (Authorization implementation not complete.)` printed and execution *continues*. It denies nothing; do not use it as a gate.
-  - `hs_only` / `ve_only` are also **inert** (`authlib.sh:204-228`): `SC_ON_HS` / `SC_ON_VE` are never assigned, so `if $SC_ON_HS` runs an empty command (status 0) and both always pass. Real host/VE separation comes from module-activation conditions plus `root_only`.
+- **Auth helpers** (`modules/srvctl/libs/authlib.sh`, always loaded, host- and VE-side): `sc_is_root`, `sc_role`, `root_only`, `operators_only`, `users_only`, `owner_only <type> <id>`, `argument <name>`, `sudomize` (non-root re-exec via sudo; gives no permission, call it after the guard). The exit codes are a contract callers rely on: **44** = authorization failure, **32** = missing argument. Guards must be called *before* any state change, on a line of their own.
+  - Root means `sc_is_root`: `SC_USER == root` **and** uid 0. Plain uid 0 is not enough — the NOPASSWD sudoers entry (`srvctl.sh *`) lets any account reach uid 0 with `SC_USER` still its own name (`sc_escalated`, `commonlib.sh`).
+  - For such a caller `SC_HOME` is root's home (nothing is sourced from the caller's home), and `run_command` starts only a command file that calls an identity guard (`command_may_run`). **Every new command needs a guard** unless it is a read that needs no uid 0; `modules/srvctl/selftest/escalated.test.sh` holds the list of unguarded commands.
+  - `users_only` = root or a caller with a user record on this host (`add-ve`, `add-publickey`). `owner_only` = root, the record's `user`, or that user's reseller.
+  - A file that belongs to a tenant (anything below `/srv/C/rootfs`, a base image's files) is read as text, never sourced or executed by the host.
+  - `hs_only` / `ve_only` are **inert**: `SC_ON_HS` / `SC_ON_VE` are never assigned, so `if $SC_ON_HS` runs an empty command (status 0) and both always pass. Real host/VE separation comes from module-activation conditions plus the identity guard.
 - **Guard**: files that must not run standalone start with `[[ $SRVCTL ]] || exit <n>`, but the code is **not** consistent about `<n>`. 44 occurrences use `exit 4` (shipped commands, hooks and libs plus the selftest auth fixtures); 6 use `exit 10` (`commonlib.sh:13`, `modules/certificates/libs/certselectlib.sh:27` and the four fixture command files under `modules/srvctl/selftest/sandbox/fixture-modules/` — two modules, `harnessa` and `harnessb`, with two commands each). Use `exit 4` in new commands and hooks. Only 29 of the 50 `modules/*/commands/*.sh` carry the guard at all — several unguarded files carry a `FIXME(v4)` about it (e.g. `modules/ve/commands/status.sh:11`, whose comment still calls `exit 10` "standard"). Put the guard *after* the `## @en` block so the hint stays inside the first 10 lines.
 - ShellCheck compliance is expected (`# shellcheck disable=SCXXXX` for intentional exceptions).
 
@@ -104,7 +105,7 @@ listed for everyone.
 3. Init hook order (`init.sh:303-327`), which is **not** a `pre`/`main`/`post` triplet and does not load libs last:
    `pre-init-$CMD` -> `pre-init` -> (breakout: `man`, `help`, `-help`, `--help` print help and exit here) -> `load_libs` -> `init` -> `post-init` -> `post-init-$CMD`.
    So module libs are available in `init` and `post-init` hooks but **not** in `pre-init` hooks, and for `sc help` the `init`/`post-init` hooks never run.
-4. Command dispatch (`run_command`, `commonlib.sh:122`) — first match wins, everything sourced into the current shell: `exec-function` (genuine root + `OPAS` only) -> datastore write verbs `new|put|cfg|del|add` (genuine root) -> datastore read verbs `get|out` (any caller) -> `/root/srvctl-includes/$CMD.sh` -> `modules/*/commands/$CMD.sh` in `SC_MODULES` order -> `$SC_HOME/srvctl-includes/$CMD.sh` (non-root only) -> every enabled module's `command.sh` fallback. Returns **54** when no command was given, **250** when nothing matched; `srvctl.sh` then prints `Invalid command` and the hint list, and exits 1.
+4. Command dispatch (`run_command`, `commonlib.sh:122`) — first match wins, everything sourced into the current shell: `exec-function` (genuine root + `OPAS` only) -> datastore write verbs `new|put|cfg|del|add` (genuine root) -> datastore read verbs `get|out` (any caller without sudo) -> `/root/srvctl-includes/$CMD.sh` -> `modules/*/commands/$CMD.sh` in `SC_MODULES` order -> `$SC_HOME/srvctl-includes/$CMD.sh` (never at uid 0) -> every enabled module's `command.sh` fallback. Returns **54** when no command was given, **250** when nothing matched; `srvctl.sh` then prints `Invalid command` and the hint list, and exits 1.
 5. `run_hook <name>` sources `hooks/<name>.sh` of every enabled module **once**, in `SC_MODULES` order; a hook that exits non-zero aborts the whole CLI through `exif`. `run_hooks <name>` is the separate wrapper that fires the `pre-<name>` -> `<name>` -> `post-<name>` triplet — used for `update-install-host`, `update-install-ve`, `firewalld`, `diagnose`, `mkrootfs_fedora`, `mkrootfs_debian` and `add_ve_create_nspawn_container`. There is no `pre-$CMD` / `$CMD` / `post-$CMD` triplet anywhere.
 6. The `prune` hook is started through `run_prune` (`modules/containers/libs/prunelib.sh`), which reads the container records once; prune hooks ask `container_is_gone C` (no record **and** no `/srv/C`). `SC_PRUNE_DRY_RUN=true sc exec-function run_prune` lists without removing.
 
@@ -112,7 +113,7 @@ listed for everyone.
 
 No build step and no package manifest. Install by cloning to `/usr/local/share/srvctl` and running `bash srvctl/srvctl.sh` as root; `init.sh:32-62` then creates the `/bin/sc` and `/bin/srvctl` symlinks and, when `/etc/bash_completion.d` exists, `srvctl-completion`. All three point back into the clone, so upgrading is a `git pull` (`sc update-install`).
 
-Tests: no CI and no top-level runner. Per-module selftests live in `modules/*/selftest/` (`*.test.sh` / `*.test.mjs` files under certificates, comount, containers, datastore, haproxy, letsencrypt, named, postfix, srvctl and usersonhost). `modules/datastore/selftest/run.sh` and `modules/named/selftest/run.sh` aggregate their own module's tests and return non-zero on any failure; the rest are run directly with `bash <file>` or `node <file>`.
+Tests: no CI and no top-level runner. Per-module selftests live in `modules/*/selftest/` (`*.test.sh` / `*.test.mjs` files under certificates, comount, containers, datastore, haproxy, letsencrypt, named, opendkim, postfix, ssh, srvctl and usersonhost). `modules/datastore/selftest/run.sh` and `modules/named/selftest/run.sh` aggregate their own module's tests and return non-zero on any failure; the rest are run directly with `bash <file>` or `node <file>`.
 
 ## Configuration Locations
 

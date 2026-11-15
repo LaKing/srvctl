@@ -104,6 +104,18 @@ run_prune
 ok "a share with a mount in it is kept" "$(cat "$box/share/gone.example/users/key")" hash
 ok "the rest of the container's artifacts still go" "$(find "$box/units" -name '*gone.example*' | wc -l)" 0
 
+echo "a domain-only record (retire-ve)"
+setup
+RECORDS=$'live.example\tfalse\nrecord-only.example\tfalse\nretired.example\ttrue\n'
+mkdir -p "$box/units/srvctl-nspawn@retired.example.service.d" "$box/share/retired.example/users"
+ln -s /dev/null "$box/units/machines.target.wants/srvctl-nspawn@retired.example.service"
+echo hash > "$box/share/retired.example/users/key"
+run_prune; ok "rc" $? 0
+ok "loses its unit link, drop-in and share, though the record stays" "$(left retired.example)" 0
+ok "an ordinary record without a directory still keeps everything" "$(left record-only.example)" 3
+ok "a running container still keeps everything" "$(left live.example)" 3
+RECORDS=$'live.example\nrecord-only.example\n'
+
 echo "outside run_prune"
 setup
 prune_container_leftovers

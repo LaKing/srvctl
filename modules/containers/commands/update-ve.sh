@@ -1,9 +1,9 @@
 #!/bin/bash
 
 ## @@@ update-ve VE
-## @en Update container operating system
-## &en The distro will be update with it's package manager.
-
+## @en Not implemented: see upgrade-ve and rebuild-ve
+## &en A container is updated from inside with its package manager (dnf update).
+## &en A release upgrade is done by root: upgrade-ve VE, or rebuild-ve VE.
 
 hs_only
 
@@ -11,35 +11,9 @@ hs_only
 [[ $SRVCTL ]] || exit 4
 
 argument container-name
-## WP-E.2.b: acts on one container's OS -> root or the container owner
-## (was the non-denying authorize stub).
 owner_only container "$ARG"
 
-##
-##   containers/commands/update-ve.sh — STUB: distro upgrade of a
-##   container rootfs. Unimplemented; the commented dnf lines sketch the
-##   intended offline-upgrade approach.
-##
-##   FIXME(v4): stops the container's unit and then only prints
-##   "Feature unimplemented" — the container is left stopped; either
-##   implement the upgrade or drop the command.
-##
-
-C="$ARG"
-
-if [[ -d /srv/$C/rootfs ]]
-then
-    service_action "srvctl-nspawn@$C.service" stop
-    #dnf --use-host-config --releasever=33 --installroot "/srv/$C/rootfs" -y update --refresh
-
-	# shellcheck disable=SC1091 ## runtime-path
-	TARGET_RELEASE=$(source /etc/os-release && echo "$VERSION_ID")
-	ntc "Upgrade to $TARGET_RELEASE"
-
-	err "Feature unimplemented"
-
-	#dnf --use-host-config --installroot "/srv/$C/rootfs" -y --nogpgcheck offline-upgrade download --releasever="$RELEASE_ID"
-
-else
-   	err "Container rootfs does not exist."
-fi
+## Kept as a name users know, so that typing it explains where the real
+## commands are. It must not touch the container: nothing here upgrades it.
+err "update-ve is not implemented and changes nothing. Update packages inside the container with dnf; a release upgrade is root's upgrade-ve or rebuild-ve."
+exit 1

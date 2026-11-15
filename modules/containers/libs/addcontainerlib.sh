@@ -5,36 +5,76 @@
 ##
 ##   add_ve builds a complete container from a base image; used by
 ##   add-ve, add-network-ve and the codepad module's add-codepad. Exit
-##   codes are contracts: 10 no base image, 11 datastore record exists,
-##   12 /srv dir exists, 17 unit failed to start.
+##   codes are contracts: 22 invalid name, 10 no base image, 11 datastore
+##   record exists, 13 the name is a domain of another container, 12 /srv
+##   dir exists, 17 unit failed to start.
 ##
+
+## A container name is a host name: haproxy routes it, named serves it, and
+## systemd-nspawn takes it as the machine name (64 characters at most). It
+## also becomes a path below /srv and a unit instance name.
+function valid_container_name { ## NAME
+    [[ ${#1} -le 64 ]] && [[ $1 =~ ^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*$ ]]
+}
+
+## Print the container that already serves NAME or www.NAME (as its name, an
+## alias, an altname or a subdomain). Two containers on one host name would
+## give haproxy two backends for it and request its certificate twice.
+function container_domain_owner { ## NAME
+    local C cell rows
+    rows="$(list container domains)" || return $?
+    while IFS=$'\t' read -r C cell
+    do
+        ## the cell is a JSON list, so "NAME" in quotes is one whole element
+        if [[ $C == "$1" ]] || [[ $cell == *"\"$1\""* ]] || [[ $cell == *"\"www.$1\""* ]]
+        then
+            printf '%s\n' "$C"
+            return 0
+        fi
+    done <<< "$rows"
+    return 0
+}
 
 function add_ve() { ## type name [bridge]
 
-    local T C B
+    local T C B owner
     T="$1"
     C="$2"
     B="$3"
 
-    if [[ ! -d $SC_ROOTFS_DIR/$T ]]
+    ## Both arrive from the command line of any user and end up in paths.
+    if ! valid_container_name "$C"
     then
-        err "No base for rootfs $T. Please run: srvctl regenerate rootfs"
+        err "Invalid container name: $C (a lowercase host name such as example.com, 64 characters at most)"
+        exit 22
+    fi
+    if [[ ! $T =~ ^[a-z0-9][a-z0-9._-]*$ ]] || [[ ! -f $SC_ROOTFS_DIR/$T/etc/os-release ]]
+    then
+        err "No base image '$T'. Available: $(cd "$SC_ROOTFS_DIR" 2> /dev/null && echo *)"
         exit 10
     fi
-    
+
     if [[ "$(get container "$C" exist)" == true ]]
     then
         err "$C already exists"
         exit 11
     fi
-    
+
+    owner="$(container_domain_owner "$C")"
+    exif "Could not check the domains in use."
+    if [[ -n $owner ]]
+    then
+        err "$C is already served by the container $owner"
+        exit 13
+    fi
+
     ## check for a mistake
     if [[ -d /srv/$C/rootfs ]]
     then
         err "/srv/$C already exists! Exiting"
         exit 12
     fi
-    
+
     ## if the first 12 characters of the domain match against against a containers first 12 characters, then nspawn will fail to assign the vb- interface
     ## Failed to add new veth interfaces (vb-alpha-test.:host0): File exists
     ## alpha-test.domain1.ve alpha-test.domain2.ve

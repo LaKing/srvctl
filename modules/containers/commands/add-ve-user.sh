@@ -1,25 +1,25 @@
 #!/bin/bash
 
 ## @@@ add-ve-user VE USERNAME
-## @en Add user to the current cluster
-## &en Create the user in the current cluster datastore and create it on the system.
-## &en users will have default passwords, certificates, etc, ..
+## @en Give a user access to a container
+## &en USERNAME gets ssh access to VE and its files in his home on the host.
+## &en The owner of VE can add existing users; a new user is created by an operator.
 
-reseller_only
 hs_only
 
-sudomize
+## run only with srvctl
+[[ $SRVCTL ]] || exit 4
+
 argument container-name
+existing_container "$ARG"
+owner_only container "$ARG"
 
 ##
-##   containers/commands/add-ve-user.sh — grant a (possibly new) user
-##   access to a container.
-##
-##   Reseller-gated, host-side. Lowercases USERNAME and validates it
-##   (exit 22 on mismatch). If the user does not exist in the datastore
-##   yet it is created ('new user') and system users are regenerated
-##   (usersonhost module). Then the user is appended to the container's
-##   users list and the regenerate hook rewrites all configs.
+##   containers/commands/add-ve-user.sh — append USERNAME to the users list
+##   of container VE; the regenerate hooks then make the access real (ssh
+##   keys in the container, the share in the user's home). A USERNAME without
+##   a record is created first, which only root and operators may do: a new
+##   user is a new account on the host.
 ##
 
 C="$ARG"
@@ -32,16 +32,18 @@ then
     exit 22
 fi
 
-if [[ "$(get user "$username" exist)" == true ]]
+if [[ "$(get user "$username" exist)" != true ]]
 then
-    ntc "User $username already exist."
-else
+    ## not written as a guard call: this command is the owner's, and the help
+    ## would hide it from users if it carried the operators' marker
+    if [[ $(sc_role) == user ]]
+    then
+        err "No such user: $username. An operator creates users with add-user."
+        exit 44
+    fi
     new user "$username"
     regenerate_users
 fi
-
-reseller="$(get user "$username" reseller)"
-ntc "Reseller for $username is: $reseller"
 
 add container "$C" user "$username"
 

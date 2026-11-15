@@ -19,7 +19,7 @@
 ##
 
 argument container-name
-## WP-E.2.b: container provisioning -> operator/root (was authorize stub).
+## a container on a custom bridge or with codepad is set up by root or an operator
 operators_only
 sudomize
 

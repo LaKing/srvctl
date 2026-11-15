@@ -8,9 +8,21 @@
 ##   (check_container_directories / check_container_database).
 ##
 
+## Print the ID of the os-release below ROOTFS (fedora, debian, ...). The
+## file is read as text: it belongs to the tenant of the container, and
+## sourcing it would run his shell code as root on the host.
+function rootfs_os_id { ## ROOTFS
+    local id
+    id="$(sed -n 's/^ID=//p' "$1/etc/os-release" 2> /dev/null | head -n 1)"
+    id="${id//[\"\']/}"
+    [[ $id =~ ^[a-z0-9._-]+$ ]] || return 1
+    printf '%s\n' "$id"
+}
+
 function create_container_configuration_files() {
     local C T
     C="$1"
+    not_domain_only "$C" "creating container files" || return 1
 
     T="$(get container "$C" type)"
 
@@ -31,6 +43,7 @@ function create_nspawn_container_filesystem() { ## C T
     local C T
     C="$1"
     T="$2"
+    not_domain_only "$C" "creating a rootfs" || return 1
     
     if [[ -f /srv/$C/rootfs/etc/os-release ]]
     then

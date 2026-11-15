@@ -100,12 +100,26 @@ export function derivations(ctx) {
   // here, else the host whose hostnet matches (loose == across string/number).
   function container_host(C) {
     if (hasLocalRootfs(C)) return HOSTNAME;
+    return container_host_by_ip(C);
+  }
+
+  // The host whose hostnet matches the container's ip, ignoring a local
+  // rootfs: what container_host answers once the rootfs is gone, and what the
+  // other hosts of the cluster answer all along. retire-ve refuses unless this
+  // is the local host, so a domain-only record keeps its owner.
+  function container_host_by_ip(C) {
     const hostnet = container_hostnet(C);
     let ret;
     Object.keys(hosts).forEach(function (i) {
       if (hosts[i].hostnet == hostnet) ret = i; // eslint-disable-line eqeqeq
     });
     return ret;
+  }
+
+  // A domain-only record (retire-ve): the container's files are gone, the
+  // record stays for its DNS zone, web_ve/mail_ve routing, certificate and DKIM.
+  function container_domain_only(C) {
+    return containers[C].domain_only === true;
   }
 
   function container_host_ip(C) {
@@ -143,6 +157,8 @@ export function derivations(ctx) {
     container_user_ip_match,
     container_hostnet,
     container_host,
+    container_host_by_ip,
+    container_domain_only,
     container_host_ip,
     container_reseller,
     container_http_port,

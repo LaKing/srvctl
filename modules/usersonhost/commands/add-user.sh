@@ -5,20 +5,18 @@
 ## &en Create the user in the current cluster datastore and create it on the system.
 ## &en users will have default passwords, certificates, etc, ..
 
-reseller_only
+## run only with srvctl
+[[ $SRVCTL ]] || exit 4
 
-sudomize
 argument username
+operators_only
+sudomize
 
 ##
-##   Registers USERNAME in the cluster datastore (users.json, via the
-##   datastore "new user" command) and triggers regenerate_users, which
-##   runs main.js: system account, password, ssh keys, client certificate
-##   and container share mounts. Restricted to resellers (the single-char
-##   SC_USER convention) and root; self-elevates through sudo otherwise.
-##
-##   Part of the reseller mechanics — deprecation candidate for v4 (G6),
-##   but LIVE on production until the migration.
+##   Registers USERNAME in the cluster datastore (new user) and runs
+##   regenerate_users (main.js): system account, password, ssh keys, client
+##   certificate and container share mounts. A user is an account on the
+##   host, so creating one is for root and operators.
 ##
 
 ## sourced by run_command, so this runs in a function scope
@@ -40,9 +38,5 @@ else
         new user "$username"
         regenerate_users
     fi
-
-    ## for a reseller caller the datastore assigns their own id
-    reseller="$(get user "$username" reseller)"
-    ntc "Reseller for $username is: $reseller"
 
 fi

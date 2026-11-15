@@ -258,7 +258,8 @@ else
     readonly SC_UID0=false
 fi
 
-readonly SC_HOME="$(getent passwd "$SC_USER" | cut -f6 -d:)"
+## root's home at uid 0, whoever the caller is (sc_code_home, commonlib.sh)
+readonly SC_HOME="$(sc_code_home)"
 export SC_HOME
 
 # echo "debug UID: $UID USER: $USER SUDO_USER $SUDO_USER SC_USER: $SC_USER SC_UID0 $SC_UID0"

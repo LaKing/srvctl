@@ -36,7 +36,7 @@ mark() { echo "$1" >> "$MARKFILE"; }
 get() { case "$*" in *" exist") echo true;; *" user") echo "$OWNER";; *" reseller") echo "$RESELLER";; *" role") echo "${ROLE_FIELD:-}";; *) echo "";; esac; return "${GET_RC:-0}"; }
 put() { mark put; } ; out() { mark out; } ; add() { mark add; } ; del() { mark del; } ; new() { mark new; } ; cfg() { mark cfg; }
 sudomize() { if ! $SC_UID0; then mark sudomize; exit 0; fi; }   # like the real one: only re-execs when non-root
-argument() { :; } ; authorize() { :; } ; hs_only() { :; } ; ve_only() { :; }
+argument() { :; } ; hs_only() { :; } ; ve_only() { :; }
 msg() { :; } ; err() { mark err; } ; ntc() { :; } ; prg() { :; } ; debug() { :; } ; exif() { :; } ; eyif() { :; }
 run() { mark run; } ; run_hook() { mark run_hook; }
 service_action() { mark service_action; } ; exit_0() { :; }
@@ -68,21 +68,23 @@ probe() { # $1 = shell snippet   $2 SC_USER   $3 SC_UID0
 }
 
 echo "== (A) owner-gated commands =="
-CMDS_destroyve="source $REPO/modules/containers/commands/destroy-ve.sh"
-CMDS_removeve="source $REPO/modules/containers/commands/remove-ve.sh"
+# remove_ve and existing_container are the real ones, on the stubbed verbs
+CMDS_domainonly="source $REPO/modules/containers/libs/domainonlylib.sh"
+CMDS_removelibs="source $REPO/modules/containers/libs/authlib.sh; source $REPO/modules/containers/libs/removelib.sh; $CMDS_domainonly"
+CMDS_destroyve="$CMDS_removelibs; source $REPO/modules/containers/commands/destroy-ve.sh"
+CMDS_removeve="$CMDS_removelibs; source $REPO/modules/containers/commands/remove-ve.sh"
 CMDS_httpredir="source $REPO/modules/haproxy/commands/http-redirect.sh"
 CMDS_override="source $REPO/modules/named/commands/override-in-address.sh"
 CMDS_httpsredir="source $REPO/modules/haproxy/commands/https-redirect.sh"
-CMDS_recreate="source $REPO/modules/containers/commands/recreate-ve.sh"
-CMDS_mapport="source $REPO/modules/containers/commands/map-port.sh"
-CMDS_backupcmd="source $REPO/modules/containers/commands/backup-ve.sh"
+CMDS_mapport="$CMDS_domainonly; source $REPO/modules/containers/commands/map-port.sh"
+CMDS_backupcmd="source $REPO/modules/containers/libs/authlib.sh; $CMDS_domainonly; source $REPO/modules/containers/commands/backup-ve.sh"
 CMDS_backup="source $REPO/modules/containers/libs/backupcontainerlib.sh; backup_ve site.example.com"
 
-# All eight owner commands now share owner_only.
+# All seven owner commands share owner_only (recreate-ve is root_only).
 OWNER_CMDS=(
   "destroy-ve:$CMDS_destroyve" "remove-ve:$CMDS_removeve" "http-redirect:$CMDS_httpredir"
   "override-in-address:$CMDS_override" "https-redirect:$CMDS_httpsredir"
-  "recreate-ve:$CMDS_recreate" "map-port:$CMDS_mapport" "backup-ve:$CMDS_backupcmd"
+  "map-port:$CMDS_mapport" "backup-ve:$CMDS_backupcmd"
 )
 for pair in "${OWNER_CMDS[@]}"; do
   name="${pair%%:*}"; snippet="${pair#*:}"
@@ -98,7 +100,7 @@ done
 # NON-owner who reaches uid 0 via `sudo srvctl.sh` keeps SC_USER=<them>, so
 # they are NOT root and MUST be denied. (backup-ve excluded: its action's
 # `out > /srv/$C/...` redirect fails before the stub records has_action.)
-for pair in "destroy-ve:$CMDS_destroyve" "remove-ve:$CMDS_removeve" "http-redirect:$CMDS_httpredir" "override-in-address:$CMDS_override" "https-redirect:$CMDS_httpsredir" "recreate-ve:$CMDS_recreate" "map-port:$CMDS_mapport"; do
+for pair in "destroy-ve:$CMDS_destroyve" "remove-ve:$CMDS_removeve" "http-redirect:$CMDS_httpredir" "override-in-address:$CMDS_override" "https-redirect:$CMDS_httpsredir" "map-port:$CMDS_mapport"; do
   name="${pair%%:*}"; snippet="${pair#*:}"
   probe "$snippet" root true           # genuine root, not the owner
   ok "$name: genuine-root (non-owner) ALLOWED" "$(has_action "$MARKS")" "yes"
@@ -126,12 +128,23 @@ probe "$CMDS_backup" mallory false
 ok "backup_ve: non-root DENIED (exit 44)" "$RC" "44"
 ok "backup_ve: non-root ran NO action"    "$(has_action "$MARKS")" "no"
 
+# retire-ve (domain-only records) is root only: every non-root caller, the
+# owner and the sudo bypass included, is refused before any state change.
+CMDS_retire="source $REPO/modules/containers/libs/authlib.sh; $CMDS_domainonly; backup_ve() { mark rsync; }; remove_container_tree() { mark rm; }; run_prune() { mark run_hook; }; source $REPO/modules/containers/commands/retire-ve.sh"
+for who in "mallory false" "alice false" "alice true" "mallory true"; do
+  # shellcheck disable=SC2086
+  probe "$CMDS_retire" $who
+  ok "retire-ve: $who DENIED (exit 44)" "$RC" "44"
+  ok "retire-ve: $who ran NO action"    "$(has_action "$MARKS")" "no"
+done
+
 echo "== (B) raw verb dispatch (non-root): writes blocked, reads open =="
 verbcheck() { # $1 CMD  -> echoes verbs run_command invoked
   local mf; mf="$(mktemp)"
   (
     set +u
     export MARKFILE="$mf" SRVCTL=1   # commonlib.sh guards on [[ $SRVCTL ]]
+    SC_UID0=false SC_USER=mallory     # no sudo: an escalated caller gets no raw verb at all
     # shellcheck disable=SC1090,SC1091
     source "$REPO/commonlib.sh"
     # override verb wrappers + fall-through helpers AFTER sourcing commonlib
@@ -181,10 +194,6 @@ command rm -f "$ARGFILE"
 # real exit status propagates (was masked to 0)
 sudo_probe 'FAKE_SUDO_RC=7; SC_ARGV=(version)'
 ok "sudomize: propagates sudo status"  "$RC" "7"
-command rm -f "$ARGFILE"
-# fallback path (no SC_ARGV) still re-execs
-sudo_probe 'FAKE_SUDO_RC=0; SC_COMMAND_ARGUMENTS="version"'
-ok "sudomize: fallback re-execs"       "$(grep -Fq 'version' "$ARGFILE" && echo yes || echo no)" "yes"
 command rm -f "$ARGFILE"
 
 echo "== (D) role x class ENFORCEMENT matrix (WP-E.2.b) =="

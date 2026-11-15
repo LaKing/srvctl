@@ -16,6 +16,7 @@
 
 ## TEST SEAM for the selftest, not supported configuration.
 : "${SC_LIMITS_UNIT_DIR:=/etc/systemd/system}"
+: "${SC_LIMITS_SRV_DIR:=/srv}"
 
 ## Must match the '## enforce limits' block of the template unit in
 ## create_srvctl_nspawn_service (libs/systemlib.sh).
@@ -113,11 +114,13 @@ function apply_container_limits { ## C [CPU MEMMAX MEMHIGH]
 ## Reconcile every container hosted here (called from the regenerate hook,
 ## so limits set on another host of the cluster follow the container).
 function apply_all_container_limits {
-    local C cpu max high rc=0
-    while IFS=$'\t' read -r -u 3 C cpu max high
+    local C cpu max high domain_only rc=0
+    while IFS=$'\t' read -r -u 3 C cpu max high domain_only
     do
-        [[ -d /srv/$C/rootfs ]] || continue
+        ## a domain-only record has no unit to limit, even with a leftover rootfs
+        [[ $domain_only != true ]] || continue
+        [[ -d $SC_LIMITS_SRV_DIR/$C/rootfs ]] || continue
         apply_container_limits "$C" "$cpu" "$max" "$high" || rc=$?
-    done 3< <(list container cpu_quota memory_max memory_high)
+    done 3< <(list container cpu_quota memory_max memory_high domain_only)
     return $rc
 }
