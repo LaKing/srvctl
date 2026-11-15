@@ -32,8 +32,8 @@ then
 fi
 
 argument container-name
-## a container on a custom bridge or with codepad is set up by root or an operator
-operators_only
+## same right as 'add-ve NAME codepad', which builds the same container
+users_only
 sudomize
 
 add_ve codepad "$ARG"

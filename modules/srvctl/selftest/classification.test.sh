@@ -36,8 +36,8 @@ declare -A MANIFEST=(
   [named/override-in-address]=owner_only [vncproxy/add-vnc-user]=owner_only
   # operators_only — provisioning + co-worker host tasks (root or operator)
   [usersonhost/add-user]=operators_only  [containers/add-network-ve]=operators_only
-  [codepad/add-codepad]=operators_only   [saslauthd/testsaslauthd]=operators_only
-  [saslauthd/fix-saslauthd]=operators_only [containers/limit-ve]=operators_only
+  [saslauthd/testsaslauthd]=operators_only [saslauthd/fix-saslauthd]=operators_only
+  [containers/limit-ve]=operators_only
   # root_only — host/cluster admin, code, host maintenance
   [srvctl/update-install]=root_only      [usersonhost/add-reseller]=root_only
   [containers/recreate-ve]=root_only     [usersonhost/change-user]=root_only
@@ -53,6 +53,7 @@ declare -A MANIFEST=(
   [usersonve/add-user]=root_only
   # users_only — acts for the caller himself (root or a user with a record)
   [containers/add-ve]=users_only          [usersonhost/add-publickey]=users_only
+  [codepad/add-codepad]=users_only
   # everyone (default, no role guard) — reads; not startable through sudo
   [containers/status]=everyone           [ve/status]=everyone
   [srvctl/version]=everyone               [srvctl/ls]=everyone

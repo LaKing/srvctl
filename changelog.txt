@@ -32,6 +32,13 @@ OpenDKIM: sign outbound mail only for domains the sender is entitled to (2026-11
   * update-install writes /etc/opendkim.conf in the quiet form.
   * Selftests: opendkim/selftest/entitlement.test.mjs, opendkimconf.test.sh.
 
+Every user may create containers (2026-11-15)
+  * Operator decision: creating a container is every registered user's right.
+    add-codepad is users_only like add-ve (it was operators_only, while
+    'add-ve NAME codepad' built the same container for any user).
+    add-network-ve stays operators_only: a custom bridge is outside the
+    caller's own network.
+
 Authorization: the caller who came through sudo (2026-11-15)
   * The sudoers entry lets every account start srvctl.sh at uid 0. Closed:
     - the module cache and the srvctl-includes commands were taken from the

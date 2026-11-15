@@ -19,7 +19,8 @@
 ##
 
 argument container-name
-## a container on a custom bridge or with codepad is set up by root or an operator
+## the bridge puts the container on a network outside the caller's own
+## 10.HOSTNET.USER_ID range, so this is not every user's command
 operators_only
 sudomize
 

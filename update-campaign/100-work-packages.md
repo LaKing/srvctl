@@ -349,7 +349,9 @@ Execution rules (from 000-PROMPT + the Stage-2 preconditions in 000-INDEX):
       proves both grep and indexed visibility branches.
     - **ALL 38 COMMANDS CLASSIFIED ✅** (classification.test 38/38):
       · owner_only (10): +update-ve (was authorize stub), +add-vnc-user.
-      · operators_only (5): add-ve/add-network-ve/add-codepad; testsaslauthd +
+      · operators_only (5): add-ve/add-network-ve/add-codepad (add-ve and
+        add-codepad are users_only since 2026-11-15, operator decision: every
+        user may create containers); testsaslauthd +
         fix-saslauthd (root/none → operator; fix-saslauthd's own comment already
         called it an "Operator command"; testsaslauthd's dead sudomize is now
         live for operators).

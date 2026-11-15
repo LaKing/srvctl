@@ -844,7 +844,7 @@ change. The exit codes are a convention callers rely on: **44** = authorization 
 |-------|--------|
 | `root_only` | Genuine root only: `SC_USER=root` **and** uid 0 (`sc_is_root`). Plain uid 0 is not enough — the generated NOPASSWD sudoers entry lets any user reach uid 0 while keeping their own `SC_USER`. |
 | `operators_only` | Root, or a caller whose **local** datastore user record has `role=operator`. The role is resolved once by `sc_role` and is host-scoped: an operator here is an ordinary user on a host whose record does not say so. |
-| `users_only` | Root, or a caller who has a user record on this host. For commands that act for the caller himself: `add-ve` (the new container is his) and `add-publickey`. An account without a record (a service account) is refused. |
+| `users_only` | Root, or a caller who has a user record on this host. For commands that act for the caller himself: `add-ve` and `add-codepad` (the new container is his) and `add-publickey`. Every user of the host may create containers; `add-network-ve` stays with operators, because a custom bridge is outside the user's own network. An account without a record (a service account) is refused. |
 | `owner_only <type> <id>` | Resource ownership. Root passes; the record's `user` or that user's `reseller` passes and is escalated through `sudomize`; anybody else exits 44. A failed datastore lookup is propagated as that error, never turned into a denial. |
 | `hs_only` | Meant to be "host only". **Inert as a guard**: `SC_ON_HS` is never assigned, so `if $SC_ON_HS` is an empty command with status 0 and it always passes (FIXME in `authlib.sh`). Real host/VE separation comes from the module-activation conditions. It still works as a *visibility* marker — commands carrying it are hidden when `SC_HOSTNET` is unset. |
 | `ve_only` | Meant to be "inside a container only". **Inert** for the same reason, and unlike `hs_only` it is not even used for visibility. |
@@ -3137,7 +3137,7 @@ Host side:
 
 | Command | Description |
 |---------|-------------|
-| `srvctl add-codepad NAME` | **Deprecated**, kept for compatibility: create a container from the `codepad` template rootfs. The canonical path is `add-ve NAME codepad`; only `add-codepad` enforces the `*-devel` name rule that is the legacy opt-in for codepad port 9000 (9000, 9001 and 9002 are all proxied wherever the rootfs has `/var/codepad/codepad4`) |
+| `srvctl add-codepad NAME` | **Deprecated**, kept for compatibility (`users_only`, like `add-ve`): create a container from the `codepad` template rootfs. The canonical path is `add-ve NAME codepad`; only `add-codepad` enforces the `*-devel` name rule that is the legacy opt-in for codepad port 9000 (9000, 9001 and 9002 are all proxied wherever the rootfs has `/var/codepad/codepad4`) |
 
 Inside a container, root only:
 
