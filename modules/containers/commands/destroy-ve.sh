@@ -93,7 +93,7 @@ fi
 
 ## The record and the directory are gone, so every module's prune hook now
 ## sees this container's artifacts as leftovers.
-run_hook prune
+run_prune
 
 msg "$C destroyed."
 ## sourced context: leave the (now possibly deleted) cwd

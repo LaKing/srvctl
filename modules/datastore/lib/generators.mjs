@@ -197,6 +197,12 @@ export function generators(ctx) {
     return "## no mapped ports";
   }
 
+  // The host side of mapped_ports as "proto/port" words: the ports firewalld
+  // keeps open for C (firewalld/libs/prunelib.sh closes the others).
+  function container_host_ports(C) {
+    return (containers[C].mapped_ports || []).map((p) => p.proto + "/" + p.host_port).join(" ");
+  }
+
   function container_mx(C) {
     if (containers[C].use_gsuite) return false;
     if (C.substring(0, 5) === "mail.") return true;
@@ -400,6 +406,7 @@ export function generators(ctx) {
     container_br_netdev,
     container_br_network,
     container_firewall_commands,
+    container_host_ports,
     container_mx,
     container_domains,
     user_uid,

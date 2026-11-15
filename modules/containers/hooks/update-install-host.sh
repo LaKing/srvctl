@@ -36,6 +36,5 @@ mkdir -p /var/srvctl3/share/containers
 secure_share_containers
 
 mkdir -p /var/srvctl3/share/common
-mkdir -p /var/srvctl3/share/lock
 
 write_cron_regenerate

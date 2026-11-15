@@ -274,6 +274,9 @@ function is_stale_share(source_path, target) {
 function make_share_mount(u, c, options, dir, source_path, uid, mountname) {
     if (!options) options = "";
 
+    // Checked before anything is created: a share that cannot be mounted leaves no directory behind.
+    if (!fs.existsSync(source_path)) return err(source_path + " dont exists.");
+
     // bindfs shall be a root mount
     if (!fs.existsSync(dir + "/" + mountname)) {
         try {
@@ -282,8 +285,6 @@ function make_share_mount(u, c, options, dir, source_path, uid, mountname) {
             err(error);
         }
     }
-
-    if (!fs.existsSync(source_path)) return err(source_path + " dont exists.");
 
     // mount(8) prints resolved paths; comparing the raw path stacked one more
     // bindfs on every regenerate wherever a home lies behind a symlink (/bin).
@@ -306,7 +307,6 @@ function make_share(u, c, options) {
     if (getent === undefined) return err("getent passwd " + u + " #returned undefined, skipping");
     var dir = getent.split(":")[5] + "/" + c;
     var ve_root_uid = datastore.container_uid(c);
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir);
 
     var host = datastore.container_host(c);
     var source_path = "/srv/" + c + "/rootfs";
@@ -314,6 +314,8 @@ function make_share(u, c, options) {
         source_path = "/var/srvctl3/nfs/" + host + "/srv/" + c + "/rootfs";
         if (!fs.existsSync(source_path)) return err(source_path + " not mounted from remote host. Check NFS and OpenVPN. " + source_path);
     }
+    // HOME/c is root's directory in the user's home; libs/prunelib.sh recognises a share by that.
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir);
 
     make_share_mount(u, c, options, dir, source_path, ve_root_uid, "bindfs");
     if (c.substring(0, 5) !== "mail.") make_share_mount(u, c, options, dir, source_path + "/var/www/html", ve_root_uid + 48, "html");

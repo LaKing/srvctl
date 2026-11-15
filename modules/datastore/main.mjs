@@ -169,7 +169,8 @@ const CONTAINER_FNS = {
   resolv_conf: g.container_resolv_conf, ethernet: g.container_ethernet,
   ethernet_network: g.container_ethernet_network, hosts: g.container_hosts, quota: g.container_quota,
   nspawn: g.container_nspawn, br_netdev: g.container_br_netdev, br_network: g.container_br_network,
-  firewall_commands: g.container_firewall_commands, mx: g.container_mx, domains: g.container_domains,
+  firewall_commands: g.container_firewall_commands, host_ports: g.container_host_ports, mx: g.container_mx,
+  domains: g.container_domains,
 };
 const CLUSTER_FNS = {
   etc_hosts: g.cluster_etc_hosts, postfix_relaydomains: g.cluster_postfix_relaydomains,

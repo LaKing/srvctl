@@ -19,7 +19,7 @@ hs_only
 ##   configuration from the datastore.
 ##
 ##   Three modes:
-##     (no arg)    run_hook prune, then run_hook regenerate — every enabled
+##     (no arg)    run_prune, then run_hook regenerate — every enabled
 ##                 module removes its leftovers and rewrites its config
 ##                 files; this module's hooks/regenerate.sh checks /srv dirs
 ##                 vs the database, ownership, /etc/hosts and the inotify
@@ -54,7 +54,7 @@ then
 else
     ## Leftovers go first: a failing regenerate hook ends the run, and the
     ## clean-up must not depend on every module being healthy.
-    run_hook prune
+    run_prune
     run_hook regenerate || regenerate_status=$?
 fi
 

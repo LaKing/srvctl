@@ -8,6 +8,30 @@ notable operational changes are listed here.
 Unreleased (v4, in progress on top of 4.0.0.8)
 ----------------------------------------------
 
+Prune: every module cleans up after itself (2026-11-15)
+  * run_prune (containers/libs/prunelib.sh) starts the prune hook and reads
+    the container records once; hooks ask 'container_is_gone C' (no record
+    AND no /srv/C). 'SC_PRUNE_DRY_RUN=true sc exec-function run_prune' lists
+    what a host would lose.
+  * New prune hooks: comount (mount units of gone containers), datastore
+    (the v3 single-file datastore once per-entity is authoritative and each
+    file equals its backup copy: with the files in place a lost .per-entity
+    marker migrated again and resurrected every deleted record), firewalld
+    (port-N services opened for a container that no container forwards any
+    more), static (docroots of gone containers), usersonhost (shares of gone
+    containers and of users taken off a container are unmounted and their
+    empty skeleton removed: until now a revoked user kept the mounted rootfs
+    until the next boot).
+  * retiredlib.sh: firewalld services of removed modules (srvctl-gui) and the
+    never-used /var/srvctl3/share/lock, which update-install no longer creates.
+  * usersonhost main.js checks the share source before it creates the share
+    directory, so an unreachable remote container leaves nothing in the home.
+  * datastore: derived container field 'host_ports' ("proto/port" words).
+  * Written but not wired to the hook yet (they delete key material):
+    prune_opendkim_keys and prune_certificates.
+  * Selftests: prune-modules, prune-firewalld (containers), prune-shares
+    (usersonhost), host_ports in the datastore list test.
+
 Prune: regenerate removes leftovers (2026-11-14)
   * New hook 'prune', run before the regenerate hooks of every regenerate and
     at the end of remove-ve / destroy-ve. Each module removes its own

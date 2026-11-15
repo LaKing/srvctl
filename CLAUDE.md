@@ -34,10 +34,10 @@ Each module under `modules/<name>/` follows this pattern:
 module-condition.sh   # Decides if the module is active; must print "true" on stdout
 command.sh            # Optional per-module fallback command (only containers, srvctl)
 commands/*.sh         # CLI commands exposed to users (50 files across all modules)
-hooks/*.sh            # Lifecycle hooks (88 files; see hook names below)
+hooks/*.sh            # Lifecycle hooks (91 files; see hook names below)
 libs/*.sh             # Bash libraries, sourced by load_libs when the module is enabled
 lib/*.mjs, *.js       # Node.js libraries (containers, datastore, named, srvctl only)
-selftest/             # *.test.sh / *.test.mjs (certificates, comount, containers,
+selftest/             # *.test.sh / *.test.mjs (certificates, comount, containers, usersonhost,
                       #   datastore, haproxy, letsencrypt, named, postfix, srvctl)
 conf/                 # Configuration templates (only containers, perdition,
                       #   postfix, saslauthd)
@@ -106,20 +106,21 @@ listed for everyone.
    So module libs are available in `init` and `post-init` hooks but **not** in `pre-init` hooks, and for `sc help` the `init`/`post-init` hooks never run.
 4. Command dispatch (`run_command`, `commonlib.sh:122`) — first match wins, everything sourced into the current shell: `exec-function` (genuine root + `OPAS` only) -> datastore write verbs `new|put|cfg|del|add` (genuine root) -> datastore read verbs `get|out` (any caller) -> `/root/srvctl-includes/$CMD.sh` -> `modules/*/commands/$CMD.sh` in `SC_MODULES` order -> `$SC_HOME/srvctl-includes/$CMD.sh` (non-root only) -> every enabled module's `command.sh` fallback. Returns **54** when no command was given, **250** when nothing matched; `srvctl.sh` then prints `Invalid command` and the hint list, and exits 1.
 5. `run_hook <name>` sources `hooks/<name>.sh` of every enabled module **once**, in `SC_MODULES` order; a hook that exits non-zero aborts the whole CLI through `exif`. `run_hooks <name>` is the separate wrapper that fires the `pre-<name>` -> `<name>` -> `post-<name>` triplet — used for `update-install-host`, `update-install-ve`, `firewalld`, `diagnose`, `mkrootfs_fedora`, `mkrootfs_debian` and `add_ve_create_nspawn_container`. There is no `pre-$CMD` / `$CMD` / `post-$CMD` triplet anywhere.
+6. The `prune` hook is started through `run_prune` (`modules/containers/libs/prunelib.sh`), which reads the container records once; prune hooks ask `container_is_gone C` (no record **and** no `/srv/C`). `SC_PRUNE_DRY_RUN=true sc exec-function run_prune` lists without removing.
 
 ## Build and Run
 
 No build step and no package manifest. Install by cloning to `/usr/local/share/srvctl` and running `bash srvctl/srvctl.sh` as root; `init.sh:32-62` then creates the `/bin/sc` and `/bin/srvctl` symlinks and, when `/etc/bash_completion.d` exists, `srvctl-completion`. All three point back into the clone, so upgrading is a `git pull` (`sc update-install`).
 
-Tests: no CI and no top-level runner. Per-module selftests live in `modules/*/selftest/` (55 `*.test.sh` / `*.test.mjs` files under certificates, comount, containers, datastore, haproxy, letsencrypt, named, postfix and srvctl). `modules/datastore/selftest/run.sh` and `modules/named/selftest/run.sh` aggregate their own module's tests and return non-zero on any failure; the rest are run directly with `bash <file>` or `node <file>`.
+Tests: no CI and no top-level runner. Per-module selftests live in `modules/*/selftest/` (`*.test.sh` / `*.test.mjs` files under certificates, comount, containers, datastore, haproxy, letsencrypt, named, postfix, srvctl and usersonhost). `modules/datastore/selftest/run.sh` and `modules/named/selftest/run.sh` aggregate their own module's tests and return non-zero on any failure; the rest are run directly with `bash <file>` or `node <file>`.
 
 ## Configuration Locations
 
 - `/etc/srvctl/` - Static config (JSON and `.conf` files; `clusters.json` is the canonical topology). `debug.conf` is sourced first, before anything else in `init.sh`
 - `/var/srvctl3/host/` - Generated per-host projections of the topology (`host.conf`, `hosts.json`); never edit
 - `/var/srvctl3/datastore/` - Read-write data store (`SC_DATASTORE_RW_DIR` default)
-- `/var/srvctl3/gluster/srvctl-data/` - `SC_DATASTORE_RO_DIR` default, an empty leftover: the gluster module that provided it is removed, every host uses the read-write directory
-- `/var/srvctl3/share/` - Host-side shared state; `containers/<C>` and `common/` are bind-mounted read-only into each container (`modules/datastore/lib/generators.mjs:158-159`). `lock/` is created by the containers update-install hook but is NOT bind-mounted — its `BindReadOnly` line is commented out (`modules/datastore/lib.js:715`)
+- `/var/srvctl3/gluster/srvctl-data/` - `SC_DATASTORE_RO_DIR` default; the directory does not exist (the gluster module that provided it is removed, the prune hook deletes the empty leftover), every host uses the read-write directory
+- `/var/srvctl3/share/` - Host-side shared state; `containers/<C>` and `common/` are bind-mounted read-only into each container (`modules/datastore/lib/generators.mjs:158-159`).
 - `/srv/` - Container root filesystems and mounts
 - `~/.srvctl/` - Per-user state: the `modules.conf` cache and `srvctl.log` (`$SC_LOG`)
 - `/root/srvctl-includes/` - Root's custom `$CMD.sh` commands and custom `modules/`, both ahead of the shipped ones; `$SC_HOME/srvctl-includes/` is the non-root equivalent, consulted *after* module commands

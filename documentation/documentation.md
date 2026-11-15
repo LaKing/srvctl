@@ -878,7 +878,7 @@ A hook name is only a dispatch point: firing a name that no enabled module imple
 | `post-init` | After initialization (branding, ca, containers) |
 | `post-init-$CMD` | Last init hook, *after* `post-init` (`init.sh:327`) — no shipped module implements it |
 | `regenerate` | During configuration regeneration (15 modules); also fired by `add-ve`, `add-network-ve`, `add-ve-user` and `add-codepad` |
-| `prune` | Before the `regenerate` hooks of every regenerate, and at the end of `remove-ve` / `destroy-ve`: each module removes its own leftovers (containers, srvctl) |
+| `prune` | Before the `regenerate` hooks of every regenerate, and at the end of `remove-ve` / `destroy-ve`: each module removes its own leftovers (comount, containers, datastore, firewalld, static, usersonhost, srvctl) |
 | `regenerate_rootfs` | When rebuilding base container images (`srvctl regenerate rootfs`) |
 | `regenerate_certificates` | After a certificate change (certificates, letsencrypt); fired by the haproxy `regenerate` hook (`modules/haproxy/hooks/regenerate.sh:15`) and by the haproxy `http-redirect` / `https-redirect` commands |
 | `update-install-host` | During `srvctl update-install` on host |
@@ -2630,7 +2630,7 @@ rewrites generated configuration from the datastore. Only the two literals
 through to the plain single-host regenerate, so `srvctl regenerate all` does
 **not** touch the cluster.
 
-**No argument:** runs `run_hook prune`, then `run_hook regenerate`, i.e. the
+**No argument:** runs `run_prune` (the `prune` hook), then `run_hook regenerate`, i.e. the
 `regenerate` hook of every enabled module:
 
 | Module | Hook does |
@@ -2661,10 +2661,34 @@ the `regenerate` hooks, so a failing module cannot keep the clean-up from
 running, and again at the end of `remove-ve` / `destroy-ve`. A prune hook ends
 with `return 0`.
 
+The hook is started through `run_prune` (`modules/containers/libs/prunelib.sh`),
+which reads the container records once; the hooks then ask
+`container_is_gone C`. A container is gone only when it has **neither** a
+datastore record **nor** a `/srv/<C>` directory, and when the records cannot be
+read nothing counts as gone. To see what a host would lose without removing
+anything, run as root:
+
+```
+SC_PRUNE_DRY_RUN=true sc exec-function run_prune
+```
+
 | Module | Prune hook removes |
 |--------|--------------------|
 | `srvctl` | What removed modules left behind, from the lists in `libs/retiredlib.sh` (units, paths, empty directories). Deleting a module from the repository means adding its host-side artifacts there in the same change |
-| `containers` | For a container with neither a datastore record nor a `/srv/<C>` directory: the boot link in `machines.target.wants`, the unit drop-in directory, the share directory `/var/srvctl3/share/containers/<C>`, and the failed state of its unit |
+| `containers` | For a gone container: the boot link in `machines.target.wants`, the unit drop-in directory, the share directory `/var/srvctl3/share/containers/<C>`, and the failed state of its unit |
+| `comount` | The mount units (`srv-<C>-comount-<NAME>.mount`, module marker line required) of gone containers |
+| `datastore` | The v3 single-file datastore (`hosts.json`, `users.json`, `containers.json`) once the `.per-entity` marker is set and each file equals its copy in `.monolithic-backup`; all three or none. With the files left in place a lost marker would migrate again and bring back every record deleted since |
+| `firewalld` | `port-N` services that srvctl opened for a container and that no container forwards any more (neither a record's `mapped_ports` nor a `Port=` line of an nspawn file). Services without a container name, services naming a local account and every other service name are left alone. The `srvctl` hook also removes the firewalld services of removed modules (`SC_RETIRED_FIREWALLD_SERVICES`) |
+| `static` | The docroot `/var/srvctl3/storage/static/<C>` of gone containers |
+| `usersonhost` | Shares in a user's home the user is not entitled to any more — the container is gone, or the user is no longer its owner, user or reader: the bindfs mounts are unmounted lazily and the empty root-owned `HOME/<C>` skeleton is removed with `rmdir`. Nothing in a home is deleted recursively |
+
+Two prune functions exist but are **not wired to the hook yet** (no
+`hooks/prune.sh` in their module), because they delete key material:
+`prune_opendkim_keys` (`modules/opendkim/libs/prunelib.sh`) removes the
+datastore key directory of a gone container, and `prune_certificates`
+(`modules/certificates/libs/prunelib.sh`) removes `cert/<NAME>.pem` when NAME
+is no container, no domain of a container and not the host name, plus expired
+files in `cert/wildcard-retired`.
 
 **With `rootfs`:** `cd /root`, then `run_hook regenerate_rootfs` — rebuilds the
 container base images under `/var/srvctl3/rootfs` (`containers` and `codepad`

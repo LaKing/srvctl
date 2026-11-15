@@ -723,7 +723,6 @@ function container_nspawn(C) {
     // Preventiv security. This might couse some trouble at a container update, but it is [WAS] possibly neccessery due to the way .network files are processed. TODO - check the status of this.
     // Since we have now an advanced networking setup system, this seems to be obsolete. Users may hack the ip with container root access but wont get the right bridge on the host side. TODO test it.
     // str += "BindReadOnly=/usr/lib/systemd/network:/usr/lib/systemd/network" + br;
-    // str += "BindReadOnly=/var/srvctl3/share/lock:/run/systemd/network" + br;
     str += br;
     str += "BindReadOnly=/srv/" + C + "/hosts:/etc/hosts" + br;
     str += br;

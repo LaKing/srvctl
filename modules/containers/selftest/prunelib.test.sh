@@ -42,6 +42,8 @@ source "$REPO/modules/containers/libs/prunelib.sh"
 RECORDS=$'live.example\nrecord-only.example\n'
 LIST_RC=0
 list() { printf '%s' "$RECORDS"; return "$LIST_RC"; }
+## run_prune reads the records, then runs the hooks; this module's hook is one call
+run_hook() { prune_container_leftovers; }
 FAILED="srvctl-nspawn@gone.example.service loaded failed failed x"$'\n'"srvctl-nspawn@live.example.service loaded failed failed x"$'\n'
 declare -a CALLS=()
 systemctl() {
@@ -71,13 +73,13 @@ left() { find "$box/units" "$box/share" -name "*$1*" | wc -l; }
 
 echo "dry run"
 setup
-SC_PRUNE_DRY_RUN=true prune_container_leftovers
+SC_PRUNE_DRY_RUN=true run_prune
 ok "keeps the gone container's artifacts" "$(left gone.example)" 3
 ok "does not touch systemd" "${#CALLS[@]}" 0
 
 echo "prune"
 setup
-prune_container_leftovers; ok "rc" $? 0
+run_prune; ok "rc" $? 0
 ok "a container with neither record nor directory loses everything" "$(left gone.example)" 0
 ok "a running container keeps everything" "$(left live.example)" 3
 ok "a record without a directory keeps everything" "$(left record-only.example)" 3
@@ -89,7 +91,7 @@ echo "a failed datastore read"
 setup
 RECORDS=""
 LIST_RC=112
-prune_container_leftovers; ok "rc" $? 0
+run_prune; ok "rc" $? 0
 ok "prunes nothing, although no record is visible" "$(left example)" 12
 ok "does not touch systemd" "${#CALLS[@]}" 0
 LIST_RC=0
@@ -98,9 +100,14 @@ echo "a mounted share"
 setup
 RECORDS=$'live.example\nrecord-only.example\n'
 echo "36 25 0:32 / $box/share/gone.example/users rw - fuse.bindfs x rw" > "$SC_MOUNTINFO"
-prune_container_leftovers
+run_prune
 ok "a share with a mount in it is kept" "$(cat "$box/share/gone.example/users/key")" hash
 ok "the rest of the container's artifacts still go" "$(find "$box/units" -name '*gone.example*' | wc -l)" 0
+
+echo "outside run_prune"
+setup
+prune_container_leftovers
+ok "nothing counts as gone without the records" "$(left example)" 12
 
 echo ""
 echo "prunelib.test: $pass passed, $fail failed"

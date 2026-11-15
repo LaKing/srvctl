@@ -116,6 +116,13 @@ test("users and hosts are listable, other types are refused", (dir) => {
     assert.equal(refused.stdout, "");
 });
 
+test("host_ports is the host side of the mapped ports, one proto/port word each", (dir) => {
+    patchContainer(dir, C, { mapped_ports: [{ proto: "tcp", container_port: 8000, host_port: 6001 }, { proto: "udp", container_port: 53, host_port: 3053 }] });
+    const byId = Object.fromEntries(rows(dir, "container", "host_ports"));
+    assert.equal(byId[C], "tcp/6001 udp/3053");
+    assert.ok(Object.entries(byId).every(([id, cell]) => id === C || cell === "-"), "a container without mapped ports has no word");
+});
+
 test("an empty type prints nothing", (dir) => {
     for (const f of fs.readdirSync(path.join(dir, "containers"))) fs.rmSync(path.join(dir, "containers", f));
     assert.deepEqual(rows(dir, "container", "ip"), []);
