@@ -4,8 +4,9 @@
  * Lives in the module root, not libs/: commonlib.sh sources every file under
  * every module's libs directory as a bash library, and this file is Node.
  *
- * Container /etc/pki/tls writes for letsencrypt_deploy and the legacy sweep
- * that letsencrypt.js runs over every container rootfs. Kept free of
+ * Container /etc/pki/tls writes for letsencrypt_deploy, the wildcard deploy
+ * in acmerun.js (deployRootfs) and the legacy sweep that letsencrypt.js runs
+ * over every container rootfs. Kept free of
  * datastore and environment access so modules/letsencrypt/selftest/
  * pki.test.sh can drive it against a fixture root.
  *
@@ -149,6 +150,29 @@ function dirOwner(dirFd) {
     return st.uid !== 0 ? { uid: st.uid, gid: st.gid } : null;
 }
 
+// Text of <rootfs>/etc/pki/tls/<dir>/<file>, read through the directory fd
+// openPki holds; null when the tree or the file does not exist. Throws
+// ELOOP/ENOTDIR for a symlinked or non-directory component and ENOTREG for
+// anything but a regular file (a FIFO is never opened blocking).
+function readContainerFile(srvRoot, domain, dir, file) {
+    var pki = openPki(srvRoot, domain);
+    if (!pki) return null;
+    try {
+        var fd = openRegular(at(pki[dir], file), C.O_RDONLY);
+        try {
+            return fs.readFileSync(fd, "utf8");
+        } finally {
+            fs.closeSync(fd);
+        }
+    } catch (error) {
+        if (error.code === "ENOENT") return null;
+        error.file = path.join(pki.path, dir, file);
+        throw error;
+    } finally {
+        pki.close();
+    }
+}
+
 // Deploy privkey/fullchain into /srv/<domain>/rootfs/etc/pki/tls. Never
 // throws: per-file failures are returned. The key goes first; if it cannot
 // be written no certs file is touched, so the container keeps a matching
@@ -277,4 +301,4 @@ function sweepContainers(srvRoot) {
     return changes;
 }
 
-module.exports = { writeFile, deployContainer, sweepContainers };
+module.exports = { writeFile, readContainerFile, deployContainer, sweepContainers };

@@ -31,6 +31,7 @@ const path = require("path");
 const childProcess = require("child_process");
 const plan = require("./acmeplan.js");
 const bundlelib = require("./bundlelib.js");
+const pkilib = require("./pkilib.js");
 
 const INDEX_MAX_AGE = 26 * 3600000;
 const RETIRE_MIN_DAYS = 30;
@@ -717,25 +718,29 @@ class AcmeRun {
     }
 
     // Deploy an installed wildcard into the container rootfs named like the
-    // zone, only when it expires later than what the container has.
+    // zone, only when it expires later than what the container has. The
+    // rootfs belongs to the container root: pkilib reads and writes it only
+    // through no-follow directory fds and creates no directories or
+    // temporary files there; anything it refuses is reported and skipped.
     deployRootfs(name) {
         const cfg = this.cfg;
-        const pki = path.join(cfg.srvRoot, name, "rootfs/etc/pki/tls");
-        if (!fs.existsSync(path.join(pki, "private")) || !fs.existsSync(path.join(pki, "certs"))) return;
         const text = readText(path.join(cfg.wildcardDir, name + ".pem"));
         const meta = text && plan.certMeta(text);
         if (!meta) return;
-        const current = plan.certMeta(readText(path.join(pki, "certs/localhost.crt")) || "");
+        let installed;
+        try {
+            installed = pkilib.readContainerFile(cfg.srvRoot, name, "certs", "localhost.crt");
+        } catch (error) {
+            this.alert(name, "error", "rootfs deploy skipped: " + (error.file || name) + " " + (error.code || error.message));
+            return;
+        }
+        const current = plan.certMeta(installed || "");
         if (current && current.notAfter >= meta.notAfter) return;
         const parts = splitBundle(text);
-        // the directories carry the container root's shifted uid/gid
-        const priv = fs.statSync(path.join(pki, "private"));
-        const certs = fs.statSync(path.join(pki, "certs"));
-        atomicWrite(path.join(pki, "private/localhost.key"), parts.privkey, 0o600, priv);
-        atomicWrite(path.join(pki, "certs/localhost.crt"), parts.fullchain, 0o644, certs);
         // the key lives only in private/; the certs copies carry the fullchain
-        atomicWrite(path.join(pki, "certs", name + ".pem"), parts.fullchain, 0o644, certs);
-        atomicWrite(path.join(pki, "certs/localhost.pem"), parts.fullchain, 0o644, certs);
+        pkilib.deployContainer(cfg.srvRoot, name, parts.privkey, parts.fullchain).errors.forEach((e) => {
+            this.alert(name, "error", "rootfs deploy: " + (e.file || name) + " " + e.error);
+        });
     }
 
     // The one wildcard rule for every served domain, after installs.
